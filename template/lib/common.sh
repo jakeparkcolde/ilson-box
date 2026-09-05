@@ -4,6 +4,8 @@
 
 set -u
 
+# Absolute lib dir — callers cd elsewhere, so never build sibling paths from $0.
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ILSON_HOME="${ILSON_HOME:-$HOME/ilson}"
 VAULT="$ILSON_HOME/vault"
 STATE="$ILSON_HOME/state"

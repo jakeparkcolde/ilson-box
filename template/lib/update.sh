@@ -24,7 +24,7 @@ if [ "$before" != "$after" ]; then
     cp -R "$src/template/claude/commands/." "$ILSON_HOME/.claude/commands/"
     cp "$src/template/CLAUDE.md" "$ILSON_HOME/CLAUDE.md"
     log update "applied $before → $after"
-    printf '일손 업데이트 적용: %s → %s' "$before" "$after" | "$(dirname "$0")/notify.sh" update
+    printf '일손 업데이트 적용: %s → %s' "$before" "$after" | "$LIB_DIR/notify.sh" update
 else
     log update "up to date ($after)"
 fi

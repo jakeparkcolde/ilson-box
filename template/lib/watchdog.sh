@@ -15,7 +15,7 @@ for spec in briefing:93600 weekly:691200 tidy:93600 snapshot:1800; do
     if [ $((now - last)) -gt "$max" ] && [ ! -f "$STATE/alerted.$job.$today" ]; then
         touch "$STATE/alerted.$job.$today"
         printf '%s 업무가 %s 이상 안 돌았어요. 박스 상태를 봐주세요 (ilson doctor).' "$job" "$((max/3600))시간" \
-            | "$(dirname "$0")/notify.sh" watchdog --fail
+            | "$LIB_DIR/notify.sh" watchdog --fail
         log watchdog "stale: $job"
     fi
 done

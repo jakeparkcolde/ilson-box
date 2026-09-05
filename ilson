@@ -103,6 +103,12 @@ check_box() {
         [ -d "$ILSON_HOME/.claude/commands" ]   && ok "명령 4개(.claude)"  "$(ls "$ILSON_HOME/.claude/commands" 2>/dev/null | wc -l | tr -d ' ')개" || bad "명령(.claude/commands)"
         [ -x "$ILSON_HOME/lib/run-job.sh" ]     && ok "lib 스크립트"       || bad "lib 스크립트"
         [ -d "$ILSON_HOME/.git" ]               && ok "상태 git 스냅샷"    || bad "상태 git 스냅샷" "lib/snapshot.sh 1회 실행"
+        # Project-scope allow rules are ignored until the trust dialog is accepted for
+        # this folder (measured 2026-09-05). Jobs use acceptEdits so they still write,
+        # but deny rules and any allow rules need trust to be fully honored.
+        if jq -e --arg p "$ILSON_HOME" '.projects[$p].hasTrustDialogAccepted == true' "$HOME/.claude.json" >/dev/null 2>&1; then
+            ok "박스 신뢰됨(Claude)"
+        else warn "박스 미신뢰(Claude)" "박스 폴더에서 claude 를 한 번 열어 신뢰 수락 (init 10단계가 함)"; fi
     else
         bad "박스 폴더" "ilson init 이 만든다"
     fi
