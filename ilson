@@ -1,0 +1,174 @@
+#!/bin/bash
+# ilson — one-command onboarding CLI for the agent box (v0, shell).
+#
+# v0 ships only `doctor`: read-only checks that mirror the 12 steps in
+# wiki/plans/2026-09-05-ilson-init-원커맨드-온보딩-설계.md. Nothing here changes
+# the machine; `init` is a stub until the hand-walkthrough on a fresh macOS
+# account has been measured. User-facing strings are Korean on purpose
+# (customers are Korean SMEs); code comments stay English.
+#
+# Exit codes: 0 all required checks pass · 1 at least one required check failed.
+
+set -u
+
+ILSON_HOME="${ILSON_HOME:-$HOME/ilson}"
+TS_BIN="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+PROBE_TCC=0            # --probe-tcc: run an AppleScript call (may pop a permission dialog)
+PASS=0; WARN=0; FAIL=0
+
+# --- output helpers ---------------------------------------------------------
+ok()   { PASS=$((PASS+1)); printf '  ✅ %-34s %s\n' "$1" "${2:-}"; }
+warn() { WARN=$((WARN+1)); printf '  ⚠️  %-34s %s\n' "$1" "${2:-}"; }
+bad()  { FAIL=$((FAIL+1)); printf '  ❌ %-34s %s\n' "$1" "${2:-}"; }
+sec()  { printf '\n[%s] %s\n' "$1" "$2"; }
+
+# has <cmd> — true when the command resolves on PATH
+has() { command -v "$1" >/dev/null 2>&1; }
+
+# --- step 0: preflight ------------------------------------------------------
+check_preflight() {
+    sec 0 "사전 점검"
+    local ver arch free
+    ver=$(sw_vers -productVersion)
+    arch=$(uname -m)
+    if [ "$arch" = "arm64" ]; then ok "Apple Silicon" "$arch · macOS $ver"; else bad "Apple Silicon" "$arch (인텔 맥은 미지원)"; fi
+
+    free=$(df -g / | awk 'NR==2 {print $4}')
+    if [ "${free:-0}" -ge 20 ]; then ok "디스크 여유" "${free}GB"; elif [ "${free:-0}" -ge 10 ]; then warn "디스크 여유" "${free}GB (20GB 이상 권장)"; else bad "디스크 여유" "${free}GB"; fi
+
+    if curl -fsI --max-time 5 https://gitbap.com >/dev/null 2>&1; then ok "네트워크(gitbap.com)"; else bad "네트워크(gitbap.com)" "연결 실패"; fi
+
+    if dseditgroup -o checkmember -m "$USER" admin >/dev/null 2>&1; then ok "관리자 계정" "$USER"; else bad "관리자 계정" "$USER 는 관리자가 아님"; fi
+
+    if fdesetup status 2>/dev/null | grep -q "Off"; then ok "FileVault 꺼짐"; else warn "FileVault 켜짐" "자동 로그인 불가 → 끄거나 재부팅 시 수동 로그인 감수"; fi
+
+    if has claude; then
+        local cv; cv=$(claude --version 2>/dev/null | awk '{print $1}')
+        ok "Claude Code 설치" "v$cv"
+        if claude auth status 2>/dev/null | grep -q '"loggedIn": true'; then ok "Claude 로그인"; else bad "Claude 로그인" "claude 실행 후 브라우저 로그인 필요"; fi
+    else
+        bad "Claude Code 설치" "https://claude.com/claude-code 한 줄 설치 후 다시"
+    fi
+}
+
+# --- step 1: machine --------------------------------------------------------
+check_machine() {
+    sec 1 "기계 세팅 (헤드리스)"
+    local pm; pm=$(pmset -g custom 2>/dev/null)
+    _pm() { echo "$pm" | awk -v k="$1" '$1==k {print $2; exit}'; }
+    [ "$(_pm sleep)" = "0" ]       && ok "잠자기 금지" "sleep 0"        || bad "잠자기 금지" "sleep=$(_pm sleep) (sudo pmset -a sleep 0)"
+    [ "$(_pm autorestart)" = "1" ] && ok "정전 후 자동 재시작"           || bad "정전 후 자동 재시작" "sudo pmset -a autorestart 1"
+    [ "$(_pm womp)" = "1" ]        && ok "네트워크로 깨우기(WOL)"         || warn "네트워크로 깨우기(WOL)" "sudo pmset -a womp 1"
+
+    local al; al=$(defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser 2>/dev/null)
+    if [ -n "$al" ]; then ok "자동 로그인" "$al"; else bad "자동 로그인" "sudo sysadminctl -autologin set -userName $USER (GUI 세션이 있어야 launchd·권한이 산다)"; fi
+
+    if nc -z -G 1 localhost 22 >/dev/null 2>&1; then ok "SSH 켜짐" "포트 22"; else bad "SSH" "sudo systemsetup -setremotelogin on"; fi
+
+    local tz; tz=$(readlink /etc/localtime | sed 's#.*/zoneinfo/##')
+    [ "$tz" = "Asia/Seoul" ] && ok "시간대" "$tz" || warn "시간대" "$tz (launchd는 로컬, cron은 UTC)"
+    warn "화면 잠금 해제" "수동 확인 (sysadminctl -screenLock off 는 비밀번호 필요)"
+}
+
+# --- step 2: tools ----------------------------------------------------------
+check_tools() {
+    sec 2 "도구"
+    has brew && ok "Homebrew" "$(brew --version 2>/dev/null | head -1 | awk '{print $2}')" || bad "Homebrew" "설치 필요"
+    has git  && ok "git" || bad "git"
+    has jq   && ok "jq"  || bad "jq" "brew install jq"
+    [ -d /Applications/Obsidian.app ]  && ok "Obsidian 앱"  || bad "Obsidian 앱" "brew install --cask obsidian"
+    [ -d /Applications/Tailscale.app ] && ok "Tailscale 앱" || bad "Tailscale 앱" "brew install --cask tailscale-app"
+    [ -d /Applications/Aside.app ]     && ok "Aside 앱"     || bad "Aside 앱" "설치 방법 확인 필요(서드파티)"
+    has aside && ok "aside CLI" "$(aside --version 2>/dev/null)" || bad "aside CLI" "Aside 앱에서 CLI 활성화"
+}
+
+# --- step 3: remote path ----------------------------------------------------
+check_remote() {
+    sec 3 "원격 통로"
+    if [ -x "$TS_BIN" ]; then
+        local ip; ip=$("$TS_BIN" ip -4 2>/dev/null | head -1)
+        [ -n "$ip" ] && ok "Tailscale 연결" "$ip" || bad "Tailscale 연결" "tailscale up --authkey=<페어링 코드에서>"
+    else
+        bad "Tailscale CLI" "앱 미설치"
+    fi
+}
+
+# --- steps 4-5: box skeleton + pairing -------------------------------------
+check_box() {
+    sec 4 "박스 골격 ($ILSON_HOME)"
+    if [ -d "$ILSON_HOME" ]; then
+        ok "박스 폴더"
+        [ -d "$ILSON_HOME/vault" ]   && ok "볼트 템플릿"   || bad "볼트 템플릿"
+        [ -d "$ILSON_HOME/skills" ]  && ok "스킬"         || bad "스킬"
+        [ -d "$ILSON_HOME/launchd" ] && ok "launchd 템플릿" || bad "launchd 템플릿"
+        [ -d "$ILSON_HOME/state/.git" ] && ok "상태 git 스냅샷" || bad "상태 git 스냅샷" "state/ 가 git 저장소여야 함"
+    else
+        bad "박스 폴더" "ilson init 이 만든다"
+    fi
+    sec 5 "페어링"
+    [ -f "$ILSON_HOME/state/pairing.json" ] && ok "페어링 완료" || bad "페어링" "ilson pair --code XXXX-XXXX"
+}
+
+# --- step 6: TCC permissions ------------------------------------------------
+check_tcc() {
+    sec 6 "권한 (접근성·자동화·전체 디스크)"
+    if [ "$PROBE_TCC" = "1" ]; then
+        if osascript -e 'tell application "System Events" to get name of first process' >/dev/null 2>&1; then
+            ok "자동화+접근성" "System Events 호출 성공"
+        else
+            bad "자동화+접근성" "시스템 설정 > 개인정보 보호에서 터미널 허용"
+        fi
+    else
+        warn "권한 실호출" "--probe-tcc 로 검사 (권한 창이 뜰 수 있음)"
+    fi
+    # Full Disk Access: readable TCC.db only when FDA is granted to this shell.
+    if [ -r "$HOME/Library/Application Support/com.apple.TCC/TCC.db" ]; then ok "전체 디스크 접근"; else warn "전체 디스크 접근" "이 터미널엔 없음 (launchd 작업 주체에 필요할 때만)"; fi
+}
+
+# --- step 8: scheduled jobs -------------------------------------------------
+check_jobs() {
+    sec 8 "예약 업무 (launchd)"
+    local n; n=$(ls "$HOME/Library/LaunchAgents" 2>/dev/null | grep -c '^com\.ilson\.')
+    if [ "$n" -gt 0 ]; then
+        ok "ilson 잡 등록" "${n}개"
+        local loaded; loaded=$(launchctl list 2>/dev/null | grep -c 'com\.ilson\.')
+        [ "$loaded" -eq "$n" ] && ok "잡 적재" "${loaded}/${n}" || bad "잡 적재" "${loaded}/${n} (launchctl bootstrap 필요)"
+    else
+        bad "ilson 잡 등록" "브리핑·주간보고·위키정리·워치독·스냅샷·업데이트 6개"
+    fi
+}
+
+# --- step 9: safety rails ---------------------------------------------------
+check_safety() {
+    sec 9 "안전판"
+    [ -f "$ILSON_HOME/state/spend-cap.ack" ] && ok "API 지출 상한 확인" || warn "API 지출 상한" "Anthropic 콘솔에서 사람이 설정 (ilson init 이 링크를 연다)"
+    [ -f "$HOME/Library/LaunchAgents/com.ilson.watchdog.plist" ] && ok "워치독" || bad "워치독"
+    [ -f "$HOME/Library/LaunchAgents/com.ilson.snapshot.plist" ] && ok "상태 스냅샷(10분)" || bad "상태 스냅샷(10분)"
+}
+
+doctor() {
+    printf 'ilson doctor v0 — %s · %s\n' "$(hostname -s)" "$(date '+%Y-%m-%d %H:%M')"
+    check_preflight; check_machine; check_tools; check_remote; check_box; check_tcc; check_jobs; check_safety
+    printf '\n결과: ✅ %d · ⚠️ %d · ❌ %d\n' "$PASS" "$WARN" "$FAIL"
+    [ "$FAIL" -eq 0 ] && { echo "박스가 준비됐어요."; exit 0; }
+    echo "❌ 항목은 'ilson init' 이 처리할 것들이에요 (v0 에서는 아직 손으로)."
+    exit 1
+}
+
+usage() {
+    cat <<'EOF'
+사용법: ilson <명령>
+  doctor [--probe-tcc]   박스 상태를 읽기 전용으로 점검
+  init   --code <코드>   (v0 미구현) 한 줄 온보딩
+  pair   --code <코드>   (v0 미구현) 재페어링
+  update                 (v0 미구현) 우리 레이어 업데이트
+EOF
+}
+
+cmd="${1:-}"; shift || true
+for a in "$@"; do [ "$a" = "--probe-tcc" ] && PROBE_TCC=1; done
+case "$cmd" in
+    doctor) doctor ;;
+    init|pair|update) echo "ilson $cmd: v0 에서는 아직 없어요. 설계서 12단계를 손으로 통과한 뒤 옮깁니다."; exit 2 ;;
+    *) usage; exit 2 ;;
+esac
