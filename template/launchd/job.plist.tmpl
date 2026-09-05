@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>com.ilson.__JOB__</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>__ILSON_HOME__/lib/__SCRIPT__</string>
+        __ARGS__
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>ILSON_HOME</key><string>__ILSON_HOME__</string>
+        <key>PATH</key><string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key><string>__HOME__</string>
+    </dict>
+    __SCHEDULE__
+    <key>StandardOutPath</key><string>__ILSON_HOME__/logs/launchd.__JOB__.out</string>
+    <key>StandardErrorPath</key><string>__ILSON_HOME__/logs/launchd.__JOB__.err</string>
+    <key>RunAtLoad</key><false/>
+</dict>
+</plist>
