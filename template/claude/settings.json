@@ -14,7 +14,8 @@
       "Write(vault/**)",
       "Bash(git status:*)",
       "Bash(git log:*)",
-      "Bash(date:*)"
+      "Bash(date:*)",
+      "Bash(bash lib/search.sh *)"
     ],
     "deny": [
       "Bash(curl:*)",

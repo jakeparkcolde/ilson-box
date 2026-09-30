@@ -35,7 +35,7 @@ TS_BIN="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
 LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-PROBE_TCC=0; SANDBOX=0; CODE=""; PAIRING_FILE=""
+PROBE_TCC=0; PROBE_SEARCH=0; SANDBOX=0; CODE=""; PAIRING_FILE=""
 STAGE_ONLY=0; CONFIGURE_MACHINE=0
 REMOTE_STATE=unknown
 PASS=0; WARN=0; FAIL=0
@@ -116,6 +116,27 @@ check_tools() {
     { [ -d /Applications/Obsidian.app ] || [ -d "$HOME/Applications/Obsidian.app" ]; } && ok "Obsidian 앱" || bad "Obsidian 앱" "brew install --cask obsidian"
     [ -x "$TS_BIN" ] && ok "Tailscale 앱" || bad "Tailscale 앱" "brew install --cask tailscale-app"
     has aside && ok "Aside CLI" || warn "Aside (선택)" "브라우저 업무를 사용할 때 연결 — 기본 보고 업무에는 불필요"
+}
+
+check_search() {
+    sec '2-1' "웹 검색"
+    has tvly && ok "Tavily CLI" || { bad "Tavily CLI" "ilson setup 으로 설치"; return; }
+    if [ ! -f "$ILSON_HOME/.claude/skills/ilson-search/SKILL.md" ] || [ ! -f "$ILSON_HOME/lib/search.sh" ]; then
+        bad "일손 검색 스킬" "ilson setup 으로 구성 갱신"; return
+    fi
+    ok "일손 검색 스킬"
+    if [ "$PROBE_SEARCH" != 1 ]; then
+        warn "실제 검색 미확인" "ilson doctor --probe-search 로 공개 검색 1회 점검 (검색 크레딧 사용 가능)"
+        return
+    fi
+    if [ "$SANDBOX" = 1 ] || is_sandbox_box; then skip "실제 검색"; return; fi
+    local result
+    if result=$(env ILSON_HOME="$ILSON_HOME" bash "$ILSON_HOME/lib/search.sh" 'Tavily official documentation' 2>/dev/null) &&
+        printf '%s' "$result" | jq -e '.results | length > 0' >/dev/null 2>&1; then
+        ok "공개 검색 응답 확인" "로그인 여부·잔여 한도·한국어 품질은 별도 확인"
+    else
+        bad "실제 검색 미확인" "응답 없음·시간 초과·인증/한도 등을 새 맥에서 확인하세요. tvly login 은 직접 실행"
+    fi
 }
 
 check_remote() {
@@ -231,7 +252,7 @@ check_safety() {
 
 doctor() {
     printf 'ilson doctor v0 — %s · %s\n' "$(hostname -s)" "$(date '+%Y-%m-%d %H:%M')"
-    check_preflight; check_machine; check_tools; check_remote; check_box; check_tcc; check_jobs; check_safety
+    check_preflight; check_machine; check_tools; check_search; check_remote; check_box; check_tcc; check_jobs; check_safety
     printf '\n결과: ✅ %d · ⚠️ %d · ❌ %d\n' "$PASS" "$WARN" "$FAIL"
     if [ -f "$ILSON_HOME/state/setup-pending" ] || is_sandbox_box; then
         echo "기본 구성만 준비됨 — 실제 업무 가동은 아직입니다."
@@ -339,6 +360,22 @@ init_step_jobs() {
 # Fresh machines need tools before preflight can check them. Keep all privileged
 # configuration behind the explicit --configure-machine option; never weaken
 # FileVault or login security to turn a warning green.
+setup_search_tools() {
+    [ "$SANDBOX" = 1 ] && { skip "검색 도구 설치"; return 0; }
+    if ! has tvly; then
+        if ! has uv; then
+            brew install uv || { bad "검색 설치 도구(uv) 설치 실패"; return 1; }
+        fi
+        # Do not run tvly init: it changes global agent skills and may open login.
+        # uv isolates Python dependencies; launchd already includes ~/.local/bin.
+        UV_TOOL_BIN_DIR="$HOME/.local/bin" uv tool install --python 3.12 tavily-cli || {
+            bad "Tavily CLI 설치 실패"; return 1;
+        }
+    fi
+    has tvly || { bad "Tavily CLI 설치 실패" "실행 파일을 PATH에서 찾을 수 없음"; return 1; }
+    ok "Tavily CLI 설치 확인" "검색 스킬은 Box 폴더에 구성 · 계정은 이 기기에서 별도 연결"
+}
+
 setup_tools() {
     sec 2 "필수 도구 자동 설치"
     [ "$SANDBOX" = "1" ] && { skip "도구 설치"; return 0; }
@@ -382,6 +419,7 @@ setup_tools() {
     fi
     TS_BIN=/Applications/Tailscale.app/Contents/MacOS/Tailscale
     [ -x "$TS_BIN" ] || TS_BIN="$HOME/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+    setup_search_tools || return 1
     ok "도구 설치 확인"
 }
 
@@ -417,6 +455,7 @@ setup() {
     printf '  • 상시 전원 설정: ilson setup --configure-machine (관리자 비밀번호 필요)\n'
     printf '  • 회사 정보 준비 후 ilson start 로 예약 업무 시작\n'
     printf '  • 텔레그램·Aside 및 macOS 권한은 해당 기능 연결 시 설정\n'
+    printf '  • 웹 검색: ilson doctor --probe-search (공개 검색 1회). 예약 검색은 이 기기에서 tvly login 후 점검 권장\n'
     check_remote
     if [ "$REMOTE_STATE" != connected ]; then
         printf '\n기본 설치는 완료됐습니다. 원격 연결은 위 안내에 따라 확인한 뒤 ilson doctor 로 다시 점검하세요.\n'
@@ -445,7 +484,7 @@ start_jobs() {
 usage() {
     cat <<'EOF'
 사용법: ilson <명령> [옵션]
-  doctor [--probe-tcc]                          박스 상태를 읽기 전용으로 점검
+  doctor [--probe-tcc] [--probe-search]         박스 점검 (probe-search 는 공개 검색 1회)
   setup [--configure-machine] [--sandbox]      도구·볼트·예약 파일 구성 (로그인은 직접)
   init                                        setup 과 같은 명령 (코드 없이 로컬 사용 가능)
   start                                       로그인·회사 정보 확인 후 예약 업무 시작
@@ -458,6 +497,7 @@ cmd="${1:-}"; shift || true
 while [ $# -gt 0 ]; do
     case "$1" in
         --probe-tcc) PROBE_TCC=1 ;;
+        --probe-search) PROBE_SEARCH=1 ;;
         --sandbox) SANDBOX=1 ;;
         --with-claude) die "자동 LLM 실행 대신 박스 폴더에서 claude /onboard 를 실행하세요" ;;
         --configure-machine) CONFIGURE_MACHINE=1 ;;

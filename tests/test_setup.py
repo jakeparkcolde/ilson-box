@@ -7,6 +7,7 @@ import json
 import tarfile
 import shlex
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -94,6 +95,104 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(briefing["StartCalendarInterval"], {"Hour": 8, "Minute": 0})
         self.assertEqual(briefing["ProgramArguments"][1], str(self.box / "lib/run-job.sh"))
         self.assertFalse(briefing["RunAtLoad"])
+
+    def test_검색스킬과_실행기가_첫설치에_포함된다(self):
+        self.install()
+        self.assertTrue((self.box / ".claude/skills/ilson-search/SKILL.md").is_file())
+        self.assertTrue((self.box / "lib/search.sh").is_file())
+
+    def test_검색도구_없으면_설치하고_있으면_재사용한다(self):
+        r = self.shell('''installed=0; calls=0
+has() { [ "$1" = uv ] || { [ "$1" = tvly ] && [ "$installed" = 1 ]; }; }
+uv() { [ "$*" = "tool install --python 3.12 tavily-cli" ] || return 42; installed=1; calls=$((calls+1)); }
+setup_search_tools && setup_search_tools && [ "$calls" = 1 ]
+''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_검색도구_설치실패를_완료로_보고하지않는다(self):
+        r = self.shell('has() { [ "$1" = uv ]; }; uv() { return 42; }; setup_search_tools')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("설치 실패", r.stdout)
+
+    def search(self, body, *args):
+        fakebin = self.base / "search-bin"
+        fakebin.mkdir(exist_ok=True)
+        tool = fakebin / "tvly"
+        tool.write_text("#!/bin/bash\n" + "touch " + shlex.quote(str(self.base / "search-called")) + "\n" + body + "\n")
+        tool.chmod(0o700)
+        # 호스트 coreutils를 설치하지 않는다. 자식까지 종료하는 시간 제한 대역.
+        timer = fakebin / "gtimeout"
+        timer.write_text("#!" + sys.executable + "\n" + '''import os, signal, subprocess, sys
+assert sys.argv[1:3] == ["-k", "2"]
+p = subprocess.Popen(sys.argv[4:], start_new_session=True)
+try:
+    sys.exit(p.wait(timeout=float(sys.argv[3])))
+except subprocess.TimeoutExpired:
+    os.killpg(p.pid, signal.SIGKILL)
+    p.wait()
+    sys.exit(124)
+''')
+        timer.chmod(0o700)
+        return subprocess.run(["bash", str(ROOT / "template/lib/search.sh"), *args],
+                              env=dict(self.env, PATH=str(fakebin) + ":" + os.environ["PATH"],
+                                       ILSON_SEARCH_TIMEOUT="1"),
+                              capture_output=True, text=True, timeout=5)
+
+    def test_검색실패와_잘못된응답은_성공이나_빈결과가_아니다(self):
+        for body in ["echo PRIVATE_ERROR >&2; exit 3", "echo 'not json'",
+                     "echo '{\"error\":\"PRIVATE_ERROR\"}'", "sleep 20"]:
+            with self.subTest(body=body):
+                (self.base / "search-called").unlink(missing_ok=True)
+                r = self.search(body, "공개 뉴스")
+                self.assertTrue((self.base / "search-called").exists())
+                self.assertNotEqual(r.returncode, 0)
+                self.assertEqual(r.stdout, "")
+                self.assertNotIn("PRIVATE_ERROR", r.stderr)
+
+    def test_검색어를_실행하지않고_제한된_결과만_반환한다(self):
+        marker = self.base / "injected"
+        query = f'뉴스 $(touch {marker})'
+        data = {"results": [{"title": "기사", "url": "https://example.com", "content": "본문"}],
+                "extra": "PRIVATE_ERROR"}
+        r = self.search('[ "$1" = search ] && [ "$2" = ' + shlex.quote(query) + ' ] || exit 42\n'
+                        + 'printf "%s\\n" ' + shlex.quote(json.dumps(data)), query)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertFalse(marker.exists())
+        self.assertEqual(json.loads(r.stdout), {"results": data["results"]})
+
+    def test_검색0건은_유효응답이며_추가옵션은_허용하지않는다(self):
+        r = self.search("echo '{\"results\":[]}'", "뉴스")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(r.stdout), {"results": []})
+        (self.base / "search-called").unlink()
+        r = self.search("exit 0", "--help")
+        self.assertEqual(r.returncode, 2)
+        self.assertFalse((self.base / "search-called").exists())
+
+    def test_일반검색점검은_외부검색을_호출하지않는다(self):
+        self.install()
+        r = self.shell('has() { return 0; }; check_search; [ "$WARN" -eq 1 ] && [ "$FAIL" -eq 0 ]')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("실제 검색 미확인", r.stdout)
+
+    def test_실제검색점검은_유효한_검색결과가_있어야_통과한다(self):
+        self.install()
+        (self.box / "state/sandbox").unlink()
+        for data, expected in [('{"results":[]}', 1),
+                               ('{"results":[{"title":"test"}]}', 0)]:
+            with self.subTest(data=data):
+                (self.box / "lib/search.sh").write_text('printf "%s\\n" ' + shlex.quote(data))
+                r = self.shell('has() { return 0; }; PROBE_SEARCH=1; check_search; '
+                               + f'[ "$FAIL" -eq {expected} ]')
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_샌드박스_검색은_외부명령을_실행하지않는다(self):
+        (self.box / "state").mkdir(parents=True)
+        (self.box / "state/sandbox").touch()
+        marker = self.base / "called"
+        r = self.search('touch ' + shlex.quote(str(marker)), "뉴스")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertFalse(marker.exists())
 
     def test_PATH의_심볼릭링크로_재실행해도_템플릿을_찾고_노트와_연결을_보존한다(self):
         bin_dir, env = self.install()

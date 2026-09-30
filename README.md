@@ -14,7 +14,7 @@ curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/instal
 ILSON_SRC="$PWD" sh install.sh
 ```
 
-자동 처리: Homebrew(없으면 관리자 입력 필요), git·jq·gh·coreutils, Claude Code·Codex CLI, Obsidian·Tailscale, `~/ilson` 볼트와 업무 스크립트, 예약 업무 plist 6개 생성. 기존 설치 도구는 재사용합니다. 기존 Orca는 그대로 사용하며 자동 설치 대상이 아닙니다.
+자동 처리: Homebrew(없으면 관리자 입력 필요), git·jq·gh·coreutils, Claude Code·Codex CLI, Obsidian·Tailscale, Tavily CLI(없으면 uv로 격리 설치), `~/ilson` 볼트와 일손 검색 스킬·업무 스크립트, 예약 업무 plist 6개 생성. 기존 설치 도구는 재사용합니다. 기존 Orca는 그대로 사용하며 자동 설치 대상이 아닙니다.
 
 사람이 할 일: 구독 계정 로그인, Tailscale 연결, 회사 인터뷰, 필요한 macOS 권한 클릭. Aside는 브라우저 업무를 사용할 때 별도로 연결합니다. 설치코드 없이 로컬 구성이 가능하며 서버 페어링은 아직 구현되지 않았습니다.
 
@@ -29,6 +29,25 @@ ilson doctor                     # 읽기 전용 점검
 ```
 
 Codex는 `codex`를 실행해 별도로 ChatGPT 계정에 로그인합니다. 현재 Box의 정기 업무 실행기는 Claude입니다. 설치기는 API 키나 유료 API 호출을 설정하지 않습니다.
+
+## 기본 웹 검색
+
+검색 기준은 기기에서 수동 설치한 상태가 아니라 이 저장소의 설치 코드와 템플릿으로 배포합니다.
+`setup`은 Tavily CLI와 `.claude/skills/ilson-search/SKILL.md`, `lib/search.sh`를 함께 준비합니다.
+검색 실행은 1회당 basic·최대 5건·45초로 제한합니다. 스킬은 업무당 최대 3회와 출처/조회일 표시를 지시합니다.
+업무당 횟수는 스킬 지침이며 계정 전체의 과금 상한을 강제하는 기능은 아닙니다.
+
+```sh
+ilson doctor --probe-search  # 공개 검색 1회, 계정이 연결돼 있으면 크레딧 사용 가능
+tvly login                  # 예약 검색용 인증은 새 맥의 일반 터미널에서 직접
+```
+
+일반 `doctor`는 검색 파일·실행 파일만 확인하고 실제 검색 미확인을 표시합니다.
+무인증 검색은 제한이 있으며 인증 완료·남은 한도를 보장하지 않습니다.
+기존 운영 기기의 인증을 복사하지 않고 각 기기의 계정을 사용합니다. 설치 중 `tvly init`이나 전역 스킬 변경은 하지 않습니다.
+기본 아침 브리핑에는 자동으로 외부 검색을 추가하지 않습니다. 검색할 주제와 일정을 정하면 해당 업무에 연결합니다.
+전체 도구 갱신은 위 설치 명령을 재실행합니다. 기존 `ilson update`는 Tavily 의존성까지 설치하는 경로가 아닙니다.
+설치 기준과 인세인서치 검토는 [검색 구성](docs/검색-구성.md)을 참고하세요.
 
 ## 동작 경계
 
