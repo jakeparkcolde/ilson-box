@@ -8,7 +8,7 @@
 curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/install.sh | sh
 ```
 
-이 명령은 변경본이 GitHub main에 반영된 후 사용할 수 있습니다. 현재 체크아웃을 시험할 때는:
+이미 설치한 맥에서도 같은 명령으로 CLI와 기본 구성을 갱신합니다. 기존 회사 노트와 연결 설정은 보존합니다. 로컬 체크아웃을 설치할 때는:
 
 ```sh
 ILSON_SRC="$PWD" sh install.sh
