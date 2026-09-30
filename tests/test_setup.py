@@ -45,12 +45,12 @@ class SetupTests(unittest.TestCase):
 
     def test_tailscale_오류문자열을_연결성공으로_세지않는다(self):
         tool = self.fake("tailscale", "echo 'Tailscale is not running'; exit 1")
-        r = self.shell(f'TS_BIN="{tool}"; check_remote; [ "$PASS" -eq 0 ] && [ "$FAIL" -gt 0 ]')
+        r = self.shell(f'TS_BIN="{tool}"; check_remote; [ "$PASS" -eq 0 ] && [ "$WARN" -gt 0 ] && [ "$FAIL" -eq 0 ]')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
-    def test_tailscale_무응답도_시간제한뒤_실패로_끝난다(self):
+    def test_tailscale_무응답도_시간제한뒤_조회불가로_끝난다(self):
         tool = self.fake("tailscale", "exec sleep 30")
-        r = self.shell(f'TS_BIN="{tool}"; check_remote; [ "$FAIL" -gt 0 ]', timeout=4)
+        r = self.shell(f'TS_BIN="{tool}"; check_remote; [ "$WARN" -gt 0 ] && [ "$FAIL" -eq 0 ]', timeout=4)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def test_재설치가_기존_볼트의_자리표시자도_수정하지않는다(self):
@@ -63,11 +63,11 @@ class SetupTests(unittest.TestCase):
 
     def test_정상주소여도_명령실패면_연결성공이_아니다(self):
         tool = self.fake("tailscale", "echo 100.64.1.2; exit 1")
-        r = self.shell(f'TS_BIN="{tool}"; check_remote; [ "$PASS" -eq 0 ] && [ "$FAIL" -eq 1 ]')
+        r = self.shell(f'TS_BIN="{tool}"; check_remote; [ "$PASS" -eq 0 ] && [ "$WARN" -eq 1 ] && [ "$FAIL" -eq 0 ]')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def test_정상주소와_성공종료를_함께_확인한다(self):
-        tool = self.fake("tailscale", "echo 100.64.1.2")
+        tool = self.fake("tailscale", "echo '{\"BackendState\":\"Running\",\"Self\":{\"Online\":true},\"TailscaleIPs\":[\"100.64.1.2\"]}'")
         r = self.shell(f'TS_BIN="{tool}"; check_remote; [ "$PASS" -eq 1 ] && [ "$FAIL" -eq 0 ]')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
@@ -202,6 +202,62 @@ class SetupTests(unittest.TestCase):
         self.assertIn("https://codeload.github.com/jakeparkcolde/ilson-box/tar.gz/main", log.read_text())
         self.assertTrue((self.box / "state/setup-pending").exists())
         self.assertTrue((self.box / "vault/CONTEXT.md").exists())
+
+
+    def test_첫설치_로그인대기는_기본설치를_실패로_종료하지않는다(self):
+        tool = self.fake("tailscale", "echo '{\"BackendState\":\"NeedsLogin\"}'")
+        r = self.shell(f'TEMPLATE="{ROOT}/template"; TS_BIN="{tool}"; '
+                       'setup_tools() { return 0; }; claude_logged_in() { return 1; }; setup')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("로그인 대기", r.stdout)
+        self.assertTrue((self.box / "state/setup-pending").exists())
+
+    def test_설정읽기오류_종료0은_미로그인이_아닌_조회불가다(self):
+        tool = self.fake("tailscale", "echo 'The Tailscale CLI failed to start: Failed to load preferences.'; exit 0")
+        r = self.shell(f'TS_BIN="{tool}"; check_remote; [ "$FAIL" -eq 0 ] && [ "$WARN" -eq 1 ]')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("상태 확인 불가", r.stdout)
+        self.assertNotIn("로그인 대기", r.stdout)
+
+    def test_상태별로_다른_안내를_주며_연결변경_명령은_호출하지않는다(self):
+        for backend, expected in [("NeedsLogin", "login_pending"),
+                                  ("NoState", "initializing"),
+                                  ("Starting", "initializing"),
+                                  ("NeedsMachineAuth", "approval_pending"),
+                                  ("Stopped", "stopped"),
+                                  ("FutureState", "unknown")]:
+            with self.subTest(backend=backend):
+                tool = self.fake("tailscale", '[ "$*" = "status --json" ] || exit 42\n'
+                                 + 'printf "%s\\n" ' + shlex.quote(json.dumps({"BackendState": backend})))
+                r = self.shell(f'TS_BIN="{tool}"; check_remote; [ "$REMOTE_STATE" = {expected} ] && '
+                               '[ "$FAIL" -eq 0 ] && [ "$PASS" -eq 0 ] && [ "$WARN" -eq 1 ]')
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_앱동작중이어도_온라인확인전에는_연결성공으로_세지않는다(self):
+        for online, addresses in [(False, ["100.64.1.2"]), (True, []), (True, [None]),
+                                  (True, ["not-an-ip"]), (True, ["100.999.1.2"])]:
+            with self.subTest(online=online, addresses=addresses):
+                data = {"BackendState": "Running", "Self": {"Online": online}, "TailscaleIPs": addresses}
+                tool = self.fake("tailscale", 'printf "%s\\n" ' + shlex.quote(json.dumps(data)))
+                r = self.shell(f'TS_BIN="{tool}"; check_remote; [ "$REMOTE_STATE" = connecting ] && [ "$PASS" -eq 0 ]')
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_조회불가여도_기본설치완료와_업무대기는_분리한다(self):
+        tool = self.fake("tailscale", "echo 'Failed to load preferences.'; exit 0")
+        r = self.shell(f'TEMPLATE="{ROOT}/template"; TS_BIN="{tool}"; '
+                       'setup_tools() { return 0; }; claude_logged_in() { return 1; }; setup')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("상태 확인 불가", r.stdout)
+        self.assertTrue((self.box / "state/setup-pending").exists())
+        self.assertEqual(list((self.box / "state").glob("enabled.*")), [])
+
+    def test_로그인후_재점검은_실제현재상태로_바뀐다(self):
+        tool = self.fake("tailscale", "echo '{\"BackendState\":\"NeedsLogin\"}'")
+        r = self.shell(f'TS_BIN="{tool}"; check_remote; [ "$REMOTE_STATE" = login_pending ]')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.fake("tailscale", "echo '{\"BackendState\":\"Running\",\"Self\":{\"Online\":true},\"TailscaleIPs\":[\"100.64.1.2\"]}'")
+        r = self.shell(f'TS_BIN="{tool}"; check_remote; [ "$REMOTE_STATE" = connected ] && [ "$WARN" -eq 0 ]')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
 if __name__ == "__main__":
