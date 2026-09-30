@@ -2,9 +2,10 @@
 # ilson — one-command onboarding CLI for the agent box (v0, shell).
 #
 # Commands:
+#   setup [--configure-machine] [--sandbox]   provision tools and stage the box
+#   start                                    activate after login and onboarding
 #   doctor [--probe-tcc]                read-only checks, 12-step mapping
-#   init --code X [--sandbox] [--with-claude]
-#                                       build the box under $ILSON_HOME
+#   init                                 alias for setup
 #   pair --code X [--pairing-file F]    (re)write state/pairing.json
 #   update                              pull our layer (delegates to lib/update.sh)
 #
@@ -19,14 +20,23 @@
 
 set -u
 
-SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ~/.local/bin/ilson is a symlink. Templates belong beside the real CLI.
+SELF="${BASH_SOURCE[0]}"
+while [ -L "$SELF" ]; do
+    SELF_PARENT="$(cd "$(dirname "$SELF")" && pwd)"
+    SELF="$(readlink "$SELF")"
+    case "$SELF" in /*) ;; *) SELF="$SELF_PARENT/$SELF" ;; esac
+done
+SELF_DIR="$(cd "$(dirname "$SELF")" && pwd)"
 TEMPLATE="$SELF_DIR/template"
 ILSON_HOME="${ILSON_HOME:-$HOME/ilson}"
 TS_BIN="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+[ -x "$TS_BIN" ] || TS_BIN="$HOME/Applications/Tailscale.app/Contents/MacOS/Tailscale"
 LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
-JOBS="briefing weekly tidy watchdog snapshot update"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-PROBE_TCC=0; SANDBOX=0; WITH_CLAUDE=0; CODE=""; PAIRING_FILE=""
+PROBE_TCC=0; SANDBOX=0; CODE=""; PAIRING_FILE=""
+STAGE_ONLY=0; CONFIGURE_MACHINE=0
 PASS=0; WARN=0; FAIL=0
 
 # --- output helpers ---------------------------------------------------------
@@ -38,6 +48,26 @@ sec()  { printf '\n[%s] %s\n' "$1" "$2"; }
 die()  { printf '\n❌ %s\n' "$1" >&2; exit 1; }
 has()  { command -v "$1" >/dev/null 2>&1; }
 is_sandbox_box() { [ -f "$ILSON_HOME/state/sandbox" ]; }
+
+# Bound daemon/auth checks even before Homebrew/coreutils exists. No raw error
+# output is treated as an address or authentication result.
+bounded() {
+    local seconds="$1" child timer rc; shift
+    "$@" & child=$!
+    ( sleep "$seconds"; kill -TERM "$child" 2>/dev/null; sleep 1;
+      kill -KILL "$child" 2>/dev/null ) </dev/null >/dev/null 2>&1 & timer=$!
+    wait "$child"; rc=$?
+    kill "$timer" 2>/dev/null
+    wait "$timer" 2>/dev/null
+    return "$rc"
+}
+
+claude_logged_in() {
+    local status
+    has claude && has jq || return 1
+    status=$(bounded "${ILSON_CHECK_TIMEOUT:-10}" claude auth status 2>/dev/null) || return 1
+    printf '%s' "$status" | jq -e '.loggedIn == true' >/dev/null 2>&1
+}
 
 # ============================================================================
 # doctor — read-only
@@ -51,10 +81,10 @@ check_preflight() {
     if [ "${free:-0}" -ge 20 ]; then ok "디스크 여유" "${free}GB"; elif [ "${free:-0}" -ge 10 ]; then warn "디스크 여유" "${free}GB (20GB 이상 권장)"; else bad "디스크 여유" "${free}GB"; fi
     curl -fsI --max-time 5 https://gitbap.com >/dev/null 2>&1 && ok "네트워크(gitbap.com)" || bad "네트워크(gitbap.com)" "연결 실패"
     dseditgroup -o checkmember -m "$USER" admin >/dev/null 2>&1 && ok "관리자 계정" "$USER" || bad "관리자 계정" "$USER 는 관리자가 아님"
-    fdesetup status 2>/dev/null | grep -q "Off" && ok "FileVault 꺼짐" || warn "FileVault 켜짐" "자동 로그인 불가 → 끄거나 재부팅 시 수동 로그인 감수"
+    fdesetup status 2>/dev/null | grep -q "Off" && ok "FileVault 꺼짐" || warn "FileVault 상태" "암호화 유지 가능 — 재부팅 후 사람이 잠금 해제"
     if has claude; then
         ok "Claude Code 설치" "v$(claude --version 2>/dev/null | awk '{print $1}')"
-        claude auth status 2>/dev/null | grep -q '"loggedIn": true' && ok "Claude 로그인" || bad "Claude 로그인" "claude 실행 후 브라우저 로그인 필요"
+        claude_logged_in && ok "Claude 로그인" || bad "Claude 로그인" "claude 실행 후 브라우저 로그인 필요 (조회 실패/시간 초과 포함)"
     else
         bad "Claude Code 설치" "https://claude.com/claude-code 한 줄 설치 후 다시"
     fi
@@ -68,11 +98,11 @@ check_machine() {
     [ "$(_pm autorestart)" = "1" ] && ok "정전 후 자동 재시작"    || bad "정전 후 자동 재시작" "sudo pmset -a autorestart 1"
     [ "$(_pm womp)" = "1" ]        && ok "네트워크로 깨우기(WOL)"  || warn "네트워크로 깨우기(WOL)" "sudo pmset -a womp 1"
     local al; al=$(defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser 2>/dev/null)
-    [ -n "$al" ] && ok "자동 로그인" "$al" || bad "자동 로그인" "sudo sysadminctl -autologin set -userName $USER"
-    nc -z -G 1 localhost 22 >/dev/null 2>&1 && ok "SSH 켜짐" "포트 22" || bad "SSH" "sudo systemsetup -setremotelogin on"
+    [ -n "$al" ] && ok "자동 로그인" "$al" || warn "재부팅 후 로그인" "로그인 후 예약 업무 재개 — 자동 로그인은 선택"
+    nc -z -G 1 localhost 22 >/dev/null 2>&1 && ok "SSH 켜짐" "포트 22" || warn "SSH 꺼짐" "Orca 원격 연결만 쓰면 불필요"
     local tz; tz=$(readlink /etc/localtime | sed 's#.*/zoneinfo/##')
     [ "$tz" = "Asia/Seoul" ] && ok "시간대" "$tz" || warn "시간대" "$tz"
-    warn "화면 잠금 해제" "수동 확인 (sysadminctl -screenLock off 는 비밀번호 필요)"
+    warn "재부팅 복구 시험" "새 맥에서 로그인 후 예약 업무 상태 확인 필요"
 }
 
 check_tools() {
@@ -80,17 +110,23 @@ check_tools() {
     has brew && ok "Homebrew" "$(brew --version 2>/dev/null | head -1 | awk '{print $2}')" || bad "Homebrew"
     has git  && ok "git" || bad "git"
     has jq   && ok "jq"  || bad "jq" "brew install jq"
-    [ -d /Applications/Obsidian.app ]  && ok "Obsidian 앱"  || bad "Obsidian 앱" "brew install --cask obsidian"
-    [ -d /Applications/Tailscale.app ] && ok "Tailscale 앱" || bad "Tailscale 앱" "brew install --cask tailscale-app"
-    [ -d /Applications/Aside.app ]     && ok "Aside 앱"     || bad "Aside 앱" "설치 방법 확인 필요(서드파티)"
-    has aside && ok "aside CLI" "$(aside --version 2>/dev/null)" || bad "aside CLI" "Aside 앱에서 CLI 활성화"
+    has gtimeout && ok "업무 시간 제한" || bad "업무 시간 제한" "brew install coreutils"
+    has codex && ok "Codex CLI" || warn "Codex CLI" "ilson setup 으로 설치"
+    { [ -d /Applications/Obsidian.app ] || [ -d "$HOME/Applications/Obsidian.app" ]; } && ok "Obsidian 앱" || bad "Obsidian 앱" "brew install --cask obsidian"
+    [ -x "$TS_BIN" ] && ok "Tailscale 앱" || bad "Tailscale 앱" "brew install --cask tailscale-app"
+    has aside && ok "Aside CLI" || warn "Aside (선택)" "브라우저 업무를 사용할 때 연결 — 기본 보고 업무에는 불필요"
 }
 
 check_remote() {
     sec 3 "원격 통로"
     if [ -x "$TS_BIN" ]; then
-        local ip; ip=$("$TS_BIN" ip -4 2>/dev/null | head -1)
-        [ -n "$ip" ] && ok "Tailscale 연결" "$ip" || bad "Tailscale 연결" "tailscale up --authkey=<페어링 코드에서>"
+        local ip
+        if ip=$(bounded "${ILSON_CHECK_TIMEOUT:-10}" "$TS_BIN" ip -4 2>/dev/null) &&
+            printf '%s\n' "$ip" | awk -F. 'NF != 4 {exit 1} {for(i=1;i<=4;i++) if($i !~ /^[0-9]+$/ || $i>255) exit 1; n++} END {if(n!=1) exit 1}'; then
+            ok "Tailscale 주소 확인" "$ip (접속 상대와의 연결은 별도 확인)"
+        else
+            bad "Tailscale 연결 확인 실패" "앱 로그인/데몬 상태 확인 (조회 실패·시간 초과 포함)"
+        fi
     else bad "Tailscale CLI" "앱 미설치"; fi
 }
 
@@ -114,10 +150,11 @@ check_box() {
     fi
     sec 5 "페어링"
     if [ -f "$ILSON_HOME/state/pairing.json" ]; then
-        local c; c=$(jq -r '.code // empty' "$ILSON_HOME/state/pairing.json" 2>/dev/null)
-        ok "페어링 파일" "코드 $c"
+        if jq -e 'type == "object"' "$ILSON_HOME/state/pairing.json" >/dev/null 2>&1; then
+            ok "로컬 연결 설정" "파일 존재 — 서버 페어링 완료를 뜻하지 않음"
+        else bad "연결 설정 손상"; fi
         [ -n "$(jq -r '.telegram_chat_id // empty' "$ILSON_HOME/state/pairing.json" 2>/dev/null)" ] && ok "텔레그램 연결" || warn "텔레그램 미연결" "알림은 로그로만 남음"
-    else bad "페어링" "ilson pair --code XXXX-XXXX"; fi
+    else warn "알림 미연결" "설치코드 없이 로컬 사용 가능. 텔레그램은 별도 연결"; fi
 }
 
 check_tcc() {
@@ -132,12 +169,15 @@ check_tcc() {
 check_jobs() {
     sec 8 "예약 업무 (launchd)"
     local dir n loaded
-    if is_sandbox_box; then dir="$ILSON_HOME/launchd/rendered"; else dir="$LAUNCH_AGENTS"; fi
-    n=$(ls "$dir" 2>/dev/null | grep -c '^com\.ilson\..*\.plist$')
+    if is_sandbox_box || [ -f "$ILSON_HOME/state/setup-pending" ]; then dir="$ILSON_HOME/launchd/rendered"; else dir="$LAUNCH_AGENTS"; fi
+    n=0
+    for p in "$dir"/com.ilson.*.plist; do [ ! -f "$p" ] || n=$((n+1)); done
     if [ "$n" -gt 0 ]; then
         ok "ilson 잡 plist" "${n}개$(is_sandbox_box && echo ' (렌더만)')"
         for p in "$dir"/com.ilson.*.plist; do plutil -lint -s "$p" >/dev/null 2>&1 || bad "plist 문법" "$(basename "$p")"; done
-        if is_sandbox_box; then skip "잡 적재(launchctl)"; else
+        if is_sandbox_box; then skip "잡 적재(launchctl)";
+        elif [ -f "$ILSON_HOME/state/setup-pending" ]; then warn "예약 업무 대기" "로그인·회사 인터뷰 후 ilson start";
+        else
             loaded=$(launchctl list 2>/dev/null | grep -c 'com\.ilson\.')
             [ "$loaded" -eq "$n" ] && ok "잡 적재" "${loaded}/${n}" || bad "잡 적재" "${loaded}/${n} (launchctl bootstrap 필요)"
         fi
@@ -146,7 +186,7 @@ check_jobs() {
 
 check_safety() {
     sec 9 "안전판"
-    [ -f "$ILSON_HOME/state/spend-cap.ack" ] && ok "API 지출 상한 확인" || warn "API 지출 상한" "Anthropic 콘솔에서 사람이 설정"
+    ok "구독 계정 사용" "설치기가 API 키를 설정하거나 유료 API를 호출하지 않음"
     [ -f "$ILSON_HOME/state/enabled.watchdog" ] && ok "워치독" || bad "워치독"
     [ -f "$ILSON_HOME/state/enabled.snapshot" ] && ok "상태 스냅샷(10분)" || bad "상태 스냅샷(10분)"
 }
@@ -155,7 +195,11 @@ doctor() {
     printf 'ilson doctor v0 — %s · %s\n' "$(hostname -s)" "$(date '+%Y-%m-%d %H:%M')"
     check_preflight; check_machine; check_tools; check_remote; check_box; check_tcc; check_jobs; check_safety
     printf '\n결과: ✅ %d · ⚠️ %d · ❌ %d\n' "$PASS" "$WARN" "$FAIL"
-    [ "$FAIL" -eq 0 ] && { echo "박스가 준비됐어요."; exit 0; }
+    if [ -f "$ILSON_HOME/state/setup-pending" ] || is_sandbox_box; then
+        echo "기본 구성만 준비됨 — 실제 업무 가동은 아직입니다."
+        exit 1
+    fi
+    [ "$FAIL" -eq 0 ] && { echo "기본 점검 통과 — 경고와 실제 업무/재부팅 시험은 별도 확인하세요."; exit 0; }
     echo "❌ 항목은 'ilson init' 이 처리하거나, 새 맥에서 손으로 할 것들이에요."
     exit 1
 }
@@ -184,27 +228,7 @@ init_step_machine() {
     if [ "$SANDBOX" = "1" ]; then skip "pmset·자동 로그인·SSH"; return; fi
     # Real mode — needs an admin password once. Each command is idempotent.
     sudo -p "관리자 비밀번호 (기계 세팅): " pmset -a sleep 0 disksleep 0 displaysleep 10 autorestart 1 womp 1 && ok "잠자기 금지·자동 재시작" || bad "pmset"
-    if [ -z "$(defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser 2>/dev/null)" ]; then
-        sudo sysadminctl -autologin set -userName "$USER" && ok "자동 로그인" "$USER" || bad "자동 로그인"
-    else ok "자동 로그인" "이미 설정"; fi
-    sudo systemsetup -setremotelogin on >/dev/null 2>&1 && ok "SSH" || warn "SSH" "systemsetup 실패"
-}
-
-init_step_tools() {
-    sec 2 "도구"
-    if [ "$SANDBOX" = "1" ]; then skip "brew install"; return; fi
-    has brew || die "Homebrew 가 없어요. https://brew.sh 한 줄 설치 후 다시."
-    for f in git jq; do has "$f" || brew install -q "$f"; done
-    [ -d /Applications/Obsidian.app ]  || brew install -q --cask obsidian
-    [ -d /Applications/Tailscale.app ] || brew install -q --cask tailscale-app
-    ok "도구 설치"
-}
-
-init_step_remote() {
-    sec 3 "원격 통로"
-    if [ "$SANDBOX" = "1" ]; then skip "tailscale up"; return; fi
-    local key; key=$(jq -r '.tailscale_authkey // empty' "$ILSON_HOME/state/pairing.json" 2>/dev/null)
-    if [ -n "$key" ] && [ -x "$TS_BIN" ]; then "$TS_BIN" up --authkey="$key" >/dev/null 2>&1 && ok "Tailscale" || bad "Tailscale up"; else warn "Tailscale" "페어링에 authkey 없음 — 앱에서 로그인"; fi
+    warn "재부팅 후 로그인" "FileVault·화면 잠금 유지. 자동 로그인·SSH는 필요할 때 별도 설정"
 }
 
 init_step_box() {
@@ -212,23 +236,26 @@ init_step_box() {
     mkdir -p "$ILSON_HOME"
     # vault/ is the customer's data: -n never overwrites an existing note on re-run.
     # lib/, .claude/, CLAUDE.md are our layer: always refreshed.
-    mkdir -p "$ILSON_HOME/vault" && cp -Rn "$TEMPLATE/vault/." "$ILSON_HOME/vault/"
-    cp -R "$TEMPLATE/lib/." "$ILSON_HOME/lib/"; chmod +x "$ILSON_HOME"/lib/*.sh
-    mkdir -p "$ILSON_HOME/.claude" && cp -R "$TEMPLATE/claude/." "$ILSON_HOME/.claude/"
-    cp "$TEMPLATE/CLAUDE.md" "$ILSON_HOME/CLAUDE.md"
-    mkdir -p "$ILSON_HOME/launchd" && cp "$TEMPLATE/launchd/jobs.conf" "$ILSON_HOME/launchd/"
-    sed -i '' "s/__TODAY__/$(date +%F)/" "$ILSON_HOME/vault/CONTEXT.md"
+    local new_context=0
+    [ -e "$ILSON_HOME/vault/CONTEXT.md" ] || new_context=1
+    # macOS cp -n reports nonzero when skipping an existing file. Copy only
+    # missing template files so reruns preserve notes and real errors still fail.
+    local src dest
+    while IFS= read -r src; do
+        dest="$ILSON_HOME/vault/${src#"$TEMPLATE/vault/"}"
+        if [ ! -e "$dest" ]; then
+            mkdir -p "$(dirname "$dest")" && cp "$src" "$dest" || return 1
+        fi
+    done < <(find "$TEMPLATE/vault" -type f)
+    cp -R "$TEMPLATE/lib/." "$ILSON_HOME/lib/" && chmod +x "$ILSON_HOME"/lib/*.sh || return 1
+    mkdir -p "$ILSON_HOME/.claude" && cp -R "$TEMPLATE/claude/." "$ILSON_HOME/.claude/" || return 1
+    cp "$TEMPLATE/CLAUDE.md" "$ILSON_HOME/CLAUDE.md" || return 1
+    mkdir -p "$ILSON_HOME/launchd" && cp "$TEMPLATE/launchd/jobs.conf" "$ILSON_HOME/launchd/" || return 1
+    if [ "$new_context" = "1" ]; then sed -i '' "s/__TODAY__/$(date +%F)/" "$ILSON_HOME/vault/CONTEXT.md" || return 1; fi
     mkdir -p "$ILSON_HOME/state" "$ILSON_HOME/logs"
     [ "$SANDBOX" = "1" ] && touch "$ILSON_HOME/state/sandbox"
-    ILSON_HOME="$ILSON_HOME" bash "$ILSON_HOME/lib/snapshot.sh" && ok "골격 복사 + 첫 스냅샷" || bad "스냅샷"
-}
-
-init_step_pair() {
-    sec 5 "페어링"
-    pair_write && ok "pairing.json" "코드 $CODE" || bad "페어링"
-    if [ "$SANDBOX" = "1" ]; then skip "텔레그램 「시작」 대기"; return; fi
-    local link; link=$(jq -r '.telegram_pair_link // empty' "$ILSON_HOME/state/pairing.json")
-    if [ -n "$link" ]; then open "$link"; warn "텔레그램" "사장님 폰에서 「시작」을 누르면 이어집니다 (v0: 대기 미구현)"; else warn "텔레그램" "페어링에 링크 없음"; fi
+    if env ILSON_HOME="$ILSON_HOME" bash "$ILSON_HOME/lib/snapshot.sh"; then ok "골격 복사 + 첫 스냅샷";
+    else bad "스냅샷"; return 1; fi
 }
 
 # pair_write — v0 has no server: code + optional --pairing-file JSON merged in.
@@ -242,16 +269,6 @@ pair_write() {
     chmod 600 "$ILSON_HOME/state/pairing.json"
 }
 
-init_step_tcc() {
-    sec 6 "권한 클릭"
-    if [ "$SANDBOX" = "1" ]; then skip "설정창 열기"; return; fi
-    for pane in Privacy_Accessibility Privacy_Automation Privacy_AllFiles; do
-        open "x-apple.systempreferences:com.apple.preference.security?$pane"
-        printf '  ▶ 열린 창에서 「터미널」을 켜고 Enter: '; read -r _
-    done
-    osascript -e 'tell application "System Events" to get name of first process' >/dev/null 2>&1 && ok "권한 확인" || warn "권한" "아직 안 잡힘 — 나중에 ilson doctor --probe-tcc"
-}
-
 init_step_jobs() {
     sec 8 "예약 업무"
     local out="$ILSON_HOME/launchd/rendered"; mkdir -p "$out"
@@ -260,54 +277,137 @@ init_step_jobs() {
         script=$(echo "$script" | xargs); args=$(echo "$args" | xargs); sched=$(echo "$sched" | xargs)
         render_plist "$job" "$script" "$args" "$sched" > "$out/com.ilson.$job.plist"
         plutil -lint -s "$out/com.ilson.$job.plist" >/dev/null || die "plist 렌더 실패: $job"
-        touch "$ILSON_HOME/state/enabled.$job"
     done < "$ILSON_HOME/launchd/jobs.conf"
     ok "plist 렌더" "$(ls "$out" | wc -l | tr -d ' ')개"
+    [ "$STAGE_ONLY" = "1" ] && { warn "예약 업무 대기" "회사 인터뷰 후 ilson start"; return 0; }
     if [ "$SANDBOX" = "1" ]; then skip "launchctl bootstrap"; return; fi
     mkdir -p "$LAUNCH_AGENTS"
     for p in "$out"/com.ilson.*.plist; do
-        cp "$p" "$LAUNCH_AGENTS/"; launchctl bootout "gui/$(id -u)" "$LAUNCH_AGENTS/$(basename "$p")" 2>/dev/null
-        launchctl bootstrap "gui/$(id -u)" "$LAUNCH_AGENTS/$(basename "$p")" || bad "적재" "$(basename "$p")"
+        local label; label=$(basename "$p" .plist)
+        # Resuming after a partial start must not restart already running jobs.
+        if ! launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1; then
+            cp "$p" "$LAUNCH_AGENTS/" || return 1
+            launchctl bootstrap "gui/$(id -u)" "$LAUNCH_AGENTS/$(basename "$p")" || { bad "적재" "$label"; return 1; }
+        fi
+        touch "$ILSON_HOME/state/enabled.${label#com.ilson.}"
     done
     ok "launchd 적재"
 }
 
-init_step_safety() {
-    sec 9 "안전판"
-    if [ "$SANDBOX" = "1" ]; then echo "sandbox" > "$ILSON_HOME/state/spend-cap.ack"; skip "콘솔 링크"; return; fi
-    open "https://console.anthropic.com/settings/limits"
-    printf '  ▶ 월 지출 상한을 정하고 Enter: '; read -r _; date > "$ILSON_HOME/state/spend-cap.ack"; ok "지출 상한 확인"
+# Fresh machines need tools before preflight can check them. Keep all privileged
+# configuration behind the explicit --configure-machine option; never weaken
+# FileVault or login security to turn a warning green.
+setup_tools() {
+    sec 2 "필수 도구 자동 설치"
+    [ "$SANDBOX" = "1" ] && { skip "도구 설치"; return 0; }
+    export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+    if ! has brew; then
+        [ -t 0 ] || { bad "Homebrew 설치 대기" "새 맥의 대화형 터미널에서 ilson setup 실행"; return 1; }
+        local brew_script; brew_script=$(mktemp) || return 1
+        if ! curl -fsSL --connect-timeout 10 --max-time 120 https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o "$brew_script"; then
+            rm -f "$brew_script"; bad "Homebrew 내려받기 실패"; return 1
+        fi
+        /bin/bash "$brew_script"; local rc=$?; rm -f "$brew_script"
+        [ "$rc" -eq 0 ] && has brew || { bad "Homebrew 설치 실패"; return 1; }
+    fi
+    local formula executable
+    for formula in git jq gh coreutils; do
+        executable="$formula"; [ "$formula" = coreutils ] && executable=gtimeout
+        if ! has "$executable"; then
+            brew install "$formula" || { bad "$formula 설치 실패"; return 1; }
+        fi
+    done
+    for executable in claude codex; do
+        if ! has "$executable"; then
+            local url installer
+            case "$executable" in
+                claude) url=https://claude.ai/install.sh ;;
+                codex) url=https://chatgpt.com/codex/install.sh ;;
+            esac
+            installer=$(mktemp) || return 1
+            if ! curl -fsSL --connect-timeout 10 --max-time 120 "$url" -o "$installer"; then
+                rm -f "$installer"; bad "$executable 내려받기 실패"; return 1
+            fi
+            /bin/bash "$installer"; local rc=$?; rm -f "$installer"
+            [ "$rc" -eq 0 ] && has "$executable" || { bad "$executable 설치 실패"; return 1; }
+        fi
+    done
+    if [ ! -d /Applications/Obsidian.app ] && [ ! -d "$HOME/Applications/Obsidian.app" ]; then
+        brew install --cask obsidian || { bad "Obsidian 설치 실패"; return 1; }
+    fi
+    if [ ! -d /Applications/Tailscale.app ] && [ ! -d "$HOME/Applications/Tailscale.app" ]; then
+        brew install --cask tailscale-app || { bad "Tailscale 설치 실패"; return 1; }
+    fi
+    TS_BIN=/Applications/Tailscale.app/Contents/MacOS/Tailscale
+    [ -x "$TS_BIN" ] || TS_BIN="$HOME/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+    ok "도구 설치 확인"
 }
 
-init_step_onboard() {
-    sec 10 "첫 출근 인터뷰"
-    if [ "$SANDBOX" = "1" ] && [ "$WITH_CLAUDE" = "0" ]; then skip "claude /onboard (--with-claude 로 실행)"; return; fi
-    printf '  ▶ Claude 가 열립니다. 사장님과 대화가 끝나면 /exit 로 나오세요. Enter: '; read -r _
-    (cd "$ILSON_HOME" && claude "/onboard")
-    ok "인터뷰 세션 종료"
+setup() {
+    printf '일손 Box 기본 설치 — %s\n' "$ILSON_HOME"
+    [ "$(uname -s)" = Darwin ] || die "macOS 전용입니다"
+    [ "$(uname -m)" = arm64 ] || die "Apple Silicon 맥미니가 필요합니다"
+    [ -f "$TEMPLATE/CLAUDE.md" ] || die "설치본에 template 이 없습니다 — CLI를 다시 설치하세요"
+    setup_tools || return 1
+    if [ "$CONFIGURE_MACHINE" = "1" ]; then
+        if [ "$SANDBOX" = "0" ] && [ ! -t 0 ]; then
+            bad "전원 설정 대기" "대화형 터미널에서 ilson setup --configure-machine"; return 1
+        fi
+        init_step_machine
+        [ "$FAIL" -eq 0 ] || return 1
+    fi
+    init_step_box || return 1
+    # Re-running setup preserves the identity and credentials already on this box.
+    if [ -n "$CODE" ] || [ -n "$PAIRING_FILE" ]; then
+        [ ! -e "$ILSON_HOME/state/pairing.json" ] || die "연결 설정이 이미 있습니다 — 변경은 ilson pair 에서 명시하세요"
+        pair_write || return 1
+    fi
+    if [ ! -f "$ILSON_HOME/state/setup-complete" ]; then touch "$ILSON_HOME/state/setup-pending"; fi
+    STAGE_ONLY=1
+    init_step_jobs || return 1
+    printf '\n기본 설치 완료. 예약 업무는 아직 새로 시작하지 않았습니다.\n'
+    [ "$SANDBOX" = "1" ] && { echo '샌드박스: 로그인·시스템 설정·서비스 실행 생략'; return 0; }
+    printf '\n사람이 마칠 단계:\n'
+    claude_logged_in || printf '  • claude 실행 → 본인 구독 계정으로 로그인\n'
+    printf '  • codex 실행 → 본인 ChatGPT 계정으로 로그인 (Box 정기 업무는 Claude 사용)\n'
+    printf '  • Tailscale 앱 로그인 및 연결 확인\n'
+    printf '  • cd "%s" 후 claude /onboard → 폴더 신뢰 확인과 회사 인터뷰\n' "$ILSON_HOME"
+    printf '  • Obsidian 에서 "%s/vault" 폴더 열기\n' "$ILSON_HOME"
+    printf '  • 상시 전원 설정: ilson setup --configure-machine (관리자 비밀번호 필요)\n'
+    printf '  • 회사 정보 준비 후 ilson start 로 예약 업무 시작\n'
+    printf '  • 텔레그램·Aside 및 macOS 권한은 해당 기능 연결 시 설정\n'
+    check_remote
+    if [ "$FAIL" -gt 0 ]; then
+        printf '\n기본 파일 설치는 완료됐지만 연결 확인은 실패했습니다. 위 항목을 해결하세요.\n'
+        return 1
+    fi
 }
 
-init_step_accept() {
-    sec 11 "인수 시험"
-    if [ "$SANDBOX" = "1" ] && [ "$WITH_CLAUDE" = "0" ]; then skip "브리핑 1회 실발송 (--with-claude)"; return; fi
-    ILSON_HOME="$ILSON_HOME" bash "$ILSON_HOME/lib/run-job.sh" briefing && ok "브리핑 발송" "텔레그램 확인" || bad "브리핑"
-}
-
-init() {
-    [ -n "$CODE" ] || die "사용법: ilson init --code XXXX-XXXX [--sandbox]"
-    printf 'ilson init v0 — %s · 코드 %s%s\n' "$ILSON_HOME" "$CODE" "$( [ "$SANDBOX" = "1" ] && echo ' · 샌드박스')"
-    check_preflight
-    init_step_machine; init_step_tools; init_step_box; init_step_pair; init_step_remote
-    init_step_tcc; init_step_jobs; init_step_safety; init_step_onboard; init_step_accept
-    printf '\n완료: ✅ %d · ⚠️ %d · ❌ %d — 확인: ILSON_HOME=%s ilson doctor\n' "$PASS" "$WARN" "$FAIL" "$ILSON_HOME"
-    [ "$FAIL" -eq 0 ]
+start_jobs() {
+    [ "$SANDBOX" = "0" ] && ! is_sandbox_box || die "샌드박스에서는 실제 예약 업무를 켜지 않습니다"
+    [ -f "$ILSON_HOME/CLAUDE.md" ] || die "먼저 ilson setup 을 실행하세요"
+    claude_logged_in || die "Claude 로그인 확인 실패 — 로그인 후 다시 시도하세요"
+    has gtimeout || die "업무 시간 제한 도구가 없습니다 — ilson setup 을 다시 실행하세요"
+    jq -e --arg p "$ILSON_HOME" '.projects[$p].hasTrustDialogAccepted == true' "$HOME/.claude.json" >/dev/null 2>&1 ||
+        die "박스 폴더에서 claude 를 열어 폴더 신뢰를 확인하세요"
+    local company
+    company=$(sed -n 's/^- 회사명: *//p' "$ILSON_HOME/vault/CONTEXT.md" | head -1)
+    case "$company" in ''|'('* ) die "회사 정보가 비어 있습니다 — 박스 폴더에서 claude /onboard 를 실행하세요" ;; esac
+    STAGE_ONLY=0
+    init_step_jobs || return 1
+    rm -f "$ILSON_HOME/state/setup-pending"
+    touch "$ILSON_HOME/state/setup-complete"
+    ok "예약 업무 시작" "실제 결과와 재부팅 복구는 이후 확인하세요"
+    [ -f "$ILSON_HOME/state/pairing.json" ] || warn "텔레그램 미연결" "보고서는 볼트에 저장됩니다. 알림 전송은 별도 연결 필요"
 }
 
 usage() {
     cat <<'EOF'
 사용법: ilson <명령> [옵션]
   doctor [--probe-tcc]                          박스 상태를 읽기 전용으로 점검
-  init --code <코드> [--sandbox] [--with-claude] 한 줄 온보딩 (샌드박스: $ILSON_HOME 밖은 안 건드림)
+  setup [--configure-machine] [--sandbox]      도구·볼트·예약 파일 구성 (로그인은 직접)
+  init                                        setup 과 같은 명령 (코드 없이 로컬 사용 가능)
+  start                                       로그인·회사 정보 확인 후 예약 업무 시작
   pair --code <코드> [--pairing-file <json>]     페어링 파일 (다시) 쓰기
   update                                        우리 레이어 업데이트
 EOF
@@ -318,7 +418,8 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --probe-tcc) PROBE_TCC=1 ;;
         --sandbox) SANDBOX=1 ;;
-        --with-claude) WITH_CLAUDE=1 ;;
+        --with-claude) die "자동 LLM 실행 대신 박스 폴더에서 claude /onboard 를 실행하세요" ;;
+        --configure-machine) CONFIGURE_MACHINE=1 ;;
         --code) CODE="${2:-}"; shift ;;
         --pairing-file) PAIRING_FILE="${2:-}"; shift ;;
         *) echo "모르는 옵션: $1" >&2; usage; exit 2 ;;
@@ -326,8 +427,9 @@ while [ $# -gt 0 ]; do
 done
 case "$cmd" in
     doctor) doctor ;;
-    init)   init ;;
+    setup|init) setup ;;
+    start) start_jobs ;;
     pair)   [ -n "$CODE" ] || die "ilson pair --code XXXX"; pair_write && echo "pairing.json 갱신"; ;;
-    update) [ -x "$ILSON_HOME/lib/update.sh" ] || die "박스가 없어요 ($ILSON_HOME)"; ILSON_HOME="$ILSON_HOME" bash "$ILSON_HOME/lib/update.sh" ;;
+    update) [ -x "$ILSON_HOME/lib/update.sh" ] || die "박스가 없어요 ($ILSON_HOME)"; env ILSON_HOME="$ILSON_HOME" bash "$ILSON_HOME/lib/update.sh" ;;
     *) usage; exit 2 ;;
 esac

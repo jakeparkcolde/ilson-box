@@ -1,19 +1,20 @@
 #!/bin/sh
 # ilson installer — the one line a customer pastes into Terminal.
 #
-#   curl -fsSL https://<host>/install.sh | sh
-#   curl -fsSL https://<host>/install.sh | sh -s -- --code ABCD-1234
+#   curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/install.sh | sh
+#   sh install.sh --cli-only  # only install the CLI, without setup
 #
-# What it does (no sudo, no password):
+# What it does (setup may prompt for Homebrew admin privileges):
 #   1. preflight   macOS · Apple Silicon · curl · tar
 #   2. fetch       ilson CLI + template/ (they must stay together — ilson reads $SELF_DIR/template)
 #   3. install     -> $CLI_DIR (default ~/.ilson-cli), kept apart from the box itself (~/ilson)
 #   4. link        -> $BIN_DIR/ilson (default ~/.local/bin), PATH appended to ~/.zprofile if missing
-#   5. next        prints `ilson init --code XXXX-XXXX`, or runs it when --code was given
+#   5. setup       install tools and stage the box; authentication stays interactive
 #
 # Sources, in order of precedence:
 #   ILSON_SRC        local directory or tarball  (testing today, before a host exists)
-#   ILSON_DIST_BASE  https base serving ilson-<version>.tar.gz  (production, host TBD)
+#   ILSON_DIST_BASE  optional custom https base serving ilson-<version>.tar.gz
+#   otherwise       public GitHub source archive (ILSON_SOURCE_REF, default main)
 #
 # Design: coldbyte-vault wiki/plans/2026-09-05-ilson-init-원커맨드-온보딩-설계.md
 # User-facing strings are Korean on purpose; code comments stay English.
@@ -21,14 +22,15 @@
 set -eu
 
 # --- knobs ------------------------------------------------------------------
-ILSON_DIST_BASE="${ILSON_DIST_BASE:-}"          # TODO: fill in when the download host is decided
+ILSON_DIST_BASE="${ILSON_DIST_BASE:-}"          # optional custom distribution host
 ILSON_SRC="${ILSON_SRC:-}"                      # local dir or .tar.gz — wins over ILSON_DIST_BASE
 ILSON_VERSION="${ILSON_VERSION:-latest}"
 CLI_DIR="${ILSON_CLI_DIR:-$HOME/.ilson-cli}"
 BIN_DIR="${ILSON_BIN_DIR:-$HOME/.local/bin}"
 BOX_HOME="${ILSON_HOME:-$HOME/ilson}"           # the box itself — must never be the CLI dir
 CODE=""
-PASS_SANDBOX=""                                 # forwarded to `ilson init` — safe rehearsal
+PASS_SANDBOX=""                                 # forwarded to `ilson setup` — safe rehearsal
+CLI_ONLY=0
 TMP=""
 
 # --- output helpers ---------------------------------------------------------
@@ -45,6 +47,7 @@ while [ $# -gt 0 ]; do
         --code)    CODE="${2:-}"; shift ;;
         --dir)     CLI_DIR="${2:-}"; shift ;;
         --sandbox) PASS_SANDBOX="--sandbox" ;;
+        --cli-only) CLI_ONLY=1 ;;
         *) die "모르는 옵션: $1" ;;
     esac
     shift
@@ -106,8 +109,14 @@ elif [ -n "$ILSON_DIST_BASE" ]; then
         || tar -xzf "$TMP/ilson.tar.gz" -C "$STAGE"
     ok "$URL"
 else
-    die "받아올 주소가 없습니다. 배포 주소가 정해지기 전에는 ILSON_SRC 로 시험하세요:
-     ILSON_SRC=/경로/ilson-box sh install.sh"
+    # Public source archive: no GitHub login, Git or pairing code is needed.
+    REF="${ILSON_SOURCE_REF:-main}"
+    curl -fsSL --connect-timeout 10 --max-time 120 \
+        "https://codeload.github.com/jakeparkcolde/ilson-box/tar.gz/$REF" \
+        -o "$TMP/ilson.tar.gz" || die "GitHub 다운로드 실패 — 연결 확인 후 다시 실행하세요"
+    tar -xzf "$TMP/ilson.tar.gz" -C "$STAGE" --strip-components 1 \
+        || die "GitHub 설치 묶음을 풀 수 없습니다"
+    ok "GitHub 일손 Box 소스 다운로드"
 fi
 
 # The CLI and its template are one unit — a half-copy would fail later, inside init.
@@ -151,23 +160,20 @@ esac
 # --- 5. next ----------------------------------------------------------------
 printf '\n설치 끝 — %s\n' "$("$CLI_DIR/ilson" 2>/dev/null | head -1 || echo 'ilson')"
 
-if [ -n "$CODE" ]; then
-    printf '\n이어서 박스를 짓습니다 (코드 %s%s)\n\n' "$CODE" \
-        "$( [ -n "$PASS_SANDBOX" ] && echo ' · 샌드박스' )"
-    if [ -n "$PASS_SANDBOX" ]; then
-        exec "$CLI_DIR/ilson" init --code "$CODE" --sandbox
-    fi
-    exec "$CLI_DIR/ilson" init --code "$CODE"
+if [ "$CLI_ONLY" = "1" ]; then
+    say "CLI만 설치했습니다. 기본 구성 시작: $CLI_DIR/ilson setup"
+    exit 0
 fi
 
-cat <<EOF
-
-다음 한 줄을 실행하세요 (설치 안내문에 적힌 코드로):
-
-    ilson init --code XXXX-XXXX
-
-먼저 상태만 보고 싶으면:
-
-    ilson doctor
-
-EOF
+printf '\n이어서 도구와 박스 기본 구성을 준비합니다.\n'
+set -- "$CLI_DIR/ilson" setup
+[ -z "$CODE" ] || set -- "$@" --code "$CODE"
+[ -z "$PASS_SANDBOX" ] || set -- "$@" --sandbox
+# Do not exec here: the installer EXIT trap must clean its download directory.
+# curl | sh has a pipe on stdin. Use a controlling terminal when available,
+# otherwise setup reports steps that require a person and exits without waiting.
+if [ -z "$PASS_SANDBOX" ] && ( : </dev/tty ) 2>/dev/null; then
+    "$@" </dev/tty
+else
+    "$@"
+fi

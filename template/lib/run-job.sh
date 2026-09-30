@@ -18,7 +18,9 @@ log "$name" "start (max_turns=$MAX_TURNS timeout=${TIMEOUT_S}s)"
 # and vault/ are in scope. acceptEdits auto-approves file edits inside the box
 # (path-pattern allow rules in settings.json were NOT honored in -p mode — measured
 # 2026-09-05); everything else still follows settings.json deny rules.
-if command -v timeout >/dev/null 2>&1; then T="timeout $TIMEOUT_S"; else T=""; fi
+if command -v gtimeout >/dev/null 2>&1; then T="gtimeout $TIMEOUT_S";
+elif command -v timeout >/dev/null 2>&1; then T="timeout $TIMEOUT_S";
+else log "$name" "FAILED: timeout tool missing — run ilson setup"; exit 1; fi
 if $T claude -p "/$name $today" --max-turns "$MAX_TURNS" --output-format text --permission-mode acceptEdits > "$out" 2>"$LOGS/$name.$today.err"; then
     mark_run "$name"
     log "$name" "ok ($(wc -c < "$out" | tr -d ' ') bytes)"

@@ -6,9 +6,12 @@
 source "$(dirname "$0")/common.sh"
 
 cd "$ILSON_HOME" || exit 1
-[ -d .git ] || { git init -q && printf 'logs/\nstate/pairing.json\n' > .gitignore; }
-git add -A vault state .gitignore 2>/dev/null
+[ -d .git ] || { git init -q && printf 'logs/\nstate/pairing.json\n' > .gitignore; } || exit 1
+git add -A vault state .gitignore || exit 1
 if ! git diff --cached --quiet; then
-    git commit -q -m "snapshot $(date '+%Y-%m-%d %H:%M')" && log snapshot "committed"
+    # Box-local backup must work before a person configures their Git identity.
+    git -c user.name='Ilson Box' -c user.email='ilson@localhost' -c commit.gpgsign=false \
+        commit -q -m "snapshot $(date '+%Y-%m-%d %H:%M')" || { log snapshot "commit failed"; exit 1; }
+    log snapshot "committed"
 fi
 mark_run snapshot
