@@ -8,6 +8,7 @@ import tarfile
 import shlex
 import subprocess
 import sys
+import shutil
 import tempfile
 import unittest
 
@@ -235,6 +236,78 @@ except subprocess.TimeoutExpired:
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("설치 실패", r.stdout)
         self.assertNotIn("도구 설치 확인", r.stdout)
+
+    def test_관리대화는_박스에서_auto로_시작하고_권한우회하지않는다(self):
+        self.install()
+        (self.box / "state/sandbox").unlink()
+        r = self.shell('''claude() {
+            [ "$PWD" = "$ILSON_HOME" ] || return 41
+            [ "$*" = "--permission-mode auto" ] || return 42
+        }; chat_box''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_재설치가_사용자_예약설정을_덮어쓰지않는다(self):
+        self.install()
+        config = self.box / "launchd/jobs.conf"
+        custom = config.read_text() + '\nresearch | run-job.sh | research | daily 07:30\n'
+        config.write_text(custom)
+        r = self.shell(f'TEMPLATE="{ROOT}/template"; SANDBOX=1; init_step_box')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(config.read_text(), custom)
+
+    def run_job(self, missing_policy=False, denied=False):
+        shutil.copytree(ROOT / "template", self.box)
+        (self.box / "claude").rename(self.box / ".claude")
+        if missing_policy:
+            (self.box / "lib/job-settings.json").unlink(missing_ok=True)
+        # 알림과 LLM 호출은 모두 가짜 실행기로 대체한다.
+        (self.box / "lib/notify.sh").write_text('#!/bin/sh\ncat >/dev/null\n')
+        (self.box / "lib/notify.sh").chmod(0o700)
+        fakebin = self.base / "job-bin"
+        fakebin.mkdir()
+        capture = self.base / "claude-call.json"
+        claude = fakebin / "claude"
+        result = {"is_error": False, "result": "시험 보고서", "permission_denials": []}
+        if denied:
+            result["permission_denials"] = [{"tool_name": "Bash"}]
+        claude.write_text('#!' + sys.executable + '\nimport json,sys\n'
+                          + 'from pathlib import Path\nPath(' + repr(str(capture))
+                          + ').write_text(json.dumps(sys.argv[1:]))\nprint(' + repr(json.dumps(result)) + ')\n')
+        claude.chmod(0o700)
+        timer = fakebin / "gtimeout"
+        timer.write_text('#!/bin/sh\nshift 3\nexec "$@"\n')
+        timer.chmod(0o700)
+        r = subprocess.run(['bash', str(self.box / 'lib/run-job.sh'), 'briefing'],
+                           env=dict(self.env, PATH=str(fakebin) + ':' + os.environ['PATH']),
+                           capture_output=True, text=True, timeout=5)
+        return r, capture
+
+    def test_예약업무는_사용자와_프로젝트권한을_상속하지않는다(self):
+        r, capture = self.run_job()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        args = json.loads(capture.read_text())
+        self.assertEqual(args[args.index('--setting-sources') + 1], '')
+        self.assertEqual(args[args.index('--permission-mode') + 1], 'dontAsk')
+        self.assertEqual(args[args.index('--settings') + 1], str(self.box / 'lib/job-settings.json'))
+        self.assertIn('--strict-mcp-config', args)
+        self.assertIn('--safe-mode', args)
+        self.assertIn('--disable-slash-commands', args)
+        self.assertNotIn('--bare', args)  # 구독 로그인 보존
+        self.assertNotIn('--dangerously-skip-permissions', args)
+        self.assertNotIn('Agent', args[args.index('--tools') + 1].split(','))
+        self.assertTrue((self.box / 'state/last-run.briefing').exists())
+
+    def test_예약권한파일_없으면_관리권한으로_대체실행하지않는다(self):
+        r, capture = self.run_job(missing_policy=True)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertFalse(capture.exists())
+        self.assertFalse((self.box / 'state/last-run.briefing').exists())
+
+    def test_예약도구거절은_종료0이어도_성공으로_기록하지않는다(self):
+        r, capture = self.run_job(denied=True)
+        self.assertTrue(capture.exists())
+        self.assertNotEqual(r.returncode, 0)
+        self.assertFalse((self.box / 'state/last-run.briefing').exists())
 
     def test_스냅샷_커밋실패에_성공시각을_찍지않는다(self):
         self.install()

@@ -21,7 +21,9 @@ fi
 
 if [ "$before" != "$after" ]; then
     cp -R "$src/template/lib/." "$ILSON_HOME/lib/"
-    cp -R "$src/template/claude/commands/." "$ILSON_HOME/.claude/commands/"
+    # Permissions/skills are part of our layer too. Custom commands and the
+    # customer's settings.local.json remain; no source file overwrites them.
+    cp -R "$src/template/claude/." "$ILSON_HOME/.claude/"
     cp "$src/template/CLAUDE.md" "$ILSON_HOME/CLAUDE.md"
     log update "applied $before → $after"
     printf '일손 업데이트 적용: %s → %s' "$before" "$after" | "$LIB_DIR/notify.sh" update

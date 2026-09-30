@@ -10,17 +10,21 @@
       "Read",
       "Glob",
       "Grep",
-      "Edit(vault/**)",
-      "Write(vault/**)",
+      "Edit",
+      "Write",
+      "WebSearch",
+      "WebFetch",
       "Bash(git status:*)",
       "Bash(git log:*)",
       "Bash(date:*)",
       "Bash(bash lib/search.sh *)"
     ],
+    "ask": [
+      "Bash(sudo *)",
+      "Bash(rm *)",
+      "Bash(rmdir *)"
+    ],
     "deny": [
-      "Bash(curl:*)",
-      "Bash(rm:*)",
-      "Bash(sudo:*)",
       "Read(**/pairing.json)",
       "Read(**/.env)"
     ]

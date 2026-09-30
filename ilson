@@ -313,7 +313,11 @@ init_step_box() {
     cp -R "$TEMPLATE/lib/." "$ILSON_HOME/lib/" && chmod +x "$ILSON_HOME"/lib/*.sh || return 1
     mkdir -p "$ILSON_HOME/.claude" && cp -R "$TEMPLATE/claude/." "$ILSON_HOME/.claude/" || return 1
     cp "$TEMPLATE/CLAUDE.md" "$ILSON_HOME/CLAUDE.md" || return 1
-    mkdir -p "$ILSON_HOME/launchd" && cp "$TEMPLATE/launchd/jobs.conf" "$ILSON_HOME/launchd/" || return 1
+    mkdir -p "$ILSON_HOME/launchd" || return 1
+    # User-approved schedules belong to the box; updates must not reset them.
+    if [ ! -e "$ILSON_HOME/launchd/jobs.conf" ]; then
+        cp "$TEMPLATE/launchd/jobs.conf" "$ILSON_HOME/launchd/" || return 1
+    fi
     if [ "$new_context" = "1" ]; then sed -i '' "s/__TODAY__/$(date +%F)/" "$ILSON_HOME/vault/CONTEXT.md" || return 1; fi
     mkdir -p "$ILSON_HOME/state" "$ILSON_HOME/logs"
     [ "$SANDBOX" = "1" ] && touch "$ILSON_HOME/state/sandbox"
@@ -454,6 +458,7 @@ setup() {
     printf '  • Obsidian 에서 "%s/vault" 폴더 열기\n' "$ILSON_HOME"
     printf '  • 상시 전원 설정: ilson setup --configure-machine (관리자 비밀번호 필요)\n'
     printf '  • 회사 정보 준비 후 ilson start 로 예약 업무 시작\n'
+    printf '  • 이후 설치·설정·업무 요청은 ilson chat (관리용 자동 심사 모드)\n'
     printf '  • 텔레그램·Aside 및 macOS 권한은 해당 기능 연결 시 설정\n'
     printf '  • 웹 검색: ilson doctor --probe-search (공개 검색 1회). 예약 검색은 이 기기에서 tvly login 후 점검 권장\n'
     check_remote
@@ -461,6 +466,16 @@ setup() {
         printf '\n기본 설치는 완료됐습니다. 원격 연결은 위 안내에 따라 확인한 뒤 ilson doctor 로 다시 점검하세요.\n'
     fi
     return 0
+}
+
+chat_box() {
+    [ "$SANDBOX" = 0 ] && ! is_sandbox_box || die "샌드박스에서는 관리 대화를 실행하지 않습니다"
+    [ -f "$ILSON_HOME/CLAUDE.md" ] || die "먼저 ilson setup 을 실행하세요"
+    has claude || die "Claude가 없습니다 — ilson setup 을 실행하세요"
+    cd "$ILSON_HOME" || return 1
+    # Explicit mode: project defaultMode:auto is not sufficient on all builds.
+    # No global settings mutation or bypass fallback if auto is unavailable.
+    claude --permission-mode auto
 }
 
 start_jobs() {
@@ -488,6 +503,7 @@ usage() {
   setup [--configure-machine] [--sandbox]      도구·볼트·예약 파일 구성 (로그인은 직접)
   init                                        setup 과 같은 명령 (코드 없이 로컬 사용 가능)
   start                                       로그인·회사 정보 확인 후 예약 업무 시작
+  chat                                        설치·관리까지 가능한 대화 (auto 자동 심사)
   pair --code <코드> [--pairing-file <json>]     페어링 파일 (다시) 쓰기
   update                                        우리 레이어 업데이트
 EOF
@@ -510,6 +526,7 @@ case "$cmd" in
     doctor) doctor ;;
     setup|init) setup ;;
     start) start_jobs ;;
+    chat) chat_box ;;
     pair)   [ -n "$CODE" ] || die "ilson pair --code XXXX"; pair_write && echo "pairing.json 갱신"; ;;
     update) [ -x "$ILSON_HOME/lib/update.sh" ] || die "박스가 없어요 ($ILSON_HOME)"; env ILSON_HOME="$ILSON_HOME" bash "$ILSON_HOME/lib/update.sh" ;;
     *) usage; exit 2 ;;

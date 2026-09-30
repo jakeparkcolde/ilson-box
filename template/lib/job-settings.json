@@ -1,0 +1,21 @@
+{
+  "model": "sonnet",
+  "disableAllHooks": true,
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "allow": [
+      "Read", "Glob", "Grep",
+      "Edit(./vault/**)", "Write(./vault/**)",
+      "WebSearch", "WebFetch",
+      "Bash(date)", "Bash(bash lib/search.sh *)"
+    ],
+    "deny": [
+      "Read(**/pairing.json)", "Read(**/.env*)",
+      "Edit(./lib/**)", "Write(./lib/**)",
+      "Edit(./.claude/**)", "Write(./.claude/**)",
+      "Edit(./launchd/**)", "Write(./launchd/**)",
+      "Edit(./state/**)", "Write(./state/**)",
+      "Edit(./CLAUDE.md)", "Write(./CLAUDE.md)"
+    ]
+  }
+}

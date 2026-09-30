@@ -1,11 +1,12 @@
 #!/bin/bash
 # run-job.sh <command-name> — run one headless Claude job and deliver its output.
-#   command-name ∈ briefing | weekly | tidy  (a file in ~/.claude/commands/ or $ILSON_HOME/claude/commands/)
+#   command-name identifies a file in $ILSON_HOME/.claude/commands/.
 # Guards: max turns, wall-clock timeout, output cap, failure notification. Never prompts.
 
 source "$(dirname "$0")/common.sh"
 
 name="${1:?command name}"
+[[ "$name" =~ ^[a-z][a-z0-9_-]*$ ]] || { printf '잘못된 업무명\n' >&2; exit 2; }
 today=$(date '+%Y-%m-%d')
 out="$LOGS/$name.$today.out"
 MAX_TURNS="${ILSON_MAX_TURNS:-12}"
@@ -14,14 +15,44 @@ TIMEOUT_S="${ILSON_JOB_TIMEOUT:-600}"
 cd "$ILSON_HOME" || exit 1
 log "$name" "start (max_turns=$MAX_TURNS timeout=${TIMEOUT_S}s)"
 
-# claude -p runs the slash command non-interactively; cwd is the box so CLAUDE.md
-# and vault/ are in scope. acceptEdits auto-approves file edits inside the box
-# (path-pattern allow rules in settings.json were NOT honored in -p mode — measured
-# 2026-09-05); everything else still follows settings.json deny rules.
-if command -v gtimeout >/dev/null 2>&1; then T="gtimeout $TIMEOUT_S";
-elif command -v timeout >/dev/null 2>&1; then T="timeout $TIMEOUT_S";
+# 2026-09-05: vault path allows failed in -p; acceptEdits was the workaround.
+# 2026-10-01: manager edits are broader now, so that workaround would also
+# auto-approve code changes. Use a separate dontAsk profile and surface denied
+# tools as failed jobs. Actual vault writes still need a new-Mac smoke test.
+policy="$LIB_DIR/job-settings.json"
+rules="$LIB_DIR/job-rules.md"
+task_file="$ILSON_HOME/.claude/commands/$name.md"
+if [ ! -f "$policy" ] || [ ! -f "$rules" ] || [ ! -f "$task_file" ] ||
+    ! jq -e '.permissions.defaultMode == "dontAsk" and .disableAllHooks == true' "$policy" >/dev/null 2>&1; then
+    log "$name" 'FAILED: missing/invalid scheduled-job configuration — run ilson setup'
+    printf '예약 업무 설정이 없거나 잘못되었습니다. ilson setup 을 실행하세요.\n' >&2
+    exit 1
+fi
+task=$(cat "$task_file") || exit 1
+task="${task//\$ARGUMENTS/$today}"
+if command -v gtimeout >/dev/null 2>&1; then T=(gtimeout -k 5 "$TIMEOUT_S");
+elif command -v timeout >/dev/null 2>&1; then T=(timeout -k 5 "$TIMEOUT_S");
 else log "$name" "FAILED: timeout tool missing — run ilson setup"; exit 1; fi
-if $T claude -p "/$name $today" --max-turns "$MAX_TURNS" --output-format text --permission-mode acceptEdits > "$out" 2>"$LOGS/$name.$today.err"; then
+raw=$(mktemp) || exit 1
+trap 'rm -f "$raw"' EXIT
+# Do not use --bare: it disables subscription OAuth/keychain authentication.
+# Disable user/project/local settings, skills, hooks, and MCP inheritance.
+# Explicit tools exclude subagents and interactive questions. Managed policies
+# still apply; this is permission separation, not an OS security sandbox.
+if "${T[@]}" claude --safe-mode -p "$task" --max-turns "$MAX_TURNS" --output-format json \
+    --permission-mode dontAsk --setting-sources '' --settings "$policy" \
+    --disable-slash-commands --strict-mcp-config --mcp-config '{"mcpServers":{}}' \
+    --disallowedTools 'mcp__*' \
+    --tools 'Read,Glob,Grep,Edit,Write,Bash,WebSearch,WebFetch' \
+    --append-system-prompt-file "$rules" > "$raw" 2>"$LOGS/$name.$today.err"; then
+    if ! jq -e '.is_error == false and ((.permission_denials // []) | length == 0) and
+        (.result | type == "string" and length > 0)' "$raw" >/dev/null 2>&1; then
+        log "$name" 'FAILED: permission denied, incomplete job, or invalid result'
+        printf '예약 업무 미완료: 권한 거절 또는 응답 오류. 관리 대화에서 확인하세요.\n' > "$out"
+        "$LIB_DIR/notify.sh" "$name" --fail < "$out"
+        exit 1
+    fi
+    jq -r '.result' "$raw" > "$out" || exit 1
     mark_run "$name"
     log "$name" "ok ($(wc -c < "$out" | tr -d ' ') bytes)"
     "$LIB_DIR/notify.sh" "$name" < "$out"
