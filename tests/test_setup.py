@@ -102,6 +102,45 @@ class SetupTests(unittest.TestCase):
         self.assertTrue((self.box / ".claude/skills/ilson-search/SKILL.md").is_file())
         self.assertTrue((self.box / "lib/search.sh").is_file())
 
+    def test_텔레그램_연결도구가_설치되지만_샌드박스는_연결하지않는다(self):
+        bin_dir, env = self.install()
+        self.assertTrue((self.box / "lib/telegram-setup.py").is_file())
+        r = subprocess.run([str(bin_dir / "ilson"), "telegram", "connect"],
+                           env=env, text=True, capture_output=True, timeout=5)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("샌드박스", r.stdout + r.stderr)
+        self.assertFalse((self.box / "state/pairing.json").exists())
+
+    def test_텔레그램_명령이_설치된_박스와_조회옵션을_전달한다(self):
+        bin_dir, env = self.install()
+        module = self.box / "lib/telegram-setup.py"
+        module.write_text('import json,sys\nprint(json.dumps(sys.argv[1:]))\n')
+        r = subprocess.run([str(bin_dir / "ilson"), "telegram", "status", "--verify"],
+                           env=env, text=True, capture_output=True, timeout=5)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(json.loads(r.stdout), ["status", "--verify", "--home", str(self.box)])
+
+    def test_텔레그램_대화번호만_있으면_설정완료가_아니다(self):
+        (self.box / "state").mkdir(parents=True)
+        (self.box / "state/pairing.json").write_text(json.dumps({"telegram_chat_id": 123}))
+        r = self.shell('telegram_configured')
+        self.assertNotEqual(r.returncode, 0)
+
+    def test_텔레그램_선택연결_오류는_기본설치_실패와_구분한다(self):
+        r = self.shell('telegram_box() { return 42; }; setup_telegram')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("텔레그램 연결 대기", r.stdout)
+        self.assertIn("ilson telegram connect", r.stdout)
+
+    def test_텔레그램에_필요한_Python이_없으면_설치한다(self):
+        r = self.shell('''installed=0
+has() { [ "$1" != python3 ]; }
+brew() { if [ "$*" = 'install python' ]; then installed=1; fi; return 0; }
+setup_search_tools() { return 0; }
+setup_tools && [ "$installed" = 1 ]
+''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
     def test_검색도구_없으면_설치하고_있으면_재사용한다(self):
         r = self.shell('''installed=0; calls=0
 has() { [ "$1" = uv ] || { [ "$1" = tvly ] && [ "$installed" = 1 ]; }; }
@@ -382,6 +421,8 @@ except subprocess.TimeoutExpired:
                        'setup_tools() { return 0; }; claude_logged_in() { return 1; }; setup')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("로그인 대기", r.stdout)
+        self.assertIn("ilson telegram connect", r.stdout)
+        self.assertFalse((self.box / "state/pairing.json").exists())
         self.assertTrue((self.box / "state/setup-pending").exists())
 
     def test_설정읽기오류_종료0은_미로그인이_아닌_조회불가다(self):

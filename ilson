@@ -7,6 +7,7 @@
 #   doctor [--probe-tcc]                read-only checks, 12-step mapping
 #   init                                 alias for setup
 #   pair --code X [--pairing-file F]    (re)write state/pairing.json
+#   telegram connect | status          guided notification setup / check
 #   update                              pull our layer (delegates to lib/update.sh)
 #
 # --sandbox contract (no-impact on the host):
@@ -49,6 +50,26 @@ sec()  { printf '\n[%s] %s\n' "$1" "$2"; }
 die()  { printf '\n❌ %s\n' "$1" >&2; exit 1; }
 has()  { command -v "$1" >/dev/null 2>&1; }
 is_sandbox_box() { [ -f "$ILSON_HOME/state/sandbox" ]; }
+
+telegram_configured() {
+    jq -e '(.telegram_bot_token | type == "string" and length > 0) and
+        (.telegram_chat_id | (type == "number") or (type == "string" and length > 0))' \
+        "$ILSON_HOME/state/pairing.json" >/dev/null 2>&1
+}
+
+telegram_box() {
+    [ -f "$ILSON_HOME/lib/telegram-setup.py" ] || {
+        printf '텔레그램 연결 도구가 없습니다 — ilson setup 으로 갱신하세요.\n' >&2; return 1;
+    }
+    has python3 || { printf 'Python이 없습니다 — ilson setup 을 실행하세요.\n' >&2; return 1; }
+    python3 "$ILSON_HOME/lib/telegram-setup.py" "$@" --home "$ILSON_HOME"
+}
+
+setup_telegram() {
+    # 선택 연결의 실패·취소는 파일 설치 실패가 아니다. 재실행 경로를 남긴다.
+    telegram_box setup || warn "텔레그램 연결 대기" "나중에 ilson telegram connect 로 다시 연결하세요"
+    return 0
+}
 
 # Bound daemon/auth checks even before Homebrew/coreutils exists. No raw error
 # output is treated as an address or authentication result.
@@ -111,6 +132,7 @@ check_tools() {
     has brew && ok "Homebrew" "$(brew --version 2>/dev/null | head -1 | awk '{print $2}')" || bad "Homebrew"
     has git  && ok "git" || bad "git"
     has jq   && ok "jq"  || bad "jq" "brew install jq"
+    has python3 && ok "Python" || bad "Python" "ilson setup 으로 설치"
     has gtimeout && ok "업무 시간 제한" || bad "업무 시간 제한" "brew install coreutils"
     has codex && ok "Codex CLI" || warn "Codex CLI" "ilson setup 으로 설치"
     { [ -d /Applications/Obsidian.app ] || [ -d "$HOME/Applications/Obsidian.app" ]; } && ok "Obsidian 앱" || bad "Obsidian 앱" "brew install --cask obsidian"
@@ -212,8 +234,10 @@ check_box() {
         if jq -e 'type == "object"' "$ILSON_HOME/state/pairing.json" >/dev/null 2>&1; then
             ok "로컬 연결 설정" "파일 존재 — 서버 페어링 완료를 뜻하지 않음"
         else bad "연결 설정 손상"; fi
-        [ -n "$(jq -r '.telegram_chat_id // empty' "$ILSON_HOME/state/pairing.json" 2>/dev/null)" ] && ok "텔레그램 연결" || warn "텔레그램 미연결" "알림은 로그로만 남음"
-    else warn "알림 미연결" "설치코드 없이 로컬 사용 가능. 텔레그램은 별도 연결"; fi
+        if telegram_configured; then
+            ok "텔레그램 설정 있음" "실제 연결 점검: ilson telegram status --verify"
+        else warn "텔레그램 미연결" "ilson telegram connect · 알림은 로그로만 남음"; fi
+    else warn "알림 미연결" "ilson telegram connect 로 연결 · 로컬 사용 가능"; fi
 }
 
 check_tcc() {
@@ -394,8 +418,9 @@ setup_tools() {
         [ "$rc" -eq 0 ] && has brew || { bad "Homebrew 설치 실패"; return 1; }
     fi
     local formula executable
-    for formula in git jq gh coreutils; do
+    for formula in git jq gh coreutils python; do
         executable="$formula"; [ "$formula" = coreutils ] && executable=gtimeout
+        [ "$formula" = python ] && executable=python3
         if ! has "$executable"; then
             brew install "$formula" || { bad "$formula 설치 실패"; return 1; }
         fi
@@ -451,6 +476,7 @@ setup() {
     init_step_jobs || return 1
     printf '\n기본 설치 완료. 예약 업무는 아직 새로 시작하지 않았습니다.\n'
     [ "$SANDBOX" = "1" ] && { echo '샌드박스: 로그인·시스템 설정·서비스 실행 생략'; return 0; }
+    setup_telegram
     printf '\n사람이 마칠 단계:\n'
     claude_logged_in || printf '  • claude 실행 → 본인 구독 계정으로 로그인\n'
     printf '  • codex 실행 → 본인 ChatGPT 계정으로 로그인 (Box 정기 업무는 Claude 사용)\n'
@@ -459,7 +485,8 @@ setup() {
     printf '  • 상시 전원 설정: ilson setup --configure-machine (관리자 비밀번호 필요)\n'
     printf '  • 회사 정보 준비 후 ilson start 로 예약 업무 시작\n'
     printf '  • 이후 설치·설정·업무 요청은 ilson chat (관리용 자동 심사 모드)\n'
-    printf '  • 텔레그램·Aside 및 macOS 권한은 해당 기능 연결 시 설정\n'
+    printf '  • 텔레그램 알림 연결·변경: ilson telegram connect\n'
+    printf '  • Aside 및 macOS 권한은 해당 기능 연결 시 설정\n'
     printf '  • 웹 검색: ilson doctor --probe-search (공개 검색 1회). 예약 검색은 이 기기에서 tvly login 후 점검 권장\n'
     check_remote
     if [ "$REMOTE_STATE" != connected ]; then
@@ -493,7 +520,7 @@ start_jobs() {
     rm -f "$ILSON_HOME/state/setup-pending"
     touch "$ILSON_HOME/state/setup-complete"
     ok "예약 업무 시작" "실제 결과와 재부팅 복구는 이후 확인하세요"
-    [ -f "$ILSON_HOME/state/pairing.json" ] || warn "텔레그램 미연결" "보고서는 볼트에 저장됩니다. 알림 전송은 별도 연결 필요"
+    telegram_configured || warn "텔레그램 미연결" "보고서는 볼트에 저장됩니다. ilson telegram connect 로 알림 연결"
 }
 
 usage() {
@@ -505,11 +532,20 @@ usage() {
   start                                       로그인·회사 정보 확인 후 예약 업무 시작
   chat                                        설치·관리까지 가능한 대화 (auto 자동 심사)
   pair --code <코드> [--pairing-file <json>]     페어링 파일 (다시) 쓰기
+  telegram connect                            안내에 따라 텔레그램 알림 연결·변경
+  telegram status [--verify]                   저장 상태 확인 (verify: Telegram에 연결 점검)
   update                                        우리 레이어 업데이트
 EOF
 }
 
 cmd="${1:-}"; shift || true
+if [ "$cmd" = telegram ]; then
+    telegram_command="${1:-connect}"; [ "$#" -eq 0 ] || shift
+    case "$telegram_command" in
+        connect|status) telegram_box "$telegram_command" "$@"; exit $? ;;
+        *) usage; exit 2 ;;
+    esac
+fi
 while [ $# -gt 0 ]; do
     case "$1" in
         --probe-tcc) PROBE_TCC=1 ;;

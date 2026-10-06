@@ -14,9 +14,11 @@ curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/instal
 ILSON_SRC="$PWD" sh install.sh
 ```
 
-자동 처리: Homebrew(없으면 관리자 입력 필요), git·jq·gh·coreutils, Claude Code·Codex CLI, Obsidian·Tailscale, Tavily CLI(없으면 uv로 격리 설치), `~/ilson` 볼트와 일손 검색 스킬·업무 스크립트, 예약 업무 plist 6개 생성. 기존 설치 도구는 재사용합니다. 기존 Orca는 그대로 사용하며 자동 설치 대상이 아닙니다.
+자동 처리: Homebrew(없으면 관리자 입력 필요), git·jq·gh·coreutils·Python, Claude Code·Codex CLI, Obsidian·Tailscale, Tavily CLI(없으면 uv로 격리 설치), `~/ilson` 볼트와 일손 검색 스킬·업무 스크립트, 예약 업무 plist 생성. 기존 설치 도구는 재사용합니다. 기존 Orca는 그대로 사용하며 자동 설치 대상이 아닙니다.
 
 사람이 할 일: 구독 계정 로그인, Tailscale 연결, 회사 인터뷰, 필요한 macOS 권한 클릭. Aside는 브라우저 업무를 사용할 때 별도로 연결합니다. 설치코드 없이 로컬 구성이 가능하며 서버 페어링은 아직 구현되지 않았습니다.
+
+기본 설치 중 텔레그램 알림 연결도 안내합니다. BotFather가 발급한 토큰을 숨김 입력창에 붙여넣고, 열리는 텔레그램에서 **시작**을 누르면 받을 개인 대화를 자동으로 찾습니다. 나중에 연결할 수도 있고, 재설치 때는 기존 연결을 보존합니다.
 
 ```sh
 # 새 터미널을 열고 실행. PATH가 아직 반영되지 않았다면 ~/.ilson-cli/ilson 사용
@@ -27,6 +29,8 @@ claude /onboard                   # 로그인·폴더 신뢰·회사 인터뷰
 ilson start                      # 준비 확인 후 예약 업무 가동
 ilson doctor                     # 읽기 전용 점검
 ilson chat                       # 이후 설치·설정·업무 요청을 하는 관리 대화
+ilson telegram connect           # 텔레그램 알림 연결·변경을 다시 시작
+ilson telegram status --verify   # 봇과 받을 대화 확인 (메시지 발송 없음)
 ```
 
 Codex는 `codex`를 실행해 별도로 ChatGPT 계정에 로그인합니다. 현재 Box의 정기 업무 실행기는 Claude입니다. 설치기는 API 키나 유료 API 호출을 설정하지 않습니다.
@@ -62,6 +66,7 @@ tvly login                  # 예약 검색용 인증은 새 맥의 일반 터�
 - FileVault·화면 잠금·자동 로그인·SSH 설정을 자동 변경하지 않습니다. FileVault가 켜진 기기는 재부팅 후 사람이 로그인해야 사용자 예약 업무가 재개됩니다.
 - Tailscale 상태 조회는 최대 10초로 제한합니다. 로그인/초기화/기기 승인 대기, 연결 꺼짐, 온라인 확인, 조회 불가를 구분합니다. 대기나 CLI 조회 오류로 기본 설치를 실패 처리하지 않으며, 원격 연결 완료로도 표시하지 않습니다. 기존 연결을 변경하는 명령은 호출하지 않습니다.
 - 텔레그램 설정이 없으면 보고서는 볼트에 저장되고 전송은 생략됩니다. 이를 알림 전송 성공으로 설명하지 않습니다.
+- 텔레그램 연결은 예약 보고·알림을 받을 통로입니다. 텔레그램에서 업무를 지시하는 수신 기능은 포함하지 않습니다. 토큰은 이 기기에 권한 0600으로 저장하며 연결 화면·명령 인자·회사 노트에 기록하지 않습니다. 다른 프로그램이 사용하는 봇의 webhook이나 수신 설정을 자동 변경하지 않습니다.
 - `doctor`는 원격 연결이 확인되지 않으면 진단 미완료로 종료 코드 1을 반환합니다. 이는 `setup`의 기본 설치 실패와 별개입니다. 점검 통과도 실제 보고 생성·알림 전송·재부팅 복구 시험을 대신하지 않습니다.
 
 ## 설치 옵션과 구조
@@ -71,6 +76,7 @@ tvly login                  # 예약 검색용 인증은 새 맥의 일반 터�
 - `ILSON_SOURCE_REF=<커밋> sh install.sh`: GitHub 소스 리비전 지정.
 - `ilson setup --sandbox`: `$ILSON_HOME` 안에만 박스 구성. 도구 설치·로그인·sudo·launchctl·알림 발송 없음. 샌드박스에서는 `start`도 거부합니다.
 - `ilson pair --code <코드> --pairing-file <로컬파일>`: 별도 준비한 연결 정보를 로컬에 저장. 서버 등록 명령이 아닙니다.
+- 기존 설치에 새 텔레그램 명령을 추가하려면 맨 위 설치 명령을 다시 실행합니다. `ilson update`는 CLI 본체를 갱신하지 않습니다.
 - CLI: `~/.ilson-cli`, 명령 링크: `~/.local/bin/ilson`, 박스: `~/ilson`.
 
 ## 검증
