@@ -40,6 +40,10 @@ LABELS = {
 STATIC = {"/": ("web/index.html", "text/html; charset=utf-8"),
           "/index.html": ("web/index.html", "text/html; charset=utf-8"),
           "/styles.css": ("web/styles.css", "text/css; charset=utf-8"),
+          "/fonts.css": ("web/fonts.css", "text/css; charset=utf-8"),
+          "/fonts/InterVariable-4.1.woff2": ("web/fonts/InterVariable-4.1.woff2", "font/woff2"),
+          "/fonts/PretendardVariable-1.3.9.woff2": ("web/fonts/PretendardVariable-1.3.9.woff2", "font/woff2"),
+          "/fonts/JetBrainsMono-Regular-2.304.woff2": ("web/fonts/JetBrainsMono-Regular-2.304.woff2", "font/woff2"),
           "/app.js": ("web/app.js", "application/javascript; charset=utf-8"),
           "/favicon.svg": ("web/favicon.svg", "image/svg+xml")}
 
@@ -669,7 +673,10 @@ class Handler(BaseHTTPRequestHandler):
         if path in STATIC:
             relative, kind = STATIC[path]
             try:
-                raw, _ = self.server.box.files.read(relative, 1024 * 1024)
+                # 한글 전체 글리프가 있는 고정 Pretendard 파일(2,057,688 B)만큼 허용한다.
+                # 폰트도 위 정확한 경로만 서빙하며 일반 정적 파일·보고서 상한은 유지한다.
+                limit = 2 * 1024 * 1024 if kind == "font/woff2" else 1024 * 1024
+                raw, _ = self.server.box.files.read(relative, limit)
             except (FileNotFoundError, Unreadable):
                 raise AdminError("관리자 화면 파일이 없습니다. ilson setup으로 갱신해주세요.", 404) from None
             return self.reply(200, raw, kind)

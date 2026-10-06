@@ -1,5 +1,6 @@
 """로컬 Box 관리자의 인증·조회 경계. 실제 계정·launchd·LLM은 사용하지 않는다."""
 import contextlib
+import hashlib
 from http.client import HTTPConnection
 import importlib.util
 import io
@@ -359,6 +360,49 @@ class HTTP시험(BoxFixture):
         status, _, body = self.request("GET", "/")
         self.assertEqual(status, 404)
         self.assertNotIn(self.token, json.dumps(body))
+
+    def test_실제번들폰트는_오프라인경로에서_원본그대로_응답한다(self):
+        bundle = ROOT / "template/web"
+        manifest = json.loads((bundle / "fonts/sources.json").read_text())
+        self.write("web/fonts.css", (bundle / "fonts.css").read_text())
+        font_dir = self.home / "web/fonts"
+        font_dir.mkdir()
+        status, headers, css = self.request("GET", "/fonts.css")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "text/css; charset=utf-8")
+        self.assertNotIn(b"https://", css)
+        self.assertNotIn(b"@import", css)
+        for font in manifest["fonts"]:
+            name = font["file"]
+            (font_dir / name).write_bytes((bundle / "fonts" / name).read_bytes())
+            self.assertIn(("./fonts/" + name).encode(), css)
+            status, headers, body = self.request("GET", "/fonts/" + name)
+            self.assertEqual(status, 200, name)
+            self.assertEqual(headers["Content-Type"], "font/woff2")
+            self.assertEqual(body[:4], b"wOF2")
+            self.assertEqual(hashlib.sha256(body).hexdigest(), font["sha256"])
+            self.assertEqual(len(body), font["size_bytes"])
+        self.assertEqual(self.calls, [])
+
+    def test_폰트누락과_링크_임의외부경로는_서빙하지않는다(self):
+        target = self.home / "web/fonts/InterVariable-4.1.woff2"
+        self.assertEqual(self.request("GET", "/fonts/InterVariable-4.1.woff2")[0], 404)
+        target.parent.mkdir()
+        target.symlink_to(self.home / "state/web-admin/token")
+        status, _, body = self.request("GET", "/fonts/InterVariable-4.1.woff2")
+        self.assertEqual(status, 404)
+        self.assertNotIn(self.token, json.dumps(body))
+        cookie, _ = self.login()
+        for path in ("/fonts/other.woff2", "/fonts/sources.json", "/fonts/../../state/web-admin/token", "/fonts/%2e%2e/%2e%2e/state/web-admin/token"):
+            self.assertEqual(self.request("GET", path, headers={"Cookie": cookie})[0], 404)
+
+    def test_폰트전용상한을넘는파일과_큰일반정적파일은_거부한다(self):
+        target = self.home / "web/fonts/PretendardVariable-1.3.9.woff2"
+        target.parent.mkdir()
+        target.write_bytes(b"wOF2" + b"x" * (2 * 1024 * 1024 - 3))
+        self.assertEqual(self.request("GET", "/fonts/PretendardVariable-1.3.9.woff2")[0], 404)
+        self.write("web/styles.css", "x" * (1024 * 1024 + 1))
+        self.assertEqual(self.request("GET", "/styles.css")[0], 404)
 
     def test_로그인횟수와_본문크기_JSON을_제한한다(self):
         for _ in range(10):
