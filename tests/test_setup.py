@@ -102,6 +102,75 @@ class SetupTests(unittest.TestCase):
         self.assertTrue((self.box / ".claude/skills/ilson-search/SKILL.md").is_file())
         self.assertTrue((self.box / "lib/search.sh").is_file())
 
+    def test_웹관리자와_열기파일도_새설치에_포함되며_샌드박스는_등록하지않는다(self):
+        bin_dir, env = self.install()
+        for relative in ("web/index.html", "lib/web-admin.py", "lib/web-admin-server.py", "일손 열기.command"):
+            self.assertTrue((self.box / relative).is_file(), relative)
+        self.assertTrue(os.access(self.box / "일손 열기.command", os.X_OK))
+        self.assertFalse((self.box / "state/web-admin/token").exists())
+        for args in (("open",), ("admin", "start")):
+            r = subprocess.run([str(bin_dir / "ilson"), *args], env=env, text=True, capture_output=True, timeout=5)
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn("샌드박스", r.stdout + r.stderr)
+        self.assertFalse((self.box / "state/web-admin/token").exists())
+
+    def test_웹명령과_Finder열기가_같은박스의_관리자를_호출한다(self):
+        bin_dir, env = self.install()
+        (self.box / "lib/web-admin.py").write_text('import json,sys\nprint(json.dumps(sys.argv[1:]))\n')
+        for args, expected in ((("open",), ["open"]), (("admin", "start", "--port", "18795"), ["install", "--port", "18795"]), (("admin", "status"), ["status"]), (("admin", "stop"), ["stop"])):
+            r = subprocess.run([str(bin_dir / "ilson"), *args], env=env, text=True, capture_output=True, timeout=5)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(json.loads(r.stdout), expected + ["--home", str(self.box)])
+        shortcut = self.base / "별도 폴더의 바로가기.command"
+        shortcut.symlink_to(self.box / "일손 열기.command")
+        r = subprocess.run(["bash", str(shortcut)], env=env, text=True, capture_output=True, timeout=5)
+        self.assertEqual(json.loads(r.stdout), ["open", "--home", str(self.box)])
+
+    def test_웹관리자_실패를_기본설치_성공으로_넘기지않는다(self):
+        r = self.shell(f'TEMPLATE="{ROOT}/template"; setup_tools() {{ return 0; }}; '
+                       'web_admin() { return 42; }; setup_telegram() { echo should-not-reach; }; setup')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("웹 관리자 준비 실패", r.stdout)
+        self.assertNotIn("should-not-reach", r.stdout)
+        self.assertFalse((self.box / "state/setup-complete").exists())
+
+    def test_웹관리자_서비스를_예약업무_개수에_포함하지않는다(self):
+        self.install()
+        (self.box / "state/sandbox").unlink()
+        (self.box / "state/setup-pending").unlink()
+        agents = self.box / "launchd/rendered"
+        (agents / "com.ilson.admin.plist").write_bytes(plistlib.dumps({"Label": "com.ilson.admin"}))
+        labels = "\\n".join("1 0 com.ilson." + x for x in ("briefing", "weekly", "tidy", "watchdog", "snapshot", "update", "admin"))
+        r = self.shell(f'LAUNCH_AGENTS="{agents}"; launchctl() {{ printf "{labels}\\n"; }}; check_jobs; [ "$FAIL" -eq 0 ]')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("6/6", r.stdout)
+
+    def test_웹접속비밀은_기존박스_백업에서도_제외하고_기존규칙을_보존한다(self):
+        self.install()
+        private = self.box / "state/web-admin"
+        private.mkdir()
+        # 시험 때만 만든 무작위 값이며 실제 인증 정보는 사용하지 않는다.
+        import secrets
+        (private / "token").write_text(secrets.token_urlsafe(32))
+        ignore = self.box / ".gitignore"
+        ignore.write_text("logs/\nstate/pairing.json\ncustomer-private/\n")
+        r = subprocess.run(["bash", str(self.box / "lib/snapshot.sh")], env=self.env, text=True, capture_output=True, timeout=5)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("customer-private/", ignore.read_text())
+        tracked = subprocess.check_output(["git", "-C", str(self.box), "ls-files", "state/web-admin"], text=True)
+        self.assertEqual(tracked, "")
+        self.assertEqual(subprocess.run(["git", "-C", str(self.box), "check-ignore", "-q", "state/web-admin/token"]).returncode, 0)
+
+    def test_이미추적한_웹접속파일이_있으면_스냅샷을_멈춘다(self):
+        self.install()
+        private = self.box / "state/web-admin"
+        private.mkdir()
+        (private / "instance").write_text("fixture-instance-only")
+        subprocess.run(["git", "-C", str(self.box), "add", "-f", "state/web-admin/instance"], check=True)
+        r = subprocess.run(["bash", str(self.box / "lib/snapshot.sh")], env=self.env, text=True, capture_output=True, timeout=5)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("web manager credentials are tracked", (self.box / "logs/snapshot.log").read_text())
+
     def test_텔레그램_연결도구가_설치되지만_샌드박스는_연결하지않는다(self):
         bin_dir, env = self.install()
         self.assertTrue((self.box / "lib/telegram-setup.py").is_file())
@@ -418,7 +487,7 @@ except subprocess.TimeoutExpired:
     def test_첫설치_로그인대기는_기본설치를_실패로_종료하지않는다(self):
         tool = self.fake("tailscale", "echo '{\"BackendState\":\"NeedsLogin\"}'")
         r = self.shell(f'TEMPLATE="{ROOT}/template"; TS_BIN="{tool}"; '
-                       'setup_tools() { return 0; }; claude_logged_in() { return 1; }; setup')
+                       'setup_tools() { return 0; }; setup_web_admin() { return 0; }; claude_logged_in() { return 1; }; setup')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("로그인 대기", r.stdout)
         self.assertIn("ilson telegram connect", r.stdout)
@@ -458,7 +527,7 @@ except subprocess.TimeoutExpired:
     def test_조회불가여도_기본설치완료와_업무대기는_분리한다(self):
         tool = self.fake("tailscale", "echo 'Failed to load preferences.'; exit 0")
         r = self.shell(f'TEMPLATE="{ROOT}/template"; TS_BIN="{tool}"; '
-                       'setup_tools() { return 0; }; claude_logged_in() { return 1; }; setup')
+                       'setup_tools() { return 0; }; setup_web_admin() { return 0; }; claude_logged_in() { return 1; }; setup')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("상태 확인 불가", r.stdout)
         self.assertTrue((self.box / "state/setup-pending").exists())

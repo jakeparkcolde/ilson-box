@@ -4,6 +4,8 @@
 # Commands:
 #   setup [--configure-machine] [--sandbox]   provision tools and stage the box
 #   start                                    activate after login and onboarding
+#   open                                     open this box's local web manager
+#   admin start | status | stop               manage only the web manager service
 #   doctor [--probe-tcc]                read-only checks, 12-step mapping
 #   init                                 alias for setup
 #   pair --code X [--pairing-file F]    (re)write state/pairing.json
@@ -50,6 +52,19 @@ sec()  { printf '\n[%s] %s\n' "$1" "$2"; }
 die()  { printf '\n❌ %s\n' "$1" >&2; exit 1; }
 has()  { command -v "$1" >/dev/null 2>&1; }
 is_sandbox_box() { [ -f "$ILSON_HOME/state/sandbox" ]; }
+
+web_admin() {
+    [ -f "$ILSON_HOME/lib/web-admin.py" ] || {
+        printf '웹 관리자 파일이 없습니다 — 일손 설치 명령을 다시 실행하세요.\n' >&2; return 1;
+    }
+    has python3 || { printf 'Python이 없습니다 — ilson setup 을 실행하세요.\n' >&2; return 1; }
+    python3 "$ILSON_HOME/lib/web-admin.py" "$@" --home "$ILSON_HOME"
+}
+
+setup_web_admin() {
+    sec '8-1' "내 일손 웹 관리자"
+    web_admin open || { bad "웹 관리자 준비 실패" "화면의 안내를 확인한 뒤 ilson open 으로 다시 여세요"; return 1; }
+}
 
 telegram_configured() {
     jq -e '(.telegram_bot_token | type == "string" and length > 0) and
@@ -254,14 +269,20 @@ check_jobs() {
     local dir n loaded
     if is_sandbox_box || [ -f "$ILSON_HOME/state/setup-pending" ]; then dir="$ILSON_HOME/launchd/rendered"; else dir="$LAUNCH_AGENTS"; fi
     n=0
-    for p in "$dir"/com.ilson.*.plist; do [ ! -f "$p" ] || n=$((n+1)); done
+    for p in "$dir"/com.ilson.*.plist; do
+        [ "$(basename "$p")" = com.ilson.admin.plist ] && continue
+        [ ! -f "$p" ] || n=$((n+1))
+    done
     if [ "$n" -gt 0 ]; then
         ok "ilson 잡 plist" "${n}개$(is_sandbox_box && echo ' (렌더만)')"
-        for p in "$dir"/com.ilson.*.plist; do plutil -lint -s "$p" >/dev/null 2>&1 || bad "plist 문법" "$(basename "$p")"; done
+        for p in "$dir"/com.ilson.*.plist; do
+            [ "$(basename "$p")" = com.ilson.admin.plist ] && continue
+            plutil -lint -s "$p" >/dev/null 2>&1 || bad "plist 문법" "$(basename "$p")"
+        done
         if is_sandbox_box; then skip "잡 적재(launchctl)";
         elif [ -f "$ILSON_HOME/state/setup-pending" ]; then warn "예약 업무 대기" "로그인·회사 인터뷰 후 ilson start";
         else
-            loaded=$(launchctl list 2>/dev/null | grep -c 'com\.ilson\.')
+            loaded=$(launchctl list 2>/dev/null | awk '$NF ~ /^com[.]ilson[.]/ && $NF != "com.ilson.admin" { n++ } END { print n+0 }')
             [ "$loaded" -eq "$n" ] && ok "잡 적재" "${loaded}/${n}" || bad "잡 적재" "${loaded}/${n} (launchctl bootstrap 필요)"
         fi
     else bad "ilson 잡 plist" "6개 (브리핑·주간·정리·워치독·스냅샷·업데이트)"; fi
@@ -335,6 +356,9 @@ init_step_box() {
         fi
     done < <(find "$TEMPLATE/vault" -type f)
     cp -R "$TEMPLATE/lib/." "$ILSON_HOME/lib/" && chmod +x "$ILSON_HOME"/lib/*.sh || return 1
+    [ ! -L "$ILSON_HOME/web" ] || { bad "웹 관리자 폴더가 연결 경로입니다" "web 폴더 위치를 확인하세요"; return 1; }
+    mkdir -p "$ILSON_HOME/web" && cp -R "$TEMPLATE/web/." "$ILSON_HOME/web/" || return 1
+    cp "$TEMPLATE/open.command" "$ILSON_HOME/일손 열기.command" && chmod 700 "$ILSON_HOME/일손 열기.command" || return 1
     mkdir -p "$ILSON_HOME/.claude" && cp -R "$TEMPLATE/claude/." "$ILSON_HOME/.claude/" || return 1
     cp "$TEMPLATE/CLAUDE.md" "$ILSON_HOME/CLAUDE.md" || return 1
     mkdir -p "$ILSON_HOME/launchd" || return 1
@@ -476,8 +500,10 @@ setup() {
     init_step_jobs || return 1
     printf '\n기본 설치 완료. 예약 업무는 아직 새로 시작하지 않았습니다.\n'
     [ "$SANDBOX" = "1" ] && { echo '샌드박스: 로그인·시스템 설정·서비스 실행 생략'; return 0; }
+    setup_web_admin || return 1
     setup_telegram
     printf '\n사람이 마칠 단계:\n'
+    printf '  • 설정 안내·업무 상태·보고서는 ilson open 으로 웹 관리자에서 확인\n'
     claude_logged_in || printf '  • claude 실행 → 본인 구독 계정으로 로그인\n'
     printf '  • codex 실행 → 본인 ChatGPT 계정으로 로그인 (Box 정기 업무는 Claude 사용)\n'
     printf '  • cd "%s" 후 claude /onboard → 폴더 신뢰 확인과 회사 인터뷰\n' "$ILSON_HOME"
@@ -531,6 +557,8 @@ usage() {
   init                                        setup 과 같은 명령 (코드 없이 로컬 사용 가능)
   start                                       로그인·회사 정보 확인 후 예약 업무 시작
   chat                                        설치·관리까지 가능한 대화 (auto 자동 심사)
+  open                                        이 맥의 웹 관리자 열기
+  admin start | status | stop                 웹 관리자 시작·상태·중지 (예약 업무와 별개)
   pair --code <코드> [--pairing-file <json>]     페어링 파일 (다시) 쓰기
   telegram connect                            안내에 따라 텔레그램 알림 연결·변경
   telegram status [--verify]                   저장 상태 확인 (verify: Telegram에 연결 점검)
@@ -539,6 +567,17 @@ EOF
 }
 
 cmd="${1:-}"; shift || true
+if [ "$cmd" = open ]; then
+    web_admin open "$@"; exit $?
+fi
+if [ "$cmd" = admin ]; then
+    admin_command="${1:-status}"; [ "$#" -eq 0 ] || shift
+    case "$admin_command" in
+        start) web_admin install "$@"; exit $? ;;
+        status|stop) web_admin "$admin_command" "$@"; exit $? ;;
+        *) usage; exit 2 ;;
+    esac
+fi
 if [ "$cmd" = telegram ]; then
     telegram_command="${1:-connect}"; [ "$#" -eq 0 ] || shift
     case "$telegram_command" in

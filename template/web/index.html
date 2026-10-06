@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="referrer" content="no-referrer">
+<title>내 일손 · 업무 관리</title>
+<script>
+// 접속용 값은 화면·주소 기록·브라우저 저장소에 남기지 않는다.
+(() => {
+  let bootstrapToken = new URLSearchParams(location.hash.slice(1)).get('token');
+  if (location.hash) {
+    try { history.replaceState(null, '', location.pathname + location.search); }
+    catch (_) { bootstrapToken = null; location.replace(location.pathname + location.search); }
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    'use strict';
+    const firstToken = bootstrapToken; bootstrapToken = null;
+    const $ = id => document.getElementById(id);
+    const state = { authenticated:false, epoch:0, overview:null, reports:[], reportNotice:'', page:'overview', selected:null, refreshing:false, reportRequest:0 };
+    const titles = {overview:'내 일손',jobs:'업무 현황',reports:'보고서',settings:'처음 설정과 연결'};
+    const icons = {briefing:'☀',weekly:'▤',tidy:'▧',watchdog:'◉',snapshot:'▣',update:'↻'};
+    const fallbackLabels = {briefing:'아침 브리핑',weekly:'주간 보고',tidy:'회사 자료 정리',watchdog:'건강 점검',snapshot:'기록 백업',update:'일손 업데이트'};
+    const categoryLabels = {briefing:'아침 브리핑',weekly:'주간 보고',pending:'검토할 초안',research:'조사 보고',other:'보고서'};
+    let toastTimer;
+    function element(tag,text,cls){const el=document.createElement(tag);if(text!==undefined)el.textContent=String(text);if(cls)el.className=cls;return el;}
+    function text(id,value){$(id).textContent=value;}
+    function badge(label,tone='neutral'){return element('span',label,'badge '+tone);}
+    function announce(message){text('toast',message);clearTimeout(toastTimer);toastTimer=setTimeout(()=>text('toast',''),3500);}
+    function showError(id,message){text(id,message||'');$(id).hidden=!message;}
+    function date(value,short=false){
+      if(!value)return '기록 없음';const d=new Date(value);if(Number.isNaN(d.getTime()))return '시각 확인 필요';
+      const options={month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'};if(!short)options.year='numeric';
+      try{return new Intl.DateTimeFormat('ko-KR',options).format(d);}catch(_){return '시각 확인 필요';}
+    }
+    function labelJob(job){return typeof job.label==='string'&&job.label.trim()?job.label:(fallbackLabels[job.id]||'사용자 추가 업무');}
+    function category(value){return categoryLabels[value]||(typeof value==='string'&&value.trim()?value:'보고서');}
+    function tone(check){return check?.state==='ok'?'good':check?.state==='attention'?'attention':'neutral';}
+    function checkLabel(check){return check?.state==='ok'?'확인됨':check?.state==='attention'?'준비 필요':'확인 필요';}
+    function checkBy(id){return state.overview?.checks?.find(check=>check.id===id);}
+    function safeMessage(error,fallback){return error?.userMessage||fallback;}
+    async function api(path,options={}){
+      const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),12000);
+      try {
+        const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options,signal:controller.signal});
+        let data;try{data=await response.json();if(!data||typeof data!=='object'||Array.isArray(data))throw new Error();}catch(_){const error=new Error();error.userMessage='응답을 읽지 못했습니다. 잠시 후 다시 확인해 주세요.';throw error;}
+        if(!response.ok){const error=new Error();error.status=response.status;error.userMessage=typeof data.error==='string'?data.error:'요청을 처리하지 못했습니다.';throw error;}
+        return data;
+      } catch(error){
+        if(error.name==='AbortError')error.userMessage='확인이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.';
+        if(error.status===401&&state.authenticated)lock('접속 시간이 만료됐습니다. 이 맥의 터미널에서 다시 열어주세요.');
+        throw error;
+      } finally {clearTimeout(timer);}
+    }
+    function lock(message=''){
+      state.authenticated=false;state.epoch++;state.reportRequest++;state.overview=null;state.reports=[];state.selected=null;state.refreshing=false;
+      $('app').hidden=true;$('access').hidden=false;$('access-loading').hidden=true;$('access-help').hidden=false;
+      showError('access-error',message);$('report-body').replaceChildren();$('report-list').replaceChildren();$('all-jobs').replaceChildren();$('recent-reports').replaceChildren();$('overview-jobs').replaceChildren();
+      $('overview-content').hidden=true;['company','company-sidebar','reader-title','reader-meta','time-checked'].forEach(id=>text(id,''));$('checks-summary').replaceChildren();
+      $('logout').disabled=false;closeNavigation();
+    }
+    async function connect(token){
+      $('access-loading').hidden=false;$('access-help').hidden=true;
+      try {
+        const result=token?await api('/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})}):await api('/api/session');
+        token=null;
+        if(!(result.ok===true||result.authenticated===true))throw new Error('session');
+        state.authenticated=true;state.epoch++;$('access').hidden=true;$('app').hidden=false;showPage('overview');await refresh();
+      } catch(error){token=null;lock(error.status===401?'':safeMessage(error,'이 화면을 열 수 없습니다. 이 맥의 터미널에서 다시 열어주세요.'));}
+    }
+    function closeNavigation(){
+      if($('sidebar').classList.contains('is-open')&&$('sidebar').contains(document.activeElement))$('menu-toggle').focus();
+      $('sidebar').classList.remove('is-open');$('nav-shade').hidden=true;$('menu-toggle').setAttribute('aria-expanded','false');
+    }
+    function showPage(page){
+      if(!titles[page])return;state.page=page;
+      document.querySelectorAll('[data-page]').forEach(section=>section.hidden=section.dataset.page!==page);
+      document.querySelectorAll('[data-nav]').forEach(button=>{const active=button.dataset.nav===page;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
+      text('page-title',titles[page]);closeNavigation();if(page==='reports')renderReports();
+    }
+    function renderOverview(){
+      const data=state.overview;if(!data)return;
+      const checks=Array.isArray(data.checks)?data.checks:[], jobs=Array.isArray(data.jobs)?data.jobs:[];
+      const good=checks.filter(c=>c.state==='ok').length, loaded=jobs.filter(job=>job.registration==='loaded').length;
+      const needs=checks.filter(c=>c.state==='attention').length, unknown=checks.filter(c=>c.state==='unknown').length;
+      text('company',data.box?.company_name||'내 일손');text('company-sidebar',data.box?.company_name||'나의 업무 공간');
+      text('welcome-title',needs?'일손이 일할 준비를 마쳐주세요.':unknown?'확인할 항목을 함께 살펴보세요.':'일손의 업무 기록을 한눈에.');
+      text('welcome-description',needs?'아래 설정 안내에서 필요한 단계를 마치고, 실제 결과가 남는지 확인하세요.':'예약 등록, 성공 기록, 보고서를 구분해서 확인할 수 있습니다.');
+      text('stat-ready',good+' / '+checks.length);text('stat-registered',loaded+' / '+jobs.length);
+      text('time-checked',date(data.generated_at,true)+' 확인');
+      text('timezone',data.box?.timezone?'기기 시간대 · '+data.box.timezone:'기기 시간대 미확인');
+      const setupLabel={pending:'초기 준비 중',ready:'시작 설정 있음',unknown:'설정 상태 미확인'}[data.box?.setup_state]||'설정 상태 미확인';
+      $('setup-marker').replaceChildren(badge(setupLabel,data.box?.setup_state==='ready'?'good':'neutral'));
+      $('sandbox-banner').hidden=!data.box?.sandbox;
+      $('checks-summary').replaceChildren();
+      for(const check of checks){const row=element('div',undefined,'check-summary');row.append(element('span',check.label||'준비 항목'),badge(checkLabel(check),tone(check)));$('checks-summary').append(row);}
+      const featured=jobs.filter(job=>['briefing','weekly','tidy'].includes(job.id));
+      renderJobs($('overview-jobs'),featured.length?featured:jobs.slice(0,3),true);
+      renderJobs($('all-jobs'),jobs,false);
+      $('jobs-empty').hidden=jobs.length>0;
+      $('limitations').replaceChildren();
+      for(const limitation of Array.isArray(data.limitations)?data.limitations:[])$('limitations').append(element('li',limitation));
+      $('limitations-box').hidden=!$('limitations').children.length;
+      renderSettings();
+    }
+    function registration(job){
+      const labels={loaded:'예약 등록됨',not_loaded:'예약 미등록',unknown:'등록 상태 미확인',sandbox:'연습용 · 실행 안 함'};
+      return badge(labels[job.registration]||'등록 상태 미확인',job.registration==='loaded'?'good':job.registration==='not_loaded'?'attention':'neutral');
+    }
+    function renderJobs(target,jobs,compact){
+      target.replaceChildren();
+      if(!jobs.length){target.append(element('p','등록할 업무 정보를 아직 확인하지 못했습니다.','empty-inline'));return;}
+      for(const job of jobs){
+        const card=element('article',undefined,'job-card');
+        const top=element('div',undefined,'job-top'), mark=element('span',icons[job.id]||'▤','job-mark');mark.setAttribute('aria-hidden','true');
+        const heading=element('div',undefined,'job-heading');heading.append(element('h3',labelJob(job)),element('p',job.schedule||'일정 확인 필요'));
+        top.append(mark,heading);card.append(top,registration(job));
+        const facts=element('dl',undefined,'job-facts');
+        function fact(key,value){const row=element('div');row.append(element('dt',key),element('dd',value));facts.append(row);}
+        const recorded=job.last_success_state==='recorded'&&job.last_success_at;
+        fact('최근 성공 기록',recorded?date(job.last_success_at,true):job.last_success_state==='missing'?'아직 기록 없음':'확인하지 못함');
+        fact('현재 실행',job.execution_state==='unknown'?'미확인':(job.execution_label||'미확인'));
+        if(!compact&&job.registration_label)fact('등록 확인',job.registration_label);
+        card.append(facts);if(!compact&&job.execution_label)card.append(element('p',job.execution_label,'job-explanation'));target.append(card);
+      }
+    }
+    function stepState(id,checks){
+      const items=checks.filter(Boolean);const allKnown=items.length===checks.length;
+      const value=allKnown&&items.every(item=>item.state==='ok')?'ok':items.some(item=>item.state==='attention')?'attention':'unknown';
+      $('step-status-'+id).replaceChildren(badge(checkLabel({state:value}),tone({state:value})));
+      const details=$('step-detail-'+id);details.replaceChildren();
+      for(const item of items)details.append(element('p',item.detail||item.label||'확인 내용 없음'));
+      if(!items.length)details.append(element('p','아직 상태를 확인하지 못했습니다.'));
+    }
+    function renderSettings(){
+      const data=state.overview;
+      stepState('claude',[checkBy('claude')]);stepState('company',[checkBy('company'),checkBy('trust')]);stepState('telegram',[checkBy('telegram')]);
+      const jobs=Array.isArray(data.jobs)?data.jobs:[], loaded=jobs.filter(job=>job.registration==='loaded').length;
+      $('step-status-start').replaceChildren(badge(data.box?.sandbox?'연습용':loaded===jobs.length&&jobs.length>0?'예약 등록 확인':loaded>0?'일부 등록됨':'상태 확인 필요',loaded>0?'good':'neutral'));
+      text('step-detail-start',data.box?.sandbox?'연습용 박스에서는 실제 예약 업무를 시작하지 않습니다.':jobs.length?'확인한 '+jobs.length+'개 업무 중 '+loaded+'개가 예약 등록돼 있습니다. 등록과 실제 실행 성공은 별도로 확인하세요.':'등록할 업무 정보를 아직 확인하지 못했습니다.');
+      const telegram=data.telegram||{}, connection=telegram.state==='configured'?'알림 설정 저장됨':telegram.state==='missing'?'알림 연결 전':'설정 확인 필요';
+      $('telegram-status').replaceChildren(badge(connection,telegram.state==='configured'?'good':'neutral'));
+      text('telegram-bot',telegram.bot_username?'보고를 받을 봇 · @'+String(telegram.bot_username).replace(/^@/,''):'보고받을 봇은 이 맥의 터미널에서 연결합니다.');
+      text('telegram-verified',telegram.verified_at?'마지막 연결 확인 · '+date(telegram.verified_at):'실제 알림 수신은 아직 이 화면에서 확인하지 않았습니다.');
+      const search=checkBy('search');$('search-status').replaceChildren(badge(checkLabel(search),tone(search)));text('search-detail',search?.detail||'검색 준비 상태를 확인하지 못했습니다.');
+    }
+    function renderReportSummary(){
+      text('stat-reports',state.reportNotice?'최근 '+state.reports.length+'개':String(state.reports.length));
+      const recent=$('recent-reports');recent.replaceChildren();
+      if(!state.reports.length){recent.append(element('p','아직 확인된 보고서가 없습니다. 업무를 실행해 결과가 저장되면 여기에 표시됩니다.','empty-inline'));return;}
+      for(const report of state.reports.slice(0,4)){
+        const button=element('button',undefined,'recent-row');button.type='button';
+        const content=element('span',undefined,'recent-text');content.append(element('strong',report.title||'제목 없는 보고서'),element('small',category(report.category)+' · '+date(report.updated_at,true)));
+        const arrow=element('span','↗','row-arrow');arrow.setAttribute('aria-hidden','true');button.append(content,arrow);button.addEventListener('click',()=>{showPage('reports');openReport(report);});recent.append(button);
+      }
+    }
+    function renderReports(){
+      const query=$('report-search').value.trim().toLocaleLowerCase('ko');
+      const reports=state.reports.filter(report=>(String(report.title||'')+' '+category(report.category)).toLocaleLowerCase('ko').includes(query));
+      $('report-list').replaceChildren();text('report-count',state.reports.length+'개');
+      showError('report-notice',state.reportNotice);
+      $('reports-empty').hidden=reports.length>0;
+      text('reports-empty',query?'검색어에 맞는 보고서가 없습니다.':'아직 확인된 보고서가 없습니다. 업무 결과가 저장되면 여기에 표시됩니다.');
+      for(const report of reports){
+        const button=element('button',undefined,'report-item');button.type='button';button.classList.toggle('selected',state.selected===report.id);
+        if(state.selected===report.id)button.setAttribute('aria-current','true');
+        button.append(element('span',category(report.category),'report-category'),element('strong',report.title||'제목 없는 보고서'),element('small',date(report.updated_at,true)));
+        button.addEventListener('click',()=>openReport(report));$('report-list').append(button);
+      }
+    }
+    async function openReport(report){
+      const request=++state.reportRequest, epoch=state.epoch;state.selected=report.id;
+      $('reports-layout').classList.add('has-selection');$('reader-empty').hidden=true;$('reader-content').hidden=false;$('reader-loading').hidden=false;$('report-body').replaceChildren();
+      showError('reader-error','');$('reader-retry').hidden=true;text('reader-title',report.title||'보고서');text('reader-meta',category(report.category)+' · '+date(report.updated_at));renderReports();
+      try {
+        const data=await api('/api/reports/'+encodeURIComponent(report.id));
+        if(epoch!==state.epoch||request!==state.reportRequest||!state.authenticated)return;
+        if(typeof data.text!=='string')throw new Error('invalid-report');
+        text('reader-title',data.title||'보고서');text('reader-meta',category(data.category)+' · '+date(data.updated_at));text('report-body',data.text||'본문이 비어 있습니다.');
+      } catch(error){
+        if(epoch!==state.epoch||request!==state.reportRequest||!state.authenticated)return;
+        showError('reader-error',safeMessage(error,'보고서 본문을 불러오지 못했습니다.'));$('reader-retry').hidden=false;
+      } finally {if(request===state.reportRequest)$('reader-loading').hidden=true;}
+    }
+    async function refresh(){
+      if(!state.authenticated||state.refreshing)return;state.refreshing=true;const epoch=state.epoch;
+      $('refresh').disabled=true;text('refresh-label','확인 중');
+      try {
+        const results=await Promise.allSettled([api('/api/overview'),api('/api/reports')]);
+        if(epoch!==state.epoch||!state.authenticated)return;
+        const [overview,reports]=results;
+        if(overview.status==='fulfilled'&&Array.isArray(overview.value.checks)&&Array.isArray(overview.value.jobs)){
+          state.overview=overview.value;renderOverview();showError('overview-error','');$('overview-loading').hidden=true;$('jobs-loading').hidden=true;$('overview-content').hidden=false;
+        }else{
+          const message=safeMessage(overview.reason,'업무 상태를 확인하지 못했습니다.');showError('overview-error',state.overview?'최신 상태를 확인하지 못했습니다. 아래에는 마지막 확인 결과를 표시합니다. '+message:message);$('overview-loading').hidden=true;$('jobs-loading').hidden=true;if(!state.overview)$('jobs-empty').hidden=false;
+        }
+        if(reports.status==='fulfilled'&&Array.isArray(reports.value.reports)){
+          state.reports=reports.value.reports;state.reportNotice=reports.value.limited?(reports.value.notice||'최근 보고서만 표시하고 있습니다.'):'';
+          renderReportSummary();renderReports();showError('reports-error','');showError('recent-error','');$('reports-loading').hidden=true;
+        }else{
+          const message=safeMessage(reports.reason,'보고서 목록을 확인하지 못했습니다.');showError('reports-error',message);showError('recent-error',message);$('reports-loading').hidden=true;
+        }
+      } finally {
+        if(epoch===state.epoch){state.refreshing=false;$('refresh').disabled=false;text('refresh-label','새로고침');}
+      }
+    }
+    async function copy(value){
+      try{if(navigator.clipboard&&isSecureContext){await navigator.clipboard.writeText(value);return true;}}catch(_){}
+      const input=element('textarea');input.value=value;input.style.position='fixed';input.style.top='-9999px';document.body.append(input);input.select();
+      let ok=false;try{ok=document.execCommand('copy');}catch(_){}input.remove();return ok;
+    }
+    document.querySelectorAll('[data-copy]').forEach(button=>button.addEventListener('click',async()=>{const ok=await copy($(button.dataset.copy).textContent);announce(ok?'명령을 복사했습니다. 이 맥의 터미널에 붙여넣으세요.':'복사가 제한된 환경입니다. 명령을 직접 선택해 복사하세요.');}));
+    document.querySelectorAll('[data-nav]').forEach(button=>button.addEventListener('click',()=>showPage(button.dataset.nav)));
+    $('menu-toggle').addEventListener('click',()=>{const open=!$('sidebar').classList.contains('is-open');$('sidebar').classList.toggle('is-open',open);$('nav-shade').hidden=!open;$('menu-toggle').setAttribute('aria-expanded',String(open));if(open)$('nav-close').focus();});
+    $('nav-shade').addEventListener('click',closeNavigation);$('nav-close').addEventListener('click',closeNavigation);document.addEventListener('keydown',event=>{
+      if(event.key==='Escape')closeNavigation();
+      if(event.key==='Tab'&&$('sidebar').classList.contains('is-open')){const buttons=[...$('sidebar').querySelectorAll('button:not(:disabled)')];const first=buttons[0],last=buttons[buttons.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}
+    });
+    const mobileMenu=matchMedia('(max-width: 1000px)');mobileMenu.addEventListener('change',event=>{if(!event.matches)closeNavigation();});
+    $('refresh').addEventListener('click',refresh);$('report-search').addEventListener('input',renderReports);
+    $('reader-back').addEventListener('click',()=>{$('reports-layout').classList.remove('has-selection');$('report-search').focus();});
+    $('reader-retry').addEventListener('click',()=>{const report=state.reports.find(item=>item.id===state.selected);if(report)openReport(report);else showError('reader-error','이 보고서를 목록에서 다시 선택해 주세요.');});
+    $('logout').addEventListener('click',async()=>{
+      $('logout').disabled=true;
+      try{await api('/api/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});lock('접속을 종료했습니다. 다시 열려면 이 맥의 터미널을 이용해 주세요.');}
+      catch(error){if(error.status===401)lock();else{announce('접속 종료를 확인하지 못했습니다. 다시 눌러주세요.');$('logout').disabled=false;}}
+    });
+    document.addEventListener('visibilitychange',()=>{text('poll-note',document.hidden?'화면을 다시 열면 상태를 확인합니다.':'화면을 보는 동안 15초마다 확인');if(!document.hidden)refresh();});
+    setInterval(()=>{if(!document.hidden)refresh();},15000);
+    connect(firstToken);
+  });
+})();
+</script>
+<style>
+:root{--paper:#f5f4ee;--surface:#fffefa;--white:#fff;--ink:#1a312b;--muted:#65736c;--line:#e0e3d9;--green:#23664e;--soft:#eaf0e4;--lime:#dceaac;--orange:#895718;--orange-bg:#fff1d9;--red:#a43c32;--red-bg:#fbeee7;--radius:16px}*{box-sizing:border-box}[hidden]{display:none!important}html,body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;word-break:keep-all;overflow-wrap:anywhere}button,input,textarea{font:inherit}button{cursor:pointer;touch-action:manipulation}button:disabled{opacity:.55;cursor:wait}button,a,input{-webkit-tap-highlight-color:transparent}:focus-visible{outline:3px solid #71964a;outline-offset:4px}button{color:inherit}a{color:var(--green)}.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);border-radius:9px;background:var(--surface);padding:10px 15px;min-height:42px;color:var(--ink);font-size:12px;font-weight:650}.button.primary{background:var(--green);border-color:var(--green);color:white}.button.quiet{border:0;background:transparent;color:var(--muted)}.button svg{width:15px;height:15px}.muted{color:var(--muted)}.eyebrow{font-size:10px;letter-spacing:.14em;font-weight:800;color:var(--green)}.brand{display:flex;align-items:center;gap:11px;font-size:24px;font-weight:800;letter-spacing:-1.2px}.brand-icon{width:31px;height:31px;background:var(--green);color:var(--lime);border-radius:10px;display:grid;place-items:center;font-size:22px;line-height:1}.sidebar{width:238px;position:fixed;inset:0 auto 0 0;background:#eeefe6;border-right:1px solid var(--line);padding:32px 20px;display:flex;flex-direction:column;z-index:20}.sidebar .brand{padding:0 12px}.workspace{margin:26px 0 28px;padding:13px 14px;border:1px solid #dce0d1;border-radius:10px;background:#f8f8f1}.workspace small{display:block;font-size:10px;color:var(--muted);margin-bottom:4px}.workspace strong{font-size:12px;font-weight:650;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nav-label{font-size:10px;letter-spacing:.1em;color:var(--muted);margin:0 12px 12px}.nav{display:grid;gap:5px}.nav button{border:0;background:none;display:flex;align-items:center;gap:13px;text-align:left;width:100%;padding:13px 14px;border-radius:9px;font-size:13px;color:#5f6f64}.nav button svg{width:18px;height:18px;flex:none}.nav button:hover{background:#e5eada}.nav button.active{background:#dce8d4;color:#174e3b;font-weight:750}.sidebar-bottom{margin-top:auto;padding:25px 12px 0}.local-note{display:flex;align-items:center;gap:8px;color:var(--green);font-size:11px;font-weight:650}.dot{height:6px;width:6px;border-radius:50%;background:var(--green);flex:none}.sidebar-bottom p{font-size:11px;color:var(--muted);margin:8px 0 13px}.sidebar-bottom .button{padding-left:0;font-size:11px}.nav-close{display:none}.main{margin-left:238px;min-width:0}.topbar{height:82px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 38px;gap:14px;background:rgba(245,244,238,.96)}.breadcrumb{display:flex;align-items:center;gap:11px;font-size:12px;color:var(--muted)}.breadcrumb strong{font-weight:650;color:var(--ink)}.topbar-right{display:flex;align-items:center;gap:15px}.last-checked{font-size:10px;color:var(--muted)}.menu-toggle{display:none}.content{max-width:1270px;margin:auto;padding:34px 38px 56px}.page-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:15px;margin-bottom:25px}.page-heading h1{font-size:29px;line-height:1.3;letter-spacing:-1px;margin:7px 0 9px}.page-heading p{margin:0;font-size:12px;color:var(--muted)}.welcome{display:flex;align-items:center;justify-content:space-between;gap:22px;padding:29px 32px;background:#e8edda;border:1px solid #dbe2cb;border-radius:16px;margin-bottom:23px;position:relative;overflow:hidden}.welcome h2{font-size:22px;line-height:1.5;letter-spacing:-.7px;margin:7px 0}.welcome p{font-size:12px;color:#5e6d56;margin:0;max-width:590px}.welcome .button{white-space:nowrap;flex:none}.welcome-symbol{display:grid;place-items:center;width:50px;height:50px;flex:none;border-radius:15px;background:var(--green);color:var(--lime);font-size:28px}.welcome-copy{flex:1;min-width:0}.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;margin-bottom:26px}.metric{border:1px solid var(--line);background:var(--surface);border-radius:13px;padding:20px 22px}.metric p{margin:0 0 12px;font-size:12px;color:var(--muted)}.metric strong{font-size:29px;font-weight:700;letter-spacing:-.8px;line-height:1.2;display:block}.metric small{font-size:10px;color:var(--muted);display:block;margin-top:9px}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:26px 0 14px}.section-heading h2{font-size:16px;margin:0;letter-spacing:-.2px}.text-button{border:0;background:none;padding:5px 0;font-size:11px;color:var(--green);text-align:left}.job-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.job-card{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:20px;min-width:0}.job-top{display:flex;align-items:center;gap:11px;margin-bottom:16px}.job-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:#eef1e6;color:var(--green);font-size:19px;flex:none}.job-heading{min-width:0}.job-heading h3{font-size:13px;margin:0 0 3px}.job-heading p{font-size:11px;color:var(--muted);margin:0}.badge{display:inline-flex;align-items:center;padding:4px 8px;min-height:23px;border-radius:6px;background:#eeeee7;color:#646c63;font-size:10px;font-weight:650;line-height:1.5;max-width:100%}.badge.good{background:#e7f1e4;color:#316447}.badge.attention{background:var(--orange-bg);color:var(--orange)}.job-facts{margin:16px 0 0;border-top:1px solid var(--line);padding-top:12px;font-size:10px}.job-facts div{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:7px 0}.job-facts dt{color:var(--muted);flex:none}.job-explanation{font-size:10px;line-height:1.6;color:var(--muted);margin:12px 0 0}.job-facts dd{margin:0;text-align:right;overflow-wrap:anywhere;min-width:0}.overview-bottom{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(240px,1fr);gap:22px;margin-top:3px}.panel{background:var(--surface);border:1px solid var(--line);border-radius:13px;overflow:hidden}.recent-row{display:flex;justify-content:space-between;align-items:center;gap:20px;width:100%;padding:18px 21px;background:transparent;border:0;border-bottom:1px solid var(--line);text-align:left}.recent-row:last-child{border-bottom:0}.recent-row:hover{background:#f4f7ee}.recent-text{display:block;min-width:0}.recent-row strong{display:block;font-weight:650;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.recent-row small{display:block;font-size:10px;color:var(--muted);margin-top:5px}.row-arrow{color:var(--green);flex:none}.checks-summary{padding:8px 19px}.check-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:12px}.check-summary:last-child{border-bottom:0}.empty-inline{font-size:12px;color:var(--muted);padding:23px;margin:0}.notice{background:#f0f1e9;border:1px solid var(--line);padding:13px 17px;border-radius:9px;font-size:12px;color:var(--muted);margin:0 0 18px}.notice.warning{background:var(--orange-bg);border-color:#efd8ae;color:var(--orange)}.notice.error{background:var(--red-bg);border-color:#eecdbd;color:var(--red)}.loading{padding:30px;text-align:center;font-size:13px;color:var(--muted)}.loading-mark{width:23px;height:23px;border:2px solid #d6e1cc;border-top-color:var(--green);border-radius:50%;display:inline-block;margin-bottom:10px;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.loading p{margin:0}.limitations{margin-top:24px;border-top:1px solid var(--line);padding-top:18px;color:var(--muted);font-size:11px}.limitations summary{cursor:pointer;font-weight:650}.limitations ul{padding-left:18px;margin:9px 0}.limitations li{margin:5px 0}.footer-note{display:flex;justify-content:space-between;gap:15px;margin-top:28px;font-size:10px;color:var(--muted)}.empty-state{padding:35px 24px;text-align:center;color:var(--muted);font-size:12px}.report-toolbar{display:flex;align-items:center;gap:15px;margin-bottom:16px}.report-search{width:min(100%,380px);position:relative}.report-search input{display:block;width:100%;min-height:42px;border:1px solid var(--line);border-radius:9px;padding:10px 13px;background:var(--surface);font-size:12px;color:var(--ink)}.report-count{font-size:11px;color:var(--muted);white-space:nowrap}.reports-layout{display:grid;grid-template-columns:285px minmax(0,1fr);background:var(--surface);border:1px solid var(--line);border-radius:14px;min-height:550px;overflow:hidden}.report-column{border-right:1px solid var(--line);min-width:0;max-height:74vh;overflow:auto}.report-item{display:block;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:19px 20px;width:100%;border-left:3px solid transparent}.report-item.selected{background:#edf3e7;border-left-color:var(--green)}.report-item:hover{background:#f1f5ea}.report-category{display:block;color:var(--green);font-size:10px;margin-bottom:5px}.report-item strong{display:block;font-size:12px;line-height:1.5;font-weight:650}.report-item small{font-size:10px;color:var(--muted);display:block;margin-top:8px}.reader{min-width:0;padding:29px 30px}.reader-empty{height:100%;min-height:360px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:13px}.reader-empty span{display:block;font-size:30px;color:#9cab8f;margin-bottom:14px}.reader h2{font-size:21px;margin:0 0 8px;line-height:1.5;letter-spacing:-.4px}.reader-meta{font-size:10px;color:var(--muted);margin:0 0 25px;padding-bottom:20px;border-bottom:1px solid var(--line)}.report-body{white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;font:13px/1.95 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;margin:0;max-width:100%}.reader-back{display:none}.setup-intro{padding:18px 22px;margin-bottom:22px;background:var(--soft);border:1px solid #d7e1cd;border-radius:12px;font-size:12px;color:#42664b}.setup-list{display:grid;gap:14px}.setup-step{display:grid;grid-template-columns:40px minmax(0,1fr);gap:15px;padding:25px;background:var(--surface);border:1px solid var(--line);border-radius:13px}.step-number{width:31px;height:31px;border-radius:50%;background:var(--soft);color:var(--green);font-size:12px;font-weight:750;display:grid;place-items:center}.step-heading{display:flex;justify-content:space-between;align-items:center;gap:15px}.step-heading h2{font-size:16px;margin:0}.optional{font-size:10px;color:var(--muted);font-weight:400;margin-left:6px}.step-body>p{font-size:12px;color:var(--muted);margin:10px 0 15px}.step-details{font-size:11px;color:#6f776b;padding:10px 12px;border-radius:7px;background:#f2f3ec;margin-top:15px}.step-details p{margin:3px 0}.command{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#eef2e7;border:1px solid #d8e1cc;border-radius:8px;padding:9px 10px 9px 14px;margin:10px 0;min-width:0}.command code{display:block;font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;word-break:break-all;min-width:0}.copy-button{flex:none;border:1px solid #c4d1b8;border-radius:5px;padding:6px 10px;font-size:10px;background:var(--surface);color:var(--green);min-height:32px}.command-label{font-size:10px;color:var(--muted);margin:13px 0 4px}.connection-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.connection-card{padding:23px;background:var(--surface);border:1px solid var(--line);border-radius:13px;min-width:0}.connection-card h3{font-size:14px;margin:0 0 11px}.connection-card p{font-size:11px;color:var(--muted);margin:11px 0}.access{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px}.access-card{width:440px;max-width:100%;padding:40px;background:var(--surface);border:1px solid var(--line);border-radius:19px;box-shadow:0 12px 38px #29352a08}.access-card .brand{margin-bottom:28px}.access-card h1{font-size:26px;line-height:1.4;letter-spacing:-.8px;margin:0 0 14px}.access-card p{font-size:12px;color:var(--muted)}.access-card .command{margin:23px 0}.access-foot{border-top:1px solid var(--line);margin-top:24px;padding-top:16px!important;font-size:11px!important}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:100;background:var(--ink);color:white;padding:12px 18px;border-radius:9px;font-size:12px;max-width:calc(100vw - 30px);box-shadow:0 5px 22px #0002}.toast:empty{display:none}.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.skip{position:fixed;top:-100px;left:20px;background:white;color:var(--green);padding:10px 15px;z-index:100}.skip:focus{top:10px}
+@media(min-width:1001px){.nav-shade{display:none!important}}@media(max-width:1250px){.sidebar{width:212px;padding-left:14px;padding-right:14px}.main{margin-left:212px}.content{padding:27px}.topbar{padding:0 27px}.job-grid{gap:10px}.job-card{padding:16px}.welcome{padding:25px}.welcome-symbol{display:none}.overview-bottom{gap:16px}.reports-layout{grid-template-columns:245px minmax(0,1fr)}}@media(max-width:1000px){.sidebar{transform:translateX(-100%);visibility:hidden;transition:transform .15s}.sidebar.is-open{transform:translateX(0);visibility:visible}.sidebar{width:255px;background:#eeefe6;z-index:50}.nav-close{display:block;position:absolute;top:31px;right:16px;padding:6px;border:0;background:transparent;font-size:20px;color:var(--muted)}.main{margin-left:0}.nav-shade{position:fixed;inset:0;z-index:40;background:#14251b55;border:0;width:100%;height:100%}.menu-toggle{display:grid;place-items:center;padding:6px;min-width:34px;min-height:34px;border:0;background:transparent;font-size:21px}.topbar{height:69px}.topbar-left{display:flex;align-items:center;gap:12px}.job-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.breadcrumb>span{display:none}.content{padding:25px}.reader{padding:24px}.reports-layout{grid-template-columns:245px minmax(0,1fr)}}@media(max-width:700px){html,body{font-size:13px}.topbar{padding:0 17px;height:64px}.topbar-right{gap:6px}.last-checked{display:none}.content{padding:24px 17px 35px}.page-heading{margin-bottom:20px}.page-heading h1{font-size:25px}.page-heading p{font-size:11px}.welcome{padding:22px;display:block}.welcome h2{font-size:21px;line-height:1.4}.welcome .button{margin-top:17px}.welcome p{font-size:11px}.metrics{gap:9px}.metric{padding:15px 13px}.metric p{font-size:10px;margin-bottom:9px}.metric strong{font-size:24px}.metric small{font-size:9px;margin-top:7px}.job-grid{grid-template-columns:1fr}.job-card{padding:20px}.job-top{margin-bottom:12px}.job-heading h3{font-size:14px}.job-facts{font-size:11px}.job-facts div{margin:9px 0}.overview-bottom{grid-template-columns:1fr;gap:0}.reports-layout{display:block;min-height:420px}.report-column{border-right:0;max-height:none}.reader{display:none;padding:24px 20px}.reports-layout.has-selection .report-column{display:none}.reports-layout.has-selection .reader{display:block}.reader-back{display:inline-flex;margin-bottom:22px;padding-left:0}.reader h2{font-size:20px}.report-body{font-size:13px}.setup-step{grid-template-columns:28px minmax(0,1fr);gap:12px;padding:20px 17px}.step-number{width:26px;height:26px;font-size:11px}.step-heading{display:block}.step-heading h2{font-size:15px}.step-heading>div{margin-top:8px}.connection-grid{grid-template-columns:1fr}.command{padding-left:11px}.command code{font-size:11px}.step-details{font-size:10px}.footer-note{display:block}.footer-note span{display:block;margin-top:5px}.access{padding:19px}.access-card{padding:30px 25px}.access-card h1{font-size:24px}.topbar .button{font-size:11px;padding:8px 11px;min-height:36px}}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">본문으로 이동</a>
+<section id="access" class="access" aria-label="내 일손 접속">
+  <div class="access-card">
+    <div class="brand"><span class="brand-icon" aria-hidden="true">↗</span>일손</div>
+    <div id="access-loading" class="loading" role="status"><span class="loading-mark" aria-hidden="true"></span><p>이 맥의 일손에 연결하고 있습니다.</p></div>
+    <div id="access-help" hidden>
+      <div class="eyebrow">MY WORKSPACE</div><h1>내 일손을<br>이 맥에서 열어주세요.</h1>
+      <p>설치한 맥의 터미널에서 아래 명령을 실행하면 업무와 보고서를 확인할 수 있습니다.</p>
+      <div class="command"><code id="command-open">ilson open</code><button class="copy-button" type="button" data-copy="command-open">복사</button></div>
+      <p id="access-error" class="notice error" role="alert" hidden></p>
+      <p class="access-foot">이 화면은 해당 맥의 일손에 연결됩니다. 접속 링크를 공유해 다른 사람을 초대하는 기능은 제공하지 않습니다.</p>
+    </div>
+    <noscript><p>업무 상태를 확인하려면 브라우저의 JavaScript를 켜 주세요.</p></noscript>
+  </div>
+</section>
+<div id="app" hidden>
+  <button id="nav-shade" class="nav-shade" type="button" aria-label="메뉴 닫기" hidden></button>
+  <aside id="sidebar" class="sidebar" aria-label="내 일손 메뉴">
+    <div class="brand"><span class="brand-icon" aria-hidden="true">↗</span>일손</div>
+    <button class="nav-close" id="nav-close" aria-label="메뉴 닫기" type="button">×</button>
+    <div class="workspace"><small>나의 업무 공간</small><strong id="company-sidebar">확인 중</strong></div>
+    <p class="nav-label">WORKSPACE</p>
+    <nav class="nav">
+      <button type="button" data-nav="overview" class="active" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m3 10 9-7 9 7v10H3z"/><path d="M9 20v-7h6v7"/></svg>내 일손</button>
+      <button type="button" data-nav="jobs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4m8-4v4M4 11h16m-12 4h3m2 0h3"/></svg>업무 현황</button>
+      <button type="button" data-nav="reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7m-7 4h7"/></svg>보고서</button>
+      <button type="button" data-nav="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="#eeefe6"/><circle cx="15" cy="12" r="2" fill="#eeefe6"/><circle cx="10" cy="18" r="2" fill="#eeefe6"/></svg>처음 설정과 연결</button>
+    </nav>
+    <div class="sidebar-bottom"><div class="local-note"><span class="dot" aria-hidden="true"></span>이 맥의 일손</div><p>내 컴퓨터에 남은 업무 기록을<br>여기에서 확인합니다.</p><button id="logout" class="button quiet" type="button">접속 종료 ↗</button></div>
+  </aside>
+  <div class="main">
+    <header class="topbar"><div class="topbar-left"><button id="menu-toggle" class="menu-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="sidebar">☰</button><div class="breadcrumb"><span>나의 업무 공간</span><span aria-hidden="true">/</span><strong id="page-title">내 일손</strong></div></div><div class="topbar-right"><span class="last-checked" id="time-checked">상태 확인 전</span><button id="refresh" class="button" type="button"><span aria-hidden="true">↻</span><span id="refresh-label">새로고침</span></button></div></header>
+    <main id="main" class="content">
+      <p id="sandbox-banner" class="notice warning" hidden>연습용 박스입니다. 실제 계정 조회와 예약 업무 실행을 건너뛴 상태로 표시합니다.</p>
+      <p id="overview-error" class="notice error" role="alert" hidden></p>
+      <section data-page="overview">
+        <div class="page-heading"><div><div class="eyebrow">MY ILSON</div><h1 id="company">내 일손</h1><p>일손이 준비한 결과와 다음에 확인할 일을 살펴보세요.</p></div><div id="setup-marker"></div></div>
+        <div id="overview-loading" class="loading" role="status"><span class="loading-mark" aria-hidden="true"></span><p>준비 상태와 업무 기록을 확인하고 있습니다.</p></div>
+        <div id="overview-content" hidden>
+          <div class="welcome"><div class="welcome-symbol" aria-hidden="true">↗</div><div class="welcome-copy"><div class="eyebrow">ONE STEP AT A TIME</div><h2 id="welcome-title"></h2><p id="welcome-description"></p></div><button class="button primary" type="button" data-nav="settings">설정 안내 보기 <span aria-hidden="true">→</span></button></div>
+          <div class="metrics"><article class="metric"><p>확인된 준비 항목</p><strong id="stat-ready">—</strong><small>로그인·회사 정보·연결 등</small></article><article class="metric"><p>예약 등록된 업무</p><strong id="stat-registered">—</strong><small>실제 실행 성공과 구분합니다</small></article><article class="metric"><p>확인된 보고서</p><strong id="stat-reports">—</strong><small>이 맥에 저장된 최근 결과</small></article></div>
+          <div class="section-heading"><h2>일손이 맡은 일</h2><button class="text-button" type="button" data-nav="jobs">전체 업무 보기 →</button></div><div id="overview-jobs" class="job-grid"></div>
+          <div class="overview-bottom"><section><div class="section-heading"><h2>최근 보고서</h2><button class="text-button" type="button" data-nav="reports">보고서 보기 →</button></div><p id="recent-error" class="notice error" role="alert" hidden></p><div class="panel" id="recent-reports"></div></section><section><div class="section-heading"><h2>일할 준비</h2><button class="text-button" type="button" data-nav="settings">자세히 →</button></div><div class="panel checks-summary" id="checks-summary"></div></section></div>
+        </div>
+      </section>
+      <section data-page="jobs" hidden>
+        <div class="page-heading"><div><div class="eyebrow">WORK STATUS</div><h1>업무 현황</h1><p>예약 등록 여부와 마지막 성공 기록을 따로 확인합니다.</p></div></div>
+        <p class="notice">예약이 등록돼 있어도 지금 실행 중이거나 오늘 성공했다는 뜻은 아닙니다. 아래에 확인된 기록을 그대로 표시합니다.</p>
+        <p id="jobs-loading" class="loading" role="status">업무 상태를 확인하고 있습니다.</p><div id="all-jobs" class="job-grid"></div><p id="jobs-empty" class="empty-state" hidden>아직 업무 정보를 확인하지 못했습니다. 처음 설정에서 준비 상태를 살펴보세요.</p>
+      </section>
+      <section data-page="reports" hidden>
+        <div class="page-heading"><div><div class="eyebrow">REPORTS</div><h1>일손이 남긴 보고서</h1><p>저장된 결과를 원문으로 읽고 확인합니다.</p></div></div>
+        <div class="report-toolbar"><label class="report-search"><span class="sr-only">보고서 제목 검색</span><input type="search" id="report-search" placeholder="보고서 제목으로 찾기" autocomplete="off"></label><span id="report-count" class="report-count">확인 중</span></div>
+        <p id="reports-error" class="notice error" role="alert" hidden></p><p id="report-notice" class="notice" hidden></p>
+        <div id="reports-loading" class="loading" role="status">보고서 목록을 확인하고 있습니다.</div>
+        <div id="reports-layout" class="reports-layout"><div class="report-column"><div id="report-list"></div><p id="reports-empty" class="empty-state" hidden></p></div><article class="reader"><div id="reader-empty" class="reader-empty"><div><span aria-hidden="true">▤</span>읽을 보고서를 선택해 주세요.</div></div><div id="reader-content" hidden><button id="reader-back" class="button quiet reader-back" type="button">← 보고서 목록</button><h2 id="reader-title"></h2><p class="reader-meta" id="reader-meta"></p><p id="reader-loading" class="loading" role="status">본문을 불러오고 있습니다.</p><p id="reader-error" class="notice error" role="alert" hidden></p><button id="reader-retry" class="button" type="button" hidden>본문 다시 불러오기</button><pre id="report-body" class="report-body"></pre></div></article></div>
+      </section>
+      <section data-page="settings" hidden>
+        <div class="page-heading"><div><div class="eyebrow">GET READY</div><h1>처음 설정과 연결</h1><p>필요한 단계를 마치면 일손이 실제 업무를 시작할 수 있습니다.</p></div></div>
+        <div class="setup-intro">이 화면에서는 확인된 상태와 설정 방법을 안내합니다. 명령을 복사해 <strong>일손을 설치한 이 맥의 터미널</strong>에서 실행한 뒤, 화면으로 돌아와 새로고침하세요.</div>
+        <div class="setup-list">
+          <article class="setup-step"><span class="step-number">01</span><div class="step-body"><div class="step-heading"><h2>Claude 계정으로 로그인</h2><div id="step-status-claude"><span class="badge">확인 전</span></div></div><p>본인 계정으로 로그인합니다. 열리는 화면의 안내에 따라 진행하고, 대화가 끝나면 /exit로 나옵니다.</p><div class="command"><code id="command-login">claude</code><button class="copy-button" type="button" data-copy="command-login">복사</button></div><div class="step-details" id="step-detail-claude">서버에서 상태를 확인하고 있습니다.</div></div></article>
+          <article class="setup-step"><span class="step-number">02</span><div class="step-body"><div class="step-heading"><h2>회사 정보와 업무 공간 준비</h2><div id="step-status-company"><span class="badge">확인 전</span></div></div><p>관리 대화를 열어 일손 폴더의 신뢰 여부를 확인하고 회사 인터뷰를 진행합니다. 기존 회사 정보가 있으면 내용을 먼저 확인하세요.</p><p class="command-label">일반 터미널에서 관리 대화 열기</p><div class="command"><code id="command-chat">ilson chat</code><button class="copy-button" type="button" data-copy="command-chat">복사</button></div><p class="command-label">열린 일손 대화창 안에서 인터뷰 시작</p><div class="command"><code id="command-onboard">/onboard</code><button class="copy-button" type="button" data-copy="command-onboard">복사</button></div><div class="step-details" id="step-detail-company">서버에서 상태를 확인하고 있습니다.</div></div></article>
+          <article class="setup-step"><span class="step-number">03</span><div class="step-body"><div class="step-heading"><h2>텔레그램으로 보고받기 <span class="optional">선택</span></h2><div id="step-status-telegram"><span class="badge">확인 전</span></div></div><p>개인 봇을 연결하면 업무 보고를 받을 수 있습니다. 토큰은 터미널의 숨김 입력에만 넣고, 안내에 따라 텔레그램에서 시작을 누릅니다. 연결하지 않아도 보고서는 이 맥에 저장됩니다.</p><div class="command"><code id="command-telegram">ilson telegram connect</code><button class="copy-button" type="button" data-copy="command-telegram">복사</button></div><div class="step-details" id="step-detail-telegram">서버에서 상태를 확인하고 있습니다.</div></div></article>
+          <article class="setup-step"><span class="step-number">04</span><div class="step-body"><div class="step-heading"><h2>준비된 예약 업무 시작</h2><div id="step-status-start"><span class="badge">확인 전</span></div></div><p>회사 정보와 자료를 준비한 뒤 예약 업무를 시작합니다. 이 명령은 준비된 업무들을 등록하므로 실행할 일정과 본인 계정의 사용량을 확인하고 진행하세요.</p><div class="command"><code id="command-start">ilson start</code><button class="copy-button" type="button" data-copy="command-start">복사</button></div><div class="step-details" id="step-detail-start">서버에서 상태를 확인하고 있습니다.</div></div></article>
+        </div>
+        <div class="section-heading"><h2>연결 상태를 더 확인할 때</h2></div>
+        <div class="connection-grid">
+          <article class="connection-card"><h3>텔레그램 보고·알림</h3><div id="telegram-status"><span class="badge">확인 전</span></div><p id="telegram-bot">상태를 확인하고 있습니다.</p><p id="telegram-verified"></p><div class="command"><code id="command-telegram-verify">ilson telegram status --verify</code><button class="copy-button" type="button" data-copy="command-telegram-verify">복사</button></div><p>현재 텔레그램은 보고·알림을 받는 통로입니다. 대화로 업무를 지시하거나 승인을 처리하지는 않습니다.</p></article>
+          <article class="connection-card"><h3>자료 검색과 전체 점검</h3><div id="search-status"><span class="badge">확인 전</span></div><p id="search-detail">상태를 확인하고 있습니다.</p><div class="command"><code id="command-search">ilson doctor --probe-search</code><button class="copy-button" type="button" data-copy="command-search">복사</button></div><p>공개 검색을 1회 실행합니다. 검색 서비스의 사용량이 발생할 수 있습니다.</p><div class="command"><code id="command-doctor">ilson doctor</code><button class="copy-button" type="button" data-copy="command-doctor">복사</button></div><p>설치·계정·기기 상태를 함께 점검할 때 사용합니다.</p></article>
+        </div>
+      </section>
+      <details id="limitations-box" class="limitations" hidden><summary>이 화면에서 확인하는 범위</summary><ul id="limitations"></ul></details>
+      <footer class="footer-note"><span id="poll-note">화면을 보는 동안 15초마다 확인</span><span id="timezone">기기 시간대 확인 전</span></footer>
+    </main>
+  </div>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
