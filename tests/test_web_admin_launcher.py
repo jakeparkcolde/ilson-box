@@ -313,6 +313,29 @@ class LauncherTests(unittest.TestCase):
         self.assertTrue(marker.exists())
         self.assertTrue(admin.plist_path().exists())
 
+    def test_bootout후등록해제가늦으면_같은서비스를기한안에다시확인한다(self):
+        self.assertEqual(self.main("install")[0], 0)
+        marker = self.home / "state/web-admin/enabled"
+        with patch.object(admin, "loaded", side_effect=[True, True, False]) as loaded, \
+             patch.object(admin.time, "sleep"):
+            code, output = self.main("stop")
+        self.assertEqual(code, 0, output)
+        self.assertEqual(loaded.call_count, 3)
+        self.assertFalse(marker.exists())
+        self.assertFalse(admin.plist_path().exists())
+
+    def test_bootout후계속등록중이면_기한후실패하고_enabled와plist를보존한다(self):
+        self.assertEqual(self.main("install")[0], 0)
+        marker = self.home / "state/web-admin/enabled"
+        with patch.object(admin, "loaded", return_value=True), \
+             patch.object(admin.time, "monotonic", side_effect=[0, 2, 4, 5]), \
+             patch.object(admin.time, "sleep"):
+            code, output = self.main("stop")
+        self.assertEqual(code, 1, output)
+        self.assertTrue(marker.exists())
+        self.assertTrue(admin.plist_path().exists())
+        self.assertNotIn("중지했습니다", output)
+
     def test_자동실행밖에서관리웹이실행중이면_중지성공으로표시하지않는다(self):
         self.assertEqual(self.main("install")[0], 0)
         self.is_loaded = False

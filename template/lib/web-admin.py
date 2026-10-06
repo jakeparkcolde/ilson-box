@@ -404,8 +404,13 @@ def stop(home):
         raise AdminError("자동 실행 밖에서 관리 웹이 실행 중입니다. 실행한 터미널에서 중지해 주세요.")
     if is_loaded:
         launch(["bootout", domain() + "/" + LABEL])
-        if loaded(home):
-            raise AdminError("관리 웹 중지를 확인하지 못했습니다.")
+        # macOS bootout은 요청을 받은 뒤 실제 등록 해제가 잠시 늦을 수 있다.
+        # 같은 Box의 서비스인지 계속 확인하면서 짧게 기다린다.
+        deadline = time.monotonic() + 5
+        while loaded(home):
+            if time.monotonic() >= deadline:
+                raise AdminError("관리 웹 중지를 확인하지 못했습니다.")
+            time.sleep(0.1)
         if instance is not None:
             deadline = time.monotonic() + 3
             while ours(health(port), instance):
