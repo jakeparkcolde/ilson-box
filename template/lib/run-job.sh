@@ -28,8 +28,15 @@ if [ ! -f "$policy" ] || [ ! -f "$rules" ] || [ ! -f "$task_file" ] ||
     printf '예약 업무 설정이 없거나 잘못되었습니다. ilson setup 을 실행하세요.\n' >&2
     exit 1
 fi
-task=$(cat "$task_file") || exit 1
-task="${task//\$ARGUMENTS/$today}"
+# 2026-10-07: YAML 머리말(---)을 -p 다음에 넘기면 CLI가 옵션으로 읽어
+# unknown option으로 종료한다. 배포 원본에서 머리말을 제외하고 stdin으로
+# 전달한다. 본문 자체가 '-'로 시작하는 사용자 명령도 같은 오류를 내지 않는다.
+if ! task=$(python3 "$LIB_DIR/job-prompt.py" "$task_file" "$today"); then
+    log "$name" 'FAILED: invalid scheduled-job prompt'
+    printf '예약 업무 프롬프트 준비 실패: 명령 파일과 설치 상태를 확인하세요.\n' > "$out"
+    "$LIB_DIR/notify.sh" "$name" --fail < "$out"
+    exit 1
+fi
 if command -v gtimeout >/dev/null 2>&1; then T=(gtimeout -k 5 "$TIMEOUT_S");
 elif command -v timeout >/dev/null 2>&1; then T=(timeout -k 5 "$TIMEOUT_S");
 else log "$name" "FAILED: timeout tool missing — run ilson setup"; exit 1; fi
@@ -39,12 +46,12 @@ trap 'rm -f "$raw"' EXIT
 # Disable user/project/local settings, skills, hooks, and MCP inheritance.
 # Explicit tools exclude subagents and interactive questions. Managed policies
 # still apply; this is permission separation, not an OS security sandbox.
-if "${T[@]}" claude --safe-mode -p "$task" --max-turns "$MAX_TURNS" --output-format json \
+if "${T[@]}" claude --safe-mode -p --max-turns "$MAX_TURNS" --output-format json \
     --permission-mode dontAsk --setting-sources '' --settings "$policy" \
     --disable-slash-commands --strict-mcp-config --mcp-config '{"mcpServers":{}}' \
     --disallowedTools 'mcp__*' \
     --tools 'Read,Glob,Grep,Edit,Write,Bash,WebSearch,WebFetch' \
-    --append-system-prompt-file "$rules" > "$raw" 2>"$LOGS/$name.$today.err"; then
+    --append-system-prompt-file "$rules" <<< "$task" > "$raw" 2>"$LOGS/$name.$today.err"; then
     if ! jq -e '.is_error == false and ((.permission_denials // []) | length == 0) and
         (.result | type == "string" and length > 0)' "$raw" >/dev/null 2>&1; then
         log "$name" 'FAILED: permission denied, incomplete job, or invalid result'
