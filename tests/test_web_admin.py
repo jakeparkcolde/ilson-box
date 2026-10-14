@@ -283,7 +283,7 @@ class HTTP시험(BoxFixture):
         self.assertEqual(self.server.server_address[0], "127.0.0.1")
         for path in ("/api/health", "/health"):
             status, _, body = self.request("GET", path)
-            self.assertEqual((status, body), (200, {"service": "ilson-box-admin", "instance": self.instance}))
+            self.assertEqual((status, body), (200, {"service": "ilson-box-admin", "instance": self.instance, "release":{}}))
         self.assertEqual(self.calls, [])
         self.assertEqual(self.request("GET", "/")[0], 200)
 

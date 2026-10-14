@@ -1,0 +1,35 @@
+일손 모션그래픽 팩 꽂기 구현·배포 — 2026-10-13
+
+요청: 터미널 안내가 아닌 관리자에서 팩을 꽂아 사용. 사용자 본인이 ilson update 후 테스트. 실제 Jake 설치 적용은 하지 않음.
+배포: Box 2026.10.13.8 / research 0.15.3. latest-v2.json 게시, immutable ZIP/manifest 검증. latest.json 기존 브리지 유지.
+Jake 원격 update --check 성공: 변경48개. Node/FFmpeg 미설치, Homebrew/Claude 있음 확인. 새 설치 버튼이 Homebrew로 Node22/FFmpeg를 준비하고 .runtime/motion에 hyperframes0.8.150/gsap3.14.2 및 스킬·브라우저를 준비한다. Jake에서 이 설치 자체는 아직 미실행.
+
+변경 정본:
+- ilson-box-safe-update/template/lib/motion_pack.py: 자동 준비·실제 Claude 문구 구성·검증된 고정 레이아웃 합성·MP4 렌더. 셸에 사용자 입력 미삽입, LLM에는 외부 도구 권한 없음, 문구 HTML escape.
+- mini_workspace.py: motion_install/create/render 영속 작업, 중복 실행 방지, 샌드박스 차단, 사용자 승인 필수 렌더.
+- current_ui.py + web-admin-server.py: 세션·동일 출처로 보호된 팩 API, 승인·미리보기·영상 다운로드. 기존 runtime_gate와 유휴 업데이트 규칙 적용.
+- ilson-search-image/webapp/ilson/packs.js,packs.html: 팩 꽂기, 진행·재시도, 제작 폼, sandbox iframe, 명시적 MP4 저장 버튼, 다운로드, 재접속 작업 복원. 무관한 팩의 체험 흐름 유지.
+- template/claude/skills/ilson-motion/SKILL.md: 웹 제작과 자유 제작 대화 스킬의 범위 구분.
+- research ZIP을 통해 관리자와 독립 팩 UI 동일 바이트 배포. main서버 기존 UI는 별도 교체하지 않음.
+
+현재 웹 제작 범위: 10/15/30초, 1280x720, 무음, 2~6개 텍스트 장면. 자유로운 자료·그래픽·내레이션을 자동 제작하는 전체 에이전트 UI는 아님. 설치되는 공식 스킬과 기존 ilson motion 대화 진입점은 유지. Flow 서비스는 아직 정확한 연결 미확인, 자동 내레이션 없음.
+작품: 각 기기 projects/motion/<id>. 운영 데이터/기존 작품 업데이트 대상 제외. 외부 발행 없음.
+
+검증:
+- 전체259 tests +79 subtests 통과(공통 fixture에서 상속한 기존 검증 포함).
+- 새 테스트: 설치 실패·재시도/중복 거부, 렌더 승인, 경로 검증, HTML 문구 escape, API 인증/출처/다운로드.
+- 격리 환경 실제 npm/스킬/browser 설치 성공. 실제 Claude 요청→미리보기 생성.
+- lint 실패 재현: inline GSAP의 Math.random/Date.now 탐지, preview.html의 다중 root. gsap.min.js 외부 로컬 파일/preview.txt 분리로 수정. 최종 check+render 통과. 10초 MP4 479916bytes ffprobe 확인.
+- Ego Space72 실제 관리자 UI: 팩 꽂기→자동 설치→문구 입력→미리보기→승인 저장→MP4 GET200 video/mp4 347861bytes 확인. preview.png 시각검토. 최종 UI에서는 체험 안내 숨김 확인.
+- .7→.8 임시 업데이트48파일, 프로젝트·vault 보존 및 새 API/UI 포함 검증.
+
+프로세스:
+- 새 테스트 서버 PID83756(port49616) 종료 요청. Ego Space72 finish keep[] 완료. 이번 HF check/render 자동화 프로세스 종료됨.
+- 기존 리서치 설명영상 HF preview PID22401 port3027 및 자식22568은 이전 사용자 검토 대기이므로 유지.
+- 지정 local-preview-cleanup.md는 현재 로컬에서 없음. PID/명령/시각/포트로 소유권 직접 확인하고 이번 테스트 서버만 종료.
+- 테스트 영상은 /tmp/ilson-motion-plug-test의 QA fixture, 사용자 납품 콘텐츠 아님. 미승인 기존 설명영상 미이동.
+
+Git: 기존 기능 작업과 함께 미커밋. commit/push 없음. 폴더 통째 add 금지.
+다음: 사용자 ilson update → 관리자 새로고침 → 팩 보관함 → 모션그래픽 제작 → 팩 꽂기. Jake 실제 첫 설치/계정 연결/영상 제작 확인. 웹의 자유 모션·자료 입력·수정·Flow 연결은 별도 후속 범위.
+
+종료 후 확인: 테스트 포트49616 해제 및 임시 인증 정보 제거 완료.

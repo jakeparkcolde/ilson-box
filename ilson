@@ -562,7 +562,9 @@ usage() {
   pair --code <코드> [--pairing-file <json>]     페어링 파일 (다시) 쓰기
   telegram connect                            안내에 따라 텔레그램 알림 연결·변경
   telegram status [--verify]                   저장 상태 확인 (verify: Telegram에 연결 점검)
-  update                                        우리 레이어 업데이트
+  update [--check|--rollback]                    배포 코드 갱신·확인·복구
+  research                                      설치된 최신 리서치 실행
+  motion [--check|제작 요청]                    모션그래픽 제작·준비 상태 확인
 EOF
 }
 
@@ -584,6 +586,33 @@ if [ "$cmd" = telegram ]; then
         connect|status) telegram_box "$telegram_command" "$@"; exit $? ;;
         *) usage; exit 2 ;;
     esac
+fi
+if [ "$cmd" = update ]; then
+    exec python3 "$SELF_DIR/tools/update.py" --home "$ILSON_HOME" --cli "$SELF_DIR" "$@"
+fi
+if [ "$cmd" = motion ]; then
+    skill="$ILSON_HOME/.claude/skills/ilson-motion/SKILL.md"
+    [ -f "$skill" ] || die "모션그래픽 팩이 없습니다. ilson update를 실행하세요"
+    if [ "${1:-}" = --check ]; then
+        [ "$#" -eq 1 ] || die "사용법: ilson motion --check"
+        missing=0
+        for tool in claude node npx; do
+            if has "$tool"; then printf '준비됨: %s\n' "$tool"; else printf '설치 필요: %s\n' "$tool"; missing=1; fi
+        done
+        printf '모션그래픽 실행 스킬: 준비됨\nHyperFrames·브라우저·인증은 제작 시작 시 추가 점검합니다.\n'
+        exit "$missing"
+    fi
+    case "${1:-}" in --*) die "사용법: ilson motion [제작 요청] 또는 ilson motion --check" ;; esac
+    ! is_sandbox_box || die "샌드박스에서는 영상 제작 대화를 실행하지 않습니다"
+    has claude || die "Claude CLI가 없습니다. ilson setup에서 설치 상태를 확인하세요"
+    cd "$ILSON_HOME" || exit 1
+    exec claude "먼저 .claude/skills/ilson-motion/SKILL.md를 읽고 일손 모션그래픽 팩으로 진행하세요. 사용자 제작 요청: ${*:-만들 영상의 주제와 길이를 함께 정해주세요.}"
+fi
+if [ "$cmd" = research ]; then
+    pack_version=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["research_version"])' "$ILSON_HOME/.updates/installed.json") || exit 1
+    case "$pack_version" in *[!0-9.]*|"") die "리서치 버전을 확인하세요" ;; esac
+    if [ -x "$ILSON_HOME/.runtime/venv/bin/python" ]; then export PATH="$ILSON_HOME/.runtime/venv/bin:$PATH"; fi
+    exec sh "$ILSON_HOME/packs/research/$pack_version/start.sh" "$@"
 fi
 while [ $# -gt 0 ]; do
     case "$1" in

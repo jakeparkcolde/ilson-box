@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""일손 Box의 로컬 읽기 전용 관리자. 실행·설정 변경·외부 접속 API는 없다."""
+"""일손 Box의 로컬 업무 관리자. 세션·동일 출처 인증 뒤 업무 API를 제공한다."""
 from __future__ import annotations
 
 import argparse
@@ -44,9 +44,47 @@ STATIC = {"/": ("web/index.html", "text/html; charset=utf-8"),
           "/fonts/InterVariable-4.1.woff2": ("web/fonts/InterVariable-4.1.woff2", "font/woff2"),
           "/fonts/PretendardVariable-1.3.9.woff2": ("web/fonts/PretendardVariable-1.3.9.woff2", "font/woff2"),
           "/fonts/JetBrainsMono-Regular-2.304.woff2": ("web/fonts/JetBrainsMono-Regular-2.304.woff2", "font/woff2"),
+          "/workspace.js": ("web/workspace.js", "application/javascript; charset=utf-8"),
+          "/workspace.css": ("web/workspace.css", "text/css; charset=utf-8"),
           "/app.js": ("web/app.js", "application/javascript; charset=utf-8"),
           "/favicon.svg": ("web/favicon.svg", "image/svg+xml")}
 
+
+# 기존 일손 화면 자산도 명시한 경로만 제공한다.
+STATIC['/current/assets/sns/facebook.svg'] = ('web/current/assets/sns/facebook.svg', 'image/svg+xml')
+STATIC['/current/assets/sns/instagram.svg'] = ('web/current/assets/sns/instagram.svg', 'image/svg+xml')
+STATIC['/current/assets/sns/linkedin.svg'] = ('web/current/assets/sns/linkedin.svg', 'image/svg+xml')
+STATIC['/current/assets/sns/naver.svg'] = ('web/current/assets/sns/naver.svg', 'image/svg+xml')
+STATIC['/current/assets/sns/qiita.svg'] = ('web/current/assets/sns/qiita.svg', 'image/svg+xml')
+STATIC['/current/assets/sns/threads.svg'] = ('web/current/assets/sns/threads.svg', 'image/svg+xml')
+STATIC['/current/assets/sns/x.svg'] = ('web/current/assets/sns/x.svg', 'image/svg+xml')
+STATIC['/current/assets/sns/zenn.svg'] = ('web/current/assets/sns/zenn.svg', 'image/svg+xml')
+STATIC['/current/composer.js'] = ('web/current/composer.js', 'application/javascript; charset=utf-8')
+STATIC["/current/"] = ("web/current/index.html", "text/html; charset=utf-8")
+STATIC['/current/base.css'] = ('web/current/base.css', 'text/css; charset=utf-8')
+STATIC['/current/icons.js'] = ('web/current/icons.js', 'application/javascript; charset=utf-8')
+STATIC['/current/index.html'] = ('web/current/index.html', 'text/html; charset=utf-8')
+STATIC['/current/pack-library/ability-format.js'] = ('web/current/pack-library/ability-format.js', 'application/javascript; charset=utf-8')
+STATIC['/current/pack-library/ability-library.js'] = ('web/current/pack-library/ability-library.js', 'application/javascript; charset=utf-8')
+STATIC['/current/pack-library/knowledge.css'] = ('web/current/pack-library/knowledge.css', 'text/css; charset=utf-8')
+STATIC['/current/pack-library/knowledge.html'] = ('web/current/pack-library/knowledge.html', 'text/html; charset=utf-8')
+STATIC['/current/pack-library/knowledge.js'] = ('web/current/pack-library/knowledge.js', 'application/javascript; charset=utf-8')
+STATIC['/current/pack-library/pack-embedded.js'] = ('web/current/pack-library/pack-embedded.js', 'application/javascript; charset=utf-8')
+STATIC['/current/pack-library/pack-navigation.js'] = ('web/current/pack-library/pack-navigation.js', 'application/javascript; charset=utf-8')
+STATIC['/current/pack-library/packs.css'] = ('web/current/pack-library/packs.css', 'text/css; charset=utf-8')
+STATIC['/current/pack-library/packs.html'] = ('web/current/pack-library/packs.html', 'text/html; charset=utf-8')
+STATIC['/current/pack-library/packs.js'] = ('web/current/pack-library/packs.js', 'application/javascript; charset=utf-8')
+STATIC['/current/pack-library/research-threads.js'] = ('web/current/pack-library/research-threads.js', 'application/javascript; charset=utf-8')
+STATIC['/current/pack-library/research.css'] = ('web/current/pack-library/research.css', 'text/css; charset=utf-8')
+STATIC['/current/pack-library/research.html'] = ('web/current/pack-library/research.html', 'text/html; charset=utf-8')
+STATIC['/current/pack-library/research-image.js'] = ('web/current/pack-library/research-image.js', 'application/javascript; charset=utf-8')
+STATIC['/current/pack-library/research.js'] = ('web/current/pack-library/research.js', 'application/javascript; charset=utf-8')
+STATIC['/current/shell.css'] = ('web/current/shell.css', 'text/css; charset=utf-8')
+STATIC['/current/shell.js'] = ('web/current/shell.js', 'application/javascript; charset=utf-8')
+STATIC['/current/sns_accounts.js'] = ('web/current/sns_accounts.js', 'application/javascript; charset=utf-8')
+STATIC['/current/sns_operations.css'] = ('web/current/sns_operations.css', 'text/css; charset=utf-8')
+STATIC['/current/sns_operations.js'] = ('web/current/sns_operations.js', 'application/javascript; charset=utf-8')
+STATIC['/current/vault.js'] = ('web/current/vault.js', 'application/javascript; charset=utf-8')
 
 class AdminError(ValueError):
     def __init__(self, message, status=400):
@@ -240,6 +278,8 @@ class Box:
         # macOS /var와 /private/var처럼 같은 폴더의 원래 경로도 확인한다.
         self.project_paths = {str(Path(home).absolute()), str(Path(home).resolve())}
         self.home = Path(home).resolve()
+        release=self.home/'.updates/installed.json'
+        self.release_info={k:v for k,v in json.loads(release.read_text()).items() if k in ('version','research_version')} if release.is_file() else {}
         self.files = Files(self.home)
         self.user_files = Files(user_home or Path.home())
         self.clock = clock
@@ -258,6 +298,18 @@ class Box:
         self.attempts = OrderedDict()
         self.secret_values = {token}
         self.secret_lock = threading.Lock()
+        self._workspace = None
+        self.workspace_lock = threading.Lock()
+
+    def workspace(self):
+        with self.workspace_lock:
+            if self._workspace is None:
+                library = str(Path(__file__).resolve().parent)
+                if library not in sys.path:
+                    sys.path.insert(0, library)
+                from mini_workspace import Workspace
+                self._workspace = Workspace(self.home, self.files)
+            return self._workspace
 
     def redact(self, value):
         with self.secret_lock:
@@ -417,7 +469,7 @@ class Box:
                             "setup_state": setup_state, "timezone": datetime.now().astimezone().tzname()},
                            "checks": checks, "telegram": telegram, "jobs": jobs,
                            "limitations": notices + ["마지막 성공 기록만으로 현재 실행 중·최근 실패·알림 도착 여부를 확정하지 않습니다.",
-                                                       "이 화면은 조회 전용입니다. 업무 실행·설정 변경은 터미널의 ilson chat에서 진행하세요."]})
+                                                       "리서치·지식·SNS·서류함은 각 메뉴에서 처리합니다. 기존 예약 업무 설정은 ilson chat에서 변경하세요."]})
 
     def report_candidates(self):
         rows, limited, visited = [], False, 0
@@ -590,9 +642,15 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(raw)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("X-Frame-Options", "DENY")
+        frameable = urlsplit(self.path).path.startswith("/current/pack-library/")
+        self.send_header("X-Frame-Options", "SAMEORIGIN" if frameable else "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
-        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+        policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+        if urlsplit(self.path).path.startswith('/current/'):
+            policy = policy.replace("img-src 'self' data:", "img-src 'self' data: https:; media-src 'self' https:")
+        if frameable:
+            policy = policy.replace("frame-ancestors 'none'", "frame-ancestors 'self'")
+        self.send_header("Content-Security-Policy", policy)
         if cookie:
             self.send_header("Set-Cookie", cookie)
         if status == 429:
@@ -615,7 +673,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def boundary(self):
         hosts = self.headers.get_all("Host", [])
-        if len(hosts) != 1 or hosts[0].lower() not in self.server.hosts:
+        callback_path = urlsplit(self.path).path
+        callback = self.command == 'GET' and re.fullmatch(r'/api/oauth/callback/(threads|instagram|facebook)', callback_path)
+        callback_host = bool(callback and len(hosts) == 1 and self.current_ui().oauth.callback_host(hosts[0], callback_path))
+        if len(hosts) != 1 or (hosts[0].lower() not in self.server.hosts and not callback_host):
             raise AdminError("이 기기의 일손 관리자 주소에서 접속해주세요.", 403)
         origins = self.headers.get_all("Origin", [])
         if len(origins) > 1 or (origins and origins[0] not in self.server.origins):
@@ -628,7 +689,7 @@ class Handler(BaseHTTPRequestHandler):
             parsed = urlsplit(self.path)
         except ValueError:
             raise AdminError("요청 주소를 확인해주세요.") from None
-        if parsed.query or parsed.fragment:
+        if parsed.fragment or (parsed.query and not (unquote(parsed.path) in STATIC and parsed.path.startswith("/current/") or parsed.path == "/api/sns-operations" or re.fullmatch(r"/api/oauth/callback/(threads|instagram|facebook)", parsed.path))):
             raise AdminError("요청 주소를 확인해주세요.", 404)
         return unquote(parsed.path)
 
@@ -636,14 +697,14 @@ class Handler(BaseHTTPRequestHandler):
         if not self.server.box.authenticated(self.session()):
             raise AdminError("연결이 필요합니다. 터미널에서 ilson open으로 열어주세요.", 401)
 
-    def body(self):
+    def body(self, limit=BODY_LIMIT):
         if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
             raise AdminError("JSON 요청이 필요합니다.", 415)
         lengths = self.headers.get_all("Content-Length", [])
-        if self.headers.get("Transfer-Encoding") or len(lengths) != 1 or not re.fullmatch(r"[0-9]{1,6}", lengths[0]):
+        if self.headers.get("Transfer-Encoding") or len(lengths) != 1 or not re.fullmatch(r"[0-9]{1,8}", lengths[0]):
             raise AdminError("요청 길이를 확인해주세요.")
         size = int(lengths[0])
-        if not 0 < size <= BODY_LIMIT:
+        if not 0 < size <= limit:
             raise AdminError("요청 크기를 확인해주세요.", 413)
         raw = self.rfile.read(size)
         if len(raw) != size:
@@ -653,7 +714,12 @@ class Handler(BaseHTTPRequestHandler):
     def guarded(self, callback):
         try:
             self.boundary()
-            callback()
+            if urlsplit(self.path).path in ('/health','/api/health'):callback()
+            else:
+                from runtime_gate import running
+                with running(self.server.box.home):callback()
+        except BlockingIOError:
+            self.reply(503, {'error':'업데이트 적용 중입니다. 잠시 후 새로고침하세요.'})
         except AdminError as exc:
             self.reply(exc.status, {"error": str(exc)})
         except (OSError, Unreadable, ValueError):
@@ -668,8 +734,21 @@ class Handler(BaseHTTPRequestHandler):
 
     def get(self):
         path = self.route()
+        if re.fullmatch(r'/api/oauth/callback/(threads|instagram|facebook)', path):
+            if self.command != 'GET':
+                raise AdminError('인증 콜백은 GET 요청만 허용합니다.', 405)
+            from urllib.parse import parse_qs
+            from mini_workspace import WorkspaceError
+            params = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+            if any(len(values) != 1 for values in params.values()):
+                raise AdminError('인증 응답 형식을 확인하세요.', 400)
+            try:
+                self.current_ui().oauth.finish(path.rsplit('/', 1)[-1], {k:v[0] for k,v in params.items()})
+                return self.reply(200, '<!doctype html><meta charset="utf-8"><title>일손 SNS 연결</title><h1>계정 연결을 확인했습니다.</h1><p>원래 일손 화면으로 돌아가세요.</p>'.encode(), 'text/html; charset=utf-8')
+            except WorkspaceError as error:
+                raise AdminError(str(error), error.status) from None
         if path in {"/api/health", "/health"}:
-            return self.reply(200, {"service": SERVICE, "instance": self.server.box.instance})
+            return self.reply(200, {"service": SERVICE, "instance": self.server.box.instance, "release":self.server.box.release_info})
         if path in STATIC:
             relative, kind = STATIC[path]
             try:
@@ -681,8 +760,18 @@ class Handler(BaseHTTPRequestHandler):
                 raise AdminError("관리자 화면 파일이 없습니다. ilson setup으로 갱신해주세요.", 404) from None
             return self.reply(200, raw, kind)
         self.require_session()
+        from current_ui import handles
+        if re.fullmatch(r'/api/motion/projects/[a-f0-9]{32}/download',path):
+            from motion_pack import asset
+            from mini_workspace import WorkspaceError
+            try: return self.reply(200,asset(self.server.box.home,path.split('/')[-2],'output.mp4'),'video/mp4')
+            except WorkspaceError as error: raise AdminError(str(error),error.status) from None
+        if handles(path):
+            return self.current_request("GET", path)
         if path == "/api/session":
             return self.reply(200, {"authenticated": True})
+        if path.startswith("/api/workspace/"):
+            return self.workspace_request("GET", path)
         if path == "/api/overview":
             return self.reply(200, self.server.box.overview())
         if path == "/api/reports":
@@ -694,8 +783,53 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         self.guarded(self.post)
 
+    def workspace_request(self, method, path):
+        work = self.server.box.workspace()
+        from mini_workspace import WorkspaceError
+        try:
+            data = self.body(limit=400000) if method == "POST" else None
+            result = work.handle(method, path.removeprefix("/api/workspace"), data)
+            return self.reply(200, result)
+        except AdminError:
+            raise
+        except WorkspaceError as error:
+            raise AdminError(str(error), error.status) from None
+        except Exception:
+            print("일손 업무 요청 실패: 연결·업무 저장 상태를 확인하세요.", file=sys.stderr)
+            raise AdminError("업무 요청을 완료하지 못했습니다. 연결·입력·저장 상태를 확인하세요.", 503) from None
+
+    def current_ui(self):
+        from current_ui import CurrentUI
+        work = self.server.box.workspace()
+        with work.lock:
+            if not hasattr(work, 'current_ui'):
+                work.current_ui = CurrentUI(work)
+        return work.current_ui
+
+    def current_request(self, method, path):
+        from mini_workspace import WorkspaceError
+        current = self.current_ui()
+        try:
+            from research.image_normalize import MAX_UPLOAD_JSON
+            data = self.body(limit=MAX_UPLOAD_JSON if path=='/api/research/image' else 400000) if method == "POST" else None
+            return self.reply(200, current.dispatch(method, path, urlsplit(self.path).query, data))
+        except WorkspaceError as error:
+            raise AdminError(str(error), error.status) from None
+        except Exception:
+            print("기존 일손 화면 요청 실패: 실행 환경을 확인하세요.", file=sys.stderr)
+            raise AdminError("업무를 완료하지 못했습니다. 실행 도구·인증·저장 상태를 확인하세요.", 503) from None
+
     def post(self):
         path = self.route()
+        from current_ui import handles
+        if handles(path):
+            self.require_session()
+            return self.current_request("POST", path)
+        if path.startswith("/api/workspace/"):
+            self.require_session()
+            # 요청이 실행 모듈을 불러오기 전에 세션과 출처부터 검증한다.
+            self.server.box.workspace()
+            return self.workspace_request("POST", path)
         if path == "/api/session":
             data = self.body()
             if set(data) != {"token"}:
@@ -720,6 +854,7 @@ def main():
         if not args.home.is_absolute() or not 1 <= args.port <= 65535:
             raise AdminError("Box 절대 경로와 포트를 확인해주세요.")
         server = Server(Box(args.home), args.port)
+        server.box.workspace().start()
     except (AdminError, OSError, ValueError):
         parser.exit(1, "일손 관리자 시작 실패: 연결 설정·파일 권한·사용 중인 포트를 확인해주세요.\n")
     print(f"일손 관리자: http://127.0.0.1:{server.server_port}/ · 이 기기에서만 접속", flush=True)
@@ -729,6 +864,8 @@ def main():
         pass
     finally:
         server.server_close()
+        if server.box._workspace is not None:
+            server.box._workspace.close()
 
 
 if __name__ == "__main__":

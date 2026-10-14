@@ -1,0 +1,8 @@
+2026-10-13 · Box 배포 2026.10.13.5
+리서치 팩 0.15.0을 HTTPS latest feed에 연결. 이전 .4의 비리서치 manifest 항목과 완전 동일 검증.
+임시 Box: .4→.5 적용34파일, 기존 .14팩보존, vault/state/logs/.env/settings 5개 바이트 동일, rollback .14복구 성공.
+제이크 실제기기: jake_mini@macmini-1.tailb24b18.ts.net 에서 /Users/jake_mini/.ilson-cli/ilson update --check 실행 성공. 배포버전 .5 변경34, 기존확장관리자8경로보존. 실제적용은하지않음.
+최신feed: https://macmini.tailb24b18.ts.net/pack-library/downloads/box/latest.json
+immutable release JSON·ZIP HTTPS byte match. bootstrap은 기존 updater .4 그대로(업데이터코드변경없음), 최신feed를읽음.
+사용자명령: ilson update 다음 ilson research. 독립팩을여는명령이며 기존확장관리자 통합검색이 자동교체되었다고하지않음. 실행중작업재시작/운영데이터변경없음.
+코드커밋/푸시없음. 검색수정/검증/인계는 ilson-search-image/docs/ilson-search-image/travel-20261013.

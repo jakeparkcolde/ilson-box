@@ -1,0 +1,10 @@
+모션그래픽 프로그램 업데이트 통합 — 2026-10-13
+사용자 요청: 팩 꽂기 이후 실제 프로그램 설치 유무 확인, ilson update 때 프로그램도 설치.
+실측 Jake: motion_install done. Node v22.23.3, FFmpeg/FFprobe, Claude, hyperframes0.8.150, gsap3.14.2, Chrome 실행파일 정상. 새 코드 dependencies()를 /tmp 읽기 전용 점검으로 실행하여 전부 true 확인. 설치된 코드·프로그램은 원격 수정하지 않음.
+배포: Box2026.10.13.9 / research0.15.3. latest-v2 및 bootstrap 게시. staging /tmp/ilson-motion-release-20261013-9-publish.
+동작: 선택한 팩(기존 .runtime/motion 또는 motion_install 작업 이력)만 점검. 신규 코드 적용 뒤 및 같은 버전 active 조기 반환 직전에 runtime_lock/ensure_idle 하에서 실행 프로그램 점검. --check는 설치하지 않음. 프로그램 실패는 오류 종료, 다음 update 재시도. 샌드박스는 설치 차단.
+모션 도구: 같은 PATH로 발견·실행 통일(node@22 keg 포함). Node22+, ffmpeg/ffprobe/Claude 실행, pinned hyperframes/gsap 버전·핵심 파일, Chrome 경로 확인. 필요하면 Homebrew·공식 Claude 설치·npm 복구. 유실된 npm 파일은 npm install만으로 복구되지 않을 수 있어 손상 패키지를 .runtime/motion/repair-*로 보존 후 재설치. 최종 검증 후 ready 기록. 정상 환경은 재설치하지 않음. 로그인 자동 처리 없음.
+전환 주의: .8 updater 프로세스는 .9를 내려받아도 그 실행 중에는 예전 동작을 유지한다. 첫 ilson update는 새 코드 적용, 다음 ilson update부터 새 프로그램 점검 동작. Jake 필수 프로그램은 이미 모두 정상임을 확인함. 신규 bootstrap 설치는 바로 새 updater 실행.
+검증: 전체273 tests+84subtests 통과 이후 Claude/복구 로직 보완, 최종 관련72 tests+15subtests 재통과. 임시 실제 환경에서 gsap.min.js를 유실시켜 dependencies 누락 확인→npm 패키지 복구→전체 검증 성공. 정상 환경 재설치 없음, 설치 실패 재시도, 같은 버전 재점검, --check 무설치, 미선택 팩 제외 검증.
+변경 파일: template/lib/motion_pack.py, tools/update.py, tests/test_motion_pack.py, tests/test_update.py. 기존 미커밋 보존, commit/push 없음. 운영 데이터·작품 미변경. 새 미리보기/영상 제작 없음.
+다음: 사용자가 ilson update로 .9 적용. 바로 프로그램 점검 결과를 보려면 ilson update 한 번 더. 이후 평소에는 한 번이면 코드와 선택 팩 프로그램 함께 점검.

@@ -107,19 +107,20 @@ class JobPromptTests(unittest.TestCase):
 
     def test_업데이트후에도_수정된_tidy가_실행된다(self):
         (self.box / "vault/company/customer.md").write_bytes(b"keep customer note\n")
-        # 별도 임시 저장소를 실제 clone하는 업데이트 경로를 통과시킨다.
-        repo = self.base / "release"
-        repo.mkdir()
-        shutil.copytree(ROOT / "template", repo / "template")
-        for args in (["init", "-q"], ["add", "template"],
-                     ["-c", "user.name=Test", "-c", "user.email=test@example.invalid",
-                      "-c", "commit.gpgsign=false", "commit", "-qm", "fixture"]):
-            subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
-        (self.box / "state/pairing.json").write_text(json.dumps({"update_repo":str(repo)}))
-        (self.box / "lib/run-job.sh").write_text("exit 99\n")
-        result = subprocess.run(["bash", str(self.box / "lib/update.sh")], env=self.env,
-                                capture_output=True, text=True, timeout=15)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        # 공개 배포 형식과 같은 파일별 체크섬/이전 코드 해시 경로를 사용한다.
+        import hashlib, zipfile
+        previous=b"exit 99\n"
+        (self.box / "lib/run-job.sh").write_bytes(previous)
+        archive=self.base/"release.zip"
+        body=(ROOT/"template/lib/run-job.sh").read_bytes()
+        with zipfile.ZipFile(archive,"w") as z:z.writestr("box/lib/run-job.sh",body)
+        sha=lambda data:hashlib.sha256(data).hexdigest()
+        manifest=self.base/"release.json"
+        manifest.write_text(json.dumps({"schema":1,"version":"1.0","archive_sha256":sha(archive.read_bytes()),
+            "files":[{"area":"box","path":"lib/run-job.sh","sha256":sha(body),"previous_sha256":sha(previous)}]}))
+        result=subprocess.run([sys.executable,str(ROOT/"tools/update.py"),"--home",str(self.box),"--cli",str(ROOT),
+                               "--manifest",str(manifest),"--archive",str(archive)],env=self.env,text=True,capture_output=True,timeout=15)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
         self.assert_installed_job()
 
 
