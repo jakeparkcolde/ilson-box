@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 328" width="720" height="328" role="img" aria-label="아는 것은 짧게, 모르는 것은 몰라요나 나중에로, 비밀번호와 손님 연락처는 넣지 않는다는 세 가지 답하는 법 카드">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .t{font-size:22px;font-weight:700}
+    .l{font-size:20px}
+    .s{font-size:18px;fill:#6b7078}
+  </style>
+  <rect width="720" height="328" rx="16" fill="#f5f6f6"/>
+
+  <!-- 1. what you know -->
+  <rect x="32" y="32" width="208" height="264" rx="14" fill="#e6f3e9" stroke="#1d8a38" stroke-width="2"/>
+  <circle cx="136" cy="72" r="16" fill="#ffffff" stroke="#1d8a38" stroke-width="2"/>
+  <path d="M128 72 L134 78 L145 66" fill="none" stroke="#1d8a38" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="t" x="136" y="124" text-anchor="middle" style="fill:#1d8a38">아는 것</text>
+  <text class="l" x="136" y="172" text-anchor="middle">두세 문장으로 짧게</text>
+  <rect x="48" y="192" width="176" height="68" rx="10" fill="#ffffff"/>
+  <text class="s" x="136" y="220" text-anchor="middle">예: 손님은 근처</text>
+  <text class="s" x="136" y="246" text-anchor="middle">직장인이 많아요</text>
+
+  <!-- 2. what you don't know -->
+  <rect x="256" y="32" width="208" height="264" rx="14" fill="#f8efdc" stroke="#a3720a" stroke-width="2"/>
+  <circle cx="360" cy="72" r="16" fill="#ffffff" stroke="#a3720a" stroke-width="2"/>
+  <path d="M354.5 67.5 Q354.5 61 360 61 Q365.5 61 365.5 66.5 Q365.5 70 362 72 Q360 73.3 360 76.5" fill="none" stroke="#a3720a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="360" cy="82" r="1.8" fill="#a3720a"/>
+  <text class="t" x="360" y="124" text-anchor="middle" style="fill:#a3720a">모르는 것</text>
+  <text class="l" x="360" y="172" text-anchor="middle">「몰라요」·「나중에」</text>
+  <text class="s" x="360" y="204" text-anchor="middle">초안으로 남기고</text>
+  <text class="s" x="360" y="228" text-anchor="middle">넘어가요</text>
+  <rect x="308" y="242" width="104" height="32" rx="8" fill="#ffffff" stroke="#a3720a" stroke-width="1.5"/>
+  <text x="360" y="264" text-anchor="middle" style="font-size:18px;fill:#a3720a">[확인 필요]</text>
+
+  <!-- 3. what never goes in -->
+  <rect x="480" y="32" width="208" height="264" rx="14" fill="#f8e3e1" stroke="#c4423b" stroke-width="2"/>
+  <circle cx="584" cy="72" r="16" fill="#ffffff" stroke="#c4423b" stroke-width="2"/>
+  <path d="M573.5 61.5 L594.5 82.5" stroke="#c4423b" stroke-width="2.5" stroke-linecap="round"/>
+  <text class="t" x="584" y="124" text-anchor="middle" style="fill:#c4423b">넣지 않을 것</text>
+  <rect x="496" y="144" width="176" height="42" rx="10" fill="#ffffff"/>
+  <text class="l" x="584" y="172" text-anchor="middle">비밀번호 · 계좌번호</text>
+  <rect x="496" y="198" width="176" height="42" rx="10" fill="#ffffff"/>
+  <text class="l" x="584" y="226" text-anchor="middle">손님 이름 · 연락처</text>
+</svg>

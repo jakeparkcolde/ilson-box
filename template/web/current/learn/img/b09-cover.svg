@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" width="720" height="340" role="img" aria-label="부탁하기, 대화 옆 창에 문서가 열리기, 한마디로 고치기, Word·PDF·Excel 파일로 받기 네 단계를 차례로 보여 주는 흐름 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:21px;font-weight:600}
+    .f{font-size:18px;font-weight:500}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="340" rx="16" fill="#f5f6f6"/>
+
+  <!-- badges -->
+  <circle cx="90" cy="36" r="14" fill="#5e6ad2"/><text class="n" x="90" y="42" text-anchor="middle">1</text>
+  <circle cx="270" cy="36" r="14" fill="#5e6ad2"/><text class="n" x="270" y="42" text-anchor="middle">2</text>
+  <circle cx="450" cy="36" r="14" fill="#5e6ad2"/><text class="n" x="450" y="42" text-anchor="middle">3</text>
+  <circle cx="616" cy="36" r="14" fill="#5e6ad2"/><text class="n" x="616" y="42" text-anchor="middle">4</text>
+
+  <!-- cards -->
+  <rect x="32" y="64" width="116" height="216" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="184" y="64" width="172" height="216" rx="14" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <rect x="392" y="64" width="116" height="216" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="544" y="64" width="144" height="216" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <!-- arrows -->
+  <g stroke="#6b7078" stroke-width="2" fill="none">
+    <path d="M152 172 H180" marker-end="url(#arrow)"/>
+    <path d="M360 172 H388" marker-end="url(#arrow)"/>
+    <path d="M512 172 H540" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- 1: speech bubble -->
+  <g fill="none" stroke="#6b7078" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M70 116 H110 A10 10 0 0 1 120 126 V152 A10 10 0 0 1 110 162 H84 L72 174 L73 162 H70 A10 10 0 0 1 60 152 V126 A10 10 0 0 1 70 116 Z" fill="#ffffff"/>
+    <path d="M72 133 H108 M72 145 H98"/>
+  </g>
+  <text class="l" x="90" y="247" text-anchor="middle">부탁해요</text>
+
+  <!-- 2: chat with a document panel beside it -->
+  <rect x="210" y="104" width="120" height="88" rx="8" fill="#ffffff" stroke="#c9ccd2" stroke-width="1.5"/>
+  <path d="M218 104 H322 A8 8 0 0 1 330 112 V116 H210 V112 A8 8 0 0 1 218 104 Z" fill="#eceef0"/>
+  <g fill="#e4e4e8">
+    <rect x="218" y="128" width="22" height="8" rx="4"/>
+    <rect x="218" y="144" width="16" height="8" rx="4"/>
+  </g>
+  <rect x="248" y="122" width="76" height="64" rx="6" fill="#ffffff" stroke="#5e6ad2" stroke-width="1.5"/>
+  <rect x="256" y="131" width="42" height="9" rx="4.5" fill="#9da2a9"/>
+  <g fill="#e4e4e8">
+    <rect x="256" y="148" width="58" height="7" rx="3.5"/>
+    <rect x="256" y="161" width="50" height="7" rx="3.5"/>
+    <rect x="256" y="174" width="56" height="7" rx="3.5"/>
+  </g>
+  <text class="l" x="270" y="247" text-anchor="middle">옆 창에 문서</text>
+
+  <!-- 3: pencil changing a line in place -->
+  <rect x="414" y="164" width="72" height="9" rx="4.5" fill="#e4e4e8"/>
+  <path d="M430 184 H468" stroke="#5e6ad2" stroke-width="3" stroke-linecap="round"/>
+  <g transform="translate(459 134) rotate(45)" fill="#ffffff" stroke="#6b7078" stroke-width="2.2" stroke-linejoin="round">
+    <rect x="-7" y="-26" width="14" height="44" rx="2"/>
+    <path d="M-7 18 L0 32 L7 18 Z"/>
+    <path d="M-7 -16 H7" fill="none"/>
+  </g>
+  <text class="l" x="450" y="234" text-anchor="middle">한마디로</text>
+  <text class="l" x="450" y="261" text-anchor="middle">고쳐요</text>
+
+  <!-- 4: file chips and download -->
+  <g fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5">
+    <rect x="560" y="100" width="80" height="30" rx="8"/>
+    <rect x="560" y="138" width="80" height="30" rx="8"/>
+    <rect x="560" y="176" width="80" height="30" rx="8"/>
+  </g>
+  <text class="f" x="600" y="121" text-anchor="middle">Word</text>
+  <text class="f" x="600" y="159" text-anchor="middle">PDF</text>
+  <text class="f" x="600" y="197" text-anchor="middle">Excel</text>
+  <path d="M664 112 V184" stroke="#6b7078" stroke-width="2.2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M654 198 H674" stroke="#6b7078" stroke-width="2.2" stroke-linecap="round"/>
+  <text class="l" x="616" y="247" text-anchor="middle">파일로 받아요</text>
+</svg>

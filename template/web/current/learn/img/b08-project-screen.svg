@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" width="720" height="420" role="img" aria-label="프로젝트 화면을 단순하게 그린 스케치로, 오른쪽에 프로젝트 지침 설정 단추와 자료를 넣는 + 단추가 번호와 함께 표시된 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:24px;font-weight:700}
+    .l{font-size:20px;font-weight:600}
+    .r{font-size:20px}
+    .s{font-size:18px;fill:#6b7078}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="420" rx="16" fill="#f5f6f6"/>
+
+  <!-- schematic project window -->
+  <rect x="32" y="24" width="656" height="332" rx="12" fill="#ffffff"/>
+  <path d="M44 24 H676 A12 12 0 0 1 688 36 V60 H32 V36 A12 12 0 0 1 44 24 Z" fill="#eceef0"/>
+  <g fill="#6b7078" opacity="0.45">
+    <circle cx="52" cy="42" r="5"/><circle cx="68" cy="42" r="5"/><circle cx="84" cy="42" r="5"/>
+  </g>
+  <rect x="32" y="24" width="656" height="332" rx="12" fill="none" stroke="#e4e4e8" stroke-width="1.5"/>
+  <path d="M372 60 V356" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <!-- left: project name, chat area, message box -->
+  <text class="h" x="58" y="104">햇살꽃집</text>
+  <g fill="#e4e4e8">
+    <rect x="58" y="122" width="220" height="12" rx="6"/>
+    <rect x="58" y="144" width="160" height="12" rx="6"/>
+    <rect x="58" y="190" width="250" height="12" rx="6"/>
+    <rect x="58" y="212" width="190" height="12" rx="6"/>
+  </g>
+  <rect x="56" y="270" width="292" height="60" rx="18" fill="#ffffff" stroke="#c9ccd2" stroke-width="1.5"/>
+  <rect x="76" y="293" width="170" height="14" rx="7" fill="#e4e4e8"/>
+  <circle cx="318" cy="300" r="15" fill="#ffffff" stroke="#6b7078" stroke-width="1.5"/>
+  <path d="M318 308 V292 M311 298 L318 291 L325 298" fill="none" stroke="#6b7078" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- right panel: instructions control -->
+  <circle cx="396" cy="114" r="14" fill="#5e6ad2"/>
+  <text class="n" x="396" y="120" text-anchor="middle">1</text>
+  <rect x="420" y="82" width="250" height="64" rx="12" fill="#e8eafb" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="l" x="434" y="108">Set project instructions</text>
+  <text class="s" x="434" y="134">(프로젝트 지침 설정)</text>
+
+  <!-- right panel: project knowledge with + -->
+  <text class="l" x="392" y="212">프로젝트 지식</text>
+  <circle cx="612" cy="205" r="16" fill="#e8eafb" stroke="#5e6ad2" stroke-width="2"/>
+  <path d="M612 197 V213 M604 205 H620" stroke="#1d1d21" stroke-width="2.2" stroke-linecap="round"/>
+  <circle cx="650" cy="205" r="14" fill="#5e6ad2"/>
+  <text class="n" x="650" y="211" text-anchor="middle">2</text>
+
+  <rect x="392" y="234" width="276" height="40" rx="10" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="392" y="284" width="276" height="40" rx="10" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <g fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M408 243 H419 L425 249 V265 H408 Z M419 243 V249 H425"/>
+    <path d="M408 293 H419 L425 299 V315 H408 Z M419 293 V299 H425"/>
+  </g>
+  <text class="r" x="438" y="261">가게 소개</text>
+  <text class="r" x="438" y="311">가격표</text>
+
+  <text class="s" x="32" y="394">실제 화면은 조금 다를 수 있어요</text>
+</svg>

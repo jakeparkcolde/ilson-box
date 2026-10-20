@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 392" width="720" height="392" role="img" aria-label="리서치 화면에서 질문 칸에 붙여 넣고, 빠른 검색을 확인한 뒤 검색 버튼을 누르는 위치를 짚은 화면 스케치">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .r{font-size:18px}
+    .k{font-size:18px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+    .bar{fill:#e4e4e8}
+    .ghost{fill:#eceef0}
+    .target{fill:#ffffff;stroke:#5e6ad2;stroke-width:2}
+  </style>
+  <rect width="720" height="392" rx="16" fill="#f5f6f6"/>
+
+  <!-- window -->
+  <rect x="32" y="32" width="656" height="310" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <path d="M46 32.75 H674 Q687.25 32.75 687.25 46 V62 H32.75 V46 Q32.75 32.75 46 32.75 Z" fill="#eceef0"/>
+  <path d="M32.75 62 H687.25" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <!-- drawer -->
+  <path d="M32.75 62.75 H202 V341.25 H46 Q32.75 341.25 32.75 328 Z" fill="#f5f6f6"/>
+  <path d="M202 62.75 V341.25" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="k" x="50" y="96">일손 리서치</text>
+  <rect x="50" y="112" width="136" height="34" rx="10" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="r" x="118" y="135" text-anchor="middle">새 조사</text>
+  <text class="k" x="50" y="184" style="fill:#6b7078">조사 내역</text>
+  <rect x="50" y="200" width="132" height="12" rx="6" class="bar"/>
+  <rect x="50" y="222" width="100" height="12" rx="6" class="bar"/>
+
+  <!-- main column -->
+  <text class="s" x="246" y="96">검색</text>
+  <text x="246" y="130" style="font-size:24px;font-weight:700">무엇을 알고 싶으세요?</text>
+
+  <rect x="246" y="148" width="418" height="84" rx="12" class="target"/>
+  <text class="r" x="268" y="180">작은 가게(업종: 꽃집 · …)가 다음 달에…</text>
+  <rect x="268" y="198" width="220" height="12" rx="6" class="bar"/>
+  <circle cx="246" cy="190" r="14" fill="#5e6ad2"/><text class="n" x="246" y="196" text-anchor="middle">1</text>
+
+  <!-- tools row -->
+  <rect x="246" y="250" width="40" height="34" rx="10" class="ghost"/>
+  <rect x="316" y="250" width="124" height="34" rx="10" class="target"/>
+  <text class="r" x="340" y="273">빠른 검색 ▾</text>
+  <circle cx="316" cy="267" r="14" fill="#5e6ad2"/><text class="n" x="316" y="273" text-anchor="middle">2</text>
+  <rect x="454" y="250" width="46" height="34" rx="10" class="ghost"/>
+  <rect x="514" y="250" width="38" height="34" rx="10" class="ghost"/>
+  <rect x="578" y="250" width="86" height="34" rx="10" class="target"/>
+  <text class="k" x="628" y="273" text-anchor="middle">검색 ↑</text>
+  <circle cx="578" cy="267" r="14" fill="#5e6ad2"/><text class="n" x="578" y="273" text-anchor="middle">3</text>
+
+  <text class="s" x="246" y="316">웹 자료를 검색하고 출처와 함께 답합니다.</text>
+
+  <text class="s" x="648" y="372" text-anchor="end">실제 화면은 조금 다를 수 있어요</text>
+</svg>

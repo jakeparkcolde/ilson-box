@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 380" width="720" height="380" role="img" aria-label="항상 허용, 승인 필요, 차단 세 가지 도구 권한을 나란히 놓고 승인 필요에 권장 표시를 한 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:22px;font-weight:600}
+    .l{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .ok{font-size:18px;font-weight:600;fill:#1d8a38}
+  </style>
+  <rect width="720" height="380" rx="16" fill="#f5f6f6"/>
+
+  <!-- Always allow -->
+  <rect x="32" y="40" width="200" height="208" rx="14" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+  <text class="h" x="132" y="86" text-anchor="middle">Always allow</text>
+  <text class="s" x="132" y="112" text-anchor="middle">(항상 허용)</text>
+  <g fill="none" stroke="#a3720a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="132" cy="156" r="18"/>
+    <path d="M122 156 H141 M135 149 L142 156 L135 163"/>
+  </g>
+  <text class="l" x="132" y="218" text-anchor="middle">묻지 않고 해요</text>
+
+  <!-- Needs approval (recommended) -->
+  <rect x="252" y="28" width="216" height="232" rx="14" fill="#e8eafb" stroke="#5e6ad2" stroke-width="2.5"/>
+  <rect x="396" y="14" width="60" height="28" rx="14" fill="#e6f3e9" stroke="#1d8a38" stroke-width="1.5"/>
+  <text class="ok" x="426" y="34" text-anchor="middle">권장</text>
+  <text class="h" x="360" y="86" text-anchor="middle">Needs approval</text>
+  <text class="s" x="360" y="112" text-anchor="middle">(승인 필요)</text>
+  <circle cx="360" cy="156" r="18" fill="none" stroke="#5e6ad2" stroke-width="2.6"/>
+  <g fill="#5e6ad2">
+    <rect x="352" y="146" width="5" height="20" rx="2"/>
+    <rect x="363" y="146" width="5" height="20" rx="2"/>
+  </g>
+  <text class="l" x="360" y="218" text-anchor="middle">하기 전에 물어봐요</text>
+
+  <!-- Blocked -->
+  <rect x="488" y="40" width="200" height="208" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="h" x="588" y="86" text-anchor="middle">Blocked</text>
+  <text class="s" x="588" y="112" text-anchor="middle">(차단)</text>
+  <g fill="none" stroke="#6b7078" stroke-width="2.6" stroke-linecap="round">
+    <circle cx="588" cy="156" r="18"/>
+    <path d="M575 169 L601 143"/>
+  </g>
+  <text class="l" x="588" y="218" text-anchor="middle">하지 않아요</text>
+
+  <!-- rule band -->
+  <rect x="32" y="276" width="656" height="48" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="l" x="360" y="307" text-anchor="middle">보내기·답장·공유·삭제는 「Needs approval」</text>
+</svg>

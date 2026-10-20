@@ -90,29 +90,29 @@
             {
               "id": "b08",
               "number": 8,
-              "title": "프로젝트와 메모리로 우리 가게 기억시키기",
-              "subtitle": "매번 설명하지 않아도 가게 사정을 알게 하기",
-              "minutes": 6,
+              "title": "프로젝트와 메모리로 가게 기억시키기",
+              "subtitle": "가게 전용 방을 만들고, 기억은 내 눈으로 살펴요",
+              "minutes": 12,
               "surface": "web",
-              "status": "soon"
+              "status": "published"
             },
             {
               "id": "b09",
               "number": 9,
-              "title": "아티팩트로 문서·표 만들기",
-              "subtitle": "대화 옆에 바로 쓰는 문서와 표 만들기",
-              "minutes": 6,
+              "title": "아티팩트로 안내문과 표 만들기",
+              "subtitle": "옆 창에서 다듬어 파일로 받고, 공유는 나만 보기로",
+              "minutes": 14,
               "surface": "web",
-              "status": "soon"
+              "status": "published"
             },
             {
               "id": "b10",
               "number": 10,
               "title": "웹 검색·리서치와 앱 연결",
-              "subtitle": "최신 정보 찾기와 다른 앱 연결하기",
-              "minutes": 7,
+              "subtitle": "찾은 답은 출처를 두드려 보고, 계산대 서랍은 내가 열어요",
+              "minutes": 18,
               "surface": "web",
-              "status": "soon"
+              "status": "published"
             }
           ]
         },
@@ -159,20 +159,20 @@
             {
               "id": "b15",
               "number": 15,
-              "title": "회사 설명서 만들기 (/onboard)",
-              "subtitle": "우리 회사를 소개하는 기본 문서 만들기",
-              "minutes": 6,
+              "title": "회사 노트 만들기",
+              "subtitle": "열 가지 질문에 답하면 우리 가게 노트가 생겨요",
+              "minutes": 30,
               "surface": "ilson",
-              "status": "soon"
+              "status": "published"
             },
             {
               "id": "b16",
               "number": 16,
               "title": "일손박스 메뉴와 같이 쓰기",
-              "subtitle": "리서치·서류함·SNS 메뉴와 함께 쓰기",
-              "minutes": 6,
+              "subtitle": "찾는 일은 메뉴에 맡기고, 고르고 다듬는 일은 터미널에서",
+              "minutes": 15,
               "surface": "ilson",
-              "status": "soon"
+              "status": "published"
             }
           ]
         },

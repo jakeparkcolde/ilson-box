@@ -48,7 +48,7 @@ Generic facts (what a token is, that Git saves versions) are fine. Our own frami
 | b12 ★ | 3 | 12 | 로그인과 "이 폴더를 믿을까요?" | ilson |
 | b13 ★ | 3 | 13 | 첫 작업: 만들고, 고치고, 다시 열기 | ilson |
 | b14 ★ | 3 | 14 | 허락하기와 되돌리기 | ilson |
-| b15 | 3 | 15 | 회사 설명서 만들기 (/onboard) | ilson |
+| b15 | 3 | 15 | 회사 노트 만들기 (/onboard) | ilson |
 | b16 | 3 | 16 | 일손박스 메뉴와 같이 쓰기 | ilson |
 | b17 | 4 맡기기 | 17 | 정해진 시간에 알아서 (ilson start, 텔레그램) | ilson |
 | b18 | 4 | 18 | 팩·스킬로 능력 더하기 | ilson |

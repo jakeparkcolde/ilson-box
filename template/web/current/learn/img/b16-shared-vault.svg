@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" width="720" height="400" role="img" aria-label="리서치에서 조사하고, 서류함에 저장되고, 터미널의 Claude가 읽어 업무 일지에 적는 네 단계가 같은 서류함을 가운데 두고 도는 흐름도">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <path id="fd" d="M0 2.5 q0-2.5 2.5-2.5 h5 l2.5 2.5 h6.5 q2.5 0 2.5 2.5 v8 q0 2.5-2.5 2.5 h-14 q-2.5 0-2.5-2.5 z"/>
+    <clipPath id="c2"><rect x="388" y="32" width="300" height="96" rx="12"/></clipPath>
+    <clipPath id="c4"><rect x="32" y="272" width="300" height="96" rx="12"/></clipPath>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:21px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px}
+    .focus{fill:#e8eafb;stroke:#5e6ad2;stroke-width:1.5}
+    .card{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+    .flow{stroke:#6b7078;stroke-width:2;fill:none}
+    .link{stroke:#6b7078;stroke-width:1.5;stroke-dasharray:6 5;fill:none}
+  </style>
+  <rect width="720" height="400" rx="16" fill="#f5f6f6"/>
+
+  <!-- 1. research -->
+  <rect x="32" y="32" width="300" height="96" rx="12" class="focus"/>
+  <circle cx="58" cy="58" r="14" fill="#5e6ad2"/><text class="n" x="58" y="64" text-anchor="middle">1</text>
+  <text class="l" x="182" y="76" text-anchor="middle">리서치</text>
+  <text class="s" x="182" y="108" text-anchor="middle">「검색 ↑」으로 조사</text>
+
+  <path d="M338 80 H380" class="flow" marker-end="url(#arrow)"/>
+
+  <!-- 2. saved in the vault -->
+  <rect x="388" y="32" width="300" height="96" rx="12" fill="#ffffff"/>
+  <rect x="388" y="32" width="5" height="96" fill="#1d8a38" clip-path="url(#c2)"/>
+  <rect x="388" y="32" width="300" height="96" rx="12" fill="none" stroke="#e4e4e8" stroke-width="1.5"/>
+  <circle cx="414" cy="58" r="14" fill="#5e6ad2"/><text class="n" x="414" y="64" text-anchor="middle">2</text>
+  <use href="#fd" x="499" y="61" fill="none" stroke="#1d8a38" stroke-width="1.5"/>
+  <text class="l" x="525" y="76">서류함</text>
+  <text class="s" x="538" y="108" text-anchor="middle">업무 기록 › 리서치</text>
+
+  <path d="M538 134 V264" class="flow" marker-end="url(#arrow)"/>
+
+  <!-- shared store -->
+  <path d="M440 160 V132" class="link"/>
+  <path d="M280 240 V268" class="link"/>
+  <rect x="230" y="162" width="260" height="76" rx="12" class="card"/>
+  <use href="#fd" x="303" y="179" fill="none" stroke="#1d8a38" stroke-width="1.5"/>
+  <text x="329" y="194" style="font-size:20px;font-weight:600">같은 서류함</text>
+  <text class="m" x="360" y="224" text-anchor="middle">~/ilson/vault</text>
+
+  <!-- 3. terminal -->
+  <rect x="388" y="272" width="300" height="96" rx="12" class="focus"/>
+  <circle cx="414" cy="298" r="14" fill="#5e6ad2"/><text class="n" x="414" y="304" text-anchor="middle">3</text>
+  <text class="l" x="443" y="316">터미널</text>
+  <rect x="510" y="293" width="124" height="30" rx="8" fill="#1d1d21"/>
+  <text class="m" x="572" y="314" text-anchor="middle" style="fill:#f7f8f8">ilson chat</text>
+  <text class="s" x="538" y="348" text-anchor="middle">읽고 세 가지 골라 적기</text>
+
+  <path d="M382 320 H340" class="flow" marker-end="url(#arrow)"/>
+
+  <!-- 4. written to today's journal -->
+  <rect x="32" y="272" width="300" height="96" rx="12" fill="#ffffff"/>
+  <rect x="32" y="272" width="5" height="96" fill="#1d8a38" clip-path="url(#c4)"/>
+  <rect x="32" y="272" width="300" height="96" rx="12" fill="none" stroke="#e4e4e8" stroke-width="1.5"/>
+  <circle cx="58" cy="298" r="14" fill="#5e6ad2"/><text class="n" x="58" y="304" text-anchor="middle">4</text>
+  <use href="#fd" x="143" y="301" fill="none" stroke="#1d8a38" stroke-width="1.5"/>
+  <text class="l" x="169" y="316">서류함</text>
+  <text class="s" x="182" y="348" text-anchor="middle">업무 일지 › 오늘 날짜</text>
+</svg>

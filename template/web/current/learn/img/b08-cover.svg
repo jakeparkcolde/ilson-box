@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" width="720" height="400" role="img" aria-label="햇살꽃집 프로젝트 안에 지침과 가게 자료가 들어 있고, 그 안에서 연 새 대화 세 개가 모두 가게를 알고 시작하는 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .t{font-size:26px;font-weight:700}
+    .h{font-size:22px;font-weight:600}
+    .l{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .ok{font-size:20px;font-weight:600;fill:#1d8a38}
+  </style>
+  <rect width="720" height="400" rx="16" fill="#f5f6f6"/>
+
+  <!-- the project = a room for the shop -->
+  <rect x="32" y="24" width="656" height="188" rx="16" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="t" x="56" y="64">햇살꽃집 프로젝트</text>
+
+  <!-- rules card -->
+  <rect x="56" y="84" width="292" height="104" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <g transform="translate(124 110)" fill="none" stroke="#6b7078" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="0" y="4" width="38" height="48" rx="6" fill="#ffffff"/>
+    <rect x="11" y="0" width="16" height="9" rx="3" fill="#f5f6f6"/>
+    <path d="M9 22 H29 M9 31 H29 M9 40 H22"/>
+  </g>
+  <text class="h" x="186" y="130">지침</text>
+  <text class="s" x="186" y="160">가게 약속</text>
+
+  <!-- materials card -->
+  <rect x="372" y="84" width="292" height="104" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <g transform="translate(420 106)" fill="none" stroke="#6b7078" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 0 H32 L40 8 V44 H14 Z" fill="#f5f6f6"/>
+    <path d="M0 12 H18 L26 20 V56 H0 Z" fill="#ffffff"/>
+    <path d="M18 12 V20 H26"/>
+    <path d="M6 32 H19 M6 40 H19 M6 48 H14"/>
+  </g>
+  <text class="h" x="482" y="130">자료</text>
+  <text class="s" x="482" y="160">가게 소개 · 가격표</text>
+
+  <!-- arrows down to three new chats -->
+  <g stroke="#6b7078" stroke-width="2" fill="none">
+    <path d="M152 220 V248" marker-end="url(#arrow)"/>
+    <path d="M360 220 V248" marker-end="url(#arrow)"/>
+    <path d="M568 220 V248" marker-end="url(#arrow)"/>
+  </g>
+
+  <g fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5" stroke-linejoin="round">
+    <path d="M82 254 H222 A14 14 0 0 1 236 268 V288 A14 14 0 0 1 222 302 H112 L94 314 L98 302 H82 A14 14 0 0 1 68 288 V268 A14 14 0 0 1 82 254 Z"/>
+    <path d="M290 254 H430 A14 14 0 0 1 444 268 V288 A14 14 0 0 1 430 302 H320 L302 314 L306 302 H290 A14 14 0 0 1 276 288 V268 A14 14 0 0 1 290 254 Z"/>
+    <path d="M498 254 H638 A14 14 0 0 1 652 268 V288 A14 14 0 0 1 638 302 H528 L510 314 L514 302 H498 A14 14 0 0 1 484 288 V268 A14 14 0 0 1 498 254 Z"/>
+  </g>
+  <text class="l" x="152" y="285" text-anchor="middle">새 대화</text>
+  <text class="l" x="360" y="285" text-anchor="middle">새 대화</text>
+  <text class="l" x="568" y="285" text-anchor="middle">새 대화</text>
+
+  <!-- bracket joining the three chats to one result -->
+  <path d="M152 304 V322 H568 V304 M360 304 V334" stroke="#6b7078" stroke-width="2" fill="none" stroke-linejoin="round"/>
+
+  <rect x="240" y="334" width="240" height="42" rx="21" fill="#e6f3e9" stroke="#1d8a38" stroke-width="2"/>
+  <path d="M266 355 L273 362 L286 348" fill="none" stroke="#1d8a38" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="ok" x="296" y="362">가게를 알고 시작해요</text>
+</svg>
