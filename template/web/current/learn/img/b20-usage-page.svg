@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 428" width="720" height="428" role="img" aria-label="설정의 사용량 화면에서 요금제 사용 한도 아래 현재 세션 막대와 남은 시간, 주간 한도 막대와 다시 채워지는 때를 번호로 짚은 화면 스케치">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:20px;font-weight:600}
+    .r{font-size:20px;font-weight:500}
+    .k{font-size:18px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="428" rx="16" fill="#f5f6f6"/>
+
+  <!-- app window (schematic) -->
+  <rect x="32" y="28" width="656" height="334" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <path d="M32.75 68 V 42 A13.25 13.25 0 0 1 46 28.75 H 674 A13.25 13.25 0 0 1 687.25 42 V 68 Z" fill="#eceef0"/>
+  <g fill="#6b7078" opacity="0.45">
+    <circle cx="54" cy="48" r="5"/><circle cx="70" cy="48" r="5"/><circle cx="86" cy="48" r="5"/>
+  </g>
+  <text class="k" x="112" y="54">Settings</text>
+
+  <!-- left navigation -->
+  <path d="M32.75 68 H 192 V 361.25 H 46 A13.25 13.25 0 0 1 32.75 348 Z" fill="#f5f6f6"/>
+  <path d="M192 68 V 362" stroke="#e4e4e8" stroke-width="1.5"/>
+  <g fill="#e4e4e8">
+    <rect x="52" y="92" width="96" height="12" rx="6"/>
+    <rect x="52" y="116" width="72" height="12" rx="6"/>
+    <rect x="52" y="204" width="84" height="12" rx="6"/>
+    <rect x="52" y="228" width="64" height="12" rx="6"/>
+  </g>
+  <rect x="44" y="142" width="104" height="42" rx="10" fill="#e8eafb" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="l" x="60" y="170">Usage</text>
+  <circle cx="170" cy="163" r="14" fill="#5e6ad2"/>
+  <text class="n" x="170" y="169" text-anchor="middle">1</text>
+
+  <!-- main area -->
+  <text class="l" x="216" y="108">Plan usage limits</text>
+
+  <!-- row: current session -->
+  <text class="r" x="216" y="157">Current session</text>
+  <rect x="362" y="134" width="270" height="34" rx="10" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <rect x="374" y="144" width="150" height="14" rx="7" fill="#e4e4e8"/>
+  <rect x="374" y="144" width="68" height="14" rx="7" fill="#5e6ad2"/>
+  <rect x="540" y="146" width="78" height="10" rx="5" fill="#e4e4e8"/>
+  <circle cx="656" cy="151" r="14" fill="#5e6ad2"/>
+  <text class="n" x="656" y="157" text-anchor="middle">2</text>
+  <text class="s" x="216" y="196">쓴 정도 · 다시 채워질 때까지 남은 시간</text>
+
+  <!-- row: weekly limits -->
+  <text class="r" x="216" y="243">Weekly limits</text>
+  <rect x="362" y="220" width="270" height="34" rx="10" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <rect x="374" y="230" width="150" height="14" rx="7" fill="#e4e4e8"/>
+  <rect x="374" y="230" width="46" height="14" rx="7" fill="#5e6ad2"/>
+  <rect x="540" y="232" width="78" height="10" rx="5" fill="#e4e4e8"/>
+  <circle cx="656" cy="237" r="14" fill="#5e6ad2"/>
+  <text class="n" x="656" y="243" text-anchor="middle">3</text>
+  <text class="s" x="216" y="282">이번 주 쓴 정도 · 다시 채워지는 때 (유료)</text>
+
+  <!-- row: usage credits (not the focus) -->
+  <path d="M216 304 H 664" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="r" x="216" y="338" style="fill:#6b7078">Usage credits</text>
+  <text class="s" x="362" y="338">유료 요금제 · 4단계</text>
+
+  <text class="s" x="32" y="398">실제 화면은 조금 다를 수 있어요</text>
+</svg>

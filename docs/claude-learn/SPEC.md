@@ -109,6 +109,7 @@ The catalog shows this track as "준비 중" with a one-paragraph description on
       "body": ["paragraph", "paragraph"],
       "prompt": {"text": "text to send to Claude; may use {{가게이름}} {{업종}} {{지역}} {{대표상품}}", "note": "optional hint under the box"},
       "command": {"text": "ilson chat", "note": "optional"},
+      "memo": {"text": "text the reader saves in a notes app instead of sending; placeholders allowed", "note": "optional"},
       "self": "something only the reader can do (login, payment, verification code)",
       "success": "what the screen shows when it worked",
       "status": ["claude", "trust"],

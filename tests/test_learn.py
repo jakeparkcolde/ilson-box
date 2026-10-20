@@ -519,7 +519,12 @@ class 이스케이프시험(unittest.TestCase):
         p_overview = poison({'box': {'company_name': '시험 회사', 'sandbox': True, 'setup_state': 'pending'},
                              'checks': [{'id': c, 'state': 'ok', 'label': c, 'detail': c + ' 상세'}
                                         for c in ('claude', 'company', 'trust', 'telegram', 'search')]})
-        soon = next(l['id'] for _, _, l in catalog_rows() if l['status'] == 'soon')
+        soon = next((l['id'] for _, _, l in catalog_rows() if l['status'] == 'soon'), None)
+        if soon is None:
+            # 모든 강이 공개된 뒤에도 '준비 중' 강을 받지 않는지 보려고 시험용 강을 하나 끼워 넣는다.
+            soon = 'b99'
+            real_catalog['tracks'][0]['parts'][-1]['lessons'].append(
+                {'id': soon, 'number': 99, 'title': '시험용 준비 중 강', 'subtitle': '', 'minutes': 5, 'surface': 'both', 'status': 'soon'})
         fixture = {'js': str(LEARN / 'learn.js'), 'soon_id': soon, 'catalog': real_catalog, 'overview': overview, 'overview_placeholder': placeholder,
                    'evil': evil, 'real': real_lesson, 'p_catalog': p_catalog, 'p_overview': p_overview, 'p_lesson': poison(source),
                    'poison_shop': {k: v + POISON for k, v in real_catalog['example_shop'].items()}}

@@ -1,0 +1,391 @@
+{
+  "id": "b21",
+  "track": "basic",
+  "part": 5,
+  "number": 21,
+  "title": "오류가 났을 때",
+  "subtitle": "읽고, 옮기고, 묻고, 두 번 해 보고, 그래도 안 되면 손을 떼요",
+  "minutes": 10,
+  "surface": "both",
+  "checked": "2026-10-20",
+  "cover": {
+    "src": "img/b21-calm-steps.svg",
+    "alt": "오류가 났을 때의 다섯 걸음, 「끝까지 읽기」「글자 그대로 옮기기」「Claude에게 묻기」「안전한 방법 두 번까지」「되돌리기 또는 사람에게」를 차례로 잇는 흐름도",
+    "caption": "오류가 나도 「차분한 다섯 걸음」이면 덜 헤매요."
+  },
+  "outcome": [
+    "어떤 오류에도 쓰는 **「차분한 다섯 걸음」**과, 연습 문구로 한 번 보내 본 「도와 달라는 부탁」",
+    "사람에게 물을 때 채워 보낼 **「오류 신고 메모」** 틀 (메모 앱에 저장)"
+  ],
+  "prepare": [
+    "로그인된 claude.ai, 또는 일손박스 터미널",
+    "메모 앱",
+    "지금 오류가 없어도 괜찮아요. 연습용 오류 문구를 드려요"
+  ],
+  "steps": [
+    {
+      "title": "끝까지 읽기",
+      "why": "오류 문구에는 대개 무엇이 문제인지와 무엇을 하면 되는지가 함께 적혀 있어요.",
+      "body": [
+        "오류가 나면 버튼을 여러 번 누르거나 창부터 닫지 말고, 화면 글자를 끝까지 읽어요.",
+        "영어라도 겁낼 필요 없어요. `/compact or /clear`처럼 할 일이 문구 안에 들어 있을 때가 많아요.",
+        "읽으면서 셋 중 어디에 가까운지 봐요. **기다리면 풀리는 것**, **내가 고칠 수 있는 것**, **사람에게 물을 것**이에요.",
+        "예를 들어 「Due to unexpected capacity constraints…」로 시작하는 문구는 Claude 쪽이 잠시 붐빈다는 뜻이라, 몇 분 기다리면 돼요."
+      ],
+      "tip": "「5-hour limit」「session limit」「weekly limit」「usage limit」처럼 사용량을 말하는 문구는 고장이 아니에요(20강). 「length limit」「Context limit」은 대화 길이 문제라 아래 표를 봐요."
+    },
+    {
+      "title": "글자 그대로 옮기기",
+      "why": "기억으로 옮긴 문구는 한두 글자만 달라도 뜻이 달라질 수 있어요.",
+      "body": [
+        "브라우저나 터미널에서 오류 글자를 마우스로 끌어 고른 뒤 ⌘+C로 복사하고, 메모 앱에 붙여 넣어요.",
+        "고르기 어려우면 ⌘+Shift+4로 그 부분만 화면 캡처해요(6강). 바탕화면에 그림으로 저장돼요.",
+        "오류가 난 시각과, 바로 전에 무엇을 하고 있었는지도 한 줄 적어 둬요."
+      ],
+      "success": "메모 앱에 오류 글자(또는 캡처 그림)와 시각, 하던 일이 적혀 있으면 돼요.",
+      "caution": "옮기기 전에 비밀번호, 인증 코드, 손님 연락처, 길게 이어진 영문·숫자 열쇠 같은 글자가 섞여 있지 않은지 봐요. 있으면 지우고 [가림]이라고 적어요."
+    },
+    {
+      "title": "Claude에게 묻기",
+      "why": "문구 뜻을 쉬운 말로 풀고, 안전한 방법부터 차례로 들으면 덜 헤매요.",
+      "body": [
+        "고장 나지 않은 쪽에서 물어요. 터미널이 말썽이면 claude.ai에, claude.ai가 말썽이면 `ilson chat`에 물어요.",
+        "아래 부탁의 괄호를 채워 보내요. 지금 오류가 없다면 괄호 안 연습용 문구를 그대로 두고 보내 봐요.",
+        "Anthropic의 시작 안내도 낯선 기능이나 화면은 Claude에게 직접 묻고, 화면 캡처를 보여 줘도 된다고 해요."
+      ],
+      "prompt": {
+        "text": "오류가 나서 도움이 필요해요.\n- 어디서: (claude.ai / 일손박스 터미널 / 일손박스 메뉴 중 하나)\n- 하려던 일: (예: 가격표를 고쳐 달라고 부탁했어요)\n- 화면에 나온 글자 그대로: (연습용: Due to unexpected capacity constraints, Claude is unable to respond to your message. Please try again soon.)\n- 이미 해 본 것: (없으면 '없음')\n\n이 오류가 무슨 뜻인지 컴퓨터를 잘 모르는 사람도 알게 두세 줄로 풀어 주세요.\n그다음 제가 할 수 있는 안전한 방법을 쉬운 것부터 두 가지만 알려 주세요.\n파일을 지우거나 설정을 바꾸는 방법이라면, 하기 전에 이유를 말하고 제 허락을 받아 주세요.\n확실하지 않은 부분은 [확인 필요]로 표시해 주세요.\n비밀번호나 인증 코드는 묻지 말아 주세요.",
+        "note": "Claude가 알려 준 방법도 돌다리처럼 두드려 봐요(7강). 낯선 명령은 실행하기 전에 뜻부터 물어요."
+      },
+      "success": "오류 뜻 한두 줄과, 쉬운 것부터 두 가지 방법이 나오면 성공이에요. 연습 문구라면 '몇 분 기다렸다 다시 보내기' 같은 답이 나와요.",
+      "caution": "누가 메신저로 보내 준 명령이나, 보호 설정을 끄라는 방법은 따르지 마세요. 일손박스 규칙도 보호를 끄는 우회는 하지 않도록 정해 두었어요."
+    },
+    {
+      "title": "안전한 방법 두 번까지",
+      "why": "같은 일을 자꾸 되풀이하면 사용량만 쓰고 상황이 더 꼬일 수 있어요.",
+      "body": [
+        "Claude가 알려 준 방법 가운데 쉬운 것부터 해 봐요. 우리 약속은 **안전한 방법 두 번까지**예요.",
+        "안전한 방법은 아무것도 지우거나 바꾸지 않는 것이에요. 기다렸다 다시 보내기, 새 대화나 새 터미널 창 열기, 와이파이 확인하기 같은 것이에요.",
+        "두 번째에도 그대로면 거기서 손을 떼고 5단계로 가요."
+      ],
+      "figure": {
+        "src": "img/b21-safe-fixes.svg",
+        "alt": "기다렸다 다시 보내기, 새 대화나 새 창 열기, 와이파이 확인은 해 봐도 되는 방법이고, 지우기·설치·설정 바꾸기·보호 끄기는 멈추고 물을 일로 나눈 비교 그림",
+        "caption": "아무것도 지우지 않는 방법만 두 번까지. 나머지는 멈추고 물어요."
+      },
+      "tip": "Claude가 멈춘 듯 아무 반응이 없으면 control+C를 눌러요. 그래도 그대로면 터미널 창을 닫고, `ilson chat`을 다시 연 뒤 `/resume`으로 그 대화를 골라요."
+    },
+    {
+      "title": "되돌리기 또는 사람에게",
+      "why": "Claude가 고친 파일이 이상해졌으면 되돌리고, 그래도 안 되면 사람에게 물어요. 한 장짜리 메모가 있으면 돕는 사람이 바로 알아봐요.",
+      "body": [
+        "Claude가 고치다가 파일이 더 이상해졌다면 되돌려요. 먼저 esc를 한 번 눌러 멈추고, 글 쓰는 칸이 빈 채로 esc를 빠르게 두 번 눌러요(`/rewind`를 넣어도 같아요, 14강).",
+        "되돌리기는 Claude가 고친 파일만 돌려놔요. 명령으로 지운 파일은 돌아오지 않아요.",
+        "아래 틀을 메모 앱에 저장해 두고, 오류가 나면 칸을 채워요. 2단계에서 옮겨 둔 글자를 그대로 붙여 넣어요.",
+        "계정·결제·로그인 문제는 Anthropic 도움말 센터에 물어요. claude.ai 왼쪽 아래 내 이름 → 「Get help」(도움 받기)예요.",
+        "무료 요금제는 AI 상담(Fin)만 받을 수 있고, Pro·Max는 사람 상담원에게도 이어질 수 있어요. 상담은 글로만 하고 전화는 없어요.",
+        "로그인이 안 돼서 「Get help」를 누를 수 없으면, 도움말 센터 오른쪽 아래 말풍선 아이콘 → 「I can't login」(로그인이 안 돼요)을 골라요.",
+        "일손박스 설치·설정 문제는 일손박스를 설치해 준 분이나 수업 선생님께 이 메모를 보내요."
+      ],
+      "memo": {
+        "text": "오류 신고 메모\n- 날짜와 시각: \n- 어디서: (claude.ai / 데스크톱 앱 / 일손박스 터미널 / 일손박스 메뉴 이름)\n- 하려던 일: \n- 화면에 나온 글자 그대로: \n- 이미 해 본 것과 결과: \n- 요금제: (Free / Pro / Max)\n- (일손박스라면) ilson doctor 의 ❌ 줄: \n\n보내기 전에 확인: 비밀번호·인증 코드·손님 연락처·긴 영문 숫자 열쇠는 지우고 [가림]으로 적었어요.",
+        "note": "칸은 비워 둔 채 저장하고, 쓸 때마다 복사해서 채워요. 같은 오류가 또 나면 날짜와 시각 칸에 한 줄씩 더해요."
+      },
+      "status": [
+        "claude",
+        "trust"
+      ],
+      "self": "도움을 청하는 글은 직접 보내 주세요. 비밀번호와 인증 코드는 누구에게도 알려 주지 않아요.",
+      "success": "메모 앱에 「오류 신고 메모」가 저장돼 있으면 이번 강은 끝이에요."
+    }
+  ],
+  "explain": [
+    {
+      "heading": "claude.ai에서 자주 보는 문구 (2026-10-20 확인)",
+      "body": [
+        "Anthropic 도움말 센터의 오류 안내에서 골랐어요. 서비스 전체가 멈춘 것 같으면 status.claude.com에서 장애 소식을 확인해요.",
+        "유료 요금제에서 코드 실행이 켜져 있으면 Claude가 긴 대화의 앞부분을 요약해서, 길이 문구는 드물게 나와요."
+      ],
+      "table": {
+        "head": [
+          "화면 글자",
+          "뜻",
+          "이렇게 해요"
+        ],
+        "rows": [
+          [
+            "「Due to unexpected capacity constraints, Claude is unable to respond to your message. Please try again soon.」",
+            "Claude 쪽이 잠시 붐벼요. 장애가 아니라서 상태 페이지에도 안 나와요",
+            "몇 분 기다렸다 다시 보내요"
+          ],
+          [
+            "「Your message will exceed the length limit for this chat.」",
+            "이 대화에 담을 수 있는 길이를 넘어요 (대화 길이 한도)",
+            "내용을 나누거나 줄이고, 필요한 부분을 먼저 고르게 하거나 새 대화로 시작해요"
+          ],
+          [
+            "「Uploaded file is too large」",
+            "PDF가 1000쪽을 넘어요",
+            "PDF를 나눠서 올려요 (6강)"
+          ],
+          [
+            "「There was an error logging you in」",
+            "로그인하다가 문제가 생겼어요",
+            "VPN과 브라우저 확장 프로그램을 끄고, 캐시·쿠키(사이트가 저장해 둔 임시 정보)를 지운 뒤 다시 해요. 쿠키를 지우면 다른 사이트도 다시 로그인해야 할 수 있어요. 계속되면 status.claude.com을 봐요"
+          ],
+          [
+            "로그인 메일이 안 와요",
+            "스팸함에 있을 수 있어요",
+            "스팸함에서 「@mail.anthropic.com」을 찾고, 몇 분 뒤 다시 해요"
+          ],
+          [
+            "「5-hour·session·weekly·usage limit」가 들어간 문구",
+            "오류가 아니라 사용량 한도예요",
+            "20강을 봐요"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "일손박스 터미널에서 자주 보는 문구",
+      "body": [
+        "일손박스 터미널의 Claude는 Claude Code예요. 일손박스는 자동 업데이트를 꺼 두어서 문구가 조금 다를 수 있어요.",
+        "아래 문구 가운데 일부는 Claude Code가 최대 10번 다시 시도해 본 뒤에야 보여 줘요. 그러니 나왔다면 잠시 쉬었다 하는 게 좋아요.",
+        "대화가 차면 Claude가 보통 알아서 요약해요. 직접 `/compact`(대화 요약)를 쓰면 그 자체로 사용량을 꽤 쓰니, 주제가 바뀌었다면 `/clear`(새로 시작)가 가벼워요."
+      ],
+      "table": {
+        "head": [
+          "화면 글자",
+          "뜻",
+          "이렇게 해요"
+        ],
+        "rows": [
+          [
+            "`Context limit reached · /compact or /clear to continue`, `Prompt is too long`",
+            "이 대화에 담을 수 있는 양이 찼어요",
+            "`/compact`나 `/clear`를 넣어요"
+          ],
+          [
+            "`Not enough messages to compact.`",
+            "큰 글 하나가 자리를 다 차지했어요",
+            "`/clear` 뒤에 더 짧게 나눠 보내요"
+          ],
+          [
+            "`API Error: Repeated 529 Overloaded errors`",
+            "Claude 쪽이 붐벼요. 내 한도는 줄지 않아요",
+            "조금 뒤 다시 하거나 `/model`로 다른 모델을 골라요"
+          ],
+          [
+            "`API Error: 500 Internal server error`",
+            "Claude 쪽 서버 문제예요",
+            "status.claude.com을 보고, 1분쯤 뒤 다시 보내요"
+          ],
+          [
+            "`Unable to connect to API. Check your internet connection`",
+            "인터넷에 닿지 못했어요",
+            "와이파이와 VPN을 확인해요"
+          ],
+          [
+            "`Request timed out`",
+            "답이 너무 늦어 끊겼어요",
+            "다시 보내요"
+          ],
+          [
+            "`Not logged in · Please run /login`, `Login expired · Please run /login`",
+            "로그인이 없거나 끝났어요",
+            "`/login`을 넣고 다시 로그인해요 (12강)"
+          ],
+          [
+            "`File is covered by a Read deny rule in your permission settings`",
+            "일부러 막아 둔 비밀 파일(알림 연결 정보 등)을 읽으려 했어요",
+            "고장이 아니에요. 그대로 두세요 (텔레그램 연결 정보는 17강)"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "일손박스가 보여 주는 문구",
+      "body": [
+        "일손박스 화면, 터미널, 텔레그램 알림에서 볼 수 있는 문구예요. 글자는 일손박스 프로그램에서 그대로 옮겼어요.",
+        "…는 업무 이름이나 시간이 들어가는 자리예요."
+      ],
+      "table": {
+        "head": [
+          "화면 글자",
+          "뜻",
+          "이렇게 해요"
+        ],
+        "rows": [
+          [
+            "「먼저 ilson setup 을 실행하세요」",
+            "일손박스 설치가 다 끝나지 않았어요",
+            "설치해 준 분께 알려요 (11강)"
+          ],
+          [
+            "「샌드박스에서는 관리 대화를 실행하지 않습니다」",
+            "연습용 설치라 대화가 열리지 않아요",
+            "실제로 설치된 Mac에서 해요 (11강)"
+          ],
+          [
+            "「실행 미완료: 설치·인증·한도 또는 저장 공간을 확인하세요. …」",
+            "메뉴에서 맡긴 일이 끝까지 되지 않았어요",
+            "상태 카드의 로그인과 `/usage`를 보고 다시 눌러요 (16·20강)"
+          ],
+          [
+            "「⚠️ 예약 업무 실패: …」 (텔레그램)",
+            "정해진 시간의 일이 실패했어요. 알림 둘째 줄에 「예약 업무 미완료: 권한 거절 또는 응답 오류. …」가 붙기도 해요. 업무 이름 자리에 「watchdog」이 오면 바로 아래 칸의 알림이에요",
+            "알림 글을 `ilson chat`에 붙여 넣고 이유를 물어요 (17강)"
+          ],
+          [
+            "「… 업무가 … 이상 안 돌았어요. 박스 상태를 봐주세요 (ilson doctor).」",
+            "예약 업무가 한동안 돌지 않았어요. briefing은 아침 보고예요",
+            "`ilson doctor`로 살펴보고 ❌ 줄을 메모해요"
+          ],
+          [
+            "「❌ Claude 로그인 확인 실패 — 로그인 후 다시 시도하세요」",
+            "`ilson start`가 로그인을 확인하지 못했어요",
+            "`ilson chat`으로 로그인한 뒤 다시 해요 (12강)"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "어디에 물어볼까요?",
+      "body": [
+        "문제의 종류에 따라 물을 곳이 달라요. 어디에 묻든 「오류 신고 메모」를 함께 보내면 빨라요.",
+        "Claude Code 안내도 계정과 결제 문제는 claude.ai의 「Get help」로 물으라고 해요."
+      ],
+      "table": {
+        "head": [
+          "이런 문제",
+          "여기에",
+          "알아 둘 점"
+        ],
+        "rows": [
+          [
+            "문구 뜻을 모르겠어요",
+            "Claude (고장 나지 않은 쪽)",
+            "3단계 부탁을 써요"
+          ],
+          [
+            "서비스 전체가 안 되는 것 같아요",
+            "status.claude.com",
+            "장애 소식이 여기에 올라와요"
+          ],
+          [
+            "계정·결제·로그인",
+            "claude.ai 내 이름 → 「Get help」",
+            "무료는 AI 상담만, Pro·Max는 사람 상담원도. 글로만 해요"
+          ],
+          [
+            "로그인이 아예 안 돼요",
+            "도움말 센터 오른쪽 아래 말풍선 → 「I can't login」",
+            "로그인 메일은 스팸함부터 봐요"
+          ],
+          [
+            "일손박스 설치·설정·예약 업무",
+            "일손박스를 설치해 준 분, 수업 선생님",
+            "`ilson doctor`의 ❌ 줄을 함께 보내요"
+          ]
+        ]
+      },
+      "figure": {
+        "src": "img/b21-where-to-ask.svg",
+        "alt": "문구 뜻은 Claude에게, 서비스 장애는 상태 페이지에서, 계정·결제·로그인은 도움 받기로, 일손박스 문제는 설치해 준 분에게 묻는 갈림길 그림",
+        "caption": "문제의 종류를 보고 물을 곳을 골라요. 신고 메모는 어디든 함께 보내요."
+      }
+    }
+  ],
+  "trouble": [
+    {
+      "symptom": "Claude가 알려 준 방법이 낯선 명령이에요",
+      "fix": "바로 붙여 넣지 말고 뜻부터 물어요. 지우기·설치·설정 바꾸기가 들어 있으면 두 번까지 해 보는 방법에 넣지 말고, 사람에게 물어요.",
+      "prompt": "방금 알려 준 명령이 무엇을 하는지 한 줄씩 쉬운 말로 설명해 주세요.\n지우거나, 설치하거나, 설정을 바꾸는 부분이 있으면 표시해 주세요.\n설명만 해 주시고, 실행은 제가 좋다고 한 다음에 해 주세요."
+    },
+    {
+      "symptom": "claude.ai도 터미널도 모두 안 돼요",
+      "fix": "같은 계정이라 사용량 한도가 찼거나, 인터넷이나 Claude 쪽 문제일 수 있어요. 「Usage」 화면, 와이파이, status.claude.com 순서로 확인해요. 그래도 모르겠으면 「오류 신고 메모」를 채워 사람에게 물어요."
+    },
+    {
+      "symptom": "일손박스 문제인지 잘 모르겠어요",
+      "fix": "새 터미널 창(⌘+N)에 `ilson doctor`를 붙여 넣고 return을 눌러요. 살펴보기만 하고 아무것도 바꾸지 않는 명령이에요(12강). 맨 끝 결과 줄과 ❌ 줄만 「오류 신고 메모」에 옮겨 적어, 설치해 준 분께 보내요."
+    }
+  ],
+  "checklist": [
+    "오류 문구를 끝까지 읽고 셋 중 어디에 가까운지 골라 봤어요",
+    "문구를 글자 그대로 복사하거나 캡처해 봤어요",
+    "도와 달라는 부탁을 연습용 문구로 보내 봤어요",
+    "「오류 신고 메모」를 메모 앱에 저장했어요"
+  ],
+  "keep": [
+    "읽고, 그대로 옮기고, 묻고, 안전한 방법은 두 번까지, 안 되면 되돌리거나 사람에게.",
+    "고장 나지 않은 쪽에 물어요.",
+    "신고 메모에는 비밀번호·인증 코드·열쇠를 넣지 않아요."
+  ],
+  "links": [
+    {
+      "label": "Claude 오류 문구 해결 안내 (도움말 센터, 영어)",
+      "url": "https://support.claude.com/en/articles/12466728-troubleshoot-claude-error-messages"
+    },
+    {
+      "label": "Claude 서비스 상태 (장애 소식)",
+      "url": "https://status.claude.com"
+    },
+    {
+      "label": "도움 받는 방법 (도움말 센터, 영어)",
+      "url": "https://support.claude.com/en/articles/9015913-how-to-get-support"
+    },
+    {
+      "label": "Claude Code 오류 안내 (영어)",
+      "url": "https://code.claude.com/docs/en/errors"
+    }
+  ],
+  "sources": [
+    {
+      "label": "오류 문구 안내: 붐빔, 대화 길이, 로그인 오류, 장애 확인",
+      "url": "https://support.claude.com/en/articles/12466728-troubleshoot-claude-error-messages"
+    },
+    {
+      "label": "도움 받기: Get help, I can't login, 무료는 AI 상담(Fin), Pro·Max는 사람 상담, 글로만",
+      "url": "https://support.claude.com/en/articles/9015913-how-to-get-support"
+    },
+    {
+      "label": "로그인: 로그인 메일이 스팸함에 있을 때",
+      "url": "https://support.claude.com/en/articles/13189465-log-in-to-your-claude-account"
+    },
+    {
+      "label": "파일 올리기: Uploaded file is too large (PDF 1000쪽)",
+      "url": "https://support.claude.com/en/articles/8241126-upload-files-to-claude"
+    },
+    {
+      "label": "Errors: 터미널 오류 문구(대화 가득 참, 529, 500, 연결, 시간 초과, 로그인, 읽기 금지 규칙), 다시 시도 횟수",
+      "url": "https://code.claude.com/docs/en/errors.md"
+    },
+    {
+      "label": "Troubleshooting: 멈췄을 때, 자동 요약, Not enough messages to compact, 계정 문제는 Get help",
+      "url": "https://code.claude.com/docs/en/troubleshooting.md"
+    },
+    {
+      "label": "Costs: /compact는 사용량을 꽤 씀, /clear",
+      "url": "https://code.claude.com/docs/en/costs.md"
+    },
+    {
+      "label": "Checkpointing: esc 두 번과 /rewind로 되돌리기",
+      "url": "https://code.claude.com/docs/en/checkpointing.md"
+    },
+    {
+      "label": "Interactive mode: control+C로 멈추기",
+      "url": "https://code.claude.com/docs/en/interactive-mode.md"
+    },
+    {
+      "label": "Getting started with Claude: Claude에게 Claude를 묻고 화면 캡처 보여 주기",
+      "url": "https://academy.claude.com/tutorials/getting-started-with-claude"
+    }
+  ],
+  "history": [
+    {
+      "date": "2026-10-21",
+      "note": "처음 작성"
+    }
+  ]
+}

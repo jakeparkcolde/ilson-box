@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 456" width="720" height="456" role="img" aria-label="ilson start를 넣었을 때 통과하면 예약 업무 시작 줄이, 막히면 로그인·폴더 신뢰·회사 정보 가운데 빠진 것을 알리는 줄이 나오는 터미널 스케치">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .ss{font-size:18px;font-weight:600}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#f7f8f8}
+    .k{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif}
+    .ld{fill:none;stroke:#6b7078;stroke-width:1.5}
+    .bad{fill:#f8e3e1;stroke:#c4423b;stroke-width:1.5}
+  </style>
+  <rect width="720" height="456" rx="16" fill="#f5f6f6"/>
+
+  <!-- terminal -->
+  <rect x="32" y="24" width="464" height="248" rx="12" fill="#1d1d21"/>
+  <circle cx="54" cy="44" r="5" fill="#62666d"/><circle cx="72" cy="44" r="5" fill="#62666d"/><circle cx="90" cy="44" r="5" fill="#62666d"/>
+  <text x="264" y="51" text-anchor="middle" style="font-size:18px;fill:#9aa0a8">터미널</text>
+  <path d="M32 64 H496" stroke="#2c2e34" stroke-width="1.5"/>
+
+  <text class="m" x="52" y="100"><tspan style="fill:#a7b0ff">%</tspan> ilson start</text>
+  <text class="m" x="52" y="142">[8] <tspan class="k">예약 업무</tspan></text>
+
+  <circle cx="66" cy="172" r="8" fill="#1d8a38"/>
+  <path d="M62 172.5 L65 175.5 L70.5 169" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="m" x="84" y="178">plist <tspan class="k">렌더</tspan></text>
+  <text class="m k" x="404" y="178">6개</text>
+
+  <circle cx="66" cy="206" r="8" fill="#1d8a38"/>
+  <path d="M62 206.5 L65 209.5 L70.5 203" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="m" x="84" y="212">launchd <tspan class="k">적재</tspan></text>
+
+  <rect x="44" y="228" width="440" height="34" rx="6" fill="#5e6ad2" fill-opacity="0.22" stroke="#a7b0ff" stroke-width="2"/>
+  <circle cx="66" cy="245" r="8" fill="#1d8a38"/>
+  <path d="M62 245.5 L65 248.5 L70.5 242" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="m k" x="84" y="251" style="font-weight:700">예약 업무 시작</text>
+
+  <!-- side notes -->
+  <path class="ld" d="M502 166 H510 V214 H502 M510 190 H522"/>
+  <text class="s" x="530" y="184">준비 줄 —</text>
+  <text class="s" x="530" y="208">그대로 두면 돼요</text>
+
+  <path class="ld" d="M496 245 H522"/>
+  <text class="ss" x="530" y="240" style="fill:#5e6ad2">이 줄이 보이면</text>
+  <text class="ss" x="530" y="264" style="fill:#5e6ad2">켜진 거예요</text>
+
+  <!-- if it stops -->
+  <text class="l" x="32" y="308">이렇게 멈추면</text>
+
+  <rect class="bad" x="32" y="322" width="180" height="104" rx="12"/>
+  <circle cx="58" cy="350" r="11" fill="#c4423b"/>
+  <path d="M53.5 345.5 L62.5 354.5 M62.5 345.5 L53.5 354.5" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
+  <text class="l" x="78" y="357">Claude 로그인</text>
+  <text class="l" x="78" y="383">확인 실패</text>
+  <text class="ss" x="78" y="412" style="fill:#5e6ad2">→ 12강</text>
+
+  <rect class="bad" x="226" y="322" width="180" height="104" rx="12"/>
+  <circle cx="252" cy="350" r="11" fill="#c4423b"/>
+  <path d="M247.5 345.5 L256.5 354.5 M256.5 345.5 L247.5 354.5" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
+  <text class="l" x="272" y="357">폴더 신뢰를</text>
+  <text class="l" x="272" y="383">확인하세요</text>
+  <text class="ss" x="272" y="412" style="fill:#5e6ad2">→ 12강</text>
+
+  <rect class="bad" x="420" y="322" width="180" height="104" rx="12"/>
+  <circle cx="446" cy="350" r="11" fill="#c4423b"/>
+  <path d="M441.5 345.5 L450.5 354.5 M450.5 345.5 L441.5 354.5" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
+  <text class="l" x="466" y="357">회사 정보가</text>
+  <text class="l" x="466" y="383">비어 있습니다</text>
+  <text class="ss" x="466" y="412" style="fill:#5e6ad2">→ 15강</text>
+</svg>

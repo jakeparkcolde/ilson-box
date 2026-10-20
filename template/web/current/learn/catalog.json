@@ -183,29 +183,29 @@
             {
               "id": "b17",
               "number": 17,
-              "title": "정해진 시간에 알아서 (ilson start, 텔레그램)",
-              "subtitle": "정해 둔 시간에 보고를 받아 보기",
-              "minutes": 7,
+              "title": "정해진 시간에 알아서",
+              "subtitle": "예약을 켜고, 첫 아침 보고를 오늘 받아 봐요",
+              "minutes": 20,
               "surface": "ilson",
-              "status": "soon"
+              "status": "published"
             },
             {
               "id": "b18",
               "number": 18,
               "title": "팩·스킬로 능력 더하기",
-              "subtitle": "필요한 능력을 골라 더해 쓰기",
-              "minutes": 6,
+              "subtitle": "들이기 전에 살펴보고, 믿을 수 있는 것만 꽂아요",
+              "minutes": 12,
               "surface": "ilson",
-              "status": "soon"
+              "status": "published"
             },
             {
               "id": "b19",
               "number": 19,
-              "title": "더 해보기: 우리 가게 소개 페이지",
-              "subtitle": "우리 가게를 알리는 한 장짜리 페이지",
-              "minutes": 7,
+              "title": "더 해보기: 우리 가게 안내 페이지",
+              "subtitle": "회사 노트로 한 장짜리 웹 페이지를 만들어 이 Mac에서 열어 봐요",
+              "minutes": 12,
               "surface": "ilson",
-              "status": "soon"
+              "status": "published"
             }
           ]
         },
@@ -217,28 +217,28 @@
               "id": "b20",
               "number": 20,
               "title": "사용량 한도에 걸렸을 때",
-              "subtitle": "한도에 걸렸을 때 기다릴지 바꿀지 정하기",
-              "minutes": 5,
+              "subtitle": "기다릴지, 가볍게 쓸지, 더 낼지 미리 정해 두면 덜 당황해요",
+              "minutes": 9,
               "surface": "both",
-              "status": "soon"
+              "status": "published"
             },
             {
               "id": "b21",
               "number": 21,
               "title": "오류가 났을 때",
-              "subtitle": "오류 문구를 읽고 차분하게 대처하기",
-              "minutes": 6,
+              "subtitle": "읽고, 옮기고, 묻고, 두 번 해 보고, 그래도 안 되면 손을 떼요",
+              "minutes": 10,
               "surface": "both",
-              "status": "soon"
+              "status": "published"
             },
             {
               "id": "b22",
               "number": 22,
               "title": "용어 사전·자주 묻는 질문",
-              "subtitle": "헷갈리는 말과 자주 묻는 질문 모음",
-              "minutes": 5,
+              "subtitle": "헷갈리는 말은 여기서 찾고, 다음에 배울 곳도 챙겨요",
+              "minutes": 6,
               "surface": "both",
-              "status": "soon"
+              "status": "published"
             }
           ]
         }

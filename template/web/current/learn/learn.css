@@ -183,6 +183,8 @@ body[data-theme='light'] .lr-fig-btn{background:#fff}
 .lr-table th,.lr-table td{padding:10px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--hair)}
 .lr-table th{background:var(--s2);font-weight:650;color:var(--ink2)}
 .lr-table tr:last-child td{border-bottom:0}
+.lr-table th{white-space:nowrap}
+@media (max-width:720px){.lr-table{min-width:560px}.lr-table-wrap{background:linear-gradient(to left,var(--s2),transparent 28px) right/28px 100% no-repeat scroll}}
 .lr-troubles{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
 .lr-trouble{padding:16px 18px 6px;border:1px solid var(--hair);border-radius:14px;background:var(--s1)}
 .lr-trouble-sym{display:flex;align-items:flex-start;gap:8px}

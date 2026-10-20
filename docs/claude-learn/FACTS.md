@@ -389,6 +389,7 @@ Fetched 2026-10-20 for lessons b08–b10, b18, b20–b22. Same rules as above. M
 - When the wait-and-continue feature catches the limit, the lines are `Usage limit reached · limit resets 3:45pm` and `Continuing automatically at 3:45pm · esc to cancel` (both texts are current; same as E line). [verified] — https://code.claude.com/docs/en/interactive-mode.md
 - Claude Code tips: `/clear` between unrelated tasks ("`/clear` costs nothing"); `/compact` summarises (itself a large request); stop early with Esc; specific prompts read fewer files; long open sessions resend the whole conversation each time. On a subscription the prompt cache lasts an hour (5 minutes while drawing usage credits). [verified] — https://code.claude.com/docs/en/costs.md
 - Help article still says use `/status` to "Monitor your remaining allocation" (updated this week); docs put the bars in `/usage`. Keep the existing conflict note. [conflict] — https://support.claude.com/en/articles/11145838-use-claude-code-with-your-pro-or-max-plan
+- Usage credits also cover Claude Code: "Usage credits apply to both Claude conversations and Claude Code terminal usage." (section "How usage credits work with other features" → "Claude Code"; page shows "Updated over a week ago"). For 일손 Box this means `ilson chat`, menu jobs and scheduled jobs (all Claude Code on the subscription login, README.md:83) can keep running on credits past the plan limit when credits are on [inferred for the box]. [verified 2026-10-21, added after the b20 review] — https://support.claude.com/en/articles/12429409-manage-usage-credits-for-paid-claude-plans
 
 ### H8. Common errors (b21)
 claude.ai:
@@ -424,6 +425,7 @@ Claude Code:
 - Help Center "Get started with Claude" (2026-09-16): tips "Start simple", "Be specific", "Iterate", "Explore"; "+" or "/" in the message box shows more options. [verified] — https://support.claude.com/en/articles/8114491-get-started-with-claude
 - Official glossary (platform docs): context window ("working memory"), tokens, LLM, MCP ("Like a USB-C port for AI applications"), RAG, temperature, latency, etc. Developer-oriented; fine as a "더 알아보기" link for 용어 사전. [verified] — https://platform.claude.com/docs/en/about-claude/glossary
 - No Help Center glossary page was found. [unverified]
+- The "AI Fluency for small businesses" course page text is in English; the page does not state a course language and mentions no subtitles or translations. Lessons say "강의 페이지는 영어로 되어 있어요" and do not claim more. [verified 2026-10-21, added after the b22 review] — https://academy.claude.com/courses/ai-fluency-for-small-businesses
 
 ### H10. Corrections and conflicts with earlier lines
 - Line 77 ("Chats and tasks" sidebar): still the label on the delete page (dated 2026-08-10), but the new-experience page (2026-09-16) calls the list "Recents" (최근 항목). Lessons should mention both or say "왼쪽 대화 목록". [conflict] — https://support.claude.com/en/articles/8230524-delete-or-rename-a-conversation , https://support.claude.com/en/articles/16761823
