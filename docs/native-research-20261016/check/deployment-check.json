@@ -1,0 +1,7 @@
+{
+  "before_count": 110,
+  "after_count": 110,
+  "changed": [],
+  "returncode": 0,
+  "output": "준비됨: Claude\n준비됨: Node.js\n준비됨: FFmpeg\n준비됨: FFprobe\n준비됨: hyperframes\n준비됨: gsap\n준비됨: Chrome\n모션그래픽 실행 프로그램 확인 완료.\n기존 확장 기능 보존: box/lib/job-rules.md\n배포 버전: 2026.10.16.1 · 변경 코드: 50 개\n기존 확장 기능 보존: box/lib/job-rules.md\n배포 버전: 2026.10.16.1 · 변경 코드: 50 개\n배포 코드 설치 완료.\n일손 관리자에 최신 배포를 적용했습니다. 열어 둔 화면을 새로고침하세요.\n"
+}

@@ -1,0 +1,272 @@
+{
+  "version": 1,
+  "question": "Apple 공식 자료로 기본 M3(2023)와 기본 M4(2024) 14형 MacBook Pro의 기본 메모리, USB-C 포트 수와 규격, 카메라, 외장 화면 2대 연결 조건을 비교해줘. Pro/Max 칩 제외. 현재 가격 제외.",
+  "checked_at": "2026-10-16T08:30:23.495187+00:00",
+  "sources": [
+    {
+      "id": 1,
+      "title": "Apple — MacBook Pro 14(M3, 2023년 11월) 기술 사양",
+      "url": "https://support.apple.com/ko-kr/117735",
+      "published_date": null,
+      "method": "native-original-partial",
+      "read_status": "read",
+      "provider": "codex",
+      "source_type": "web"
+    },
+    {
+      "id": 2,
+      "title": "Apple — MacBook Pro(14형, M4, 2024년) 기술 사양",
+      "url": "https://support.apple.com/ko-kr/121552",
+      "published_date": null,
+      "method": "native-original-partial",
+      "read_status": "read",
+      "provider": "codex",
+      "source_type": "web"
+    },
+    {
+      "id": 3,
+      "title": "Apple — M3 칩이 탑재된 MacBook Air 및 MacBook Pro에서 듀얼 모니터 사용하기",
+      "url": "https://support.apple.com/ko-kr/117373",
+      "published_date": "2024-08-20",
+      "method": "native-original-partial",
+      "read_status": "read",
+      "provider": "codex",
+      "source_type": "web"
+    },
+    {
+      "id": 4,
+      "title": "Apple — M4 시리즈 칩을 탑재한 새로운 MacBook Pro 공개",
+      "url": "https://www.apple.com/kr/newsroom/2024/10/new-macbook-pro-features-m4-family-of-chips-and-apple-intelligence/",
+      "published_date": "2024-10-30",
+      "method": "native-original-partial",
+      "read_status": "read",
+      "provider": "codex",
+      "source_type": "web"
+    },
+    {
+      "id": 5,
+      "title": "Apple — macOS Sonoma 업데이트의 새로운 기능",
+      "url": "https://support.apple.com/ko-kr/109035",
+      "published_date": null,
+      "method": "native-original-partial",
+      "read_status": "read",
+      "provider": "codex",
+      "source_type": "web"
+    },
+    {
+      "id": 6,
+      "title": "Apple — MacBook Pro에 연결할 수 있는 디스플레이 수",
+      "url": "https://support.apple.com/ko-kr/101571",
+      "published_date": null,
+      "method": "native-original-partial",
+      "read_status": "read",
+      "provider": "codex",
+      "source_type": "web"
+    }
+  ],
+  "claims": [
+    {
+      "kind": "fact",
+      "text": "기본 M3 → 기본 M4 14형 MacBook Pro의 차이는 최소 기본 메모리 8GB → 16GB, USB-C 포트 2개(Thunderbolt 3/USB 4) → 3개(Thunderbolt 4/USB 4), 1080p FaceTime HD → 12MP 센터 스테이지 카메라입니다. 외장 화면 2대는 M3에서 덮개를 닫아야 하지만, M4에서는 내장 화면과 함께 사용할 수 있습니다.",
+      "source_ids": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "heading": "핵심 결론",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "inference",
+      "text": "대상은 2023년 기본 M3 및 2024년 기본 M4 탑재 14형 모델입니다. ‘기본 메모리’는 각 모델의 최소 기본 구성으로 해석했습니다. 한국어 Apple 공식 자료를 중심으로 2026-10-16에 조회했으며, Pro/Max 모델과 가격은 비교에서 제외했습니다.",
+      "source_ids": [
+        1,
+        2
+      ],
+      "heading": "비교 범위",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "M3의 외장 화면 2대 지원은 macOS Sonoma 14.6에서 추가됐습니다. 따라서 2023년 출시 당시 지원 상태와 구분해야 합니다. 현재 안내 조건은 Sonoma 14.6 이상, 외부 전원, 외장 키보드와 마우스 또는 트랙패드, 덮개 닫기입니다. 화면 2대를 연결한 뒤 덮개를 열면 보조 외장 화면이 꺼지거나 연결이 끊어집니다. [Apple 연결 안내](https://support.apple.com/ko-kr/117373)",
+      "source_ids": [
+        3,
+        5
+      ],
+      "heading": "M3의 업데이트·사용 조건",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "uncertain",
+      "text": "공식 문서 사이에 일부 표기 차이가 있습니다. M3의 HDMI 단일 화면 최대치는 기술 사양에서 4K 120Hz, 디스플레이 지원 문서에서 4K 144Hz로 다릅니다. M4 기술 사양에는 Thunderbolt 5 출력 문단도 섞여 있지만, 해당 모델의 포트 목록과 출시 발표는 Thunderbolt 4 3개로 일치합니다. 표는 모델별 포트 목록과 명시적인 2대 연결 구성을 기준으로 작성했습니다.",
+      "source_ids": [
+        1,
+        2,
+        4,
+        6
+      ],
+      "heading": "원문 표기 차이",
+      "format": "paragraph",
+      "language": ""
+    }
+  ],
+  "limitations": "Apple 공식 원문만 사용했습니다. 여러 공식 문서를 대조했지만 모두 동일 제조사 자료이므로 독립 출처 교차 검증은 아닙니다. M3 HDMI 단일 화면 주사율의 문서 간 차이는 보완 검색 후에도 해소되지 않았습니다. 특정 모니터·케이블·독의 실제 호환성은 검증하지 않았습니다. 조회일은 2026-10-16이며, 기술 사양 문서의 정확한 게시·수정일과 Sonoma 14.6의 배포일은 이번 열람에서 확인하지 않았습니다.\n주장의 출처 연결과 검색 도구에서의 URL 확인을 검사했습니다. 출처 내용의 진위를 보증하는 독립 검증은 아닙니다. 원문 열람이 확인되지 않은 자료는 검색 발췌문으로 표시합니다.",
+  "comparison": {
+    "headers": [
+      "비교 항목",
+      "14형 기본 M3 · 2023",
+      "14형 기본 M4 · 2024"
+    ],
+    "rows": [
+      {
+        "label": "기본 메모리",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "최소 기본 구성 8GB 통합 메모리. 사양표에는 8GB 또는 16GB, 구성 옵션으로 16GB 또는 24GB가 기재됨.",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "최소 기본 구성 16GB 통합 메모리. 사양표에는 16GB 또는 24GB, 구성 옵션으로 24GB 또는 32GB가 기재됨.",
+            "source_ids": [
+              2,
+              4
+            ]
+          }
+        ]
+      },
+      {
+        "label": "USB-C 포트 수·규격",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "2개. Apple 표기는 Thunderbolt/USB 4. Thunderbolt 3 최대 40Gb/s, USB 4 최대 40Gb/s, 충전 및 DisplayPort 지원.",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "3개. Thunderbolt 4(USB-C). Thunderbolt 4 최대 40Gb/s, USB 4 최대 40Gb/s, 충전 및 DisplayPort 지원.",
+            "source_ids": [
+              2,
+              4
+            ]
+          }
+        ]
+      },
+      {
+        "label": "내장 카메라",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "1080p FaceTime HD 카메라, 컴퓨테이셔널 비디오용 이미지 신호 프로세서.",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "12MP 센터 스테이지 카메라, 데스크뷰 지원. 동영상 촬영 사양은 1080p HD.",
+            "source_ids": [
+              2
+            ]
+          }
+        ]
+      },
+      {
+        "label": "외장 화면 2대 + 내장 화면",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "동시 사용 불가. 외장 화면 2대 사용 시 덮개를 닫아야 함.",
+            "source_ids": [
+              3,
+              6
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "동시 사용 가능. 내장 화면 + 외장 화면 2대를 지원하며, 덮개를 닫아도 외장 화면 최대 수는 늘어나지 않음.",
+            "source_ids": [
+              2,
+              4,
+              6
+            ]
+          }
+        ]
+      },
+      {
+        "label": "외장 화면 2대 연결 조건",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "macOS Sonoma 14.6 이상, 외장 키보드와 마우스/트랙패드, 외부 전원 필요. USB-C 디스플레이가 Mac에 전원을 공급하면 별도 전원 어댑터 불필요. 첫 화면 연결 → 덮개 닫기 → 두 번째 화면 연결 순서.",
+            "source_ids": [
+              3
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "덮개를 열고 사용 가능. 연결 화면의 해상도·재생률에 따라 최대 2대 지원.",
+            "source_ids": [
+              2,
+              6
+            ]
+          }
+        ]
+      },
+      {
+        "label": "명시된 외장 화면 2대 조합",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "Thunderbolt로 최대 6K·60Hz + 최대 5K·60Hz. 또는 Thunderbolt 최대 6K·60Hz + HDMI 최대 4K·100Hz.",
+            "source_ids": [
+              3,
+              6
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "모델별 사양표: Thunderbolt로 각각 최대 6K·60Hz 2대, 또는 Thunderbolt 최대 6K·60Hz + HDMI 최대 4K·144Hz. 현재 지원 안내는 Thunderbolt/HDMI를 통한 각각 최대 6K·60Hz 또는 4K·144Hz 2대로 안내.",
+            "source_ids": [
+              2,
+              6
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "follow_up_questions": [
+    "사용할 모니터 2대의 모델명과 목표 해상도·주사율을 알려주시면 연결 조합을 구체적으로 확인할 수 있습니다.",
+    "사용할 모니터 2대의 모델명과 목표 해상도·주사율은 무엇인가요?"
+  ],
+  "coverage": {
+    "attempts": [
+      "codex-native"
+    ],
+    "failures": [],
+    "policy": "evidence-first-20261016-1",
+    "mode": "deep"
+  },
+  "metrics": {
+    "provider": "codex-native",
+    "requested_model": "cli-default",
+    "total_seconds": 121.81,
+    "source_count": 6,
+    "tool_events": 6
+  },
+  "answer_profile": {
+    "id": "evidence-first",
+    "version": "evidence-first-20261016-1"
+  }
+}

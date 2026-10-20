@@ -1,0 +1,1 @@
+PASS: ZIP checksum + Intel CPU/macOS 26.6.2 mocked sandbox fresh install + local release application + source/pack parity. No actual Intel hardware, third-party tool installation, authentication, or live LLM test performed.

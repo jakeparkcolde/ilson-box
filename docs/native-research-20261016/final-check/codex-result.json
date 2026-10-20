@@ -1,0 +1,304 @@
+{
+  "version": 1,
+  "question": "Apple 공식 자료로 기본 M3(2023)와 기본 M4(2024) 14형 MacBook Pro의 기본 메모리, USB-C 포트 수와 규격, 카메라, 외장 화면 2대 연결 조건을 비교해줘. Pro/Max 칩 제외. 현재 가격 제외.",
+  "checked_at": "2026-10-16T08:41:46.021259+00:00",
+  "sources": [
+    {
+      "id": 1,
+      "title": "Apple — MacBook Pro 14(M3, 2023년 11월) 기술 사양",
+      "url": "https://support.apple.com/ko-kr/117735",
+      "published_date": null,
+      "method": "native-original-partial",
+      "read_status": "read",
+      "provider": "codex",
+      "source_type": "web"
+    },
+    {
+      "id": 2,
+      "title": "Apple — MacBook Pro(14형, M4, 2024년) 기술 사양",
+      "url": "https://support.apple.com/ko-kr/121552",
+      "published_date": null,
+      "method": "native-original-partial",
+      "read_status": "read",
+      "provider": "codex",
+      "source_type": "web"
+    },
+    {
+      "id": 3,
+      "title": "Apple — Use dual monitors with your MacBook Air and MacBook Pro with M3 chip",
+      "url": "https://support.apple.com/en-ca/117373",
+      "published_date": "2024-07-30",
+      "method": "native-original-partial",
+      "read_status": "read",
+      "provider": "codex",
+      "source_type": "web"
+    },
+    {
+      "id": 4,
+      "title": "Apple — New MacBook Pro features M4 family of chips and Apple Intelligence",
+      "url": "https://www.apple.com/uk/newsroom/2024/10/new-macbook-pro-features-m4-family-of-chips-and-apple-intelligence/",
+      "published_date": "2024-10-30",
+      "method": "native-original-partial",
+      "read_status": "read",
+      "provider": "codex",
+      "source_type": "web"
+    },
+    {
+      "id": 5,
+      "title": "Apple — What's new in the updates for macOS Sonoma 14",
+      "url": "https://support.apple.com/en-tm/109035",
+      "published_date": null,
+      "method": "native-original-partial",
+      "read_status": "read",
+      "provider": "codex",
+      "source_type": "web"
+    }
+  ],
+  "claims": [
+    {
+      "kind": "fact",
+      "text": "기본 M3(2023)에서 기본 M4(2024) 14형 MacBook Pro로 바뀌면서 최소 기본 메모리는 8GB→16GB, USB-C 포트는 2개(Thunderbolt 3)→3개(Thunderbolt 4), 카메라는 1080p FaceTime HD→12MP Center Stage로 변경됐습니다. 외장 화면 2대는 M3에서는 macOS Sonoma 14.6 이상과 덮개 닫기가 필요하지만, M4에서는 내장 화면까지 동시에 사용할 수 있습니다.",
+      "source_ids": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "heading": "핵심 결론",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "M3의 외장 화면 2대 지원은 출시 후 macOS Sonoma 14.6에서 추가됐습니다. 따라서 출시 당시 기능과 이후 업데이트로 지원되는 기능을 구분해야 합니다. [Apple 업데이트 안내](https://support.apple.com/en-tm/109035)",
+      "source_ids": [
+        5
+      ],
+      "heading": "시점 구분",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "M3 연결 순서는 외장 키보드·마우스 또는 트랙패드 연결 → Mac에 전원 공급 → 첫 화면 연결 → 덮개 닫기 → 두 번째 화면 연결입니다. 모니터가 USB-C로 전원을 공급하면 별도 전원 어댑터는 필요 없습니다. 덮개를 다시 열면 두 번째 외장 화면이 꺼지거나 연결 해제됩니다. [Apple 연결 절차](https://support.apple.com/en-ca/117373)",
+      "source_ids": [
+        3
+      ],
+      "heading": "M3의 필수 연결 조건",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "inference",
+      "text": "노트북 화면과 외장 화면 2대를 함께 쓰려는 목적이라면, 두 모델 중 M4가 해당 구성을 지원합니다. 아래의 ‘기본 메모리’는 선택 가능한 구성 중 최소 용량을 뜻합니다.",
+      "source_ids": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "heading": "비교 해석",
+      "format": "paragraph",
+      "language": ""
+    }
+  ],
+  "limitations": "조회 기준일은 2026-10-16입니다. 지역 지정이 없어 한국 Apple 기술 사양을 우선하고 영문 공식 지원·발표 자료로 보완했습니다. 요청에 따라 Apple 자료만 사용했으므로 제조사와 독립적인 실측 검증은 아닙니다. M4 한국 기술 사양에는 Thunderbolt 5 출력 문구도 혼재하지만, 같은 문서의 포트 항목과 출시 발표는 기본 M4를 Thunderbolt 4 3개로 명시하며, 발표는 Thunderbolt 5를 Pro/Max 모델로 구분합니다. 따라서 기본 M4의 포트 규격은 두 명시적 근거에 따라 비교했습니다. 특정 독·케이블·모니터 조합은 검증하지 않았습니다. 지원 문서의 최초 게시일을 확인하지 못한 경우 null로 표시했습니다. 현재 가격은 제외했습니다.\n주장의 출처 연결과 검색 도구에서의 URL 확인을 검사했습니다. 출처 내용의 진위를 보증하는 독립 검증은 아닙니다. 원문 열람이 확인되지 않은 자료는 검색 발췌문으로 표시합니다.",
+  "comparison": {
+    "headers": [
+      "비교 항목",
+      "기본 M3 · 14형 · 2023년 11월",
+      "기본 M4 · 14형 · 2024년"
+    ],
+    "rows": [
+      {
+        "label": "기본 메모리",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "최소 8GB 통합 메모리. 기술 사양에는 8GB 또는 16GB 구성, 최대 24GB가 기재돼 있습니다. [사양](https://support.apple.com/ko-kr/117735)",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "최소 16GB 통합 메모리. 기술 사양에는 16GB 또는 24GB 구성, 최대 32GB가 기재돼 있습니다. [사양](https://support.apple.com/ko-kr/121552)",
+            "source_ids": [
+              2,
+              4
+            ]
+          }
+        ]
+      },
+      {
+        "label": "USB-C 포트 수·규격",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "2개. Apple 명칭은 Thunderbolt/USB 4 포트이며, Thunderbolt 3 및 USB 4 모두 최대 40Gb/s. 충전·DisplayPort 지원. [사양](https://support.apple.com/ko-kr/117735)",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "3개. Thunderbolt 4(USB-C) 포트이며, Thunderbolt 4 및 USB 4 모두 최대 40Gb/s. 충전·DisplayPort 지원. [사양](https://support.apple.com/ko-kr/121552)",
+            "source_ids": [
+              2,
+              4
+            ]
+          }
+        ]
+      },
+      {
+        "label": "내장 카메라",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "1080p FaceTime HD 카메라, 컴퓨테이셔널 비디오용 이미지 신호 프로세서. [사양](https://support.apple.com/ko-kr/117735)",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "12MP Center Stage 카메라, 데스크뷰 지원. 동영상 촬영 사양은 1080p HD이며, 컴퓨테이셔널 비디오용 이미지 신호 프로세서 지원. [사양](https://support.apple.com/ko-kr/121552)",
+            "source_ids": [
+              2
+            ]
+          }
+        ]
+      },
+      {
+        "label": "외장 화면 2대: 덮개·운영체제",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "macOS Sonoma 14.6 이상, 덮개 닫기, 외부 전원 및 외장 입력장치 필요. 내장 화면과 외장 2대를 동시에 사용할 수 없습니다. [연결 조건](https://support.apple.com/en-ca/117373)",
+            "source_ids": [
+              3
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "덮개를 열고 내장 화면 + 외장 화면 2대를 동시에 지원합니다. 2024년 발표 당시부터 명시된 기능입니다. [출시 발표](https://www.apple.com/uk/newsroom/2024/10/new-macbook-pro-features-m4-family-of-chips-and-apple-intelligence/)",
+            "source_ids": [
+              2,
+              4
+            ]
+          }
+        ]
+      },
+      {
+        "label": "외장 화면 2대: 해상도·주사율",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "첫 화면 최대 6K·60Hz, 두 번째 화면 최대 5K·60Hz. 연결 안내에는 각각 4K·144Hz, 4K·100Hz 대안도 명시돼 있습니다. 단, 본체 HDMI 출력 한도는 별도로 최대 4K·120Hz입니다. [연결 안내](https://support.apple.com/en-ca/117373) · [HDMI 사양](https://support.apple.com/ko-kr/117735)",
+            "source_ids": [
+              1,
+              3
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "① Thunderbolt로 각각 최대 6K·60Hz인 화면 2대 또는 ② Thunderbolt 최대 6K·60Hz 1대 + HDMI 최대 4K·144Hz 1대. HDMI 8K·60Hz 또는 4K·240Hz는 별도로 기재된 외장 화면 1대 구성입니다. [사양](https://support.apple.com/ko-kr/121552)",
+            "source_ids": [
+              2
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "verification": {
+    "policy": "evidence-first-20261016-2",
+    "status": "model_checked",
+    "checks": [
+      {
+        "requirement": "기본 M3(2023)·기본 M4(2024) 14형만 비교하고 Pro/Max 제외",
+        "status": "confirmed",
+        "source_ids": [
+          1,
+          2,
+          4
+        ],
+        "note": "각 기본 칩 전용 기술 사양과 M4 출시 발표의 해당 모델 설명을 사용했습니다."
+      },
+      {
+        "requirement": "기본 메모리",
+        "status": "confirmed",
+        "source_ids": [
+          1,
+          2,
+          4
+        ],
+        "note": "최소 기본 구성 기준 M3 8GB, M4 16GB를 확인했습니다."
+      },
+      {
+        "requirement": "USB-C 포트 수와 규격",
+        "status": "confirmed",
+        "source_ids": [
+          1,
+          2,
+          4
+        ],
+        "note": "M3 2개·Thunderbolt 3/USB 4, M4 3개·Thunderbolt 4/USB 4. M4 문서의 혼재 문구는 포트 항목과 출시 발표로 대조했습니다."
+      },
+      {
+        "requirement": "카메라",
+        "status": "confirmed",
+        "source_ids": [
+          1,
+          2
+        ],
+        "note": "M3 1080p FaceTime HD, M4 12MP Center Stage·데스크뷰·1080p HD 동영상을 확인했습니다."
+      },
+      {
+        "requirement": "외장 화면 2대 연결 조건",
+        "status": "confirmed",
+        "source_ids": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "note": "M3의 운영체제·덮개·전원·입력장치 조건과 두 모델의 해상도·주사율 및 내장 화면 동시 사용 여부를 확인했습니다."
+      },
+      {
+        "requirement": "출시 시점과 업데이트 후 지원 구분, 현재 가격 제외",
+        "status": "confirmed",
+        "source_ids": [
+          4,
+          5
+        ],
+        "note": "M3의 2대 지원은 Sonoma 14.6 추가 기능, M4는 출시 발표 당시 지원으로 구분했으며 가격을 기재하지 않았습니다."
+      }
+    ],
+    "scope": "model_self_check_and_observed_source_urls_not_independent_fact_verification"
+  },
+  "follow_up_questions": [
+    "사용할 모니터 2대의 해상도·주사율·입력 단자를 알려주시면 해당 조합의 연결 방법도 비교할 수 있습니다.",
+    "limitations"
+  ],
+  "coverage": {
+    "attempts": [
+      "codex-native"
+    ],
+    "failures": [],
+    "policy": "evidence-first-20261016-2",
+    "mode": "deep"
+  },
+  "metrics": {
+    "provider": "codex-native",
+    "requested_model": "cli-default",
+    "total_seconds": 112.24,
+    "source_count": 5,
+    "tool_events": 4
+  },
+  "answer_profile": {
+    "id": "evidence-first",
+    "version": "evidence-first-20261016-2"
+  }
+}

@@ -1,0 +1,46 @@
+Intel Mac 설치 준비 완료 — 2026-10-16
+
+요청: 사진의 2020 13형 Intel Core i5/16GB MacBook Pro에도 일손을 설치할 수 있게 준비. 대상 장치 접속 정보 없음. 설치 준비/코드 변경/묶음 제작·검증까지 수행. 실제 Intel 기기에 설치·로그인·검색했다고 주장하지 않는다.
+
+소스: /Users/koldeumaegmini/ilson-box-native-research, branch feat/native-research-20261016. 앞선 native 리서치 작업의 미커밋 변경과 함께 보존. 원래 /Users/koldeumaegmini/ilson-box worktree는 미변경. git commit/push 없음.
+변경: ilson의 Apple Silicon-only 차단 제거. arm64/x86_64 허용, 기타 CPU와 Rosetta 변환 터미널 거부. macOS13 이상 요구. doctor는 Intel을 오류 아닌 제한 지원 안내로 표시. install.sh의 모호한 Intel 안내 수정 및 로컬 소스 설치 시 tools/update.py 누락 수정.
+노트북 전원/잠자기/FileVault 변경은 기본 설치에서 실행하지 않는다. 예약업무는 수동 start 전까지 켜지 않는다.
+
+결과물: docs/intel-install-20261016/ilson-intel-mac-20261016.zip (약8.5MB) 및 .sha256.
+포함: install-intel.command, install.sh, 새 기기용 CLI/template/tools, 릴리스 manifest/archive, README-KO.txt, 파일별 SHA256SUMS. 사용자 인증/회사 데이터는 포함하지 않는다.
+새 대상 맥북으로 ZIP 이동 → 압축 해제 → bash 뒤에 install-intel.command 경로를 넣어 실행. --check는 묶음 무결성과 CPU/OS 표시만 하며 설치하지 않는다.
+기존 ~/.ilson-cli, ~/ilson 또는 ~/.local/bin/ilson이 있으면 덮어쓰지 않는다. 이 묶음의 pending marker가 있는 설치만 재개. completed marker면 재설치하지 않고 open 안내.
+공식 도구 다운로드에 인터넷/관리자 설치 화면이 필요. Claude/Codex 로그인은 대상 맥에서 직접. 초기 일손 릴리스는 포함되어 Tailscale 연결 없이 설치 가능. 이후 현재 배포 서버의 update는 승인된 Tailscale 연결 필요.
+
+버전: Box2026.10.16.3 / research0.16.1. 코드231파일. publish_release.py로 HTTPS 자료 무결성 확인 후 latest-v2.json과 bootstrap 갱신. 기존 Jake 맥미니에 update를 실행하지 않았으므로 그 기기는 마지막 확인 .2 상태이며 다음 갱신 시 .3 가능. Intel 기기는 아직 미접속.
+manifest의 기존 사용자 job-rules.md 보존 해시를 그대로 승계했다. 무관한 수정 덮어쓰지 않음.
+
+검증:
+- 전체288개 시험 통과(all-tests.log), 설치49개 시험 통과(setup-tests.log).
+- Intel CPU/macOS26.6.2를 모의한 sandbox 새 설치, Rosetta/기타CPU 거부 시험.
+- 실제 ZIP 추출 및 전체파일 SHA256 확인 → bundled install.sh --sandbox → updater 로컬 적용 → native 리서치와 독립 팩 바이트 동일 → 운영자료 보존/예약 미활성 확인. verify_kit.py와 kit-verification.txt.
+- install-intel.command --check는 현재 arm64/macOS26.5.1에서 무변경 실행 확인. 이것을 Intel 실기 검증으로 세지 않는다.
+- 쉘 문법, Python 릴리스 compile/hash, git diff --check 통과.
+- 실제 Intel Homebrew/CLI 설치, 계정 인증, LLM 실검색, 영상 렌더·브라우저·카카오 연동은 미검증.
+
+공식 확인: Claude docs macOS13+/x64 지원, Codex 공식 README x86_64-apple-darwin 제공, Homebrew는 Intel Tier3(제한 지원). 근거 URL은 README-KO.txt. 지원 등급 때문에 일부 도구 설치 실패/소스 빌드 가능, 실패를 성공으로 처리하지 않는다.
+
+Close-out: 테스트 임시 설치는 TemporaryDirectory로 정리. 상주 서버·브라우저·LaunchAgent 새로 시작하지 않음. 기존 배포 서버 보존. 미디어 산출물 없으므로 My Book 아카이브 대상 없음.
+
+다음 단계: 사용자가 ZIP을 해당 Intel 맥북에 옮겨 실행. 발생한 실제 오류가 있으면 그 출력부터 점검. 실제 실행이 정상일 때에만 설치/검색 완료로 기록. 필요하면 승인된 원격 접속 경로를 사용자에게 확인하되 자격정보를 출력하거나 저장하지 않는다.
+
+계속하기 프롬프트:
+/Users/koldeumaegmini/ilson-box-native-research/docs/intel-install-20261016/HANDOFF-2026-10-16.txt를 읽고 Intel 맥북 설치 지원을 이어가라. ZIP과 Box2026.10.16.3/research0.16.1은 준비·모의 검증 완료, 대상 Intel 실기 설치는 아직 하지 않았다. 기존 사용자 데이터와 예약 설정을 보존하고 실기 검증과 모의시험을 구분해 보고하라.
+
+One-line distribution (2026-10-16):
+Bootstrap source: docs/intel-install-20261016/install.sh
+Public Funnel URL: https://macmini.tailb24b18.ts.net:10000/assets/ilson-install/2026.10.16.3/install.sh
+Hosted files: /Users/koldeumaegmini/Library/Application Support/orca-funnel-web/public/assets/ilson-install/2026.10.16.3/
+Uses existing Funnel assets route and existing Python server PID 51625 port 6769. No new server or route. Keep this service for installer availability.
+Bootstrap pins package SHA256, downloads HTTPS only, verifies before extraction, cleans temporary files, gives inner installer /dev/tty for interactive setup. --check verifies without installing.
+Validation: bash -n passed; HTTPS download and end-to-end bootstrap --check passed on current ARM macOS26.5.1. Intel hardware install remains untested. Public availability depends on this Mac mini and existing Funnel service.
+Close-out: no media to archive; no browser/tab/server started. Existing public assets service preserved for downloads.
+
+Artifacts moved (2026-10-20): release/, release-final/, pack/, research-pack-*.zip, the Intel kit folder and ilson-intel-mac-20261016.zip are no longer in this repo.
+They live at /Volumes/My Book/Working-Content/ilson-box-releases/20261016/<same relative path>, SHA256-verified per file (163 files) on copy.
+build_kit.py and verify_kit.py expect those artifacts next to them; copy them back before re-running.

@@ -1,0 +1,19 @@
+{
+  "health": {
+    "service": "ilson-box-admin",
+    "instance": "mkIOifUKTD7tWgYC8GG3nKb9IlNiDgyu",
+    "release": {
+      "version": "2026.10.16.2",
+      "research_version": "0.16.1"
+    }
+  },
+  "version": "2026.10.16.2",
+  "research_version": "0.16.1",
+  "settings": {
+    "provider": "claude",
+    "model": ""
+  },
+  "policy": "evidence-first-20261016-2",
+  "job_rules_preserved": true,
+  "source_pack_parity": true
+}

@@ -1,0 +1,13 @@
+..........F...................................
+======================================================================
+FAIL: test_관리대화는_박스에서_auto로_시작하고_권한우회하지않는다 (test_setup.SetupTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/koldeumaegmini/ilson-box-native-research/tests/test_setup.py", line 353, in test_관리대화는_박스에서_auto로_시작하고_권한우회하지않는다
+    self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+AssertionError: 41 != 0 : 
+
+----------------------------------------------------------------------
+Ran 46 tests in 33.267s
+
+FAILED (failures=1)

@@ -1,0 +1,2 @@
+codex OK {'provider': 'codex-native', 'requested_model': 'cli-default', 'total_seconds': 121.81, 'source_count': 6, 'tool_events': 6}
+claude OK {'provider': 'claude-native', 'requested_model': 'cli-default', 'total_seconds': 166.76, 'source_count': 7, 'tool_events': 14}
