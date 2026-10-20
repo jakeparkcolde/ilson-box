@@ -1,0 +1,496 @@
+{
+  "version": 1,
+  "question": "Apple 공식 자료를 기준으로 14형 MacBook Pro 기본 M3(2023)와 기본 M4(2024)를 비교해줘. M3 Pro/M4 Pro 칩은 제외. 출시 당시 기본 메모리, CPU/GPU 코어, USB-C 포트 수와 규격, 카메라, 외장 디스플레이 지원 조건을 표로 정리하고 출처 URL을 연결해줘. 현재 판매 가격은 제외하고 미확인 조건은 명시해줘.",
+  "checked_at": "2026-10-16T08:06:02.241615+00:00",
+  "sources": [
+    {
+      "title": "MacBook Pro 14-inch M4 vs. MacBook Pro 14-inch M3: Which should you buy? | Laptop Mag",
+      "url": "https://www.laptopmag.com/laptops/macbook-pro-14-inch-m4-vs-macbook-pro-14-inch-m3",
+      "published_date": null,
+      "method": "original-text-partial",
+      "read_status": "read",
+      "provider": "tavily",
+      "source_type": "web",
+      "search_images": [
+        {
+          "url": "https://www.apple.com/newsroom/images/2023/10/Apple-unveils-M3-M3-Pro-and-M3-Max/tile/Apple-M3-chip-series-231030.jpg.landing-big_2x.jpg",
+          "title": "검색 관련 이미지"
+        },
+        {
+          "url": "https://www.apple.com/newsroom/images/2023/10/apple-unveils-new-macbook-pro-featuring-m3-chips/tile/Apple-MacBook-Pro-2up-231030.jpg.landing-big_2x.jpg",
+          "title": "검색 관련 이미지"
+        },
+        {
+          "url": "https://www.apple.com/newsroom/images/2023/10/apple-unveils-new-macbook-pro-featuring-m3-chips/article/Apple-MacBook-Pro-Liquid-Retina-display-DaVinci-Resolve-231030_big.jpg.large.jpg",
+          "title": "검색 관련 이미지"
+        },
+        {
+          "url": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/refurb-mbp14-m3-max-pro-spaceblack-202402?wid=1144&hei=1144&fmt=jpeg&qlt=90&.v=b0cvRE9zdWs4SDJUODA1NlFVU0JIOWV2UE1vVDZacDdGd2t3cm96WUFWZlJrUE1ldE4zMk1QdE1tMFB0d2J5YVZXdVNJbGxGODh2NXZCWDNadFJ0VUFYUldRZVYxMHFkRFZrQVZuaWMwSkJiblhjSmdsaHpKRWo0M0RCSmdaOHI",
+          "title": "검색 관련 이미지"
+        },
+        {
+          "url": "https://www.apple.com/newsroom/images/2023/10/apple-unveils-new-macbook-pro-featuring-m3-chips/article/Apple-MacBook-Pro-M3-Max-MATLAB-231030_big.jpg.large.jpg",
+          "title": "검색 관련 이미지"
+        }
+      ],
+      "id": 1,
+      "content_trimmed": true
+    },
+    {
+      "title": "MacBook Pro 14(M4 Pro 또는 M4 Max, 2024년) - 기술 사양 - Apple 지원 (KR)",
+      "url": "https://support.apple.com/ko-kr/121553",
+      "published_date": null,
+      "method": "original-text-partial",
+      "read_status": "read",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 2,
+      "content_trimmed": true
+    },
+    {
+      "title": "MacBook Pro 모델 비교하기 - Apple (KR)",
+      "url": "https://www.apple.com/kr/macbook-pro/compare?modelList=MacBook-Pro-14-M3%2CMacBook-Pro-16-M3%2CMacBook-Pro-14-M3x",
+      "published_date": null,
+      "method": "original-text-partial",
+      "read_status": "read",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 3,
+      "cache_hit": false,
+      "content_trimmed": false
+    },
+    {
+      "title": "M4 MacBook Pro vs. M3 MacBook Pro: What are the differences? | Mashable",
+      "url": "https://mashable.com/comparison/m4-macbook-pro-vs-m3-macbook-pro",
+      "published_date": null,
+      "method": "original-text-partial",
+      "read_status": "read",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 4,
+      "content_trimmed": true
+    },
+    {
+      "title": "MacBook Pro M3 vs. M4 Chips",
+      "url": "https://www.bhphotovideo.com/explora/computers/features/macbook-pro-m3-vs-m4-chips",
+      "published_date": null,
+      "method": "tavily-snippet",
+      "read_status": "unavailable",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 5,
+      "read_error": "원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용",
+      "content_trimmed": false
+    },
+    {
+      "title": "M4 MacBook Pro Vs M3 - REVIEW OF SPECS!",
+      "url": "https://www.youtube.com/watch?v=mC6uepQ6D_Y",
+      "published_date": null,
+      "method": "original-text-partial",
+      "read_status": "read",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 6,
+      "content_trimmed": true
+    },
+    {
+      "title": "맥북프로 M4 vs M3 차이는? 성능 및 스펙 심층 비교",
+      "url": "https://blog.naver.com/how1_/223647243657?viewType=pc",
+      "published_date": null,
+      "method": "tavily-snippet",
+      "read_status": "unavailable",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 7,
+      "read_error": "원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용",
+      "content_trimmed": false
+    },
+    {
+      "title": "M4 vs M3 pro MacBook Pro | MacRumors Forums",
+      "url": "https://forums.macrumors.com/threads/m4-vs-m3-pro-macbook-pro.2442984",
+      "published_date": null,
+      "method": "original-text-partial",
+      "read_status": "read",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 8,
+      "content_trimmed": true
+    },
+    {
+      "title": "MacBook Pro 14(2023년 11월)/M3 Pro 또는 M3 Max 모델",
+      "url": "https://namu.wiki/w/MacBook%20Pro%2014(2023%EB%85%84%2011%EC%9B%94)/M3%20Pro%20%EB%98%90%EB%8A%94%20M3%20Max%20%EB%AA%A8%EB%8D%B8",
+      "published_date": null,
+      "method": "tavily-snippet",
+      "read_status": "unavailable",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 9,
+      "read_error": "원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용",
+      "content_trimmed": false
+    },
+    {
+      "title": "MacBook Pro 14(2024년)/M4 Pro 또는 M4 Max 모델",
+      "url": "https://namu.wiki/w/MacBook%20Pro%2014(2024%EB%85%84)/M4%20Pro%20%EB%98%90%EB%8A%94%20M4%20Max%20%EB%AA%A8%EB%8D%B8",
+      "published_date": null,
+      "method": "tavily-snippet",
+      "read_status": "unavailable",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 10,
+      "read_error": "원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용",
+      "content_trimmed": false
+    },
+    {
+      "title": "MacBook Pro (14-inch, M4, 2024) - Tech Specs - Apple Support",
+      "url": "https://support.apple.com/en-us/121552",
+      "published_date": null,
+      "method": "original-text-partial",
+      "read_status": "read",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 11,
+      "content_trimmed": true
+    },
+    {
+      "title": "Macbook Pro (14\") M3 or M3 Pro - differences for basic usage | MacRumors Forums",
+      "url": "https://forums.macrumors.com/threads/macbook-pro-14-m3-or-m3-pro-differences-for-basic-usage.2433967",
+      "published_date": null,
+      "method": "original-text-partial",
+      "read_status": "read",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 12,
+      "content_trimmed": true
+    }
+  ],
+  "claims": [
+    {
+      "kind": "inference",
+      "text": "핵심 결론: Apple 공식 자료 발췌 기준으로 확인되는 가장 큰 차이는 **기본 메모리(8GB → 16GB)**와 **CPU 코어(8코어 → 10코어)**이며, GPU는 두 세대 모두 10코어입니다. 기본 M4 모델의 **USB-C 포트 수·카메라·외장 디스플레이 대수**는 제공된 Apple 공식 발췌문에서 잘려 있어 직접 확인하지 못했고, 아래 표에 미확인으로 표시했습니다.",
+      "source_ids": [
+        11,
+        12,
+        4
+      ],
+      "heading": "",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "Apple 지원 기술 사양(MacBook Pro 14형, M4, 2024)에 따르면 기본 **M4 칩은 10코어 CPU(성능 4 + 효율 6), 10코어 GPU, 16코어 Neural Engine, 120GB/s 메모리 대역폭**을 갖추고 하드웨어 가속 레이 트레이싱을 지원합니다. 메모리는 **16GB 또는 24GB 통합 메모리**로 표기되며 24GB/32GB로 구성 가능하고, 저장 장치는 512GB 또는 1TB SSD입니다. 출처: https://support.apple.com/en-us/121552",
+      "source_ids": [
+        11
+      ],
+      "heading": "칩·메모리",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "기본 M3 모델은 Apple 리퍼비시 스토어 상품 설명(포럼에 인용된 Apple 문구)과 Laptop Mag·Mashable 보도 모두에서 **8코어 CPU, 10코어 GPU, 8GB 통합 메모리**로 일치합니다. 출시 시점 기본 저장 장치는 512GB SSD로 보도되었습니다.",
+      "source_ids": [
+        12,
+        1,
+        4
+      ],
+      "heading": "칩·메모리",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "Apple 리퍼비시 상품 설명에 따르면 14형 M3(8코어 CPU) 모델은 **Thunderbolt 4(USB-C) 포트 2개**와 **1080p FaceTime HD 카메라**를 탑재합니다. 이 문구는 MacRumors 포럼 게시물에 인용된 형태로만 확인했습니다.",
+      "source_ids": [
+        12
+      ],
+      "heading": "포트·카메라",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "Apple M4(2024) 기술 사양 페이지는 **Thunderbolt 4 디지털 비디오 출력(USB-C를 통한 네이티브 DisplayPort 1.4)**과 SDXC 슬롯, HDMI, 3.5mm 헤드폰 잭을 명시합니다. 다만 발췌문에서 **포트 개수 항목이 잘려** 있어 Thunderbolt 포트 수는 Apple 문구로 직접 확인하지 못했습니다.",
+      "source_ids": [
+        11
+      ],
+      "heading": "포트·카메라",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "inference",
+      "text": "Mashable은 M4 모델이 같은 시작 가격에 \"더 많은 포트와 RAM\"을 제공한다고 평가했으므로, 기본 M4의 USB-C 포트는 M3의 2개보다 많다고 추정됩니다. 정확한 개수와 Thunderbolt 규격(대역폭)은 발췌문만으로는 단정할 수 없습니다.",
+      "source_ids": [
+        4,
+        12
+      ],
+      "heading": "포트·카메라",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "uncertain",
+      "text": "기본 M4 모델의 카메라 사양은 제공된 Apple M4 기술 사양 발췌문에 포함되어 있지 않습니다. 12MP Center Stage 카메라는 **M4 Pro/M4 Max 모델** 페이지에서만 확인되었고, 사용자가 해당 칩을 제외했으므로 기본 M4에 그대로 적용된다고 단정하지 않았습니다.",
+      "source_ids": [
+        2
+      ],
+      "heading": "포트·카메라",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "Apple M4(2024) 기술 사양에 따르면 **HDMI 출력으로 최대 8K 60Hz 또는 4K 240Hz 디스플레이 1대**를 지원합니다. Thunderbolt를 통한 외장 디스플레이 지원 대수와 해상도 조건은 발췌문에서 잘려 확인하지 못했습니다.",
+      "source_ids": [
+        11
+      ],
+      "heading": "외장 디스플레이",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "inference",
+      "text": "MacRumors 포럼 이용자들은 기본 M4의 다중 외장 디스플레이 구동 능력이 이전 세대보다 늘었고, M3 Pro와 같은 수·품질의 외장 디스플레이를 구동할 수 있다고 언급했습니다. 이는 사용자 의견이며 Apple 공식 문구로 검증하지 못했습니다. 기본 M3 모델의 외장 디스플레이 지원 조건은 제공된 자료에 없습니다.",
+      "source_ids": [
+        8
+      ],
+      "heading": "외장 디스플레이",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "출시 시기 표기가 자료 간에 다릅니다. Apple 리퍼비시 설명은 M3 14형이 **2023년 10월** 출시라고 적었고, Laptop Mag은 **2023년 11월** 출시로 보도했습니다. M4 14형은 Apple 기술 사양에 출시 연도 2024년으로 표기됩니다.",
+      "source_ids": [
+        12,
+        1,
+        11
+      ],
+      "heading": "출시 시기",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "inference",
+      "text": "선택 기준: **메모리 8GB 제약과 포트 2개**가 걸리면 기본 M4가 명확히 유리합니다. Geekbench 6 멀티코어에서 M4가 M3 대비 약 24% 빠르다는 Mashable 측정도 있습니다. 반대로 디스플레이·본체 크기·무게·디자인은 두 모델이 동일하다고 Laptop Mag이 보도했으므로, 가벼운 작업 위주라면 할인된 M3도 고려할 수 있습니다.",
+      "source_ids": [
+        4,
+        1
+      ],
+      "heading": "선택 기준",
+      "format": "paragraph",
+      "language": ""
+    }
+  ],
+  "limitations": "조회일 2026-10-16 기준, 제공된 발췌문만 사용했습니다. Apple 공식 자료 중 기본 M4(2024) 14형 기술 사양(support.apple.com/en-us/121552)은 원문 일부만 읽었고, 포트 개수·카메라·Thunderbolt 경유 외장 디스플레이 지원 항목이 잘려 있어 확인하지 못했습니다. 기본 M3(2023) 14형의 Apple 공식 기술 사양 페이지는 자료에 없었고, Apple 리퍼비시 스토어 문구를 MacRumors 포럼 게시물에 인용된 형태로만 읽었습니다. Apple 한국 비교 페이지(source 3)는 모델 목록 위주라 기본 M3/M4 사양 수치를 제공하지 않았습니다. M4 Pro/Max 페이지(support.apple.com/ko-kr/121553)는 사용자가 제외한 칩이므로 카메라 등을 기본 M4로 전이하지 않았습니다. M3 출시 시기는 자료 간 10월/11월로 충돌합니다. 각 자료의 게시일은 대부분 미기재이며, YouTube 자료는 자막 일부만 읽었고 화면은 보지 않았습니다. 현재 판매 가격은 요청대로 제외했습니다.\n원문 일부를 읽은 자료: 8개 / 전체 12개. 원문 읽기 실패 자료는 검색 발췌문만 사용합니다.\n모델에는 질문 관련 발췌를 전달했습니다. 원문 전체를 검토한 결과가 아닙니다.\nBing 경로는 검색 기간을 강제하지 않습니다. 요청한 기간의 자료인지 게시일을 원문에서 확인해야 합니다.",
+  "comparison": {
+    "headers": [
+      "항목",
+      "MacBook Pro 14 기본 M3 (2023)",
+      "MacBook Pro 14 기본 M4 (2024)"
+    ],
+    "rows": [
+      {
+        "label": "CPU / GPU 코어",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "8코어 CPU, 10코어 GPU (Apple 리퍼비시 설명 인용, Laptop Mag, Mashable)",
+            "source_ids": [
+              12,
+              1,
+              4
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "10코어 CPU(성능 4 + 효율 6), 10코어 GPU, 16코어 Neural Engine — https://support.apple.com/en-us/121552",
+            "source_ids": [
+              11
+            ]
+          }
+        ]
+      },
+      {
+        "label": "출시 당시 기본 메모리",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "8GB 통합 메모리",
+            "source_ids": [
+              12,
+              4,
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "16GB 통합 메모리(Apple 페이지는 16GB 또는 24GB 표기, 24/32GB 구성 가능)",
+            "source_ids": [
+              11,
+              4,
+              8
+            ]
+          }
+        ]
+      },
+      {
+        "label": "USB-C 포트 수",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "Thunderbolt 4(USB-C) 포트 2개 (Apple 리퍼비시 설명, 포럼 인용)",
+            "source_ids": [
+              12
+            ]
+          },
+          {
+            "kind": "uncertain",
+            "text": "Apple 발췌문에서 개수 항목이 잘림. Mashable은 M3보다 포트가 많다고만 언급",
+            "source_ids": [
+              4
+            ]
+          }
+        ]
+      },
+      {
+        "label": "USB-C 규격",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "Thunderbolt 4(USB-C)",
+            "source_ids": [
+              12
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "Thunderbolt 4 디지털 비디오 출력, USB-C를 통한 DisplayPort 1.4 네이티브 출력",
+            "source_ids": [
+              11
+            ]
+          }
+        ]
+      },
+      {
+        "label": "카메라",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "1080p FaceTime HD 카메라",
+            "source_ids": [
+              12
+            ]
+          },
+          {
+            "kind": "uncertain",
+            "text": "기본 M4 발췌문에 카메라 항목 없음. 12MP Center Stage는 M4 Pro/Max 페이지에서만 확인",
+            "source_ids": [
+              2
+            ]
+          }
+        ]
+      },
+      {
+        "label": "외장 디스플레이 지원",
+        "cells": [
+          {
+            "kind": "uncertain",
+            "text": "제공된 자료에 기본 M3의 외장 디스플레이 조건 없음",
+            "source_ids": []
+          },
+          {
+            "kind": "fact",
+            "text": "HDMI로 최대 8K 60Hz 또는 4K 240Hz 디스플레이 1대. Thunderbolt 경유 대수·조건은 발췌문에서 미확인",
+            "source_ids": [
+              11
+            ]
+          }
+        ]
+      },
+      {
+        "label": "출시 시기",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "Apple 리퍼비시 설명은 2023년 10월, Laptop Mag은 2023년 11월로 표기(충돌)",
+            "source_ids": [
+              12,
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "2024년(Apple 기술 사양 출시 연도)",
+            "source_ids": [
+              11
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "answer_profile": {
+    "id": "comparison",
+    "version": "20261013-1"
+  },
+  "follow_up_questions": [
+    "MacBook Pro 14 M4(2024) 기본 모델의 Thunderbolt 4 포트 개수와 외장 디스플레이 최대 연결 대수는 Apple 공식 사양에서 어떻게 명시되어 있나?",
+    "MacBook Pro 14 M3(2023) 기본 모델 Apple 기술 사양 페이지의 외장 디스플레이 지원 조건과 카메라 사양은?",
+    "MacBook Pro 14 M4 기본 모델 실사용 후기에서 16GB 메모리와 포트 구성에 대한 불편한 점은 무엇인가?",
+    "영상 편집과 개발 작업 환경별로 MacBook Pro 14 M3 8GB와 M4 16GB 중 어느 쪽이 적합한가?"
+  ],
+  "coverage": {
+    "attempts": [
+      "tavily",
+      "tavily-primary",
+      "bing",
+      "youtube-links"
+    ],
+    "failures": [],
+    "mode": "deep",
+    "policy": "multi-source"
+  },
+  "metrics": {
+    "search_seconds": 24.77,
+    "retrieval_seconds": 22.98,
+    "reading_seconds": 1.78,
+    "answer_seconds": 71.69,
+    "total_seconds": 96.45,
+    "first_answer_seconds": 55.09,
+    "prompt_characters": 44484,
+    "image_attached": false,
+    "source_count": 12,
+    "provider": "multi",
+    "timing_scope": "end_to_end",
+    "retrieval_policy": "baseline",
+    "answer_budget_kind": "baseline",
+    "answer_claim_count": 11,
+    "answer_text_characters": 1959,
+    "first_claim_characters": 212,
+    "stream_metrics": {
+      "cli_spawn_seconds": 0.0019,
+      "first_model_event_seconds": 2.4448,
+      "first_content_delta_seconds": 27.3563,
+      "first_claim_seconds": 30.3197,
+      "stream_complete_seconds": 71.6846,
+      "content_delta_characters": 5595,
+      "structured_output_characters": 5588
+    },
+    "pipeline_id": "baseline",
+    "evidence_budget_characters": null,
+    "supplied_evidence_characters": 37909,
+    "requested_model": null,
+    "actual_models": [
+      "claude-fable-5-1"
+    ],
+    "usage": {
+      "input_tokens": 2,
+      "output_tokens": 6183,
+      "cache_creation_input_tokens": 30554,
+      "cache_read_input_tokens": 0
+    },
+    "estimated_api_cost_usd": 0.92025
+  }
+}

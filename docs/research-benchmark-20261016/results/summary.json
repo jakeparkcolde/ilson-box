@@ -1,0 +1,176 @@
+[
+  {
+    "question": "product",
+    "provider": "ilson",
+    "seconds": 96.64,
+    "returncode": 0,
+    "timeout": false
+  },
+  {
+    "question": "product",
+    "provider": "claude",
+    "seconds": 107.16,
+    "returncode": 0,
+    "timeout": false,
+    "is_error": false,
+    "usage": {
+      "input_tokens": 162,
+      "cache_creation_input_tokens": 16245,
+      "cache_read_input_tokens": 51266,
+      "output_tokens": 5425,
+      "output_tokens_details": {
+        "thinking_tokens": 924
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 16245,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 32,
+          "output_tokens": 2178,
+          "cache_read_input_tokens": 15406,
+          "cache_creation_input_tokens": 839,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 839
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-fable-5-1": {
+        "inputTokens": 162,
+        "outputTokens": 5425,
+        "cacheReadInputTokens": 51266,
+        "cacheCreationInputTokens": 16245,
+        "webSearchRequests": 0,
+        "costUSD": 0.6105865,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 924,
+        "canonicalModel": "claude-fable-5-1",
+        "provider": "firstParty",
+        "costBasis": "list"
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 112063,
+        "outputTokens": 3937,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 4,
+        "costUSD": 0.17174799999999996,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000,
+        "thinkingTokens": 0,
+        "canonicalModel": "claude-haiku-4-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "total_cost_usd": 0.7823345,
+    "permission_denials": []
+  },
+  {
+    "question": "product",
+    "provider": "codex",
+    "seconds": 66.82,
+    "returncode": 0,
+    "timeout": false
+  },
+  {
+    "question": "education",
+    "provider": "ilson",
+    "seconds": 164.27,
+    "returncode": 0,
+    "timeout": false
+  },
+  {
+    "question": "education",
+    "provider": "claude",
+    "seconds": 116.98,
+    "returncode": 0,
+    "timeout": false,
+    "is_error": false,
+    "usage": {
+      "input_tokens": 162,
+      "cache_creation_input_tokens": 15247,
+      "cache_read_input_tokens": 70626,
+      "output_tokens": 5956,
+      "output_tokens_details": {
+        "thinking_tokens": 1304
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 15247,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 32,
+          "output_tokens": 3143,
+          "cache_read_input_tokens": 19116,
+          "cache_creation_input_tokens": 672,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 672
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "modelUsage": {
+      "claude-fable-5-1": {
+        "inputTokens": 162,
+        "outputTokens": 5956,
+        "cacheReadInputTokens": 70626,
+        "cacheCreationInputTokens": 15247,
+        "webSearchRequests": 0,
+        "costUSD": 0.6220165,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 64000,
+        "thinkingTokens": 1304,
+        "canonicalModel": "claude-fable-5-1",
+        "provider": "firstParty",
+        "costBasis": "list"
+      },
+      "claude-haiku-4-5-20251001": {
+        "inputTokens": 202550,
+        "outputTokens": 6224,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 9,
+        "costUSD": 0.32367000000000007,
+        "contextWindow": 200000,
+        "maxOutputTokens": 32000,
+        "thinkingTokens": 0,
+        "canonicalModel": "claude-haiku-4-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "total_cost_usd": 0.9456865000000001,
+    "permission_denials": []
+  },
+  {
+    "question": "education",
+    "provider": "codex",
+    "seconds": 80.03,
+    "returncode": 0,
+    "timeout": false
+  }
+]

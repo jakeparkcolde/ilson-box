@@ -1,0 +1,29 @@
+**핵심 요약**
+
+확인된 사양상 14형 기본 M4는 기본 M3보다 출시 당시 메모리가 **8GB→16GB**, CPU가 **8→10코어**, USB-C 포트가 **2→3개**로 늘었습니다. GPU는 둘 다 10코어입니다. M4는 내장 화면을 켠 채 외장 화면 2대를 지원하며, M3의 외장 2대 지원은 **출시 후 업데이트와 덮개 닫기 조건**을 구분해야 합니다. 아래는 M3 Pro·M4 Pro를 제외한 비교입니다. [M3 사양](https://support.apple.com/ko-kr/117735), [M4 사양](https://support.apple.com/ko-kr/121552)
+
+**비교표**
+
+‘기본 메모리’는 주문 시 증설하지 않은 최저 기본 구성을 뜻합니다.
+
+| 항목 | 14형 MacBook Pro 기본 M3(2023) | 14형 MacBook Pro 기본 M4(2024) |
+|---|---|---|
+| 출시 당시 기본 통합 메모리 | **8GB** | **16GB** |
+| CPU / GPU | CPU **8코어**: 성능 4+효율 4 / GPU **10코어** | CPU **10코어**: 성능 4+효율 6 / GPU **10코어** |
+| USB-C 포트 수·규격 | **2개**. Thunderbolt 3 및 USB 4, 각각 최대 **40Gb/s**. 충전·DisplayPort 지원 | **3개**. Thunderbolt 4 및 USB 4, 각각 최대 **40Gb/s**. 충전·DisplayPort 지원 |
+| 카메라 | **1080p FaceTime HD** | **12MP Center Stage**, 데스크뷰 지원. 동영상 촬영은 **1080p HD** |
+| 내장 화면과 외장 화면 동시 사용 | 내장+외장 **1대**, 외장 최대 **6K·60Hz**. HDMI 출력은 기술 사양에 **4K·120Hz**로 기재 | 내장+외장 **최대 2대**. Thunderbolt로 각각 **6K·60Hz**, 또는 Thunderbolt **6K·60Hz 1대**+HDMI **4K·144Hz 1대** |
+| 고해상도·고주사율 외장 1대 | 위의 연결별 한도 참조 | HDMI로 **8K·60Hz 또는 4K·240Hz 1대** |
+| 외장 2대 사용 조건 | 출시 후 **macOS Sonoma 14.6 이상**에서 지원. **덮개 닫기, 전원 연결, 외장 키보드 및 마우스/트랙패드** 필요. 첫 화면 최대 **6K·60Hz**, 두 번째 최대 **5K·60Hz**. 덮개를 열면 보조 외장 화면이 꺼지거나 연결 해제됨 | 위의 2대 조합은 **내장 화면과 동시 지원**하므로 덮개를 닫을 필요 없음 |
+| 근거 | [Apple M3 기술 사양](https://support.apple.com/ko-kr/117735), [M3 듀얼 모니터 조건](https://support.apple.com/ko-kr/117373) | [Apple M4 기술 사양](https://support.apple.com/ko-kr/121552), [2024년 발표문](https://www.apple.com/uk/newsroom/2024/10/new-macbook-pro-features-m4-family-of-chips-and-apple-intelligence/) |
+
+**확인 한계**
+
+- **시점 구분:** 현재 M3 기술 사양에는 덮개를 닫았을 때 보조 화면 지원이 추가되어 있습니다. 이를 출시 당시 기능으로 읽으면 안 됩니다. Apple은 Sonoma 14.6 업데이트에서 해당 지원을 추가했다고 명시합니다. [업데이트 안내](https://support.apple.com/ko-kr/109035)
+- **문서 간 표기 차이:** M3 기술 사양의 HDMI 한도는 4K·120Hz지만, 듀얼 모니터 안내는 첫 화면에 4K·144Hz, 두 번째에 4K·100Hz도 제시합니다. 후자는 해당 문단에서 연결 단자를 명시하지 않아, 이를 M3 HDMI의 보장 사양으로 합쳐 쓰지 않았습니다. [기술 사양](https://support.apple.com/ko-kr/117735), [연결 안내](https://support.apple.com/ko-kr/117373)
+- M4 사양 페이지에는 Thunderbolt 5 출력 문구도 섞여 있지만, 포트 항목과 출시 발표문에서 기본 M4는 **Thunderbolt 4 3개**로 확인됩니다. 개별 허브·케이블·모니터 조합의 호환성은 확인하지 않았습니다. [M4 발표문](https://www.apple.com/uk/newsroom/2024/10/new-macbook-pro-features-m4-family-of-chips-and-apple-intelligence/)
+- **추론:** 내장 화면과 외장 2대를 함께 쓰려는 용도에서는 M4가 더 적합합니다. 이는 지원 조건에 따른 판단이며, GPU 코어 수가 같다고 성능까지 같다는 뜻은 아닙니다.
+
+**출처 URL**
+
+모두 Apple 공식 원문입니다: [M3 사양](https://support.apple.com/ko-kr/117735) · [M4 사양](https://support.apple.com/ko-kr/121552) · [M3 듀얼 화면 조건](https://support.apple.com/ko-kr/117373) · [Sonoma 업데이트](https://support.apple.com/ko-kr/109035) · [M4 출시 발표](https://www.apple.com/uk/newsroom/2024/10/new-macbook-pro-features-m4-family-of-chips-and-apple-intelligence/)
