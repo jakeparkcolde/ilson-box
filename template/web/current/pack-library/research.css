@@ -157,3 +157,25 @@ body.has-live-answer .research-progress{min-height:0;padding:4px 0 14px}
  .question-tools{gap:6px}
  .question-tools select{padding-left:8px;padding-right:6px}
 }
+
+/* 첨부 미리보기는 모바일에서도 입력창 안에 머문다. */
+.image-preview:not([hidden]){display:flex;align-items:center;gap:12px;padding:8px 0}
+.image-preview img{width:88px;height:88px;object-fit:contain;border-radius:10px;background:#fff}
+.image-preview button,#imagePicker{font:inherit;cursor:pointer}
+.image-status{font-size:12px;line-height:1.5;opacity:.75;margin:6px 0;overflow-wrap:anywhere}
+.image-status:empty{display:none}
+#imagePicker:disabled{opacity:.45;cursor:not-allowed}
+.question-tools{flex-wrap:wrap}
+.image-preview button{border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);padding:8px 12px;min-height:44px}
+@media(max-width:760px){
+ .question-tools #imagePicker{grid-column:1 / -1;grid-row:1;text-align:left;background:transparent;color:var(--ink);border:1px solid var(--line)}
+ .question-tools #researchMode{grid-column:1;grid-row:2}
+ .question-tools #period{grid-column:2;grid-row:2}
+ .question-tools .video-option{grid-column:1;grid-row:3}
+ .question-tools button[type=submit]{grid-column:2;grid-row:3}
+}
+
+/* 답변을 읽으면서 관련 사진도 볼 수 있게 한다. 모바일은 한 줄 가로 스크롤. */
+.answer-image-section{margin:0 0 24px;min-width:0;max-width:100%}.answer-image-strip{display:flex;gap:12px;overflow-x:auto;max-width:100%;padding:2px 0 10px;scroll-snap-type:x proximity}.answer-image-card{flex:0 0 240px;max-width:75vw;overflow:hidden;border:1px solid var(--line);border-radius:14px;text-decoration:none;color:inherit;scroll-snap-align:start}.answer-image-card img{display:block;width:100%;height:180px;object-fit:contain;background:var(--bg,#191919)}.answer-image-card span{display:block;padding:7px 10px;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.answer-image-section>small{display:block;color:var(--muted);font-size:11px}.answer-image-strip:focus-visible,.answer-image-card:focus-visible{outline:2px solid #65bfc1;outline-offset:2px}@media(max-width:600px){.answer-image-card{flex-basis:220px}.answer-image-card img{height:170px}}
+
+.answer-video-section{margin:0 0 24px;max-width:100%;min-width:0}.video-preview{flex-basis:260px}.video-preview img{height:146px;object-fit:cover}.video-preview strong{display:block;padding:10px 10px 0;font-size:14px;line-height:1.5}.video-preview:hover{border-color:#65bfc1}

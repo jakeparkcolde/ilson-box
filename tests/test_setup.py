@@ -348,10 +348,8 @@ except subprocess.TimeoutExpired:
     def test_관리대화는_박스에서_auto로_시작하고_권한우회하지않는다(self):
         self.install()
         (self.box / "state/sandbox").unlink()
-        r = self.shell('''claude() {
-            [ "$PWD" = "$ILSON_HOME" ] || return 41
-            [ "$*" = "--permission-mode auto" ] || return 42
-        }; chat_box''')
+        self.fake('claude', '[ "$PWD" = "$ILSON_HOME" ] || exit 41\n[ "$*" = "--permission-mode auto" ] || exit 42')
+        r = self.shell(f'export PATH="{self.base}:$PATH"; chat_box')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def test_재설치가_사용자_예약설정을_덮어쓰지않는다(self):

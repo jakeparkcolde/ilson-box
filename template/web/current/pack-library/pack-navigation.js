@@ -14,13 +14,13 @@ window.IlsonPacks = {
  .main:has(>.ilson-research-pane){min-width:0;overflow:hidden}
  body:has(.ilson-research-pane) .m-nav-btn{top:calc(6px + env(safe-area-inset-top,0px));right:12px;bottom:auto;left:auto;width:44px;height:44px;border-radius:9px;box-shadow:none}
 }
-</style>` : ""}<iframe id="ilsonPackFrame" data-pack-view="${tab}" data-pack-revision="20261003-mobile1"
-      title="일손 ${title}" src="${base}/${file}?embedded=1&v=20261003-mobile1"
+</style>` : ""}<iframe id="ilsonPackFrame" data-pack-view="${tab}" data-pack-revision="20261011-videos1"
+      title="일손 ${title}" src="${base}/${file}?embedded=1&v=20261011-videos1"
       style="display:block;width:100%;height:calc(100vh - 100px);min-height:650px;border:0;border-radius:14px;background:#f6f5f0"></iframe></section>`;
   },
   current(tab) {
     const frame = document.getElementById("ilsonPackFrame");
-    return ["packs", "research", "knowledge"].includes(tab) && frame?.dataset.packView === tab && frame?.dataset.packRevision === "20261003-mobile1";
+    return ["packs", "research", "knowledge"].includes(tab) && frame?.dataset.packView === tab && frame?.dataset.packRevision === "20261011-videos1";
   }
 };
 window.addEventListener("message", event => {

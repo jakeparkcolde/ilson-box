@@ -524,11 +524,7 @@ setup() {
 chat_box() {
     [ "$SANDBOX" = 0 ] && ! is_sandbox_box || die "샌드박스에서는 관리 대화를 실행하지 않습니다"
     [ -f "$ILSON_HOME/CLAUDE.md" ] || die "먼저 ilson setup 을 실행하세요"
-    has claude || die "Claude가 없습니다 — ilson setup 을 실행하세요"
-    cd "$ILSON_HOME" || return 1
-    # Explicit mode: project defaultMode:auto is not sufficient on all builds.
-    # No global settings mutation or bypass fallback if auto is unavailable.
-    claude --permission-mode auto
+    python3 "$ILSON_HOME/lib/research/settings.py" --home "$ILSON_HOME" --chat
 }
 
 start_jobs() {
@@ -563,6 +559,7 @@ usage() {
   telegram connect                            안내에 따라 텔레그램 알림 연결·변경
   telegram status [--verify]                   저장 상태 확인 (verify: Telegram에 연결 점검)
   update [--check|--rollback]                    배포 코드 갱신·확인·복구
+  llm [claude|codex] [모델명]                  기본 대화·리서치 LLM 확인/변경
   research                                      설치된 최신 리서치 실행
   motion [--check|제작 요청]                    모션그래픽 제작·준비 상태 확인
 EOF
@@ -607,6 +604,9 @@ if [ "$cmd" = motion ]; then
     has claude || die "Claude CLI가 없습니다. ilson setup에서 설치 상태를 확인하세요"
     cd "$ILSON_HOME" || exit 1
     exec claude "먼저 .claude/skills/ilson-motion/SKILL.md를 읽고 일손 모션그래픽 팩으로 진행하세요. 사용자 제작 요청: ${*:-만들 영상의 주제와 길이를 함께 정해주세요.}"
+fi
+if [ "$cmd" = llm ]; then
+    exec python3 "$ILSON_HOME/lib/research/settings.py" --home "$ILSON_HOME" "$@"
 fi
 if [ "$cmd" = research ]; then
     pack_version=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["research_version"])' "$ILSON_HOME/.updates/installed.json") || exit 1

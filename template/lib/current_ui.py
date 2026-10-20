@@ -231,10 +231,11 @@ class CurrentUI:
             raise WorkspaceError('영상 요청을 찾을 수 없습니다.',404)
         if method == 'GET':
             if path == '/api/research-capabilities':
+                from research.settings import load as llm_settings
                 from research.image_input import available
                 from research.image_normalize import heif_available
                 return {'mode': 'internal', 'async': True, 'stream': False,
-                        'provider': 'multi', 'image_input': available(), 'heic_input': heif_available(), 'knowledge': bool(shutil.which('aside'))}
+                        'provider': 'auto', 'llm': llm_settings(self.work.home), 'image_input': available(), 'heic_input': heif_available(), 'knowledge': bool(shutil.which('aside'))}
             if path.startswith('/api/research/jobs/'):
                 row = self.work.job(path.rsplit('/', 1)[1])
                 if row['kind'] != 'research':

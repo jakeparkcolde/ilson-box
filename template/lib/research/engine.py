@@ -105,7 +105,7 @@ def schema(mode='deep', budget=None):
     return result
 
 
-def research(question, period, home, provider='aside', progress=lambda **_:None, options=None, *, model=None, experiment='baseline', evidence_snapshot=None, capture_only=False, retrieval_policy='baseline'):
+def research(question, period, home, provider='auto', progress=lambda **_:None, options=None, *, model=None, experiment='baseline', evidence_snapshot=None, capture_only=False, retrieval_policy='baseline'):
     if not isinstance(question,str) or not 1<=len(question.strip())<=400 or question.startswith('-') or period not in ('day','week','month','year','all'):
         raise ResearchError('질문과 검색 기간을 확인하세요')
     validate_experiment(experiment,model)
@@ -117,6 +117,14 @@ def research(question, period, home, provider='aside', progress=lambda **_:None,
     home=Path(home).resolve()
     if not home.is_dir() or (home/'state/sandbox').exists():
         raise ResearchError('실제 기기의 실행 경로를 확인하세요')
+    if provider == 'auto':
+        if model is not None or experiment != 'baseline' or evidence_snapshot is not None or capture_only:
+            raise ResearchError('기존 수집 실험은 provider=multi를 명시하세요')
+        try:
+            from .native import research as native_research
+        except ImportError:
+            from native import research as native_research
+        return native_research(question, period, home, progress, options)
     claude=shutil.which('claude') if not capture_only else None
     if not capture_only and not claude: raise ResearchError('Claude CLI를 찾지 못했습니다')
     options=options_from(options)

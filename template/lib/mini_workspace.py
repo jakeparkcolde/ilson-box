@@ -109,7 +109,7 @@ class Providers:
 
     def research(self, home, args, progress):
         from research.engine import research
-        return research(args['question'], args['period'], home, provider='multi',
+        return research(args['question'], args['period'], home, provider='auto',
                         progress=progress, options={'mode': args['mode'], 'context': args.get('context', []),
                                                     'videos': args.get('videos', False), **({'image': args['image']} if args.get('image') else {})})
 
