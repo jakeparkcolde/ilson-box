@@ -1,0 +1,17 @@
+test_claude_search_links_only (test_native_research.NativeTests) ... ok
+test_confirmed_requirement_requires_observed_source (test_native_research.NativeTests) ... ok
+test_duplicate_source_ids_rejected (test_native_research.NativeTests) ... ok
+test_failed_claude_fetch_not_evidence (test_native_research.NativeTests) ... ok
+test_fallback_keeps_selected_model_and_records_tavily (test_native_research.NativeTests) ... ok
+test_invalid_settings_do_not_silently_change_provider (test_native_research.NativeTests) ... ok
+test_missing_eligibility_is_visible_before_summary (test_native_research.NativeTests) ... ok
+test_routes_follow_setting_at_each_request (test_native_research.NativeTests) ... ok
+test_sandbox_rejected_before_native_execution (test_native_research.NativeTests) ... ok
+test_snippet_never_marked_read (test_native_research.NativeTests) ... ok
+test_uncited_fact_and_table_cell_rejected (test_native_research.NativeTests) ... ok
+test_unobserved_source_rejected_even_if_final_mentions_url (test_native_research.NativeTests) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.006s
+
+OK

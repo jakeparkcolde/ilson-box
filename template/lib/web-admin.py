@@ -254,7 +254,11 @@ def source_digest(home):
     if not regular(server):
         raise AdminError("관리 웹 실행 파일이 없습니다. ilson setup 을 다시 실행해 주세요.")
     digest = hashlib.sha256()
-    sources = [server]
+    # 2026-10-07: 화면/HTTP 파일만 비교하면 조사·SNS 실행 모듈만 바뀐
+    # 업데이트에서 기존 프로세스가 옛 코드를 계속 실행한다.
+    library = home / 'lib'
+    directory(library)
+    sources = sorted(path for path in library.rglob('*') if path.suffix in ('.py', '.js') and path.is_file())
     web = home / "web"
     directory(web)
     if web.exists():
@@ -271,7 +275,7 @@ def build_plist(home, port):
     private = paths(home)
     return {
         "Label": LABEL,
-        "ProgramArguments": [str(Path(sys.executable).resolve()), str(home / "lib/web-admin-server.py"),
+        "ProgramArguments": [str(home / ".runtime/venv/bin/python") if (home / ".runtime/venv/bin/python").is_file() else str(Path(sys.executable).absolute()), str(home / "lib/web-admin-server.py"),
                              "--home", str(home), "--port", str(port)],
         "WorkingDirectory": str(home), "RunAtLoad": True, "KeepAlive": True,
         "EnvironmentVariables": {"PATH": str(Path.home() / ".local/bin") + ":/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"},

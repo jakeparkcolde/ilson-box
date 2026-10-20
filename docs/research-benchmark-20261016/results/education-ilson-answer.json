@@ -1,0 +1,543 @@
+{
+  "version": 1,
+  "question": "서울에서 초등 1학년이 참여할 수 있는 독서와 미술·만들기를 연계한 오프라인 수업 사례 3개를 찾아 비교해줘. 기관명, 지역, 대상 연령, 회당 시간, 수강료, 책과 활동의 연결 방식, 원문 URL을 제시해줘. 2026년 10월 16일 기준 현재 모집과 과거 운영 사례를 구분하고, 확인 못한 값은 미확인으로 남겨줘. 실제 부모의 선택에 도움이 되는 차이를 설명해줘.",
+  "checked_at": "2026-10-16T08:07:08.600593+00:00",
+  "sources": [
+    {
+      "title": "운영사례집",
+      "url": "https://www.nlcy.go.kr/attach/contents/with/2014%EB%8F%84%EC%84%9C%EA%B4%80%EA%B3%BC%ED%95%A8%EA%BB%98%EC%B1%85%EC%9D%BD%EA%B8%B0_%EC%9A%B4%EC%98%81%EC%82%AC%EB%A1%80%EC%A7%91.pdf",
+      "published_date": null,
+      "method": "original-text-partial",
+      "read_status": "read",
+      "provider": "tavily",
+      "source_type": "web",
+      "search_images": [
+        {
+          "url": "https://i.ytimg.com/vi/rF9FtO6bnMw/maxresdefault.jpg",
+          "title": "검색 관련 이미지"
+        },
+        {
+          "url": "https://cdn.sijung.co.kr/news/photo/202607/432711_237035_1139.jpg",
+          "title": "검색 관련 이미지"
+        },
+        {
+          "url": "https://i.ytimg.com/vi/AmjpSbuem-E/maxresdefault.jpg",
+          "title": "검색 관련 이미지"
+        },
+        {
+          "url": "https://www.kumsung.net/data/editor/2606/thumb-69ca500de22826859fb711f0925a05cd_1781586446_08_830x1174.png",
+          "title": "검색 관련 이미지"
+        },
+        {
+          "url": "https://i.ytimg.com/vi/lw4cdXDNAf0/sddefault.jpg?v=68ae9001",
+          "title": "검색 관련 이미지"
+        }
+      ],
+      "id": 1,
+      "content_trimmed": true
+    },
+    {
+      "title": "초등 독서수업 운영사례집",
+      "url": "https://www.cberi.go.kr/home/board/download.do?menukey=269&fno=10009949&bid=00000056&did=10006606",
+      "published_date": null,
+      "method": "tavily-snippet",
+      "read_status": "unavailable",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 2,
+      "read_error": "원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용",
+      "content_trimmed": false
+    },
+    {
+      "title": "초등 미술 온라인수업 : 공공미술 산책",
+      "url": "https://www.youtube.com/watch?v=bTOXFp_eJok",
+      "published_date": null,
+      "method": "tavily-snippet",
+      "read_status": "unavailable",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 3,
+      "read_error": "원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용",
+      "content_trimmed": false
+    },
+    {
+      "title": "집으로 오는 공부, 2025 서울·경기 방문형 교육 추천 6선",
+      "url": "https://rgw7009.tistory.com/entry/%EC%84%9C%EC%9A%B8%EA%B2%BD%EA%B8%B0-%EB%B0%A9%EB%AC%B8%ED%98%95%EA%B5%90%EC%9C%A1%EB%B9%84%EA%B5%90-%EC%9C%A0%EC%95%84%EC%B4%88%EB%93%B1%EB%AF%B8%EC%88%A0%EC%98%81%EC%96%B4%EB%85%BC%EC%88%A0-2025",
+      "published_date": null,
+      "method": "original-text-partial",
+      "read_status": "read",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 4,
+      "cache_hit": false,
+      "content_trimmed": true
+    },
+    {
+      "title": "[논문]초등 미술과 체험 영역에서 에듀테크 활용 수업 사례 연구",
+      "url": "https://scienceon.kisti.re.kr/srch/selectPORSrchArticle.do?cn=DIKO0016615821",
+      "published_date": null,
+      "method": "original-text-partial",
+      "read_status": "read",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 5,
+      "cache_hit": false,
+      "content_trimmed": true
+    },
+    {
+      "title": "2026 유치원 모집 일정 우선선발 자격 및 유치원 선택 기준",
+      "url": "https://blog.naver.com/sun800424/224056582931",
+      "published_date": null,
+      "method": "tavily-snippet",
+      "read_status": "unavailable",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 6,
+      "read_error": "원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용",
+      "content_trimmed": false
+    },
+    {
+      "title": "⚫ 책으로 여는 미래 ⚫ 세상과 소통하는 글쓰기 ⚫ ...",
+      "url": "https://www.goe.go.kr/resource/goe/na/bbs_2451/2025/06/7a21856c-1a8e-455a-9f6f-fdb9daddbac3.pdf",
+      "published_date": null,
+      "method": "original-text-partial",
+      "read_status": "read",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 7,
+      "content_trimmed": true
+    },
+    {
+      "title": "문화강좌",
+      "url": "https://bangbae.seocholib.or.kr/Cultural/CulturalList",
+      "published_date": null,
+      "method": "tavily-snippet",
+      "read_status": "unavailable",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 8,
+      "read_error": "원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용",
+      "content_trimmed": false
+    },
+    {
+      "title": "Places to Visit in Seoul Smarter Than Reading 100 Books",
+      "url": "https://www.youtube.com/watch?v=LN9eKe2bS_M",
+      "published_date": null,
+      "method": "tavily-snippet",
+      "read_status": "unavailable",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 9,
+      "read_error": "원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용",
+      "content_trimmed": false
+    },
+    {
+      "title": "아웃스쿨 - 어린이를 위한 실시간 온라인 수업",
+      "url": "https://outschool.com/ko",
+      "published_date": null,
+      "method": "tavily-snippet",
+      "read_status": "unavailable",
+      "provider": "tavily",
+      "source_type": "web",
+      "id": 10,
+      "read_error": "원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용",
+      "content_trimmed": false
+    },
+    {
+      "id": 11,
+      "title": "서울 아이와 가볼만한곳 실내 창작 체험 쿠킹 공방 등 원데이 ...",
+      "url": "https://blog.naver.com/heyhooney/224388319234",
+      "published_date": null,
+      "method": "aside-bing-snippet",
+      "provider": "bing",
+      "source_type": "web",
+      "read_status": "unavailable",
+      "read_error": "원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용",
+      "content_trimmed": false
+    },
+    {
+      "id": 12,
+      "title": "[지역 미술과 연계한 문화 체험 사례]예술교육, 교실을 넘어 ...",
+      "url": "https://webzine.serii.re.kr/%EC%A7%80%EC%97%AD-%EB%AF%B8%EC%88%A0%EA%B3%BC-%EC%97%B0%EA%B3%84%ED%95%9C-%EB%AC%B8%ED%99%94-%EC%B2%B4%ED%97%98-%EC%82%AC%EB%A1%80%EC%98%88%EC%88%A0%EA%B5%90%EC%9C%A1-%EA%B5%90%EC%8B%A4%EC%9D%84/",
+      "published_date": null,
+      "method": "original-text-partial",
+      "provider": "bing",
+      "source_type": "web",
+      "read_status": "read",
+      "cache_hit": false,
+      "content_trimmed": true
+    }
+  ],
+  "claims": [
+    {
+      "kind": "inference",
+      "text": "제공된 발췌문 안에서는 **2026년 10월 16일 기준 모집 중**인 서울 초등 1학년 대상 독서·미술 연계 오프라인 수업을 확인할 수 없었다. 비교 가능한 서울 사례 3개(강동구립암사도서관, 도봉도서관, 성북어린이미술관 꿈자람)는 모두 **과거 운영 사례**이며, 회당 시간과 수강료는 세 곳 모두 발췌문에 없어 미확인으로 남겼다.",
+      "source_ids": [
+        1,
+        12,
+        8
+      ],
+      "heading": "",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "국립어린이청소년도서관의 「2014 도서관과 함께 책읽기」 운영사례집에는 서울 **강동구립암사도서관·암사꿈나무지역아동센터** 사례가 수록되어 있다. 아이들은 엽서에 '엄마·아빠가 생각하는 나의 얼굴, 친구가 생각하는 나의 얼굴'을 그린 뒤 그 그림으로 **자신에 대한 스토리텔링**을 하고 자화상을 전시했다.",
+      "source_ids": [
+        1
+      ],
+      "heading": "사례 1: 강동구립암사도서관 (강동구, 2014년 과거 운영)",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "같은 사례에서 외부 요리학원으로 나가 **쿠키 만들기**를 한 뒤, 아이들의 호기심을 따라 그림책 **「쿠키 한입의 우정 수업」**을 선택해 책의 주제를 한 사람씩 돌아가며 이야기했다. 즉 '만들기 활동 → 관련 그림책 읽기 → 이야기 나누기' 순서로 연결했다. 이 사업은 정보소외계층 어린이·청소년 대상 지원사업으로, 참여 아동은 지역아동센터 소속이었다.",
+      "source_ids": [
+        1
+      ],
+      "heading": "사례 1: 강동구립암사도서관 (강동구, 2014년 과거 운영)",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "uncertain",
+      "text": "암사도서관 사례의 **대상 연령, 회당 시간, 수강료**는 발췌문에 명시되지 않았다. 같은 사례집의 제천기적의도서관 사례는 '미취학~초등 3학년, 매주 일요일 오후 2시'로 기재되어 있지만 서울 사례가 아니므로 적용할 수 없다. 지원사업 성격상 참가비가 없었을 가능성이 있으나 발췌문에 근거가 없어 미확인이다.",
+      "source_ids": [
+        1
+      ],
+      "heading": "사례 1: 강동구립암사도서관 (강동구, 2014년 과거 운영)",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "같은 2014 사례집 목차에 서울 **도봉도서관·창동지역아동센터**의 '쉽고 가까운 미술 - 유쾌한 팝아트전' 프로그램이 실려 있다. 사례집은 「도서관과 함께 책읽기」 참여 도서관의 독서프로그램과 도서관·문화체험프로그램 중 만족도가 높았던 것을 모았다고 밝힌다.",
+      "source_ids": [
+        1
+      ],
+      "heading": "사례 2: 도봉도서관·창동지역아동센터 (도봉구, 2014년 과거 운영)",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "uncertain",
+      "text": "도봉도서관 사례는 발췌문에 **제목만** 확인되어 책과 팝아트 활동을 어떻게 연결했는지, 대상 연령·회당 시간·수강료는 모두 미확인이다. 원문 PDF 전체를 열람하면 상세가 있을 가능성이 있지만 이번 발췌 범위에는 없었다.",
+      "source_ids": [
+        1
+      ],
+      "heading": "사례 2: 도봉도서관·창동지역아동센터 (도봉구, 2014년 과거 운영)",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "서울교육 웹진 2025 여름호는 **성북어린이미술관 꿈자람**의 2024년 지역 연계 문화·예술 체험 사업을 소개한다. 참여 유치원 아이들은 성북구 활동 작가 유근택의 회화·판화·드로잉을 도슨트 설명과 함께 감상한 뒤, 고무판에 매직·네임펜으로 그리고 가위로 오리는 **판화 그림 그리기** 체험에 참여했다. 사후 활동으로 유치원 안에 미술 전시관을 만들고 학예사·작가·관객 역할놀이를 했다.",
+      "source_ids": [
+        12
+      ],
+      "heading": "사례 3: 성북어린이미술관 꿈자람 (성북구, 2024년 과거 운영)",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "꿈자람은 유치원부터 초·중·고·성인까지 열린 공간으로, **학부모와 자발적으로 방문하는 유치원생·초등학생은 체험형 전시에 참여**할 수 있고, 중·고등학생과 성인은 **글쓰기·진로 교육을 예술과 연계**한 프로그램을 운영한다고 기사에 적혀 있다. 소개된 우수 사례는 덕수유치원과 노원구 수락산유치원이며, 초등 1학년 참여 사례는 발췌문에 없다.",
+      "source_ids": [
+        12
+      ],
+      "heading": "사례 3: 성북어린이미술관 꿈자람 (성북구, 2024년 과거 운영)",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "uncertain",
+      "text": "꿈자람 사례는 '미술관 전시 감상 → 만들기 → 글쓰기·역할놀이'의 연계이지, 특정 **책**을 읽고 활동한 것인지는 발췌문에서 확인되지 않는다. 기사에 나오는 『어떤 도서관 혹은 산책』은 작가의 작품명으로 보이며 도서로 확인된 것은 아니다. 회당 시간, 참가비, 2026년 하반기 어린이 프로그램 모집 여부도 미확인이다.",
+      "source_ids": [
+        12
+      ],
+      "heading": "사례 3: 성북어린이미술관 꿈자람 (성북구, 2024년 과거 운영)",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "fact",
+      "text": "2025년 11월 10일 게시된 블로그 글(출처를 공식 사이트로 밝힌 2차 자료)은 서울 전역 방문형 수업 비용을 정리했다. **그림샘 방문미술**은 권장 연령 4세~초4, 주 1회(월 4회), 월 약 10만 원대 초반이고 재료비 포함 여부는 지사마다 다르다. **해법독서논술**은 7세~초6, 주 1회 방문 또는 공부방, 월 12~15만 원대로 적혀 있다. 다만 두 프로그램은 각각 미술만, 독서·논술만 다루며 독서와 미술을 함께 연계한 수업은 아니다.",
+      "source_ids": [
+        4
+      ],
+      "heading": "참고: 사설 방문형 수업의 공개 비용 (연계 수업은 아님)",
+      "format": "paragraph",
+      "language": ""
+    },
+    {
+      "kind": "inference",
+      "text": "부모 입장에서 실질적인 차이는 **접근 경로와 비용 구조**다.\n- **공공도서관 연계형(암사·도봉)**: 지역아동센터와 협약해 운영한 사례여서 일반 가정 아동이 개별 신청할 수 있는 수업이었는지 불확실하다. 책과 만들기를 한 회차 안에서 직접 묶는 방식(그림 → 이야기, 쿠키 → 그림책)은 초1에게 적합한 구조로 보인다.\n- **미술관 체험형(꿈자람)**: 학부모 동반 방문으로 체험형 전시 참여가 가능하다고 기사에 명시되어 개별 접근이 비교적 쉽다. 다만 '독서' 연계보다 '작품 감상' 연계가 중심이다.\n- **사설 방문형**: 비용(월 10만~15만 원대)과 주기(주 1회)가 공개되어 예산 계획이 쉽지만, 독서와 미술을 한 수업에서 연계하는 상품은 발췌문에 없었다.",
+      "source_ids": [
+        1,
+        12,
+        4
+      ],
+      "heading": "부모 선택 포인트",
+      "format": "bullet",
+      "language": ""
+    },
+    {
+      "kind": "uncertain",
+      "text": "현재 모집 확인에 쓸 수 있는 발췌문은 서초구립 방배도서관 문화강좌 목록 하나였고, 여기에는 2026년 10월 23일 시작 **성인** 대상 '아트 브런치 in 방배'만 보여 어린이 독서·미술 강좌 모집은 확인되지 않았다. 따라서 세 사례 모두 '과거 운영'으로 분류하고, 2026년 10월 현재 모집 여부는 각 기관 홈페이지에서 직접 확인이 필요하다.",
+      "source_ids": [
+        8
+      ],
+      "heading": "현재 모집 여부",
+      "format": "paragraph",
+      "language": ""
+    }
+  ],
+  "limitations": "조회 시각은 2026년 10월 16일이며, 모든 판단은 제공된 검색 발췌문과 일부 원문에 한정된다. 2014 운영사례집(출처 1)과 서울교육 웹진(출처 12)은 원문 일부만 읽었고 질문 관련 부분만 발췌되어, 도봉도서관 사례의 상세와 각 사례의 회당 시간·수강료·연령은 전체 원문에 있을 수 있어도 확인하지 못했다. 세 사례 모두 과거(2014년, 2024년) 운영 사례이며, 2026년 10월 현재 모집 중인 서울 초1 대상 독서·미술 연계 오프라인 수업은 어느 발췌문에서도 확인되지 않았다. 방배도서관 문화강좌(출처 8)는 검색 발췌문만 보았고 성인 강좌만 나타났다. 사설 방문형 비용(출처 4)은 2025년 11월 10일 게시된 개인 블로그의 2차 정리이며 지사별로 다르다고 명시되어 있어 실제 금액은 상담으로 확인해야 한다. 꿈자람 사례는 유치원 대상이고 '독서' 연계가 아닌 '전시 감상' 연계여서 질문 조건에 부분적으로만 부합한다. 출처 2(충북 초등 독서수업 사례집), 7(경기도교육청)은 서울 외 지역이고, 출처 3·5·9·10은 온라인 수업 또는 논문으로 질문의 오프라인 조건과 맞지 않아 비교에서 제외했다. 사실 검증을 완료한 것은 아니며, 출처 URL은 제공된 것만 사용했다.\n원문 일부를 읽은 자료: 5개 / 전체 12개. 원문 읽기 실패 자료는 검색 발췌문만 사용합니다.\n모델에는 질문 관련 발췌를 전달했습니다. 원문 전체를 검토한 결과가 아닙니다.\nBing 경로는 검색 기간을 강제하지 않습니다. 요청한 기간의 자료인지 게시일을 원문에서 확인해야 합니다.",
+  "comparison": {
+    "headers": [
+      "항목",
+      "강동구립암사도서관·암사꿈나무지역아동센터",
+      "도봉도서관·창동지역아동센터",
+      "성북어린이미술관 꿈자람"
+    ],
+    "rows": [
+      {
+        "label": "지역 / 운영 주체",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "서울 강동구, 구립도서관 + 지역아동센터 연계",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "서울 도봉구, 공공도서관 + 지역아동센터 연계",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "서울 성북구, 어린이미술관(2024년 지역 연계 사업, 유치원 참여)",
+            "source_ids": [
+              12
+            ]
+          }
+        ]
+      },
+      {
+        "label": "운영 시기 / 현재 모집 (2026-10-16 기준)",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "2014년 과거 운영. 현재 모집 미확인",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "2014년 과거 운영. 현재 모집 미확인",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "2024년 과거 운영(2025 여름호 기사). 2026년 모집 미확인",
+            "source_ids": [
+              12
+            ]
+          }
+        ]
+      },
+      {
+        "label": "대상 연령",
+        "cells": [
+          {
+            "kind": "uncertain",
+            "text": "지역아동센터 어린이. 초1 포함 여부 미확인",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "uncertain",
+            "text": "미확인",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "소개 사례는 유치원생. 유치원생·초등학생은 학부모 동반 시 체험형 전시 참여 가능",
+            "source_ids": [
+              12
+            ]
+          }
+        ]
+      },
+      {
+        "label": "회당 시간",
+        "cells": [
+          {
+            "kind": "uncertain",
+            "text": "미확인",
+            "source_ids": []
+          },
+          {
+            "kind": "uncertain",
+            "text": "미확인",
+            "source_ids": []
+          },
+          {
+            "kind": "uncertain",
+            "text": "미확인('체험 시간은 짧았다'는 서술만 있음)",
+            "source_ids": [
+              12
+            ]
+          }
+        ]
+      },
+      {
+        "label": "수강료",
+        "cells": [
+          {
+            "kind": "uncertain",
+            "text": "미확인(지원사업이나 참가비 언급 없음)",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "uncertain",
+            "text": "미확인",
+            "source_ids": []
+          },
+          {
+            "kind": "uncertain",
+            "text": "미확인",
+            "source_ids": []
+          }
+        ]
+      },
+      {
+        "label": "책과 활동의 연결 방식",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "자화상 엽서 그리기 → 스토리텔링·전시. 쿠키 만들기 → 그림책 「쿠키 한입의 우정 수업」 읽고 주제별 이야기 나누기",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "uncertain",
+            "text": "'쉽고 가까운 미술 - 유쾌한 팝아트전' 제목만 확인. 책 연결 방식 미확인",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "유근택 작품 도슨트 감상 → 고무판 판화 그리기 → 유치원 내 전시·역할놀이. 특정 도서 연계는 미확인",
+            "source_ids": [
+              12
+            ]
+          }
+        ]
+      },
+      {
+        "label": "원문 URL",
+        "cells": [
+          {
+            "kind": "fact",
+            "text": "https://www.nlcy.go.kr/attach/contents/with/2014%EB%8F%84%EC%84%9C%EA%B4%80%EA%B3%BC%ED%95%A8%EA%BB%98%EC%B1%85%EC%9D%BD%EA%B8%B0_%EC%9A%B4%EC%98%81%EC%82%AC%EB%A1%80%EC%A7%91.pdf",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "위와 동일한 2014 운영사례집 PDF",
+            "source_ids": [
+              1
+            ]
+          },
+          {
+            "kind": "fact",
+            "text": "https://webzine.serii.re.kr/%EC%A7%80%EC%97%AD-%EB%AF%B8%EC%88%A0%EA%B3%BC-%EC%97%B0%EA%B3%84%ED%95%9C-%EB%AC%B8%ED%99%94-%EC%B2%B4%ED%97%98-%EC%82%AC%EB%A1%80%EC%98%88%EC%88%A0%EA%B5%90%EC%9C%A1-%EA%B5%90%EC%8B%A4%EC%9D%84/",
+            "source_ids": [
+              12
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "answer_profile": {
+    "id": "comparison",
+    "version": "20261013-1"
+  },
+  "follow_up_questions": [
+    "성북어린이미술관 꿈자람 2026년 하반기 어린이 체험형 전시 및 교육 프로그램 모집 일정과 참가비는?",
+    "강동구립도서관(암사·성내·강일) 2026년 10월 초등 저학년 그림책 연계 미술·만들기 프로그램 모집 현황은?",
+    "서초구립 방배도서관 2026년 어린이 대상 문화강좌 중 독서·미술 연계 수업이 있는가?",
+    "그림샘 방문미술 서울 지사별 재료비 포함 총액과 초1 학부모 실사용 후기는?"
+  ],
+  "coverage": {
+    "attempts": [
+      "tavily",
+      "tavily-primary",
+      "bing"
+    ],
+    "failures": [],
+    "mode": "deep",
+    "policy": "multi-source"
+  },
+  "metrics": {
+    "search_seconds": 24.27,
+    "retrieval_seconds": 21.96,
+    "reading_seconds": 2.32,
+    "answer_seconds": 139.84,
+    "total_seconds": 164.11,
+    "first_answer_seconds": 81.7,
+    "prompt_characters": 25573,
+    "image_attached": false,
+    "source_count": 12,
+    "provider": "multi",
+    "timing_scope": "end_to_end",
+    "retrieval_policy": "baseline",
+    "answer_budget_kind": "baseline",
+    "answer_claim_count": 12,
+    "answer_text_characters": 2420,
+    "first_claim_characters": 187,
+    "stream_metrics": {
+      "cli_spawn_seconds": 0.0018,
+      "first_model_event_seconds": 3.6699,
+      "first_content_delta_seconds": 54.8382,
+      "first_claim_seconds": 57.4258,
+      "stream_complete_seconds": 139.8362,
+      "content_delta_characters": 6953,
+      "structured_output_characters": 6946
+    },
+    "pipeline_id": "baseline",
+    "evidence_budget_characters": null,
+    "supplied_evidence_characters": 19379,
+    "requested_model": null,
+    "actual_models": [
+      "claude-fable-5-1"
+    ],
+    "usage": {
+      "input_tokens": 2,
+      "output_tokens": 8336,
+      "cache_creation_input_tokens": 24610,
+      "cache_read_input_tokens": 4506
+    },
+    "estimated_api_cost_usd": 0.9101465
+  }
+}

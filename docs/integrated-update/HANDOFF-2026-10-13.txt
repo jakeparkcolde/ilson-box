@@ -1,0 +1,10 @@
+목표: 사용자 지시대로 ilson update 한 명령이 관리자 안의 리서치를 포함한 최신 검증 배포를 적용하도록 통합.
+완료: 실제기기 파일과 대조한 mini-workspace64파일 승격; packZIP 단일 정본으로 CLI/관리자/독립팩 조립; runtime gate 공유/배타잠금·유휴확인·관리자 재시작; image/HEIC API·메모리 첨부 전달; 전용venv; publisher. 코드/데이터 경계와 모르는 파일변경 차단 유지.
+권한: 구현·배포·Jake설치연결검증 요청. 외부메시지발송/미확인다른기기변경안함.
+배포: Box2026.10.13.6, pack0.15.1. latest-v2.json 최신. v1 latest.json은 .5.1 브리지. 신규bootstrap .6 updater핀. 자세한재배포는 OPERATIONS-2026-10-13.txt.
+검증: 전체220시험통과. 업데이트전후보호187항목일치(장부논리덤프포함). 관리자health.version .6; cap image/heic true; HEIC->JPEG API정상; 실제여행질문 API검색완료 travel/20261013-1; 화면4개와엔진3개 팩바이트동일. 이후 ilson update 재실행0변경/최신확인. 실제검색시험은 신규장부1건과결과문서추가.
+실패/수정: 최초중첩경로·엔진불일치·업무유휴검사3재현실패→통과. 통합knowledge 상대import호환문제재현→canonical source에서try relative/fallback으로수정하고pack0.15.1. 기기PIL/heif없음→.runtime/venv자동준비. 첫수동normalize검증은PNG를HEIC전용API에보내503; 실제클라이언트와같은HEICfixture로재검증성공.
+프로세스: 기존Jake관리자18794 재기동후운영중. 임시preview/자동화브라우저없음. 원격검증스크립트/tmp/ilson-release-check.E6P0Hx 남김(비밀출력없음). 운영데이터backups는.updates 보존.
+Git: safe-update branch feat/safe-box-update-20261013 기존미커밋+새파일다수, commit/push안함. mini-workspace원본은읽기만. researchworktree knowledge.py/build_pack.py새변경·0.15.1zip 생성. rootagents/main수정없음. broad gitadd금지.
+한계: 다른설치기기상태는미확인. v1첫전환은명령2회 또는 bootstrap1회, Jake는초기전환완료해이후1회. 자동rollback후관리자활성화는기존구현그대로이며 ilson open필요. 실시간항공권예약시스템연동없음. 원본리서치코드와관리자코드계속수정해도검증/새배포없이는고객업데이트되지않음.
+다음: 사용자가열어둔관리자새로고침/필요시ilson open. 다른PC최초전환주소확인후연결; 다음개선은본운영절차로새릴리스.

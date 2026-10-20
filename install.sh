@@ -5,7 +5,7 @@
 #   sh install.sh --cli-only  # only install the CLI, without setup
 #
 # What it does (setup may prompt for Homebrew admin privileges):
-#   1. preflight   macOS · Apple Silicon · curl · tar
+#   1. preflight   macOS · Apple Silicon/Intel · curl · tar
 #   2. fetch       ilson CLI + template/ (they must stay together — ilson reads $SELF_DIR/template)
 #   3. install     -> $CLI_DIR (default ~/.ilson-cli), kept apart from the box itself (~/ilson)
 #   4. link        -> $BIN_DIR/ilson (default ~/.local/bin), PATH appended to ~/.zprofile if missing
@@ -62,7 +62,8 @@ ok "맥 $(sw_vers -productVersion 2>/dev/null || echo '')"
 
 case "$(uname -m)" in
     arm64) ok "애플 실리콘" ;;
-    *)     say "⚠️  인텔 맥입니다 — 돌지만 느릴 수 있어요" ;;
+    x86_64) ok "Intel 64비트 Mac (의존 도구는 설치 후 확인)" ;;
+    *) die "지원하지 않는 CPU: $(uname -m)" ;;
 esac
 
 has curl || die "curl 이 없습니다"
@@ -90,7 +91,7 @@ if [ -n "$ILSON_SRC" ]; then
         # The tarball path is clean by construction (built with `git archive`, see README).
         # `if` (not `&&`): a trailing false test would end the loop non-zero and
         # `set -e` would abort the installer silently.
-        for item in ilson template README.md docs; do
+        for item in ilson template tools README.md docs; do
             if [ -e "$ILSON_SRC/$item" ]; then cp -R "$ILSON_SRC/$item" "$STAGE/"; fi
         done
         ok "로컬 폴더에서 복사"

@@ -18,6 +18,14 @@ if [ -n "$tracked_admin" ]; then
     log snapshot "FAILED: web manager credentials are tracked; review local backup before continuing"
     exit 1
 fi
+# SNS 비밀과 실행 장부는 볼트/보고서 백업과 분리한다.
+for private in .credentials .workspace; do
+    if ! grep -Fxq "/$private/" .gitignore 2>/dev/null; then
+        printf '\n/%s/\n' "$private" >> .gitignore || exit 1
+    fi
+    tracked=$(git ls-files -- "$private") || exit 1
+    [ -z "$tracked" ] || { log snapshot "FAILED: private workspace files are tracked"; exit 1; }
+done
 # 무시된 디렉터리를 명시 pathspec에 넣으면 Git이 종료 1을 돌려준다.
 # 제외 규칙의 실제 적용을 확인한 뒤 상위 폴더를 수집한다.
 git check-ignore --quiet state/web-admin/token || { log snapshot "FAILED: web manager credentials are not excluded"; exit 1; }

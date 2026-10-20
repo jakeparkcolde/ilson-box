@@ -109,11 +109,26 @@ claude_logged_in() {
 # ============================================================================
 # doctor — read-only
 # ============================================================================
+check_architecture() {
+    case "$(uname -m)" in
+        arm64) ok "Apple Silicon" ;;
+        x86_64)
+            if [ "$(sysctl -in sysctl.proc_translated 2>/dev/null || true)" = 1 ]; then
+                bad "실행 아키텍처" "Rosetta 터미널 대신 기본 터미널로 실행하세요"; return 1
+            fi
+            ok "Intel 64비트 Mac"
+            warn "Intel 의존 도구" "Homebrew 제한 지원: 실제 도구 설치·실행 점검 필요"
+            ;;
+        *) bad "지원하지 않는 아키텍처" "$(uname -m)"; return 1 ;;
+    esac
+}
+
 check_preflight() {
     sec 0 "사전 점검"
     local ver arch free
     ver=$(sw_vers -productVersion); arch=$(uname -m)
-    [ "$arch" = "arm64" ] && ok "Apple Silicon" "$arch · macOS $ver" || bad "Apple Silicon" "$arch (인텔 맥은 미지원)"
+    check_architecture || return 1
+    ok "macOS" "$ver"
     free=$(df -g / | awk 'NR==2 {print $4}')
     if [ "${free:-0}" -ge 20 ]; then ok "디스크 여유" "${free}GB"; elif [ "${free:-0}" -ge 10 ]; then warn "디스크 여유" "${free}GB (20GB 이상 권장)"; else bad "디스크 여유" "${free}GB"; fi
     curl -fsI --max-time 5 https://gitbap.com >/dev/null 2>&1 && ok "네트워크(gitbap.com)" || bad "네트워크(gitbap.com)" "연결 실패"
@@ -479,7 +494,10 @@ setup_tools() {
 setup() {
     printf '일손 Box 기본 설치 — %s\n' "$ILSON_HOME"
     [ "$(uname -s)" = Darwin ] || die "macOS 전용입니다"
-    [ "$(uname -m)" = arm64 ] || die "Apple Silicon 맥미니가 필요합니다"
+    check_architecture || return 1
+    local mac_major; mac_major=$(sw_vers -productVersion | cut -d. -f1)
+    case "$mac_major" in ""|*[!0-9]*) die "macOS 버전을 확인하지 못했습니다" ;; esac
+    [ "$mac_major" -ge 13 ] || die "macOS 13 이상이 필요합니다"
     [ -f "$TEMPLATE/CLAUDE.md" ] || die "설치본에 template 이 없습니다 — CLI를 다시 설치하세요"
     setup_tools || return 1
     if [ "$CONFIGURE_MACHINE" = "1" ]; then
@@ -524,11 +542,7 @@ setup() {
 chat_box() {
     [ "$SANDBOX" = 0 ] && ! is_sandbox_box || die "샌드박스에서는 관리 대화를 실행하지 않습니다"
     [ -f "$ILSON_HOME/CLAUDE.md" ] || die "먼저 ilson setup 을 실행하세요"
-    has claude || die "Claude가 없습니다 — ilson setup 을 실행하세요"
-    cd "$ILSON_HOME" || return 1
-    # Explicit mode: project defaultMode:auto is not sufficient on all builds.
-    # No global settings mutation or bypass fallback if auto is unavailable.
-    claude --permission-mode auto
+    python3 "$ILSON_HOME/lib/research/settings.py" --home "$ILSON_HOME" --chat
 }
 
 start_jobs() {
@@ -562,7 +576,10 @@ usage() {
   pair --code <코드> [--pairing-file <json>]     페어링 파일 (다시) 쓰기
   telegram connect                            안내에 따라 텔레그램 알림 연결·변경
   telegram status [--verify]                   저장 상태 확인 (verify: Telegram에 연결 점검)
-  update                                        우리 레이어 업데이트
+  update [--check|--rollback]                    배포 코드 갱신·확인·복구
+  llm [claude|codex] [모델명]                  기본 대화·리서치 LLM 확인/변경
+  research                                      설치된 최신 리서치 실행
+  motion [--check|제작 요청]                    모션그래픽 제작·준비 상태 확인
 EOF
 }
 
@@ -584,6 +601,36 @@ if [ "$cmd" = telegram ]; then
         connect|status) telegram_box "$telegram_command" "$@"; exit $? ;;
         *) usage; exit 2 ;;
     esac
+fi
+if [ "$cmd" = update ]; then
+    exec python3 "$SELF_DIR/tools/update.py" --home "$ILSON_HOME" --cli "$SELF_DIR" "$@"
+fi
+if [ "$cmd" = motion ]; then
+    skill="$ILSON_HOME/.claude/skills/ilson-motion/SKILL.md"
+    [ -f "$skill" ] || die "모션그래픽 팩이 없습니다. ilson update를 실행하세요"
+    if [ "${1:-}" = --check ]; then
+        [ "$#" -eq 1 ] || die "사용법: ilson motion --check"
+        missing=0
+        for tool in claude node npx; do
+            if has "$tool"; then printf '준비됨: %s\n' "$tool"; else printf '설치 필요: %s\n' "$tool"; missing=1; fi
+        done
+        printf '모션그래픽 실행 스킬: 준비됨\nHyperFrames·브라우저·인증은 제작 시작 시 추가 점검합니다.\n'
+        exit "$missing"
+    fi
+    case "${1:-}" in --*) die "사용법: ilson motion [제작 요청] 또는 ilson motion --check" ;; esac
+    ! is_sandbox_box || die "샌드박스에서는 영상 제작 대화를 실행하지 않습니다"
+    has claude || die "Claude CLI가 없습니다. ilson setup에서 설치 상태를 확인하세요"
+    cd "$ILSON_HOME" || exit 1
+    exec claude "먼저 .claude/skills/ilson-motion/SKILL.md를 읽고 일손 모션그래픽 팩으로 진행하세요. 사용자 제작 요청: ${*:-만들 영상의 주제와 길이를 함께 정해주세요.}"
+fi
+if [ "$cmd" = llm ]; then
+    exec python3 "$ILSON_HOME/lib/research/settings.py" --home "$ILSON_HOME" "$@"
+fi
+if [ "$cmd" = research ]; then
+    pack_version=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["research_version"])' "$ILSON_HOME/.updates/installed.json") || exit 1
+    case "$pack_version" in *[!0-9.]*|"") die "리서치 버전을 확인하세요" ;; esac
+    if [ -x "$ILSON_HOME/.runtime/venv/bin/python" ]; then export PATH="$ILSON_HOME/.runtime/venv/bin:$PATH"; fi
+    exec sh "$ILSON_HOME/packs/research/$pack_version/start.sh" "$@"
 fi
 while [ $# -gt 0 ]; do
     case "$1" in

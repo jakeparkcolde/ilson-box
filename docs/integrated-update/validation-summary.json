@@ -1,0 +1,16 @@
+{
+  "stage": "done",
+  "answer_profile": {
+    "id": "travel",
+    "version": "20261013-1"
+  },
+  "coverage_policy": "travel-routes-v1",
+  "source_count": 10,
+  "seconds": 65.06,
+  "image_normalization": "HEIC generated fixture -> JPEG, authenticated manager API",
+  "static_assets": "4 files HTTP200 and byte-equal to pack",
+  "engine": "3 files byte-equal to pack",
+  "installed": "2026.10.13.6",
+  "research": "0.15.1",
+  "check": "0 changes; manager latest"
+}

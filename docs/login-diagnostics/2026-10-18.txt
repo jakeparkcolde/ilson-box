@@ -1,0 +1,7 @@
+2026-10-18 login diagnosis
+Local dashboard http://localhost:4646/login.html loads normally.
+Recent server log reports two sign-in rejections: invalid_credentials (Supabase HTTP400).
+This establishes credential rejection, not whether email or password is incorrect.
+No password reset, credentials changes, or auth bypass performed.
+Close-out: Ego task136 opened for login UI inspection and finished keep:[]. Existing production dashboard PID16470 port4646 preserved. No media or new servers.
+Ego Lite reported update available; no upgrade performed.

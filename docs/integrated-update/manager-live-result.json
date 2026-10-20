@@ -1,0 +1,410 @@
+{
+  "id": "07c47fccea59cc6cb7483357b7b2a3a0",
+  "stage": "done",
+  "result": {
+    "version": 1,
+    "question": "보라카이나 보홀에 가족여행을 가고 싶은데 비행기 편이 쉽지가 않네. 직항이면 좋겠는데 직항 선택폭이 좁다면 필리핀에어나 경유가 짧은걸로 알려줘 여행기간은 2월 4일부터 2월 9일까지",
+    "checked_at": "2026-10-13T05:16:46.260414+00:00",
+    "sources": [
+      {
+        "title": "보라카이 자유여행 완벽 가이드 2026: 직항, 칼리보 공항, 환전, 호핑투어, 숙소",
+        "url": "https://myboracayguide.com/ko/info/korea-to-boracay",
+        "published_date": null,
+        "method": "original-text-partial",
+        "read_status": "read",
+        "provider": "tavily",
+        "source_type": "web",
+        "id": 1,
+        "content_trimmed": true
+      },
+      {
+        "title": "Philippine Airlines | Boracay (Caticlan) to Manila Flights from PHP 2,075",
+        "url": "https://flights.philippineairlines.com/en/flights-from-boracay-caticlan-to-manila",
+        "published_date": null,
+        "method": "original-text-partial",
+        "read_status": "read",
+        "provider": "tavily",
+        "source_type": "web",
+        "id": 2,
+        "content_trimmed": true
+      },
+      {
+        "title": "인천국제공항(ICN)-보홀 팡라오 국제공항(TAG) 항공권(148,400원~) | 트립닷컴",
+        "url": "https://kr.trip.com/flights/airport-icn-tag",
+        "published_date": null,
+        "method": "original-text-partial",
+        "read_status": "read",
+        "provider": "tavily",
+        "source_type": "web",
+        "search_images": [
+          {
+            "url": "https://shopimg.tour5.co.kr/xs-T5_1_blog_20261012101845_a7039444.jpg",
+            "title": "검색 관련 이미지"
+          },
+          {
+            "url": "https://q-xx.bstatic.com/xdata/images/city/600x480/989032.jpg?k=86a260c9359846e2d3c51be257abde50c0855610aeda23aeb65b63a5d9005b0a&o=",
+            "title": "검색 관련 이미지"
+          },
+          {
+            "url": "https://ak-d.tripcdn.com/images/1mi6d12000td5jfpv5242_W_320_0_R5_Q30.jpg?proc=source/trip",
+            "title": "검색 관련 이미지"
+          },
+          {
+            "url": "https://img.cnt.traveloka.com/tvlk/image/imageResource/2019/02/12/1549970240876-ad0d65b88e0a4b3b739ccf0475472465.jpeg?tr=h-200,q-75,w-600",
+            "title": "검색 관련 이미지"
+          },
+          {
+            "url": "https://res.klook.com/images/w_1200,h_630,c_fill,q_65/w_80,x_15,y_15,g_south_west,l_Klook_water_br_trans_yhcmh3/activities/abziaqe22gmdvsnv6dfi/PanglaoAirport(TAG)-PanglaoIslandSharedTransfer-Klook.jpg",
+            "title": "검색 관련 이미지"
+          }
+        ],
+        "id": 3,
+        "content_trimmed": true
+      },
+      {
+        "title": "Philippine Airlines | Tagbilaran City to Manila Flights from PHP 2,846",
+        "url": "https://flights.philippineairlines.com/en/flights-from-tagbilaran-city-to-manila",
+        "published_date": null,
+        "method": "original-text-partial",
+        "read_status": "read",
+        "provider": "tavily",
+        "source_type": "web",
+        "id": 4,
+        "content_trimmed": true
+      },
+      {
+        "title": "칼리보 국제(보라카이)행 실시간 최저가 항공권",
+        "url": "https://www.skyscanner.co.kr/flights-to/klo/cheap-flights-to-kalibo-international-boracay-airport.html",
+        "published_date": null,
+        "method": "tavily-snippet",
+        "read_status": "unavailable",
+        "provider": "tavily",
+        "source_type": "web",
+        "id": 5,
+        "read_error": "원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용",
+        "content_trimmed": false
+      },
+      {
+        "title": "Philippine Airlines | Boracay (Caticlan) to Manila Flights from PHP 2,075",
+        "url": "https://flights.philippineairlines.com/en-ph/flights-from-boracay-caticlan-to-manila",
+        "published_date": null,
+        "method": "original-text-partial",
+        "read_status": "read",
+        "provider": "tavily",
+        "source_type": "web",
+        "id": 6,
+        "content_trimmed": false
+      },
+      {
+        "title": "인천-보홀 항공노선 - 나무위키",
+        "url": "https://namu.wiki/w/%EC%9D%B8%EC%B2%9C-%EB%B3%B4%ED%99%80%20%ED%95%AD%EA%B3%B5%EB%85%B8%EC%84%A0",
+        "published_date": null,
+        "method": "original-text-partial",
+        "read_status": "read",
+        "provider": "tavily",
+        "source_type": "web",
+        "id": 7,
+        "content_trimmed": true
+      },
+      {
+        "title": "Philippine Airlines | Manila to Tagbilaran City Flights from PHP 2,871",
+        "url": "https://flights.philippineairlines.com/en/flights-from-manila-to-tagbilaran-city",
+        "published_date": null,
+        "method": "original-text-partial",
+        "read_status": "read",
+        "provider": "tavily",
+        "source_type": "web",
+        "id": 8,
+        "content_trimmed": false
+      },
+      {
+        "title": "칼리보(KLO)행 항공권 특가 예약",
+        "url": "https://www.booking.com/flights/destination/city/ph/kalibo.ko.html",
+        "published_date": null,
+        "method": "tavily-snippet",
+        "read_status": "unavailable",
+        "provider": "tavily",
+        "source_type": "web",
+        "id": 9,
+        "read_error": "원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용",
+        "content_trimmed": false
+      },
+      {
+        "title": "Philippine Airlines | Manila to Boracay (Caticlan) Flights from PHP 2,294",
+        "url": "https://flights.philippineairlines.com/en/flights-from-manila-to-boracay-caticlan",
+        "published_date": null,
+        "method": "original-text-partial",
+        "read_status": "read",
+        "provider": "tavily",
+        "source_type": "web",
+        "id": 10,
+        "content_trimmed": false
+      }
+    ],
+    "claims": [
+      {
+        "kind": "inference",
+        "text": "출발 공항과 여행 연도가 질문에 없어 확인이 필요합니다. 자료 기준으로 **보라카이는 한국발 칼리보(KLO) 직항**, **보홀은 인천발 팡라오(TAG) 직항(국내 저비용항공사)** 후보가 있으며, **필리핀항공은 두 목적지 모두 마닐라 경유(마닐라→카티클란, 마닐라→타그빌라란 국내선)** 가 조회 후보입니다. 다만 이번 자료는 일반 노선 정보와 운임 홍보 페이지이며, 2월 4일~9일 실제 운항·좌석은 예약 시스템에서 날짜별로 확인해야 합니다.",
+        "source_ids": [
+          1,
+          3,
+          7,
+          8,
+          10
+        ],
+        "heading": "",
+        "format": "paragraph",
+        "language": ""
+      },
+      {
+        "kind": "fact",
+        "text": "보라카이 가이드(2026년 9월 업데이트 표기)는 한국에서 **칼리보 직항편**이 있다고 설명하며, 10월 말이면 직항이 매일 운항으로 돌아온다고 적었습니다. 스카이스캐너와 부킹닷컴 검색 요약도 인천~칼리보 직항 노선과 한국~칼리보를 운항하는 항공사가 복수(4곳) 있다고 안내하지만, 이는 조회 후보일 뿐 요청 날짜 운항 확정은 아닙니다.",
+        "source_ids": [
+          1,
+          5,
+          9
+        ],
+        "heading": "보라카이: 직항 후보",
+        "format": "paragraph",
+        "language": ""
+      },
+      {
+        "kind": "fact",
+        "text": "같은 가이드는 직항 이용 시 **밤늦게 칼리보 도착 → 약 90분 차량 이동 → 선착장 → 보트 → 트라이시클** 순서를 거쳐야 숙소에 닿는다고 설명하며, 가족 여행객에게 픽업 사전 예약을 권합니다. **마닐라나 세부를 경유해 카티클란(MPH)으로 입국**하는 대안도 언급되고, 필리핀항공 사이트에는 마닐라~카티클란 국내선 노선 페이지가 있습니다. 가이드는 설 연휴 인파가 빠진 **2월 후반**을 추천 시기로 꼽았습니다.",
+        "source_ids": [
+          1,
+          2,
+          10
+        ],
+        "heading": "보라카이: 지상 이동과 경유 대안",
+        "format": "paragraph",
+        "language": ""
+      },
+      {
+        "kind": "fact",
+        "text": "나무위키(2025년 12월 기준 표기)는 인천~보홀 노선을 **국내 풀서비스 항공사는 없고 저비용항공사만 운항**하는 노선으로 설명하며, 제주항공과 진에어가 주 7회로 기재돼 있습니다. 트립닷컴 노선 페이지도 제주항공 직항을 안내하고, 평균 비행 약 4시간대, 하루 약 1~2편의 저녁 출발이라고 설명합니다. 과거 사례로 필리핀항공은 2019년 2월까지, 에어서울은 2025년 10월까지 이 직항을 운항했습니다.",
+        "source_ids": [
+          3,
+          7
+        ],
+        "heading": "보홀: 직항 후보",
+        "format": "paragraph",
+        "language": ""
+      },
+      {
+        "kind": "uncertain",
+        "text": "자료 간 충돌이 있습니다. 트립닷컴 페이지는 11월·12월 최저가 항목에 **필리핀항공 운항**이라고 적혀 있으나, 나무위키는 필리핀항공 인천~보홀 직항이 2019년에 끝났다고 서술합니다. 자료만으로 원인을 확인할 수 없으므로, 필리핀항공 이용을 원하면 항공사 사이트에서 인천~보홀 직항 여부와 **마닐라 경유(마닐라~타그빌라란 국내선)** 연결을 함께 조회해야 합니다.",
+        "source_ids": [
+          3,
+          4,
+          7,
+          8
+        ],
+        "heading": "보홀: 필리핀항공 관련 충돌",
+        "format": "paragraph",
+        "language": ""
+      },
+      {
+        "kind": "inference",
+        "text": "선택 기준 정리입니다.\n- **직항 우선**: 보라카이는 칼리보 직항, 보홀은 팡라오 직항을 먼저 조회하되, 보홀 직항이 저녁 출발이면 심야 도착 후 숙소 이동을 고려하세요.\n- **지상 이동 부담**: 보라카이는 공항 도착 후 차량+보트 이동이 추가되므로 어린 자녀 동반 시 픽업 예약이 사실상 필요합니다. 보홀은 팡라오 공항이 섬 안에 있어 가이드가 언급한 보트 환승이 없을 것으로 보이지만 자료가 직접 설명하지는 않습니다.\n- **경유 비교**: 마닐라 경유는 가는 편과 오는 편 모두 대기시간·날짜 변경·단일 발권 여부·수하물 재수속 조건을 확인한 뒤 비교해야 하며, 이번 자료로는 수치 비교가 불가능합니다.\n- **확인 요청**: 출발 공항, 여행 연도, 인원과 아동 나이를 알려주시면 날짜별 조회 항목을 좁힐 수 있습니다.",
+        "source_ids": [
+          1,
+          3,
+          7
+        ],
+        "heading": "적용 방법",
+        "format": "bullet",
+        "language": ""
+      }
+    ],
+    "limitations": "조회 시각은 2026-10-13이며 자료는 일반 노선 안내·검색 요약·운임 홍보 페이지로, 2월 4일~9일의 실제 운항, 편명, 시각, 좌석, 가격은 확인하지 못했습니다. 출발 공항과 여행 연도가 질문에 없어 인천 출발은 자료상 예시일 뿐 사용자 조건으로 가정하지 않았습니다. 나무위키는 2025년 12월 기준, 보라카이 가이드는 2026년 9월 업데이트 표기이며 원문 일부만 읽었습니다. 스카이스캐너·부킹닷컴은 검색 발췌문만 확인했고 한국~칼리보 운항 항공사명은 자료에 없습니다. 필리핀항공의 인천~보홀 직항 여부는 트립닷컴과 나무위키가 충돌하며 원인을 확인하지 못했습니다. 필리핀항공 페이지는 국내선 구간 정보만 있어 한국발 전체 일정·경유 대기시간·총 소요시간은 비교 불가합니다. 자료 부족이 운항 없음을 뜻하지는 않습니다.\n원문 일부를 읽은 자료: 8개 / 전체 10개. 원문 읽기 실패 자료는 검색 발췌문만 사용합니다.\n조사 누락: 필리핀항공 환승 조건 검색 미완료\n모델에는 질문 관련 발췌를 전달했습니다. 원문 전체를 검토한 결과가 아닙니다.",
+    "comparison": {
+      "headers": [
+        "항목",
+        "보라카이(칼리보 KLO / 카티클란 MPH)",
+        "보홀(팡라오 TAG)"
+      ],
+      "rows": [
+        {
+          "label": "직항 후보",
+          "cells": [
+            {
+              "kind": "fact",
+              "text": "한국발 칼리보 직항 노선이 존재한다고 가이드·검색 요약이 안내. 운항 항공사와 요청 날짜 운항은 미확인",
+              "source_ids": [
+                1,
+                5,
+                9
+              ]
+            },
+            {
+              "kind": "fact",
+              "text": "인천발 팡라오 직항은 국내 저비용항공사(제주항공·진에어 기재) 후보. 요청 날짜 운항은 미확인",
+              "source_ids": [
+                3,
+                7
+              ]
+            }
+          ]
+        },
+        {
+          "label": "필리핀항공·경유 후보",
+          "cells": [
+            {
+              "kind": "fact",
+              "text": "마닐라(또는 세부) 경유 후 카티클란 입국 가능. 필리핀항공 마닐라~카티클란 국내선 노선 페이지 존재",
+              "source_ids": [
+                1,
+                10
+              ]
+            },
+            {
+              "kind": "uncertain",
+              "text": "필리핀항공 마닐라~타그빌라란 국내선 페이지 존재. 인천~보홀 필리핀항공 직항 여부는 자료가 충돌",
+              "source_ids": [
+                3,
+                7,
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "label": "지상 이동 부담",
+          "cells": [
+            {
+              "kind": "fact",
+              "text": "칼리보 심야 도착 시 약 90분 차량+선착장+보트+트라이시클 이동 필요",
+              "source_ids": [
+                1
+              ]
+            },
+            {
+              "kind": "uncertain",
+              "text": "자료에 공항~숙소 이동 설명 없음. 저녁 출발편이면 심야 도착 가능성 고려 필요",
+              "source_ids": [
+                3
+              ]
+            }
+          ]
+        },
+        {
+          "label": "2월 4~9일 운항 확인",
+          "cells": [
+            {
+              "kind": "uncertain",
+              "text": "미확인. 예약 시스템 날짜별 조회 필요",
+              "source_ids": []
+            },
+            {
+              "kind": "uncertain",
+              "text": "미확인. 예약 시스템 날짜별 조회 필요",
+              "source_ids": []
+            }
+          ]
+        }
+      ]
+    },
+    "answer_profile": {
+      "id": "travel",
+      "version": "20261013-1"
+    },
+    "follow_up_questions": [
+      "필리핀항공 마닐라 경유 보라카이 카티클란 연결편의 환승 대기시간과 수하물 재수속 조건은?",
+      "칼리보 공항에서 보라카이 숙소까지 가족 픽업 서비스 요금과 심야 이동 소요시간은?",
+      "보홀 팡라오 공항에서 알로나비치 숙소까지 이동 수단과 소요시간은?",
+      "제주항공 인천~보홀 직항의 2월 운항 스케줄과 유아 동반 좌석 조건은?"
+    ],
+    "coverage": {
+      "attempts": [
+        "tavily-travel",
+        "tavily-travel",
+        "tavily-travel",
+        "tavily-travel",
+        "tavily-travel"
+      ],
+      "failures": [
+        "필리핀항공 환승 조건 검색 미완료"
+      ],
+      "mode": "quick",
+      "policy": "travel-routes-v1",
+      "search_outcomes": [
+        {
+          "topic": "보라카이 Boracay 칼리보 KLO 카티클란 MPH",
+          "query": "2월 4일 2월 9일 보라카이 칼리보 Kalibo KLO 직항 항공사",
+          "status": "ok",
+          "count": 5
+        },
+        {
+          "topic": "보라카이 Boracay 칼리보 KLO 카티클란 MPH",
+          "query": "2월 4일 2월 9일 보라카이 Manila to Caticlan MPH 필리핀항공 Philippine Airlines flights 환승 site:philippineairlines.com",
+          "status": "ok",
+          "count": 4
+        },
+        {
+          "topic": "보홀 Bohol Panglao TAG",
+          "query": "2월 4일 2월 9일 보홀 Bohol Panglao TAG 직항 항공사",
+          "status": "ok",
+          "count": 6
+        },
+        {
+          "topic": "보홀 Bohol Panglao TAG",
+          "query": "2월 4일 2월 9일 보홀 Manila to Tagbilaran Bohol TAG 필리핀항공 Philippine Airlines flights 환승 site:philippineairlines.com",
+          "status": "ok",
+          "count": 4
+        },
+        {
+          "topic": "필리핀항공 환승 조건",
+          "query": "2월 4일 2월 9일 Philippine Airlines Manila international domestic connecting flights terminal baggage site:philippineairlines.com",
+          "status": "failed",
+          "count": 0
+        }
+      ],
+      "date_availability": "not_verified"
+    },
+    "metrics": {
+      "search_seconds": 7.66,
+      "retrieval_seconds": 6.62,
+      "reading_seconds": 1.04,
+      "answer_seconds": 57.4,
+      "total_seconds": 65.06,
+      "first_answer_seconds": 25.7,
+      "prompt_characters": 25006,
+      "image_attached": false,
+      "source_count": 10,
+      "provider": "multi",
+      "timing_scope": "end_to_end",
+      "retrieval_policy": "baseline",
+      "answer_budget_kind": "baseline",
+      "answer_claim_count": 6,
+      "answer_text_characters": 1522,
+      "first_claim_characters": 250,
+      "stream_metrics": {
+        "cli_spawn_seconds": 0.0038,
+        "first_model_event_seconds": 2.3256,
+        "first_content_delta_seconds": 11.4852,
+        "first_claim_seconds": 18.0367,
+        "stream_complete_seconds": 57.3952,
+        "content_delta_characters": 3776,
+        "structured_output_characters": 3743
+      },
+      "pipeline_id": "baseline",
+      "evidence_budget_characters": null,
+      "supplied_evidence_characters": 18287,
+      "requested_model": null,
+      "actual_models": [
+        "claude-fable-5-1"
+      ],
+      "usage": {
+        "input_tokens": 2,
+        "output_tokens": 3988,
+        "cache_creation_input_tokens": 17471,
+        "cache_read_input_tokens": 4506
+      },
+      "estimated_api_cost_usd": 0.5499665
+    },
+    "document_id": "3d0fca189f7e348bc8a89d9c56005f4f"
+  },
+  "partial_answer": null,
+  "error": null
+}

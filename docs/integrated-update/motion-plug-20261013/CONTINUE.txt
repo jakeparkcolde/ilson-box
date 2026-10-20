@@ -1,0 +1,1 @@
+일손 모션그래픽 팩 꽂기 후속 작업. 먼저 /Users/koldeumaegmini/orca/workspaces/agents/ilson-box-safe-update/docs/integrated-update/motion-plug-20261013/HANDOFF.txt를 읽어라. Box 2026.10.13.8 / research0.15.3 배포됨. Jake에는 update --check만 했고 사용자가 직접 적용하기로 했다. 관리자 팩 꽂기/자동 도구 준비/무음 텍스트 영상/미리보기/승인 MP4 다운로드를 격리 실제 브라우저로 검증했다. 기존 미커밋 작업 보존. 사용자 후속 증상은 실제 설치/작업 상태로 확인하고, 임의로 원격 업데이트 적용하지 말 것.

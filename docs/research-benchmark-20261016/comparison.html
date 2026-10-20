@@ -1,0 +1,1234 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><title>일손 검색 비교</title><style>body{max-width:1050px;margin:40px auto;padding:0 24px;font:16px/1.7 system-ui}pre{white-space:pre-wrap;overflow-wrap:anywhere}summary{cursor:pointer;font-weight:bold;padding:12px}details{border:1px solid #ccc;margin:12px 0;padding:8px}</style><h1>일손 검색 경로 비교</h1><pre>일손 검색 경로 실측 비교 — 2026-10-16
+
+결론
+이번 두 문항에서는 Codex 기본 검색 경로가 가장 정확하고 실용적이었다. Claude 기본 검색도 현재 일손 경로보다 나았다. Tavily 자체가 열등하다는 인과 결론은 낼 수 없다. 검색 공급자뿐 아니라 질의 생성, 원문 추출, 발췌, 재검색, 답변 프롬프트와 모델이 함께 달라진 전체 경로 비교다.
+
+실행
+일손 맥미니에서 동일 질문 2개 × 3경로 = 6회. 모두 정상 종료, 시간초과 없음.
+현재 일손: research 0.15.3, deep/multi/baseline (Tavily 및 보조 검색 → 발췌 → Claude 답변).
+Claude: 2.1.284, WebSearch/WebFetch만 허용, medium.
+Codex: 0.158.0, live 내장 검색, medium, 읽기 전용, shell off.
+일손과 Claude native 주 답변 모델은 로그상 claude-fable-5-1로 동일. Codex 실제 모델명은 수집 이벤트에서 확인되지 않았다.
+운영 코드·리서치 설정·업무DB는 변경하지 않았다. 별도 폴더와 임시 GUI LaunchAgent에서 실행했다.
+
+결과
+질문                              일손       Claude     Codex
+M3/M4 공식 제품 사양 비교           96.64초    107.16초   66.82초
+서울 초1 독서+미술 수업 3개          164.27초   116.98초   80.03초
+동시 실행에 따른 경합 가능성이 있어 시간은 참고값이다.
+
+제품 비교
+일손: M3의 포트를 Thunderbolt 4로 오기. 공식 사양은 2개 Thunderbolt 3/USB4. M4 포트 수·카메라·외장 화면 조건 등도 미확인으로 남겼다. 공식 자료 요청인데 비공식 및 Pro 칩 자료가 섞였다.
+Claude: 핵심 사양은 정확. M3 덮개를 닫으면 외장 2대라는 조건은 찾았으나 macOS 14.6 이상 조건을 빠뜨렸다.
+Codex: 포트, 카메라, 화면 수, M3의 OS/덮개/전원 조건까지 제시. 이번 문항에서 요청사항 충족도가 가장 높았다.
+검증 출처:
+https://support.apple.com/ko-kr/117735
+https://support.apple.com/ko-kr/121552
+https://support.apple.com/en-ca/117373
+
+교육 비교
+일손: 오래된 도서관 사례와 유아 미술 사례 등을 제시했지만 서울·초1·독서+미술 조건을 모두 충족한다고 확인할 수 있는 사례 3개를 확보하지 못했다. 연령·시간·가격 대부분 미확인. 모른다고 밝힌 점은 긍정적이나 실제 선택에 부족하다.
+Claude: 구체적인 수업 3개를 제시했으나 2개는 2차 보도자료와 연도·시간·가격 미확인에 의존. 현재 모집 사례는 확보하지 못했다.
+Codex: 증산도서관(현재 모집), 중곡문화체육센터도서관(2024년 공고), 서울백제어린이박물관(2026년 7월 공고)을 공식 페이지로 연결. 가격 공란을 무료라고 추정하지 않고 시간·대상·책과 만들기 연결을 구분했다. 실제 개최 완료까지 증명한 것은 아니다.
+공식 원문을 별도로 열어 대조했다. 접수 상태·잔여석은 조회 이후 변할 수 있다.
+https://www.eplib.or.kr/jslib/program/eventLectureDetail.do?lectureIdx=231429&amp;searchStatus=OPEN
+https://www.gwangjinlib.seoul.kr/jgsports/lectureDetail.do?lectureIdx=9807
+https://yeyak.seoul.go.kr/web/reservation/selectReservView.do?rsv_svc_id=S260709151216344485
+
+해석과 다음 단계
+현행 코드의 검색 결과 병합·관련 부분 발췌 이후 답변 모델은 추가 검색을 할 수 없다. 필요한 원문 구간이 빠지거나 부적합한 자료가 선정되면 답변 단계에서 복구하기 어렵다. 이번 결과와 코드 검토를 함께 보면 이 흐름이 개선 우선순위다. 단일 원인으로 입증한 것은 아니다.
+Codex 기본 검색을 리서치 선택 경로로 추가해 10~20개 실제 업무 질문에서 반복 평가하는 것을 권한다. Tavily는 이 결과만으로 삭제하지 않고 구조화 수집·URL 추출 등 용도와 비교 가능성을 보존한다.
+평가는 정확성, 공식 근거, 요청항목 완성도, 시점 구분, 시간으로 나누고 같은 모델·공통 프롬프트를 맞춘 추가 시험이 필요하다.
+
+한계
+각 경로/문항 1회, 총 2문항이다. 순위 일반화 불가. Perplexity는 이번 시험에 포함하지 않았다. native와 기존 경로의 출력 형식·검색 예산·프롬프트가 다르다. API 환산 비용을 실제 구독 청구액으로 비교하지 않았다.
+
+아티팩트와 마감
+로컬: docs/research-benchmark-20261016/results — 원문 답변, 이벤트, 메타, summary.json.
+원격: /Users/jake_mini/ilson-research-benchmark-20261016.
+임시 LaunchAgent는 정상 종료(exit 0)를 확인한 뒤 bootout하고 plist 삭제.
+Aside 열린 탭 확인 결과 시험 질문의 검색 탭은 남아 있지 않았고 기존 사용자 탭 3개는 보존했다. 자체 서버는 시작하지 않았다.
+정리 시 Aside 스킬 지침에 따라 CLI를 1.26.916.1741에서 1.26.1015.732로 업데이트했다. 벤치마크는 업데이트 전에 완료되어 측정값에 영향 없음.
+운영 서비스는 유지. 미디어 결과물이 없어 My Book 아카이브 대상 없음.
+</pre><h2>실제 답변 원문</h2>
+<details><summary>product / ilson</summary><pre>{
+  &quot;version&quot;: 1,
+  &quot;question&quot;: &quot;Apple 공식 자료를 기준으로 14형 MacBook Pro 기본 M3(2023)와 기본 M4(2024)를 비교해줘. M3 Pro/M4 Pro 칩은 제외. 출시 당시 기본 메모리, CPU/GPU 코어, USB-C 포트 수와 규격, 카메라, 외장 디스플레이 지원 조건을 표로 정리하고 출처 URL을 연결해줘. 현재 판매 가격은 제외하고 미확인 조건은 명시해줘.&quot;,
+  &quot;checked_at&quot;: &quot;2026-10-16T08:06:02.241615+00:00&quot;,
+  &quot;sources&quot;: [
+    {
+      &quot;title&quot;: &quot;MacBook Pro 14-inch M4 vs. MacBook Pro 14-inch M3: Which should you buy? | Laptop Mag&quot;,
+      &quot;url&quot;: &quot;https://www.laptopmag.com/laptops/macbook-pro-14-inch-m4-vs-macbook-pro-14-inch-m3&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;original-text-partial&quot;,
+      &quot;read_status&quot;: &quot;read&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;search_images&quot;: [
+        {
+          &quot;url&quot;: &quot;https://www.apple.com/newsroom/images/2023/10/Apple-unveils-M3-M3-Pro-and-M3-Max/tile/Apple-M3-chip-series-231030.jpg.landing-big_2x.jpg&quot;,
+          &quot;title&quot;: &quot;검색 관련 이미지&quot;
+        },
+        {
+          &quot;url&quot;: &quot;https://www.apple.com/newsroom/images/2023/10/apple-unveils-new-macbook-pro-featuring-m3-chips/tile/Apple-MacBook-Pro-2up-231030.jpg.landing-big_2x.jpg&quot;,
+          &quot;title&quot;: &quot;검색 관련 이미지&quot;
+        },
+        {
+          &quot;url&quot;: &quot;https://www.apple.com/newsroom/images/2023/10/apple-unveils-new-macbook-pro-featuring-m3-chips/article/Apple-MacBook-Pro-Liquid-Retina-display-DaVinci-Resolve-231030_big.jpg.large.jpg&quot;,
+          &quot;title&quot;: &quot;검색 관련 이미지&quot;
+        },
+        {
+          &quot;url&quot;: &quot;https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/refurb-mbp14-m3-max-pro-spaceblack-202402?wid=1144&amp;hei=1144&amp;fmt=jpeg&amp;qlt=90&amp;.v=b0cvRE9zdWs4SDJUODA1NlFVU0JIOWV2UE1vVDZacDdGd2t3cm96WUFWZlJrUE1ldE4zMk1QdE1tMFB0d2J5YVZXdVNJbGxGODh2NXZCWDNadFJ0VUFYUldRZVYxMHFkRFZrQVZuaWMwSkJiblhjSmdsaHpKRWo0M0RCSmdaOHI&quot;,
+          &quot;title&quot;: &quot;검색 관련 이미지&quot;
+        },
+        {
+          &quot;url&quot;: &quot;https://www.apple.com/newsroom/images/2023/10/apple-unveils-new-macbook-pro-featuring-m3-chips/article/Apple-MacBook-Pro-M3-Max-MATLAB-231030_big.jpg.large.jpg&quot;,
+          &quot;title&quot;: &quot;검색 관련 이미지&quot;
+        }
+      ],
+      &quot;id&quot;: 1,
+      &quot;content_trimmed&quot;: true
+    },
+    {
+      &quot;title&quot;: &quot;MacBook Pro 14(M4 Pro 또는 M4 Max, 2024년) - 기술 사양 - Apple 지원 (KR)&quot;,
+      &quot;url&quot;: &quot;https://support.apple.com/ko-kr/121553&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;original-text-partial&quot;,
+      &quot;read_status&quot;: &quot;read&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 2,
+      &quot;content_trimmed&quot;: true
+    },
+    {
+      &quot;title&quot;: &quot;MacBook Pro 모델 비교하기 - Apple (KR)&quot;,
+      &quot;url&quot;: &quot;https://www.apple.com/kr/macbook-pro/compare?modelList=MacBook-Pro-14-M3%2CMacBook-Pro-16-M3%2CMacBook-Pro-14-M3x&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;original-text-partial&quot;,
+      &quot;read_status&quot;: &quot;read&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 3,
+      &quot;cache_hit&quot;: false,
+      &quot;content_trimmed&quot;: false
+    },
+    {
+      &quot;title&quot;: &quot;M4 MacBook Pro vs. M3 MacBook Pro: What are the differences? | Mashable&quot;,
+      &quot;url&quot;: &quot;https://mashable.com/comparison/m4-macbook-pro-vs-m3-macbook-pro&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;original-text-partial&quot;,
+      &quot;read_status&quot;: &quot;read&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 4,
+      &quot;content_trimmed&quot;: true
+    },
+    {
+      &quot;title&quot;: &quot;MacBook Pro M3 vs. M4 Chips&quot;,
+      &quot;url&quot;: &quot;https://www.bhphotovideo.com/explora/computers/features/macbook-pro-m3-vs-m4-chips&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;tavily-snippet&quot;,
+      &quot;read_status&quot;: &quot;unavailable&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 5,
+      &quot;read_error&quot;: &quot;원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용&quot;,
+      &quot;content_trimmed&quot;: false
+    },
+    {
+      &quot;title&quot;: &quot;M4 MacBook Pro Vs M3 - REVIEW OF SPECS!&quot;,
+      &quot;url&quot;: &quot;https://www.youtube.com/watch?v=mC6uepQ6D_Y&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;original-text-partial&quot;,
+      &quot;read_status&quot;: &quot;read&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 6,
+      &quot;content_trimmed&quot;: true
+    },
+    {
+      &quot;title&quot;: &quot;맥북프로 M4 vs M3 차이는? 성능 및 스펙 심층 비교&quot;,
+      &quot;url&quot;: &quot;https://blog.naver.com/how1_/223647243657?viewType=pc&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;tavily-snippet&quot;,
+      &quot;read_status&quot;: &quot;unavailable&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 7,
+      &quot;read_error&quot;: &quot;원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용&quot;,
+      &quot;content_trimmed&quot;: false
+    },
+    {
+      &quot;title&quot;: &quot;M4 vs M3 pro MacBook Pro | MacRumors Forums&quot;,
+      &quot;url&quot;: &quot;https://forums.macrumors.com/threads/m4-vs-m3-pro-macbook-pro.2442984&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;original-text-partial&quot;,
+      &quot;read_status&quot;: &quot;read&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 8,
+      &quot;content_trimmed&quot;: true
+    },
+    {
+      &quot;title&quot;: &quot;MacBook Pro 14(2023년 11월)/M3 Pro 또는 M3 Max 모델&quot;,
+      &quot;url&quot;: &quot;https://namu.wiki/w/MacBook%20Pro%2014(2023%EB%85%84%2011%EC%9B%94)/M3%20Pro%20%EB%98%90%EB%8A%94%20M3%20Max%20%EB%AA%A8%EB%8D%B8&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;tavily-snippet&quot;,
+      &quot;read_status&quot;: &quot;unavailable&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 9,
+      &quot;read_error&quot;: &quot;원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용&quot;,
+      &quot;content_trimmed&quot;: false
+    },
+    {
+      &quot;title&quot;: &quot;MacBook Pro 14(2024년)/M4 Pro 또는 M4 Max 모델&quot;,
+      &quot;url&quot;: &quot;https://namu.wiki/w/MacBook%20Pro%2014(2024%EB%85%84)/M4%20Pro%20%EB%98%90%EB%8A%94%20M4%20Max%20%EB%AA%A8%EB%8D%B8&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;tavily-snippet&quot;,
+      &quot;read_status&quot;: &quot;unavailable&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 10,
+      &quot;read_error&quot;: &quot;원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용&quot;,
+      &quot;content_trimmed&quot;: false
+    },
+    {
+      &quot;title&quot;: &quot;MacBook Pro (14-inch, M4, 2024) - Tech Specs - Apple Support&quot;,
+      &quot;url&quot;: &quot;https://support.apple.com/en-us/121552&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;original-text-partial&quot;,
+      &quot;read_status&quot;: &quot;read&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 11,
+      &quot;content_trimmed&quot;: true
+    },
+    {
+      &quot;title&quot;: &quot;Macbook Pro (14\&quot;) M3 or M3 Pro - differences for basic usage | MacRumors Forums&quot;,
+      &quot;url&quot;: &quot;https://forums.macrumors.com/threads/macbook-pro-14-m3-or-m3-pro-differences-for-basic-usage.2433967&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;original-text-partial&quot;,
+      &quot;read_status&quot;: &quot;read&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 12,
+      &quot;content_trimmed&quot;: true
+    }
+  ],
+  &quot;claims&quot;: [
+    {
+      &quot;kind&quot;: &quot;inference&quot;,
+      &quot;text&quot;: &quot;핵심 결론: Apple 공식 자료 발췌 기준으로 확인되는 가장 큰 차이는 **기본 메모리(8GB → 16GB)**와 **CPU 코어(8코어 → 10코어)**이며, GPU는 두 세대 모두 10코어입니다. 기본 M4 모델의 **USB-C 포트 수·카메라·외장 디스플레이 대수**는 제공된 Apple 공식 발췌문에서 잘려 있어 직접 확인하지 못했고, 아래 표에 미확인으로 표시했습니다.&quot;,
+      &quot;source_ids&quot;: [
+        11,
+        12,
+        4
+      ],
+      &quot;heading&quot;: &quot;&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;fact&quot;,
+      &quot;text&quot;: &quot;Apple 지원 기술 사양(MacBook Pro 14형, M4, 2024)에 따르면 기본 **M4 칩은 10코어 CPU(성능 4 + 효율 6), 10코어 GPU, 16코어 Neural Engine, 120GB/s 메모리 대역폭**을 갖추고 하드웨어 가속 레이 트레이싱을 지원합니다. 메모리는 **16GB 또는 24GB 통합 메모리**로 표기되며 24GB/32GB로 구성 가능하고, 저장 장치는 512GB 또는 1TB SSD입니다. 출처: https://support.apple.com/en-us/121552&quot;,
+      &quot;source_ids&quot;: [
+        11
+      ],
+      &quot;heading&quot;: &quot;칩·메모리&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;fact&quot;,
+      &quot;text&quot;: &quot;기본 M3 모델은 Apple 리퍼비시 스토어 상품 설명(포럼에 인용된 Apple 문구)과 Laptop Mag·Mashable 보도 모두에서 **8코어 CPU, 10코어 GPU, 8GB 통합 메모리**로 일치합니다. 출시 시점 기본 저장 장치는 512GB SSD로 보도되었습니다.&quot;,
+      &quot;source_ids&quot;: [
+        12,
+        1,
+        4
+      ],
+      &quot;heading&quot;: &quot;칩·메모리&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;fact&quot;,
+      &quot;text&quot;: &quot;Apple 리퍼비시 상품 설명에 따르면 14형 M3(8코어 CPU) 모델은 **Thunderbolt 4(USB-C) 포트 2개**와 **1080p FaceTime HD 카메라**를 탑재합니다. 이 문구는 MacRumors 포럼 게시물에 인용된 형태로만 확인했습니다.&quot;,
+      &quot;source_ids&quot;: [
+        12
+      ],
+      &quot;heading&quot;: &quot;포트·카메라&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;fact&quot;,
+      &quot;text&quot;: &quot;Apple M4(2024) 기술 사양 페이지는 **Thunderbolt 4 디지털 비디오 출력(USB-C를 통한 네이티브 DisplayPort 1.4)**과 SDXC 슬롯, HDMI, 3.5mm 헤드폰 잭을 명시합니다. 다만 발췌문에서 **포트 개수 항목이 잘려** 있어 Thunderbolt 포트 수는 Apple 문구로 직접 확인하지 못했습니다.&quot;,
+      &quot;source_ids&quot;: [
+        11
+      ],
+      &quot;heading&quot;: &quot;포트·카메라&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;inference&quot;,
+      &quot;text&quot;: &quot;Mashable은 M4 모델이 같은 시작 가격에 \&quot;더 많은 포트와 RAM\&quot;을 제공한다고 평가했으므로, 기본 M4의 USB-C 포트는 M3의 2개보다 많다고 추정됩니다. 정확한 개수와 Thunderbolt 규격(대역폭)은 발췌문만으로는 단정할 수 없습니다.&quot;,
+      &quot;source_ids&quot;: [
+        4,
+        12
+      ],
+      &quot;heading&quot;: &quot;포트·카메라&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;uncertain&quot;,
+      &quot;text&quot;: &quot;기본 M4 모델의 카메라 사양은 제공된 Apple M4 기술 사양 발췌문에 포함되어 있지 않습니다. 12MP Center Stage 카메라는 **M4 Pro/M4 Max 모델** 페이지에서만 확인되었고, 사용자가 해당 칩을 제외했으므로 기본 M4에 그대로 적용된다고 단정하지 않았습니다.&quot;,
+      &quot;source_ids&quot;: [
+        2
+      ],
+      &quot;heading&quot;: &quot;포트·카메라&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;fact&quot;,
+      &quot;text&quot;: &quot;Apple M4(2024) 기술 사양에 따르면 **HDMI 출력으로 최대 8K 60Hz 또는 4K 240Hz 디스플레이 1대**를 지원합니다. Thunderbolt를 통한 외장 디스플레이 지원 대수와 해상도 조건은 발췌문에서 잘려 확인하지 못했습니다.&quot;,
+      &quot;source_ids&quot;: [
+        11
+      ],
+      &quot;heading&quot;: &quot;외장 디스플레이&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;inference&quot;,
+      &quot;text&quot;: &quot;MacRumors 포럼 이용자들은 기본 M4의 다중 외장 디스플레이 구동 능력이 이전 세대보다 늘었고, M3 Pro와 같은 수·품질의 외장 디스플레이를 구동할 수 있다고 언급했습니다. 이는 사용자 의견이며 Apple 공식 문구로 검증하지 못했습니다. 기본 M3 모델의 외장 디스플레이 지원 조건은 제공된 자료에 없습니다.&quot;,
+      &quot;source_ids&quot;: [
+        8
+      ],
+      &quot;heading&quot;: &quot;외장 디스플레이&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;fact&quot;,
+      &quot;text&quot;: &quot;출시 시기 표기가 자료 간에 다릅니다. Apple 리퍼비시 설명은 M3 14형이 **2023년 10월** 출시라고 적었고, Laptop Mag은 **2023년 11월** 출시로 보도했습니다. M4 14형은 Apple 기술 사양에 출시 연도 2024년으로 표기됩니다.&quot;,
+      &quot;source_ids&quot;: [
+        12,
+        1,
+        11
+      ],
+      &quot;heading&quot;: &quot;출시 시기&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;inference&quot;,
+      &quot;text&quot;: &quot;선택 기준: **메모리 8GB 제약과 포트 2개**가 걸리면 기본 M4가 명확히 유리합니다. Geekbench 6 멀티코어에서 M4가 M3 대비 약 24% 빠르다는 Mashable 측정도 있습니다. 반대로 디스플레이·본체 크기·무게·디자인은 두 모델이 동일하다고 Laptop Mag이 보도했으므로, 가벼운 작업 위주라면 할인된 M3도 고려할 수 있습니다.&quot;,
+      &quot;source_ids&quot;: [
+        4,
+        1
+      ],
+      &quot;heading&quot;: &quot;선택 기준&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    }
+  ],
+  &quot;limitations&quot;: &quot;조회일 2026-10-16 기준, 제공된 발췌문만 사용했습니다. Apple 공식 자료 중 기본 M4(2024) 14형 기술 사양(support.apple.com/en-us/121552)은 원문 일부만 읽었고, 포트 개수·카메라·Thunderbolt 경유 외장 디스플레이 지원 항목이 잘려 있어 확인하지 못했습니다. 기본 M3(2023) 14형의 Apple 공식 기술 사양 페이지는 자료에 없었고, Apple 리퍼비시 스토어 문구를 MacRumors 포럼 게시물에 인용된 형태로만 읽었습니다. Apple 한국 비교 페이지(source 3)는 모델 목록 위주라 기본 M3/M4 사양 수치를 제공하지 않았습니다. M4 Pro/Max 페이지(support.apple.com/ko-kr/121553)는 사용자가 제외한 칩이므로 카메라 등을 기본 M4로 전이하지 않았습니다. M3 출시 시기는 자료 간 10월/11월로 충돌합니다. 각 자료의 게시일은 대부분 미기재이며, YouTube 자료는 자막 일부만 읽었고 화면은 보지 않았습니다. 현재 판매 가격은 요청대로 제외했습니다.\n원문 일부를 읽은 자료: 8개 / 전체 12개. 원문 읽기 실패 자료는 검색 발췌문만 사용합니다.\n모델에는 질문 관련 발췌를 전달했습니다. 원문 전체를 검토한 결과가 아닙니다.\nBing 경로는 검색 기간을 강제하지 않습니다. 요청한 기간의 자료인지 게시일을 원문에서 확인해야 합니다.&quot;,
+  &quot;comparison&quot;: {
+    &quot;headers&quot;: [
+      &quot;항목&quot;,
+      &quot;MacBook Pro 14 기본 M3 (2023)&quot;,
+      &quot;MacBook Pro 14 기본 M4 (2024)&quot;
+    ],
+    &quot;rows&quot;: [
+      {
+        &quot;label&quot;: &quot;CPU / GPU 코어&quot;,
+        &quot;cells&quot;: [
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;8코어 CPU, 10코어 GPU (Apple 리퍼비시 설명 인용, Laptop Mag, Mashable)&quot;,
+            &quot;source_ids&quot;: [
+              12,
+              1,
+              4
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;10코어 CPU(성능 4 + 효율 6), 10코어 GPU, 16코어 Neural Engine — https://support.apple.com/en-us/121552&quot;,
+            &quot;source_ids&quot;: [
+              11
+            ]
+          }
+        ]
+      },
+      {
+        &quot;label&quot;: &quot;출시 당시 기본 메모리&quot;,
+        &quot;cells&quot;: [
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;8GB 통합 메모리&quot;,
+            &quot;source_ids&quot;: [
+              12,
+              4,
+              1
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;16GB 통합 메모리(Apple 페이지는 16GB 또는 24GB 표기, 24/32GB 구성 가능)&quot;,
+            &quot;source_ids&quot;: [
+              11,
+              4,
+              8
+            ]
+          }
+        ]
+      },
+      {
+        &quot;label&quot;: &quot;USB-C 포트 수&quot;,
+        &quot;cells&quot;: [
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;Thunderbolt 4(USB-C) 포트 2개 (Apple 리퍼비시 설명, 포럼 인용)&quot;,
+            &quot;source_ids&quot;: [
+              12
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;uncertain&quot;,
+            &quot;text&quot;: &quot;Apple 발췌문에서 개수 항목이 잘림. Mashable은 M3보다 포트가 많다고만 언급&quot;,
+            &quot;source_ids&quot;: [
+              4
+            ]
+          }
+        ]
+      },
+      {
+        &quot;label&quot;: &quot;USB-C 규격&quot;,
+        &quot;cells&quot;: [
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;Thunderbolt 4(USB-C)&quot;,
+            &quot;source_ids&quot;: [
+              12
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;Thunderbolt 4 디지털 비디오 출력, USB-C를 통한 DisplayPort 1.4 네이티브 출력&quot;,
+            &quot;source_ids&quot;: [
+              11
+            ]
+          }
+        ]
+      },
+      {
+        &quot;label&quot;: &quot;카메라&quot;,
+        &quot;cells&quot;: [
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;1080p FaceTime HD 카메라&quot;,
+            &quot;source_ids&quot;: [
+              12
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;uncertain&quot;,
+            &quot;text&quot;: &quot;기본 M4 발췌문에 카메라 항목 없음. 12MP Center Stage는 M4 Pro/Max 페이지에서만 확인&quot;,
+            &quot;source_ids&quot;: [
+              2
+            ]
+          }
+        ]
+      },
+      {
+        &quot;label&quot;: &quot;외장 디스플레이 지원&quot;,
+        &quot;cells&quot;: [
+          {
+            &quot;kind&quot;: &quot;uncertain&quot;,
+            &quot;text&quot;: &quot;제공된 자료에 기본 M3의 외장 디스플레이 조건 없음&quot;,
+            &quot;source_ids&quot;: []
+          },
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;HDMI로 최대 8K 60Hz 또는 4K 240Hz 디스플레이 1대. Thunderbolt 경유 대수·조건은 발췌문에서 미확인&quot;,
+            &quot;source_ids&quot;: [
+              11
+            ]
+          }
+        ]
+      },
+      {
+        &quot;label&quot;: &quot;출시 시기&quot;,
+        &quot;cells&quot;: [
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;Apple 리퍼비시 설명은 2023년 10월, Laptop Mag은 2023년 11월로 표기(충돌)&quot;,
+            &quot;source_ids&quot;: [
+              12,
+              1
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;2024년(Apple 기술 사양 출시 연도)&quot;,
+            &quot;source_ids&quot;: [
+              11
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  &quot;answer_profile&quot;: {
+    &quot;id&quot;: &quot;comparison&quot;,
+    &quot;version&quot;: &quot;20261013-1&quot;
+  },
+  &quot;follow_up_questions&quot;: [
+    &quot;MacBook Pro 14 M4(2024) 기본 모델의 Thunderbolt 4 포트 개수와 외장 디스플레이 최대 연결 대수는 Apple 공식 사양에서 어떻게 명시되어 있나?&quot;,
+    &quot;MacBook Pro 14 M3(2023) 기본 모델 Apple 기술 사양 페이지의 외장 디스플레이 지원 조건과 카메라 사양은?&quot;,
+    &quot;MacBook Pro 14 M4 기본 모델 실사용 후기에서 16GB 메모리와 포트 구성에 대한 불편한 점은 무엇인가?&quot;,
+    &quot;영상 편집과 개발 작업 환경별로 MacBook Pro 14 M3 8GB와 M4 16GB 중 어느 쪽이 적합한가?&quot;
+  ],
+  &quot;coverage&quot;: {
+    &quot;attempts&quot;: [
+      &quot;tavily&quot;,
+      &quot;tavily-primary&quot;,
+      &quot;bing&quot;,
+      &quot;youtube-links&quot;
+    ],
+    &quot;failures&quot;: [],
+    &quot;mode&quot;: &quot;deep&quot;,
+    &quot;policy&quot;: &quot;multi-source&quot;
+  },
+  &quot;metrics&quot;: {
+    &quot;search_seconds&quot;: 24.77,
+    &quot;retrieval_seconds&quot;: 22.98,
+    &quot;reading_seconds&quot;: 1.78,
+    &quot;answer_seconds&quot;: 71.69,
+    &quot;total_seconds&quot;: 96.45,
+    &quot;first_answer_seconds&quot;: 55.09,
+    &quot;prompt_characters&quot;: 44484,
+    &quot;image_attached&quot;: false,
+    &quot;source_count&quot;: 12,
+    &quot;provider&quot;: &quot;multi&quot;,
+    &quot;timing_scope&quot;: &quot;end_to_end&quot;,
+    &quot;retrieval_policy&quot;: &quot;baseline&quot;,
+    &quot;answer_budget_kind&quot;: &quot;baseline&quot;,
+    &quot;answer_claim_count&quot;: 11,
+    &quot;answer_text_characters&quot;: 1959,
+    &quot;first_claim_characters&quot;: 212,
+    &quot;stream_metrics&quot;: {
+      &quot;cli_spawn_seconds&quot;: 0.0019,
+      &quot;first_model_event_seconds&quot;: 2.4448,
+      &quot;first_content_delta_seconds&quot;: 27.3563,
+      &quot;first_claim_seconds&quot;: 30.3197,
+      &quot;stream_complete_seconds&quot;: 71.6846,
+      &quot;content_delta_characters&quot;: 5595,
+      &quot;structured_output_characters&quot;: 5588
+    },
+    &quot;pipeline_id&quot;: &quot;baseline&quot;,
+    &quot;evidence_budget_characters&quot;: null,
+    &quot;supplied_evidence_characters&quot;: 37909,
+    &quot;requested_model&quot;: null,
+    &quot;actual_models&quot;: [
+      &quot;claude-fable-5-1&quot;
+    ],
+    &quot;usage&quot;: {
+      &quot;input_tokens&quot;: 2,
+      &quot;output_tokens&quot;: 6183,
+      &quot;cache_creation_input_tokens&quot;: 30554,
+      &quot;cache_read_input_tokens&quot;: 0
+    },
+    &quot;estimated_api_cost_usd&quot;: 0.92025
+  }
+}</pre></details>
+<details><summary>product / claude</summary><pre>## 핵심 요약
+
+Apple 지원 사이트의 기술 사양 페이지와 뉴스룸 보도자료 원문을 직접 확인했습니다. 기본 M3(2023) 대비 기본 M4(2024) 14형 MacBook Pro는 다음 다섯 가지가 공식적으로 바뀌었습니다.
+
+- **기본 메모리** 8GB에서 16GB로 상향. 상한 구성도 24GB에서 32GB로 확대.
+- **CPU** 8코어(성능 4 + 효율 4)에서 10코어(성능 4 + 효율 6)로 증가. GPU는 두 모델 모두 10코어로 동일.
+- **USB-C 포트** 2개(Thunderbolt/USB 4, Thunderbolt 3 규격)에서 3개(Thunderbolt 4)로 증가.
+- **카메라** 1080p FaceTime HD에서 데스크 뷰 지원 12MP Center Stage로 변경.
+- **외장 디스플레이** M3는 덮개를 닫아야 2대 연결이 가능했으나, M4는 덮개 조건 없이 내장 화면과 함께 외장 2대를 지원.
+
+## 비교표
+
+| 항목 | 14형 MacBook Pro, M3 (2023) | 14형 MacBook Pro, M4 (2024) |
+|---|---|---|
+| 발표 / 출시 | 2023-10-30 발표, 11-07 출시 | 2024-10-30 발표, 11-08 출시 |
+| 출시 당시 기본 메모리 | 8GB 통합 메모리 (기본 구성 8GB 또는 16GB, 16GB/24GB로 구성 가능) | 16GB 통합 메모리 (기본 구성 16GB 또는 24GB, 24GB/32GB로 구성 가능) |
+| 메모리 대역폭 | 100GB/s | 120GB/s |
+| CPU | 8코어 (성능 4, 효율 4) | 10코어 (성능 4, 효율 6) |
+| GPU | 10코어, 하드웨어 가속 레이 트레이싱 | 10코어, 하드웨어 가속 레이 트레이싱 |
+| Neural Engine | 16코어 | 16코어 |
+| USB-C 포트 수 | 2개 | 3개 |
+| USB-C 포트 규격 | Thunderbolt/USB 4 포트. 충전, DisplayPort, Thunderbolt 3(최대 40Gb/s), USB 4(최대 40Gb/s) | Thunderbolt 4(USB-C) 포트. 충전, DisplayPort, Thunderbolt 4(최대 40Gb/s), USB 4(최대 40Gb/s) |
+| 기타 포트 | HDMI, SDXC, MagSafe 3, 3.5mm 헤드폰 잭 | 동일 |
+| 카메라 | 1080p FaceTime HD 카메라, 컴퓨테이셔널 비디오 ISP | 12MP Center Stage 카메라(데스크 뷰 지원), 1080p HD 동영상 촬영 |
+| 외장 디스플레이 (Thunderbolt) | 6K 60Hz 1대. 덮개를 닫은 상태에서만 5K 60Hz 보조 디스플레이 1대 추가 | 6K 60Hz 최대 2대 (덮개 조건 없음) |
+| 외장 디스플레이 (HDMI) | 4K 120Hz 1대 | Thunderbolt 6K 1대와 동시 사용 시 4K 144Hz 1대. HDMI 단독으로는 8K 60Hz 또는 4K 240Hz 1대 |
+| 미국 출시 가격 | $1,599부터 | $1,599부터 |
+
+## 확인 한계
+
+- 기본 메모리는 M3 사양 페이지의 &quot;8GB 또는 16GB&quot; 표기와 M4 보도자료의 &quot;16GB부터&quot; 문구로 확인했습니다. M3 보도자료에는 기본 메모리 용량이 직접 적혀 있지 않아, M3의 8GB 기본은 사양 페이지의 기본 구성 표기에서 추론한 값입니다.
+- 두 사양 페이지 모두 USB 3.1 Gen 2 지원 여부는 명시하지 않습니다. 포트당 전력 공급(W) 수치도 페이지에서 확인하지 못했습니다.
+- M4의 HDMI 8K 60Hz / 4K 240Hz 항목이 Thunderbolt 외장 디스플레이와 동시에 적용되는지는 페이지에 명확히 쓰여 있지 않습니다. 표에는 원문 구조대로 구분해 적었습니다.
+- 한국 출시일과 한국 출시 가격은 이번에 확인하지 않았습니다. 요청대로 현재 판매 가격은 제외했습니다.
+- 사양 페이지의 수치는 소형 모델이 추출한 발췌문을 바탕으로 했고, 핵심 항목은 영문과 한국어 페이지에서 교차 확인했습니다.
+
+## 출처 URL
+
+- [MacBook Pro (14-inch, M3, Nov 2023) 기술 사양 (영문)](https://support.apple.com/en-us/117735)
+- [MacBook Pro 14(M3, 2023년 11월) 기술 사양 (한국어)](https://support.apple.com/ko-kr/117735)
+- [MacBook Pro (14-inch, M4, 2024) 기술 사양 (영문)](https://support.apple.com/en-us/121552)
+- [MacBook Pro (14형, M4, 2024) 기술 사양 (한국어)](https://support.apple.com/ko-kr/121552)
+- [Apple 뉴스룸, M3 MacBook Pro 발표 (2023-10-30)](https://www.apple.com/newsroom/2023/10/apple-unveils-new-macbook-pro-featuring-m3-chips/)
+- [Apple 뉴스룸, M4 MacBook Pro 발표 (2024-10-30)](https://www.apple.com/newsroom/2024/10/new-macbook-pro-features-m4-family-of-chips-and-apple-intelligence/)</pre></details>
+<details><summary>product / codex</summary><pre>**핵심 요약**
+
+확인된 사양상 14형 기본 M4는 기본 M3보다 출시 당시 메모리가 **8GB→16GB**, CPU가 **8→10코어**, USB-C 포트가 **2→3개**로 늘었습니다. GPU는 둘 다 10코어입니다. M4는 내장 화면을 켠 채 외장 화면 2대를 지원하며, M3의 외장 2대 지원은 **출시 후 업데이트와 덮개 닫기 조건**을 구분해야 합니다. 아래는 M3 Pro·M4 Pro를 제외한 비교입니다. [M3 사양](https://support.apple.com/ko-kr/117735), [M4 사양](https://support.apple.com/ko-kr/121552)
+
+**비교표**
+
+‘기본 메모리’는 주문 시 증설하지 않은 최저 기본 구성을 뜻합니다.
+
+| 항목 | 14형 MacBook Pro 기본 M3(2023) | 14형 MacBook Pro 기본 M4(2024) |
+|---|---|---|
+| 출시 당시 기본 통합 메모리 | **8GB** | **16GB** |
+| CPU / GPU | CPU **8코어**: 성능 4+효율 4 / GPU **10코어** | CPU **10코어**: 성능 4+효율 6 / GPU **10코어** |
+| USB-C 포트 수·규격 | **2개**. Thunderbolt 3 및 USB 4, 각각 최대 **40Gb/s**. 충전·DisplayPort 지원 | **3개**. Thunderbolt 4 및 USB 4, 각각 최대 **40Gb/s**. 충전·DisplayPort 지원 |
+| 카메라 | **1080p FaceTime HD** | **12MP Center Stage**, 데스크뷰 지원. 동영상 촬영은 **1080p HD** |
+| 내장 화면과 외장 화면 동시 사용 | 내장+외장 **1대**, 외장 최대 **6K·60Hz**. HDMI 출력은 기술 사양에 **4K·120Hz**로 기재 | 내장+외장 **최대 2대**. Thunderbolt로 각각 **6K·60Hz**, 또는 Thunderbolt **6K·60Hz 1대**+HDMI **4K·144Hz 1대** |
+| 고해상도·고주사율 외장 1대 | 위의 연결별 한도 참조 | HDMI로 **8K·60Hz 또는 4K·240Hz 1대** |
+| 외장 2대 사용 조건 | 출시 후 **macOS Sonoma 14.6 이상**에서 지원. **덮개 닫기, 전원 연결, 외장 키보드 및 마우스/트랙패드** 필요. 첫 화면 최대 **6K·60Hz**, 두 번째 최대 **5K·60Hz**. 덮개를 열면 보조 외장 화면이 꺼지거나 연결 해제됨 | 위의 2대 조합은 **내장 화면과 동시 지원**하므로 덮개를 닫을 필요 없음 |
+| 근거 | [Apple M3 기술 사양](https://support.apple.com/ko-kr/117735), [M3 듀얼 모니터 조건](https://support.apple.com/ko-kr/117373) | [Apple M4 기술 사양](https://support.apple.com/ko-kr/121552), [2024년 발표문](https://www.apple.com/uk/newsroom/2024/10/new-macbook-pro-features-m4-family-of-chips-and-apple-intelligence/) |
+
+**확인 한계**
+
+- **시점 구분:** 현재 M3 기술 사양에는 덮개를 닫았을 때 보조 화면 지원이 추가되어 있습니다. 이를 출시 당시 기능으로 읽으면 안 됩니다. Apple은 Sonoma 14.6 업데이트에서 해당 지원을 추가했다고 명시합니다. [업데이트 안내](https://support.apple.com/ko-kr/109035)
+- **문서 간 표기 차이:** M3 기술 사양의 HDMI 한도는 4K·120Hz지만, 듀얼 모니터 안내는 첫 화면에 4K·144Hz, 두 번째에 4K·100Hz도 제시합니다. 후자는 해당 문단에서 연결 단자를 명시하지 않아, 이를 M3 HDMI의 보장 사양으로 합쳐 쓰지 않았습니다. [기술 사양](https://support.apple.com/ko-kr/117735), [연결 안내](https://support.apple.com/ko-kr/117373)
+- M4 사양 페이지에는 Thunderbolt 5 출력 문구도 섞여 있지만, 포트 항목과 출시 발표문에서 기본 M4는 **Thunderbolt 4 3개**로 확인됩니다. 개별 허브·케이블·모니터 조합의 호환성은 확인하지 않았습니다. [M4 발표문](https://www.apple.com/uk/newsroom/2024/10/new-macbook-pro-features-m4-family-of-chips-and-apple-intelligence/)
+- **추론:** 내장 화면과 외장 2대를 함께 쓰려는 용도에서는 M4가 더 적합합니다. 이는 지원 조건에 따른 판단이며, GPU 코어 수가 같다고 성능까지 같다는 뜻은 아닙니다.
+
+**출처 URL**
+
+모두 Apple 공식 원문입니다: [M3 사양](https://support.apple.com/ko-kr/117735) · [M4 사양](https://support.apple.com/ko-kr/121552) · [M3 듀얼 화면 조건](https://support.apple.com/ko-kr/117373) · [Sonoma 업데이트](https://support.apple.com/ko-kr/109035) · [M4 출시 발표](https://www.apple.com/uk/newsroom/2024/10/new-macbook-pro-features-m4-family-of-chips-and-apple-intelligence/)</pre></details>
+<details><summary>education / ilson</summary><pre>{
+  &quot;version&quot;: 1,
+  &quot;question&quot;: &quot;서울에서 초등 1학년이 참여할 수 있는 독서와 미술·만들기를 연계한 오프라인 수업 사례 3개를 찾아 비교해줘. 기관명, 지역, 대상 연령, 회당 시간, 수강료, 책과 활동의 연결 방식, 원문 URL을 제시해줘. 2026년 10월 16일 기준 현재 모집과 과거 운영 사례를 구분하고, 확인 못한 값은 미확인으로 남겨줘. 실제 부모의 선택에 도움이 되는 차이를 설명해줘.&quot;,
+  &quot;checked_at&quot;: &quot;2026-10-16T08:07:08.600593+00:00&quot;,
+  &quot;sources&quot;: [
+    {
+      &quot;title&quot;: &quot;운영사례집&quot;,
+      &quot;url&quot;: &quot;https://www.nlcy.go.kr/attach/contents/with/2014%EB%8F%84%EC%84%9C%EA%B4%80%EA%B3%BC%ED%95%A8%EA%BB%98%EC%B1%85%EC%9D%BD%EA%B8%B0_%EC%9A%B4%EC%98%81%EC%82%AC%EB%A1%80%EC%A7%91.pdf&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;original-text-partial&quot;,
+      &quot;read_status&quot;: &quot;read&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;search_images&quot;: [
+        {
+          &quot;url&quot;: &quot;https://i.ytimg.com/vi/rF9FtO6bnMw/maxresdefault.jpg&quot;,
+          &quot;title&quot;: &quot;검색 관련 이미지&quot;
+        },
+        {
+          &quot;url&quot;: &quot;https://cdn.sijung.co.kr/news/photo/202607/432711_237035_1139.jpg&quot;,
+          &quot;title&quot;: &quot;검색 관련 이미지&quot;
+        },
+        {
+          &quot;url&quot;: &quot;https://i.ytimg.com/vi/AmjpSbuem-E/maxresdefault.jpg&quot;,
+          &quot;title&quot;: &quot;검색 관련 이미지&quot;
+        },
+        {
+          &quot;url&quot;: &quot;https://www.kumsung.net/data/editor/2606/thumb-69ca500de22826859fb711f0925a05cd_1781586446_08_830x1174.png&quot;,
+          &quot;title&quot;: &quot;검색 관련 이미지&quot;
+        },
+        {
+          &quot;url&quot;: &quot;https://i.ytimg.com/vi/lw4cdXDNAf0/sddefault.jpg?v=68ae9001&quot;,
+          &quot;title&quot;: &quot;검색 관련 이미지&quot;
+        }
+      ],
+      &quot;id&quot;: 1,
+      &quot;content_trimmed&quot;: true
+    },
+    {
+      &quot;title&quot;: &quot;초등 독서수업 운영사례집&quot;,
+      &quot;url&quot;: &quot;https://www.cberi.go.kr/home/board/download.do?menukey=269&amp;fno=10009949&amp;bid=00000056&amp;did=10006606&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;tavily-snippet&quot;,
+      &quot;read_status&quot;: &quot;unavailable&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 2,
+      &quot;read_error&quot;: &quot;원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용&quot;,
+      &quot;content_trimmed&quot;: false
+    },
+    {
+      &quot;title&quot;: &quot;초등 미술 온라인수업 : 공공미술 산책&quot;,
+      &quot;url&quot;: &quot;https://www.youtube.com/watch?v=bTOXFp_eJok&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;tavily-snippet&quot;,
+      &quot;read_status&quot;: &quot;unavailable&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 3,
+      &quot;read_error&quot;: &quot;원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용&quot;,
+      &quot;content_trimmed&quot;: false
+    },
+    {
+      &quot;title&quot;: &quot;집으로 오는 공부, 2025 서울·경기 방문형 교육 추천 6선&quot;,
+      &quot;url&quot;: &quot;https://rgw7009.tistory.com/entry/%EC%84%9C%EC%9A%B8%EA%B2%BD%EA%B8%B0-%EB%B0%A9%EB%AC%B8%ED%98%95%EA%B5%90%EC%9C%A1%EB%B9%84%EA%B5%90-%EC%9C%A0%EC%95%84%EC%B4%88%EB%93%B1%EB%AF%B8%EC%88%A0%EC%98%81%EC%96%B4%EB%85%BC%EC%88%A0-2025&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;original-text-partial&quot;,
+      &quot;read_status&quot;: &quot;read&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 4,
+      &quot;cache_hit&quot;: false,
+      &quot;content_trimmed&quot;: true
+    },
+    {
+      &quot;title&quot;: &quot;[논문]초등 미술과 체험 영역에서 에듀테크 활용 수업 사례 연구&quot;,
+      &quot;url&quot;: &quot;https://scienceon.kisti.re.kr/srch/selectPORSrchArticle.do?cn=DIKO0016615821&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;original-text-partial&quot;,
+      &quot;read_status&quot;: &quot;read&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 5,
+      &quot;cache_hit&quot;: false,
+      &quot;content_trimmed&quot;: true
+    },
+    {
+      &quot;title&quot;: &quot;2026 유치원 모집 일정 우선선발 자격 및 유치원 선택 기준&quot;,
+      &quot;url&quot;: &quot;https://blog.naver.com/sun800424/224056582931&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;tavily-snippet&quot;,
+      &quot;read_status&quot;: &quot;unavailable&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 6,
+      &quot;read_error&quot;: &quot;원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용&quot;,
+      &quot;content_trimmed&quot;: false
+    },
+    {
+      &quot;title&quot;: &quot;⚫ 책으로 여는 미래 ⚫ 세상과 소통하는 글쓰기 ⚫ ...&quot;,
+      &quot;url&quot;: &quot;https://www.goe.go.kr/resource/goe/na/bbs_2451/2025/06/7a21856c-1a8e-455a-9f6f-fdb9daddbac3.pdf&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;original-text-partial&quot;,
+      &quot;read_status&quot;: &quot;read&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 7,
+      &quot;content_trimmed&quot;: true
+    },
+    {
+      &quot;title&quot;: &quot;문화강좌&quot;,
+      &quot;url&quot;: &quot;https://bangbae.seocholib.or.kr/Cultural/CulturalList&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;tavily-snippet&quot;,
+      &quot;read_status&quot;: &quot;unavailable&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 8,
+      &quot;read_error&quot;: &quot;원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용&quot;,
+      &quot;content_trimmed&quot;: false
+    },
+    {
+      &quot;title&quot;: &quot;Places to Visit in Seoul Smarter Than Reading 100 Books&quot;,
+      &quot;url&quot;: &quot;https://www.youtube.com/watch?v=LN9eKe2bS_M&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;tavily-snippet&quot;,
+      &quot;read_status&quot;: &quot;unavailable&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 9,
+      &quot;read_error&quot;: &quot;원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용&quot;,
+      &quot;content_trimmed&quot;: false
+    },
+    {
+      &quot;title&quot;: &quot;아웃스쿨 - 어린이를 위한 실시간 온라인 수업&quot;,
+      &quot;url&quot;: &quot;https://outschool.com/ko&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;tavily-snippet&quot;,
+      &quot;read_status&quot;: &quot;unavailable&quot;,
+      &quot;provider&quot;: &quot;tavily&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;id&quot;: 10,
+      &quot;read_error&quot;: &quot;원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용&quot;,
+      &quot;content_trimmed&quot;: false
+    },
+    {
+      &quot;id&quot;: 11,
+      &quot;title&quot;: &quot;서울 아이와 가볼만한곳 실내 창작 체험 쿠킹 공방 등 원데이 ...&quot;,
+      &quot;url&quot;: &quot;https://blog.naver.com/heyhooney/224388319234&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;aside-bing-snippet&quot;,
+      &quot;provider&quot;: &quot;bing&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;read_status&quot;: &quot;unavailable&quot;,
+      &quot;read_error&quot;: &quot;원문 접근 실패 또는 지원하지 않는 형식 — 검색 발췌문만 사용&quot;,
+      &quot;content_trimmed&quot;: false
+    },
+    {
+      &quot;id&quot;: 12,
+      &quot;title&quot;: &quot;[지역 미술과 연계한 문화 체험 사례]예술교육, 교실을 넘어 ...&quot;,
+      &quot;url&quot;: &quot;https://webzine.serii.re.kr/%EC%A7%80%EC%97%AD-%EB%AF%B8%EC%88%A0%EA%B3%BC-%EC%97%B0%EA%B3%84%ED%95%9C-%EB%AC%B8%ED%99%94-%EC%B2%B4%ED%97%98-%EC%82%AC%EB%A1%80%EC%98%88%EC%88%A0%EA%B5%90%EC%9C%A1-%EA%B5%90%EC%8B%A4%EC%9D%84/&quot;,
+      &quot;published_date&quot;: null,
+      &quot;method&quot;: &quot;original-text-partial&quot;,
+      &quot;provider&quot;: &quot;bing&quot;,
+      &quot;source_type&quot;: &quot;web&quot;,
+      &quot;read_status&quot;: &quot;read&quot;,
+      &quot;cache_hit&quot;: false,
+      &quot;content_trimmed&quot;: true
+    }
+  ],
+  &quot;claims&quot;: [
+    {
+      &quot;kind&quot;: &quot;inference&quot;,
+      &quot;text&quot;: &quot;제공된 발췌문 안에서는 **2026년 10월 16일 기준 모집 중**인 서울 초등 1학년 대상 독서·미술 연계 오프라인 수업을 확인할 수 없었다. 비교 가능한 서울 사례 3개(강동구립암사도서관, 도봉도서관, 성북어린이미술관 꿈자람)는 모두 **과거 운영 사례**이며, 회당 시간과 수강료는 세 곳 모두 발췌문에 없어 미확인으로 남겼다.&quot;,
+      &quot;source_ids&quot;: [
+        1,
+        12,
+        8
+      ],
+      &quot;heading&quot;: &quot;&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;fact&quot;,
+      &quot;text&quot;: &quot;국립어린이청소년도서관의 「2014 도서관과 함께 책읽기」 운영사례집에는 서울 **강동구립암사도서관·암사꿈나무지역아동센터** 사례가 수록되어 있다. 아이들은 엽서에 &#x27;엄마·아빠가 생각하는 나의 얼굴, 친구가 생각하는 나의 얼굴&#x27;을 그린 뒤 그 그림으로 **자신에 대한 스토리텔링**을 하고 자화상을 전시했다.&quot;,
+      &quot;source_ids&quot;: [
+        1
+      ],
+      &quot;heading&quot;: &quot;사례 1: 강동구립암사도서관 (강동구, 2014년 과거 운영)&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;fact&quot;,
+      &quot;text&quot;: &quot;같은 사례에서 외부 요리학원으로 나가 **쿠키 만들기**를 한 뒤, 아이들의 호기심을 따라 그림책 **「쿠키 한입의 우정 수업」**을 선택해 책의 주제를 한 사람씩 돌아가며 이야기했다. 즉 &#x27;만들기 활동 → 관련 그림책 읽기 → 이야기 나누기&#x27; 순서로 연결했다. 이 사업은 정보소외계층 어린이·청소년 대상 지원사업으로, 참여 아동은 지역아동센터 소속이었다.&quot;,
+      &quot;source_ids&quot;: [
+        1
+      ],
+      &quot;heading&quot;: &quot;사례 1: 강동구립암사도서관 (강동구, 2014년 과거 운영)&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;uncertain&quot;,
+      &quot;text&quot;: &quot;암사도서관 사례의 **대상 연령, 회당 시간, 수강료**는 발췌문에 명시되지 않았다. 같은 사례집의 제천기적의도서관 사례는 &#x27;미취학~초등 3학년, 매주 일요일 오후 2시&#x27;로 기재되어 있지만 서울 사례가 아니므로 적용할 수 없다. 지원사업 성격상 참가비가 없었을 가능성이 있으나 발췌문에 근거가 없어 미확인이다.&quot;,
+      &quot;source_ids&quot;: [
+        1
+      ],
+      &quot;heading&quot;: &quot;사례 1: 강동구립암사도서관 (강동구, 2014년 과거 운영)&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;fact&quot;,
+      &quot;text&quot;: &quot;같은 2014 사례집 목차에 서울 **도봉도서관·창동지역아동센터**의 &#x27;쉽고 가까운 미술 - 유쾌한 팝아트전&#x27; 프로그램이 실려 있다. 사례집은 「도서관과 함께 책읽기」 참여 도서관의 독서프로그램과 도서관·문화체험프로그램 중 만족도가 높았던 것을 모았다고 밝힌다.&quot;,
+      &quot;source_ids&quot;: [
+        1
+      ],
+      &quot;heading&quot;: &quot;사례 2: 도봉도서관·창동지역아동센터 (도봉구, 2014년 과거 운영)&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;uncertain&quot;,
+      &quot;text&quot;: &quot;도봉도서관 사례는 발췌문에 **제목만** 확인되어 책과 팝아트 활동을 어떻게 연결했는지, 대상 연령·회당 시간·수강료는 모두 미확인이다. 원문 PDF 전체를 열람하면 상세가 있을 가능성이 있지만 이번 발췌 범위에는 없었다.&quot;,
+      &quot;source_ids&quot;: [
+        1
+      ],
+      &quot;heading&quot;: &quot;사례 2: 도봉도서관·창동지역아동센터 (도봉구, 2014년 과거 운영)&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;fact&quot;,
+      &quot;text&quot;: &quot;서울교육 웹진 2025 여름호는 **성북어린이미술관 꿈자람**의 2024년 지역 연계 문화·예술 체험 사업을 소개한다. 참여 유치원 아이들은 성북구 활동 작가 유근택의 회화·판화·드로잉을 도슨트 설명과 함께 감상한 뒤, 고무판에 매직·네임펜으로 그리고 가위로 오리는 **판화 그림 그리기** 체험에 참여했다. 사후 활동으로 유치원 안에 미술 전시관을 만들고 학예사·작가·관객 역할놀이를 했다.&quot;,
+      &quot;source_ids&quot;: [
+        12
+      ],
+      &quot;heading&quot;: &quot;사례 3: 성북어린이미술관 꿈자람 (성북구, 2024년 과거 운영)&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;fact&quot;,
+      &quot;text&quot;: &quot;꿈자람은 유치원부터 초·중·고·성인까지 열린 공간으로, **학부모와 자발적으로 방문하는 유치원생·초등학생은 체험형 전시에 참여**할 수 있고, 중·고등학생과 성인은 **글쓰기·진로 교육을 예술과 연계**한 프로그램을 운영한다고 기사에 적혀 있다. 소개된 우수 사례는 덕수유치원과 노원구 수락산유치원이며, 초등 1학년 참여 사례는 발췌문에 없다.&quot;,
+      &quot;source_ids&quot;: [
+        12
+      ],
+      &quot;heading&quot;: &quot;사례 3: 성북어린이미술관 꿈자람 (성북구, 2024년 과거 운영)&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;uncertain&quot;,
+      &quot;text&quot;: &quot;꿈자람 사례는 &#x27;미술관 전시 감상 → 만들기 → 글쓰기·역할놀이&#x27;의 연계이지, 특정 **책**을 읽고 활동한 것인지는 발췌문에서 확인되지 않는다. 기사에 나오는 『어떤 도서관 혹은 산책』은 작가의 작품명으로 보이며 도서로 확인된 것은 아니다. 회당 시간, 참가비, 2026년 하반기 어린이 프로그램 모집 여부도 미확인이다.&quot;,
+      &quot;source_ids&quot;: [
+        12
+      ],
+      &quot;heading&quot;: &quot;사례 3: 성북어린이미술관 꿈자람 (성북구, 2024년 과거 운영)&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;fact&quot;,
+      &quot;text&quot;: &quot;2025년 11월 10일 게시된 블로그 글(출처를 공식 사이트로 밝힌 2차 자료)은 서울 전역 방문형 수업 비용을 정리했다. **그림샘 방문미술**은 권장 연령 4세~초4, 주 1회(월 4회), 월 약 10만 원대 초반이고 재료비 포함 여부는 지사마다 다르다. **해법독서논술**은 7세~초6, 주 1회 방문 또는 공부방, 월 12~15만 원대로 적혀 있다. 다만 두 프로그램은 각각 미술만, 독서·논술만 다루며 독서와 미술을 함께 연계한 수업은 아니다.&quot;,
+      &quot;source_ids&quot;: [
+        4
+      ],
+      &quot;heading&quot;: &quot;참고: 사설 방문형 수업의 공개 비용 (연계 수업은 아님)&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;inference&quot;,
+      &quot;text&quot;: &quot;부모 입장에서 실질적인 차이는 **접근 경로와 비용 구조**다.\n- **공공도서관 연계형(암사·도봉)**: 지역아동센터와 협약해 운영한 사례여서 일반 가정 아동이 개별 신청할 수 있는 수업이었는지 불확실하다. 책과 만들기를 한 회차 안에서 직접 묶는 방식(그림 → 이야기, 쿠키 → 그림책)은 초1에게 적합한 구조로 보인다.\n- **미술관 체험형(꿈자람)**: 학부모 동반 방문으로 체험형 전시 참여가 가능하다고 기사에 명시되어 개별 접근이 비교적 쉽다. 다만 &#x27;독서&#x27; 연계보다 &#x27;작품 감상&#x27; 연계가 중심이다.\n- **사설 방문형**: 비용(월 10만~15만 원대)과 주기(주 1회)가 공개되어 예산 계획이 쉽지만, 독서와 미술을 한 수업에서 연계하는 상품은 발췌문에 없었다.&quot;,
+      &quot;source_ids&quot;: [
+        1,
+        12,
+        4
+      ],
+      &quot;heading&quot;: &quot;부모 선택 포인트&quot;,
+      &quot;format&quot;: &quot;bullet&quot;,
+      &quot;language&quot;: &quot;&quot;
+    },
+    {
+      &quot;kind&quot;: &quot;uncertain&quot;,
+      &quot;text&quot;: &quot;현재 모집 확인에 쓸 수 있는 발췌문은 서초구립 방배도서관 문화강좌 목록 하나였고, 여기에는 2026년 10월 23일 시작 **성인** 대상 &#x27;아트 브런치 in 방배&#x27;만 보여 어린이 독서·미술 강좌 모집은 확인되지 않았다. 따라서 세 사례 모두 &#x27;과거 운영&#x27;으로 분류하고, 2026년 10월 현재 모집 여부는 각 기관 홈페이지에서 직접 확인이 필요하다.&quot;,
+      &quot;source_ids&quot;: [
+        8
+      ],
+      &quot;heading&quot;: &quot;현재 모집 여부&quot;,
+      &quot;format&quot;: &quot;paragraph&quot;,
+      &quot;language&quot;: &quot;&quot;
+    }
+  ],
+  &quot;limitations&quot;: &quot;조회 시각은 2026년 10월 16일이며, 모든 판단은 제공된 검색 발췌문과 일부 원문에 한정된다. 2014 운영사례집(출처 1)과 서울교육 웹진(출처 12)은 원문 일부만 읽었고 질문 관련 부분만 발췌되어, 도봉도서관 사례의 상세와 각 사례의 회당 시간·수강료·연령은 전체 원문에 있을 수 있어도 확인하지 못했다. 세 사례 모두 과거(2014년, 2024년) 운영 사례이며, 2026년 10월 현재 모집 중인 서울 초1 대상 독서·미술 연계 오프라인 수업은 어느 발췌문에서도 확인되지 않았다. 방배도서관 문화강좌(출처 8)는 검색 발췌문만 보았고 성인 강좌만 나타났다. 사설 방문형 비용(출처 4)은 2025년 11월 10일 게시된 개인 블로그의 2차 정리이며 지사별로 다르다고 명시되어 있어 실제 금액은 상담으로 확인해야 한다. 꿈자람 사례는 유치원 대상이고 &#x27;독서&#x27; 연계가 아닌 &#x27;전시 감상&#x27; 연계여서 질문 조건에 부분적으로만 부합한다. 출처 2(충북 초등 독서수업 사례집), 7(경기도교육청)은 서울 외 지역이고, 출처 3·5·9·10은 온라인 수업 또는 논문으로 질문의 오프라인 조건과 맞지 않아 비교에서 제외했다. 사실 검증을 완료한 것은 아니며, 출처 URL은 제공된 것만 사용했다.\n원문 일부를 읽은 자료: 5개 / 전체 12개. 원문 읽기 실패 자료는 검색 발췌문만 사용합니다.\n모델에는 질문 관련 발췌를 전달했습니다. 원문 전체를 검토한 결과가 아닙니다.\nBing 경로는 검색 기간을 강제하지 않습니다. 요청한 기간의 자료인지 게시일을 원문에서 확인해야 합니다.&quot;,
+  &quot;comparison&quot;: {
+    &quot;headers&quot;: [
+      &quot;항목&quot;,
+      &quot;강동구립암사도서관·암사꿈나무지역아동센터&quot;,
+      &quot;도봉도서관·창동지역아동센터&quot;,
+      &quot;성북어린이미술관 꿈자람&quot;
+    ],
+    &quot;rows&quot;: [
+      {
+        &quot;label&quot;: &quot;지역 / 운영 주체&quot;,
+        &quot;cells&quot;: [
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;서울 강동구, 구립도서관 + 지역아동센터 연계&quot;,
+            &quot;source_ids&quot;: [
+              1
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;서울 도봉구, 공공도서관 + 지역아동센터 연계&quot;,
+            &quot;source_ids&quot;: [
+              1
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;서울 성북구, 어린이미술관(2024년 지역 연계 사업, 유치원 참여)&quot;,
+            &quot;source_ids&quot;: [
+              12
+            ]
+          }
+        ]
+      },
+      {
+        &quot;label&quot;: &quot;운영 시기 / 현재 모집 (2026-10-16 기준)&quot;,
+        &quot;cells&quot;: [
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;2014년 과거 운영. 현재 모집 미확인&quot;,
+            &quot;source_ids&quot;: [
+              1
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;2014년 과거 운영. 현재 모집 미확인&quot;,
+            &quot;source_ids&quot;: [
+              1
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;2024년 과거 운영(2025 여름호 기사). 2026년 모집 미확인&quot;,
+            &quot;source_ids&quot;: [
+              12
+            ]
+          }
+        ]
+      },
+      {
+        &quot;label&quot;: &quot;대상 연령&quot;,
+        &quot;cells&quot;: [
+          {
+            &quot;kind&quot;: &quot;uncertain&quot;,
+            &quot;text&quot;: &quot;지역아동센터 어린이. 초1 포함 여부 미확인&quot;,
+            &quot;source_ids&quot;: [
+              1
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;uncertain&quot;,
+            &quot;text&quot;: &quot;미확인&quot;,
+            &quot;source_ids&quot;: [
+              1
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;소개 사례는 유치원생. 유치원생·초등학생은 학부모 동반 시 체험형 전시 참여 가능&quot;,
+            &quot;source_ids&quot;: [
+              12
+            ]
+          }
+        ]
+      },
+      {
+        &quot;label&quot;: &quot;회당 시간&quot;,
+        &quot;cells&quot;: [
+          {
+            &quot;kind&quot;: &quot;uncertain&quot;,
+            &quot;text&quot;: &quot;미확인&quot;,
+            &quot;source_ids&quot;: []
+          },
+          {
+            &quot;kind&quot;: &quot;uncertain&quot;,
+            &quot;text&quot;: &quot;미확인&quot;,
+            &quot;source_ids&quot;: []
+          },
+          {
+            &quot;kind&quot;: &quot;uncertain&quot;,
+            &quot;text&quot;: &quot;미확인(&#x27;체험 시간은 짧았다&#x27;는 서술만 있음)&quot;,
+            &quot;source_ids&quot;: [
+              12
+            ]
+          }
+        ]
+      },
+      {
+        &quot;label&quot;: &quot;수강료&quot;,
+        &quot;cells&quot;: [
+          {
+            &quot;kind&quot;: &quot;uncertain&quot;,
+            &quot;text&quot;: &quot;미확인(지원사업이나 참가비 언급 없음)&quot;,
+            &quot;source_ids&quot;: [
+              1
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;uncertain&quot;,
+            &quot;text&quot;: &quot;미확인&quot;,
+            &quot;source_ids&quot;: []
+          },
+          {
+            &quot;kind&quot;: &quot;uncertain&quot;,
+            &quot;text&quot;: &quot;미확인&quot;,
+            &quot;source_ids&quot;: []
+          }
+        ]
+      },
+      {
+        &quot;label&quot;: &quot;책과 활동의 연결 방식&quot;,
+        &quot;cells&quot;: [
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;자화상 엽서 그리기 → 스토리텔링·전시. 쿠키 만들기 → 그림책 「쿠키 한입의 우정 수업」 읽고 주제별 이야기 나누기&quot;,
+            &quot;source_ids&quot;: [
+              1
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;uncertain&quot;,
+            &quot;text&quot;: &quot;&#x27;쉽고 가까운 미술 - 유쾌한 팝아트전&#x27; 제목만 확인. 책 연결 방식 미확인&quot;,
+            &quot;source_ids&quot;: [
+              1
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;유근택 작품 도슨트 감상 → 고무판 판화 그리기 → 유치원 내 전시·역할놀이. 특정 도서 연계는 미확인&quot;,
+            &quot;source_ids&quot;: [
+              12
+            ]
+          }
+        ]
+      },
+      {
+        &quot;label&quot;: &quot;원문 URL&quot;,
+        &quot;cells&quot;: [
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;https://www.nlcy.go.kr/attach/contents/with/2014%EB%8F%84%EC%84%9C%EA%B4%80%EA%B3%BC%ED%95%A8%EA%BB%98%EC%B1%85%EC%9D%BD%EA%B8%B0_%EC%9A%B4%EC%98%81%EC%82%AC%EB%A1%80%EC%A7%91.pdf&quot;,
+            &quot;source_ids&quot;: [
+              1
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;위와 동일한 2014 운영사례집 PDF&quot;,
+            &quot;source_ids&quot;: [
+              1
+            ]
+          },
+          {
+            &quot;kind&quot;: &quot;fact&quot;,
+            &quot;text&quot;: &quot;https://webzine.serii.re.kr/%EC%A7%80%EC%97%AD-%EB%AF%B8%EC%88%A0%EA%B3%BC-%EC%97%B0%EA%B3%84%ED%95%9C-%EB%AC%B8%ED%99%94-%EC%B2%B4%ED%97%98-%EC%82%AC%EB%A1%80%EC%98%88%EC%88%A0%EA%B5%90%EC%9C%A1-%EA%B5%90%EC%8B%A4%EC%9D%84/&quot;,
+            &quot;source_ids&quot;: [
+              12
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  &quot;answer_profile&quot;: {
+    &quot;id&quot;: &quot;comparison&quot;,
+    &quot;version&quot;: &quot;20261013-1&quot;
+  },
+  &quot;follow_up_questions&quot;: [
+    &quot;성북어린이미술관 꿈자람 2026년 하반기 어린이 체험형 전시 및 교육 프로그램 모집 일정과 참가비는?&quot;,
+    &quot;강동구립도서관(암사·성내·강일) 2026년 10월 초등 저학년 그림책 연계 미술·만들기 프로그램 모집 현황은?&quot;,
+    &quot;서초구립 방배도서관 2026년 어린이 대상 문화강좌 중 독서·미술 연계 수업이 있는가?&quot;,
+    &quot;그림샘 방문미술 서울 지사별 재료비 포함 총액과 초1 학부모 실사용 후기는?&quot;
+  ],
+  &quot;coverage&quot;: {
+    &quot;attempts&quot;: [
+      &quot;tavily&quot;,
+      &quot;tavily-primary&quot;,
+      &quot;bing&quot;
+    ],
+    &quot;failures&quot;: [],
+    &quot;mode&quot;: &quot;deep&quot;,
+    &quot;policy&quot;: &quot;multi-source&quot;
+  },
+  &quot;metrics&quot;: {
+    &quot;search_seconds&quot;: 24.27,
+    &quot;retrieval_seconds&quot;: 21.96,
+    &quot;reading_seconds&quot;: 2.32,
+    &quot;answer_seconds&quot;: 139.84,
+    &quot;total_seconds&quot;: 164.11,
+    &quot;first_answer_seconds&quot;: 81.7,
+    &quot;prompt_characters&quot;: 25573,
+    &quot;image_attached&quot;: false,
+    &quot;source_count&quot;: 12,
+    &quot;provider&quot;: &quot;multi&quot;,
+    &quot;timing_scope&quot;: &quot;end_to_end&quot;,
+    &quot;retrieval_policy&quot;: &quot;baseline&quot;,
+    &quot;answer_budget_kind&quot;: &quot;baseline&quot;,
+    &quot;answer_claim_count&quot;: 12,
+    &quot;answer_text_characters&quot;: 2420,
+    &quot;first_claim_characters&quot;: 187,
+    &quot;stream_metrics&quot;: {
+      &quot;cli_spawn_seconds&quot;: 0.0018,
+      &quot;first_model_event_seconds&quot;: 3.6699,
+      &quot;first_content_delta_seconds&quot;: 54.8382,
+      &quot;first_claim_seconds&quot;: 57.4258,
+      &quot;stream_complete_seconds&quot;: 139.8362,
+      &quot;content_delta_characters&quot;: 6953,
+      &quot;structured_output_characters&quot;: 6946
+    },
+    &quot;pipeline_id&quot;: &quot;baseline&quot;,
+    &quot;evidence_budget_characters&quot;: null,
+    &quot;supplied_evidence_characters&quot;: 19379,
+    &quot;requested_model&quot;: null,
+    &quot;actual_models&quot;: [
+      &quot;claude-fable-5-1&quot;
+    ],
+    &quot;usage&quot;: {
+      &quot;input_tokens&quot;: 2,
+      &quot;output_tokens&quot;: 8336,
+      &quot;cache_creation_input_tokens&quot;: 24610,
+      &quot;cache_read_input_tokens&quot;: 4506
+    },
+    &quot;estimated_api_cost_usd&quot;: 0.9101465
+  }
+}</pre></details>
+<details><summary>education / claude</summary><pre>검색 6회·원문 읽기 8회를 모두 사용해 확인한 결과를 정리합니다.
+
+## 핵심 요약
+
+- **서울에서 &quot;초1 참여 가능 + 그림책 + 미술·만들기&quot;가 명확히 확인된 사례는 공공기관 3곳**입니다. 사설 학원은 검색 상위 결과가 제주·분당 소재여서 제외했습니다.
+- **2026년 10월 16일 기준 모집 중인 사례는 확정하지 못했습니다.** 서울백제어린이박물관은 7월 운영으로 종료됐고, 동대문 장안어린이도서관 11월 프로그램은 기사 연도와 신청 정보를 원문에서 확인하지 못했습니다.
+- 부모 선택 관점의 실질적 차이는 **&quot;책을 읽고 새 그림책을 만드는가(창작형)&quot;** 와 **&quot;책의 정서를 공예·놀이로 옮기는가(체험형)&quot;**, 그리고 **무료·단발 vs 재료비·단발**입니다. 세 곳 모두 단발성(1~2회)이라 정기 수업을 원하면 별도 탐색이 필요합니다.
+
+## 비교표
+
+| 항목 | ① 서울백제어린이박물관 &quot;어린이 북토크&quot; | ② 개울건강도서관 &quot;꽃으로 피어나는 나&quot; | ③ 장안어린이도서관 &quot;그림책 오감 놀이터&quot; |
+|---|---|---|---|
+| 지역 | 송파구 올림픽로 424 | 양천구 | 동대문구(동대문문화재단) |
+| 대상 | 초등 1~3학년(어린이만 입실) | 초등 전학년·성인 | 초등 1~2학년 |
+| 회당 시간 | 90분(17:30~19:00) | 90분(19:00~20:30) | 미확인 |
+| 수강료 | 무료 | 재료비 5,000원 | 미확인 |
+| 회차 | 2회(7/24, 7/31) | 1회(9/29 목) | 2회(11/1, 11/8) |
+| 책↔활동 연결 | 김중석 작가 그림책 연계 → 야외 생태 활동 뒤 &#x27;나만의 그림책 제작&#x27;, 2회차는 협동 드로잉으로 대형 괴물 그림(물감) | 그림책·명화 감상과 이야기 나누기 → 프리저브드플라워 꾸미기(아트테라피) | 그림책 읽기 → &#x27;찰랑찰랑 계란 리듬 놀이&#x27;, &#x27;새콤달콤 마음 요구르트&#x27; 등 오감 활동 |
+| 상태(2026-10-16 기준) | **과거 운영**(2026년 7월, 접수 7/13 선착순 20명) | **과거 운영**(요일 조합상 2022년 9월로 추정) | **연도 미확인**. 2026년 기사라면 모집 예정/진행 가능 |
+| 신청 | 서울시공공서비스예약 | 온라인 접수(9/5~22) | 미확인 |
+
+**선택에 도움이 되는 차이(추론 포함)**
+- ①은 초1이 &quot;작가의 책을 보고 직접 책을 만드는&quot; 창작 경험에 가장 가깝고, 야외 활동과 대형 물감 작업이 있어 활동량이 큽니다. 다만 저녁 시간대이며 보호자는 입실하지 않습니다.
+- ②는 성인과 함께하는 정서 중심 공예라 초1에게는 난도가 낮고 부모 동반이 자연스럽습니다. 책을 &quot;만드는&quot; 활동은 아닙니다.
+- ③은 초1~2 전용이라 연령 적합도는 가장 높지만, 미술보다 놀이·감각 활동 성격이 강해 &quot;미술 수업&quot;을 기대하면 결이 다를 수 있습니다.
+- 같은 양천구 갈산도서관의 &quot;손바닥 그림책 만들기&quot;(책 『나는 되고 싶은 게 너무너무 많아』 읽고 5쪽 그림책 제작, 무료, 90분)는 책↔만들기 연결이 가장 직접적이지만 대상이 초2~4라 초1은 제외됩니다.
+
+## 확인 한계
+
+- ③의 출처 기사는 연도 표기를 원문 읽기에서 확인하지 못했고, 회당 시간·참가비·신청 방법도 기사에 없습니다. 검색 요약에는 휘경행복도서관 &#x27;책누리&#x27;(11/1~22, 그림책 읽고 그리기·만들기)도 언급됐으나 원문에서 재확인되지 않아 표에서 뺐습니다.
+- ②의 출처(내일신문 지역판)는 연도가 없어 &quot;9월 29일(목)&quot;의 요일 조합으로 2022년으로 추정했습니다.
+- 서초구립그림책도서관 &#x27;Picturebook Class&#x27;(10/11·10/25, 접수 9/20 15시~)는 검색 요약에만 나왔고 사이트 본문을 읽지 못해 대상·내용·비용을 확인하지 못했습니다. 초1 대상 여부도 미확인입니다.
+- 서울시교육청 양천도서관 &#x27;그림책이랑 만들기랑&#x27;(2026년 여름 북캉스)은 존재만 확인됐고 세부 정보를 찾지 못했습니다.
+- 현재 모집 중인 사례를 확정하려면 서울시공공서비스예약, 동대문문화재단, 서초구립그림책도서관 공지를 직접 확인해야 합니다.
+
+## 출처 URL
+
+- ① 서울백제어린이박물관 어린이 북토크: https://culture.seoul.go.kr/night/sub/program/view.do?pgmId=6826
+- ② 양천구 도서관 강좌(개울건강·갈산도서관): https://www.localnaeil.com/News/View/648421/10
+- ③ 동대문문화재단 도서관 10~11월 그림책 연계 프로그램(시정일보): https://www.sijung.co.kr/news/articleView.html?idxno=438240
+- 서울시교육청 북캉스(양천도서관 &#x27;그림책이랑 만들기랑&#x27; 언급): https://v.daum.net/v/20260702093202424
+- 서초구립그림책도서관(본문 미확인): https://picturebook.seocholib.or.kr/
+- 제외한 사설 학원(서울 외 소재): https://academy.prompie.com/academies/detail/y72d49i/책과그림숲미술학원/ , https://academy.prompie.com/academies/detail/feb3kor/꿈꾸는달리아트&amp;그림책미술교습소/</pre></details>
+<details><summary>education / codex</summary><pre>**핵심 요약**
+
+2026년 10월 16일 기준, 초등 1학년을 대상으로 포함하고 책과 미술·만들기를 연결한 서울 오프라인 프로그램 3개를 확인했습니다. **현재 모집은 증산도서관 1개**, 나머지 2개는 과거 운영 공고 사례입니다. 과거 사례는 당시 초1이 참여할 수 있었다는 뜻이며, 지금 신청 가능한 수업은 아닙니다.
+
+**비교표 — 원문에서 확인된 사실**
+
+| 기관·프로그램 | 지역·장소 | 대상 | 일정·회당 시간 | 수강료·재료비 | 책과 활동의 연결 |
+|---|---|---|---|---|---|
+| **구립증산도서관 「책이랑 놀자, 이렇게!」** | 은평구 증산로5길 6, 1층 문화교육실 | 초1~2, 10명. 신청자격 2018~2019년생 | **현재 모집**. 2026.10.24. 14:30~15:30, **60분** | 수강료 **미확인**. 재료비 공란으로 **미확인** | 한세미의 《간장공장공장장》을 함께 읽고 말놀이·리듬게임, **자개 한글 키캡 만들기**. [원문](https://www.eplib.or.kr/jslib/program/eventLectureDetail.do?lectureIdx=231429&amp;searchStatus=OPEN) |
+| **중곡문화체육센터도서관 「도슨트와 함께하는 그림책 심리 미술」** | 광진구 중곡동, 도서관 2층 이야기극장 | 당시 초1~2, 2015~2016년생, 10명 | **과거 사례**. 2024.1.9.~12. 4일. 기본 10~12시, **120분**. 마지막 날 세부표는 11:30 종료 | 수강료 **미확인**. 재료비 ‘-’ 표기로 **미확인** | 《내 얘기를 들어주세요》→슬픔 콜라주, 《바람은 보이지 않아》→바람개비, 《비가 올 거야》→비 모빌. 감정을 나누고 작품 설명·감상까지 진행. [원문](https://www.gwangjinlib.seoul.kr/jgsports/lectureDetail.do?lectureIdx=9807) |
+| **서울백제어린이박물관 「김중석 작가와 함께하는 어린이 북토크」** | 송파구 올림픽로 424, 교육실·야외마당 | 초1~3, 20명 | **과거 사례**. 2026.7.24.·7.31. 각각 17:30~19:00, **90분**. 회차별 개별 신청 | 수강료 **무료**. 별도 재료비 **미확인** | 김중석 작가 그림책과 연계. 1회차는 야외 생태활동 후 **나만의 그림책 제작**, 2회차는 협동 드로잉으로 **대형 괴물 그림** 제작. 회차별 선정 도서명은 미확인. [원문·요금](https://yeyak.seoul.go.kr/web/reservation/selectReservView.do?rsv_svc_id=S260709151216344485) |
+
+**부모의 선택에 도움이 되는 차이 — 아래는 수업 구성에 근거한 판단입니다.**
+
+- **지금 신청하고 짧게 경험하려면 증산**이 가장 직접적인 선택입니다. 60분 안에 언어놀이와 작은 공예품 제작을 함께 경험합니다. 원문은 10월 15~23일 접수, 조회 시 신청 8/10명·접수중으로 표시했습니다. 자녀 이름의 준회원 이상 계정이 필요합니다.
+- **책 속 감정을 말하고 시각적으로 표현하는 경험은 중곡**이 더 뚜렷합니다. 만들기 뒤 작품을 설명하는 단계까지 있어 말하기를 함께 경험할 구성입니다. 다만 당시에는 4일 모두 지각·결석 없이 참여할 수 있어야 했고, 회당 시간도 길었습니다.
+- **야외활동과 큰 그림, 작가와의 만남을 좋아한다면 백제박물관 방식**이 어울릴 수 있습니다. 어린이만 입실하며 보호자 전용 대기 공간은 없다고 명시했습니다. 흙·물감으로 옷이 오염될 수 있어 복장과 보호자의 대기 동선을 고려할 필요가 있습니다.
+
+**확인 한계**
+
+검색 질의 6개와 원문 열람 6회 범위에서 확인했습니다. 공고와 신청 화면을 근거로 비교했으며, 과거 두 수업의 실제 개최 완료·만족도까지 입증하는 결과보고서는 확인하지 않았습니다. 증산의 잔여석은 변동될 수 있습니다. 비용 공란이나 ‘-’를 무료로 해석하지 않았으며, 중곡의 마지막 날은 전체 안내와 세부 시간표가 달라 그대로 구분했습니다. 박물관은 그림책 연계를 명시했지만 낭독 시간·읽기 방식은 미확인입니다.
+
+**출처 URL**
+
+위 표의 링크는 각 수업의 원문입니다. 박물관의 운영 방식·보호자 안내는 [서울백제어린이박물관 공식 모집 공고](https://baekjemuseum.seoul.go.kr/dreamvillage/board/notice/index.jsp?boardid=SDM0401000000&amp;cpage=1&amp;mmode=content&amp;mpid=SDM0401000000&amp;pid=23372&amp;skin=notice)도 교차 확인했습니다.</pre></details>
+</html>

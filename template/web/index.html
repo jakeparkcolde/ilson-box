@@ -6,10 +6,13 @@
 <meta name="color-scheme" content="dark light">
 <meta name="referrer" content="no-referrer">
 <title>내 일손 · 업무 관리</title>
+<link rel="stylesheet" href="/workspace.css">
+<script src="/workspace.js" defer></script>
 <script>
 // 접속용 값은 화면·주소 기록·브라우저 저장소에 남기지 않는다.
 (() => {
   let bootstrapToken = new URLSearchParams(location.hash.slice(1)).get('token');
+  const deviceMode = new URLSearchParams(location.hash.slice(1)).has('device');
   if (location.hash) {
     try { history.replaceState(null, '', location.pathname + location.search); }
     catch (_) { bootstrapToken = null; location.replace(location.pathname + location.search); }
@@ -24,7 +27,7 @@
     const firstToken = bootstrapToken; bootstrapToken = null;
     const $ = id => document.getElementById(id);
     const state = { authenticated:false, epoch:0, overview:null, reports:[], reportNotice:'', page:'overview', selected:null, refreshing:false, reportRequest:0 };
-    const titles = {overview:'홈',jobs:'업무',reports:'보고서',settings:'설정'};
+    const titles = {overview:'홈',jobs:'업무',reports:'보고서',settings:'설정',research:'리서치',knowledge:'지식 훔치기',sns:'SNS 운영',accounts:'SNS 계정 관리',documents:'서류함'};
     const icons = {briefing:'sun',weekly:'file',tidy:'archive',watchdog:'shield',snapshot:'database',update:'refresh'};
     const fallbackLabels = {briefing:'아침 브리핑',weekly:'주간 보고',tidy:'회사 자료 정리',watchdog:'건강 점검',snapshot:'기록 백업',update:'일손 업데이트'};
     const categoryLabels = {briefing:'아침 브리핑',weekly:'주간 보고',pending:'검토할 초안',research:'조사 보고',other:'보고서'};
@@ -68,7 +71,7 @@
     function checkBy(id){return state.overview?.checks?.find(check=>check.id===id);}
     function safeMessage(error,fallback){return error?.userMessage||fallback;}
     async function api(path,options={}){
-      const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),12000);
+      const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),options.timeoutMs||12000);
       try {
         const response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options,signal:controller.signal});
         let data;try{data=await response.json();if(!data||typeof data!=='object'||Array.isArray(data))throw new Error();}catch(_){const error=new Error();error.userMessage='응답을 읽지 못했습니다. 잠시 후 다시 확인해 주세요.';throw error;}
@@ -81,6 +84,7 @@
       } finally {clearTimeout(timer);}
     }
     function lock(message=''){
+      window.MiniWorkspace?.clear();
       state.authenticated=false;state.epoch++;state.reportRequest++;state.overview=null;state.reports=[];state.selected=null;state.refreshing=false;
       $('app').hidden=true;$('access').hidden=false;$('access-loading').hidden=true;$('access-help').hidden=false;
       showError('access-error',message);$('report-body').replaceChildren();$('report-list').replaceChildren();$('all-jobs').replaceChildren();$('recent-reports').replaceChildren();$('overview-jobs').replaceChildren();
@@ -93,6 +97,7 @@
         const result=token?await api('/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})}):await api('/api/session');
         token=null;
         if(!(result.ok===true||result.authenticated===true))throw new Error('session');
+        if(!deviceMode){location.replace('/current/index.html?tab=sns');return;}
         state.authenticated=true;state.epoch++;$('access').hidden=true;$('app').hidden=false;showPage('overview');await refresh();
       } catch(error){token=null;lock(error.status===401?'':safeMessage(error,'이 화면을 열 수 없습니다. 이 맥의 터미널에서 다시 열어주세요.'));}
     }
@@ -104,7 +109,7 @@
       if(!titles[page])return;state.page=page;
       document.querySelectorAll('[data-page]').forEach(section=>section.hidden=section.dataset.page!==page);
       document.querySelectorAll('[data-nav]').forEach(button=>{const active=button.dataset.nav===page;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
-      text('page-title',titles[page]);placePageTools();closeNavigation();if(page==='reports')renderReports();
+      text('page-title',titles[page]);placePageTools();closeNavigation();if(page==='reports')renderReports();window.MiniWorkspace?.show(page);
     }
     function placePageTools(){
       const target=mobileMenu.matches?document.querySelector('.topbar'):document.querySelector('[data-page="'+state.page+'"] .page-heading');
@@ -245,6 +250,7 @@
     window.addEventListener('storage',event=>{if(event.key==='ilson-theme')applyTheme(event.newValue);});
     applyTheme(document.documentElement.dataset.theme);
     document.querySelectorAll('[data-copy]').forEach(button=>button.addEventListener('click',async()=>{const ok=await copy($(button.dataset.copy).textContent);announce(ok?'명령을 복사했습니다. 이 맥의 터미널에 붙여넣으세요.':'복사가 제한된 환경입니다. 명령을 직접 선택해 복사하세요.');}));
+    window.MiniWorkspace?.init({api,navigate:showPage,authenticated:()=>state.authenticated});
     document.querySelectorAll('[data-nav]').forEach(button=>button.addEventListener('click',()=>showPage(button.dataset.nav)));
     $('menu-toggle').addEventListener('click',()=>{const open=!$('sidebar').classList.contains('is-open');$('sidebar').classList.toggle('is-open',open);$('nav-shade').hidden=!open;$('menu-toggle').setAttribute('aria-expanded',String(open));if(open)$('nav-close').focus();});
     $('nav-shade').addEventListener('click',closeNavigation);$('nav-close').addEventListener('click',closeNavigation);document.addEventListener('keydown',event=>{
@@ -252,7 +258,7 @@
       if(event.key==='Tab'&&$('sidebar').classList.contains('is-open')){const buttons=[...$('sidebar').querySelectorAll('button:not(:disabled)')];const first=buttons[0],last=buttons[buttons.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}
     });
     const mobileMenu=matchMedia('(max-width: 720px)');mobileMenu.addEventListener('change',event=>{if(!event.matches)closeNavigation();placePageTools();});
-    $('refresh').addEventListener('click',refresh);$('report-search').addEventListener('input',renderReports);
+    $('refresh').addEventListener('click',async()=>{await refresh();await window.MiniWorkspace?.show(state.page);});$('report-search').addEventListener('input',renderReports);
     $('reader-back').addEventListener('click',()=>{$('reports-layout').classList.remove('has-selection');$('report-search').focus();});
     $('reader-retry').addEventListener('click',()=>{const report=state.reports.find(item=>item.id===state.selected);if(report)openReport(report);else showError('reader-error','이 보고서를 목록에서 다시 선택해 주세요.');});
     $('logout').addEventListener('click',async()=>{

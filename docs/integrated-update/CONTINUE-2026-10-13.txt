@@ -1,0 +1,1 @@
+일손 통합 업데이트 작업을 이어줘. /Users/koldeumaegmini/orca/workspaces/agents/ilson-box-safe-update/docs/integrated-update/HANDOFF-2026-10-13.txt 와 OPERATIONS-2026-10-13.txt 를 먼저 읽어줘. Jake기기는 .6/0.15.1로 실제통합검색까지검증됐다. 새수정은검증한새버전으로배포하고운영자료·설정·고객수정파일을보존해줘. 미확인다른PC도업데이트완료했다고가정하지마.
