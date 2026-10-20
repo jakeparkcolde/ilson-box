@@ -45,6 +45,22 @@ class SetupTests(unittest.TestCase):
         path.chmod(0o700)
         return path
 
+    def test_intel_is_accepted_without_machine_changes(self):
+        r = self.shell('uname() { echo x86_64; }; sysctl() { return 1; }; check_architecture; [ "$FAIL" -eq 0 ]')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("Intel 64비트", r.stdout)
+
+    def test_rosetta_and_unsupported_architecture_are_rejected(self):
+        for script in ['uname() { echo x86_64; }; sysctl() { echo 1; };', 'uname() { echo ppc; };']:
+            r = self.shell(script + ' check_architecture')
+            self.assertNotEqual(r.returncode, 0)
+
+    def test_intel_setup_reaches_sandbox_without_installing_tools(self):
+        r = self.shell('uname() { if [ "$1" = -s ]; then echo Darwin; else echo x86_64; fi; }; sysctl() { return 1; }; sw_vers() { echo 26.6.2; }; TEMPLATE="'+str(ROOT)+'/template"; SANDBOX=1; setup')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue((self.box / 'lib/research/native.py').is_file())
+        self.assertFalse((self.box / 'state/setup-complete').exists())
+
     def test_tailscale_오류문자열을_연결성공으로_세지않는다(self):
         tool = self.fake("tailscale", "echo 'Tailscale is not running'; exit 1")
         r = self.shell(f'TS_BIN="{tool}"; check_remote; [ "$PASS" -eq 0 ] && [ "$WARN" -gt 0 ] && [ "$FAIL" -eq 0 ]')
