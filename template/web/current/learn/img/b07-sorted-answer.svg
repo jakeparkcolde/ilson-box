@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 372" width="720" height="372" role="img" aria-label="Claude의 답이 견적서에서 확인된 것과 추측이거나 확인이 필요한 것 두 칸으로 나뉜 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:20px;font-weight:600}
+    .b{font-size:20px}
+    .s{font-size:18px;fill:#6b7078}
+    .pill{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="372" rx="16" fill="#f5f6f6"/>
+
+  <!-- one answer card -->
+  <rect x="32" y="24" width="656" height="324" rx="16" fill="#ffffff"/>
+  <path d="M48 24 H672 A16 16 0 0 1 688 40 V64 H32 V40 A16 16 0 0 1 48 24 Z" fill="#eceef0"/>
+  <text class="s" x="56" y="51">Claude의 답</text>
+  <path d="M32 64 H688 M32 118 H688" stroke="#e4e4e8" stroke-width="1.5"/>
+  <path d="M360 64 V348" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="32" y="24" width="656" height="324" rx="16" fill="none" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <!-- left: confirmed in the quotes -->
+  <circle cx="62" cy="94" r="7" fill="#1d8a38"/>
+  <text class="h" x="78" y="101" style="fill:#1d8a38">견적서에서 확인된 것</text>
+
+  <circle cx="66" cy="164" r="12" fill="#1d8a38"/>
+  <path d="M60 164 L64.5 168.5 L72.5 159.5" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="b" x="90" y="171">가 합계 130,000원</text>
+  <rect x="90" y="186" width="3" height="28" rx="1.5" fill="#c9ccd2"/>
+  <text class="s" x="104" y="207">“합계 130,000원” — 견적서 가</text>
+
+  <circle cx="66" cy="268" r="12" fill="#1d8a38"/>
+  <path d="M60 268 L64.5 272.5 L72.5 263.5" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="b" x="90" y="275">나 합계 131,000원</text>
+  <rect x="90" y="290" width="3" height="28" rx="1.5" fill="#c9ccd2"/>
+  <text class="s" x="104" y="311">“합계 131,000원” — 견적서 나</text>
+
+  <!-- right: guesses or needs checking -->
+  <circle cx="390" cy="94" r="7" fill="#a3720a"/>
+  <text class="h" x="406" y="101" style="fill:#a3720a">추측이거나 확인이 필요한 것</text>
+
+  <rect x="384" y="150" width="90" height="30" rx="15" fill="#a3720a"/>
+  <text class="pill" x="429" y="171" text-anchor="middle">확인 필요</text>
+  <text class="b" x="488" y="172">나 배송비 '무료'</text>
+  <text class="s" x="388" y="208">견적서에 없음 → 확인 필요</text>
+
+  <rect x="384" y="254" width="90" height="30" rx="15" fill="#a3720a"/>
+  <text class="pill" x="429" y="275" text-anchor="middle">확인 필요</text>
+  <text class="b" x="488" y="276">나 결제 조건 '카드'</text>
+  <text class="s" x="388" y="312">견적서에 없음 → 확인 필요</text>
+</svg>

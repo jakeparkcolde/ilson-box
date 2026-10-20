@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" width="720" height="360" role="img" aria-label="카드 번호와 연락처 가리기, 사진 형식 확인, 큰 파일 나누기 세 가지를 적은 확인 카드">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .t{font-size:26px;font-weight:700}
+    .l{font-size:21px;font-weight:600}
+  </style>
+  <rect width="720" height="360" rx="16" fill="#f5f6f6"/>
+
+  <rect x="32" y="24" width="656" height="312" rx="16" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="t" x="64" y="74">올리기 전에</text>
+  <path d="M32 98 H688" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <!-- row 1: cover card number and contact -->
+  <rect x="64" y="134" width="28" height="28" rx="7" fill="#ffffff" stroke="#c9ccd2" stroke-width="2"/>
+  <path d="M120 128 H152 V168 L148 164 L144 168 L140 164 L136 168 L132 164 L128 168 L124 164 L120 168 Z" fill="#ffffff" stroke="#5e6ad2" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M126 138 H146" stroke="#5e6ad2" stroke-width="2.5" stroke-linecap="round"/>
+  <rect x="123" y="146" width="26" height="9" rx="1.5" fill="#1d1d21"/>
+  <text class="l" x="184" y="156">카드 번호·연락처 가리기</text>
+
+  <path d="M64 180 H656" stroke="#eceef0" stroke-width="1.5"/>
+
+  <!-- row 2: photo format -->
+  <rect x="64" y="198" width="28" height="28" rx="7" fill="#ffffff" stroke="#c9ccd2" stroke-width="2"/>
+  <rect x="116" y="196" width="40" height="32" rx="5" fill="#ffffff" stroke="#5e6ad2" stroke-width="2.5"/>
+  <path d="M120 224 L132 210 L140 218 L145 213 L152 224" fill="none" stroke="#5e6ad2" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="146" cy="204" r="3.5" fill="#5e6ad2"/>
+  <text class="l" x="184" y="220">사진 형식 확인 (JPEG·PNG 등)</text>
+
+  <path d="M64 244 H656" stroke="#eceef0" stroke-width="1.5"/>
+
+  <!-- row 3: split big files -->
+  <rect x="64" y="262" width="28" height="28" rx="7" fill="#ffffff" stroke="#c9ccd2" stroke-width="2"/>
+  <path d="M117 258 H131 V294 H117 A3 3 0 0 1 114 291 V261 A3 3 0 0 1 117 258 Z" fill="#e8eafb" stroke="#5e6ad2" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M141 258 H149 L158 267 V291 A3 3 0 0 1 155 294 H141 Z" fill="#e8eafb" stroke="#5e6ad2" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M149 258 V267 H158" fill="none" stroke="#5e6ad2" stroke-width="2.5" stroke-linejoin="round"/>
+  <text class="l" x="184" y="284">큰 파일은 나눠서</text>
+</svg>

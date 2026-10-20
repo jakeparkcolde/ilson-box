@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 476" width="720" height="476" role="img" aria-label="주민등록번호, 카드·계좌 정보, 비밀번호·인증번호, 손님 연락처 전체 목록, 건강 정보, 직원 개인정보, 손님 얼굴이 나온 사진이 적힌 넣지 않을 정보 카드">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .t{font-size:26px;font-weight:700}
+    .r{font-size:21px}
+    .f{font-size:20px;font-weight:600}
+  </style>
+  <rect width="720" height="476" rx="16" fill="#f5f6f6"/>
+
+  <!-- flat shadow + card -->
+  <rect x="146" y="44" width="440" height="412" rx="16" fill="#e4e4e8"/>
+  <rect x="140" y="36" width="440" height="412" rx="16" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <!-- footer band (rounded bottom corners) -->
+  <path d="M141 402 H 579 V 432 A15 15 0 0 1 564 447 H 156 A15 15 0 0 1 141 432 Z" fill="#e8eafb"/>
+  <!-- pin -->
+  <circle cx="360" cy="38" r="10" fill="#5e6ad2" stroke="#ffffff" stroke-width="3"/>
+  <circle cx="357" cy="35" r="2.5" fill="#ffffff"/>
+
+  <!-- header -->
+  <path d="M194 60 L 212 66 V 80 C 212 92, 204 99, 194 104 C 184 99, 176 92, 176 80 V 66 Z" fill="#e8eafb" stroke="#5e6ad2" stroke-width="2.5" stroke-linejoin="round"/>
+  <text class="t" x="228" y="91">넣지 않을 정보</text>
+  <path d="M164 118 H 556" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <!-- rows: danger badges with vector X -->
+  <g fill="#f8e3e1">
+    <circle cx="188" cy="146" r="14"/>
+    <circle cx="188" cy="184" r="14"/>
+    <circle cx="188" cy="222" r="14"/>
+    <circle cx="188" cy="260" r="14"/>
+    <circle cx="188" cy="298" r="14"/>
+    <circle cx="188" cy="336" r="14"/>
+    <circle cx="188" cy="374" r="14"/>
+  </g>
+  <g stroke="#c4423b" stroke-width="2.6" stroke-linecap="round">
+    <path d="M182.5 140.5 L 193.5 151.5 M193.5 140.5 L 182.5 151.5"/>
+    <path d="M182.5 178.5 L 193.5 189.5 M193.5 178.5 L 182.5 189.5"/>
+    <path d="M182.5 216.5 L 193.5 227.5 M193.5 216.5 L 182.5 227.5"/>
+    <path d="M182.5 254.5 L 193.5 265.5 M193.5 254.5 L 182.5 265.5"/>
+    <path d="M182.5 292.5 L 193.5 303.5 M193.5 292.5 L 182.5 303.5"/>
+    <path d="M182.5 330.5 L 193.5 341.5 M193.5 330.5 L 182.5 341.5"/>
+    <path d="M182.5 368.5 L 193.5 379.5 M193.5 368.5 L 182.5 379.5"/>
+  </g>
+  <text class="r" x="216" y="153">주민등록번호</text>
+  <text class="r" x="216" y="191">카드·계좌 정보</text>
+  <text class="r" x="216" y="229">비밀번호·인증번호</text>
+  <text class="r" x="216" y="267">손님 연락처 전체 목록</text>
+  <text class="r" x="216" y="305">건강 정보</text>
+  <text class="r" x="216" y="343">직원 개인정보</text>
+  <text class="r" x="216" y="381">손님 얼굴이 나온 사진</text>
+
+  <text class="f" x="360" y="432" text-anchor="middle">꼭 써야 하면: 가리고 나서 붙여 넣기</text>
+</svg>

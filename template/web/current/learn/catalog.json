@@ -1,0 +1,255 @@
+{
+  "version": "2026-10-20",
+  "intro": "Claude를 처음 써 보는 분을 위한 안내서예요. 한 강은 읽는 데 5분 남짓이고, 강마다 가게 일에 바로 쓸 결과물을 하나씩 만들어요. 예시는 가상의 동네 꽃집 「햇살꽃집」을 따라가요. 「내 가게 정보로 바꾸기」에 우리 가게를 적으면 모든 부탁 문장이 우리 가게 이야기로 바뀌어요.",
+  "example_shop": {
+    "name": "햇살꽃집",
+    "kind": "꽃집",
+    "area": "우리 동네",
+    "product": "계절 꽃다발"
+  },
+  "tracks": [
+    {
+      "id": "basic",
+      "title": "기본 과정",
+      "summary": "Claude와 처음 인사하는 것부터 일손박스에 일을 맡기는 것까지 22강으로 차근차근 익혀요. 글쓰기·문서·손님 응대처럼 가게 일부터 시작해요.",
+      "status": "open",
+      "parts": [
+        {
+          "number": 1,
+          "title": "시작하기",
+          "lessons": [
+            {
+              "id": "b01",
+              "number": 1,
+              "title": "Claude에게 무엇을 맡길까요",
+              "subtitle": "잘하는 일과 서툰 일을 알고, 내 일 다섯 가지를 골라요",
+              "minutes": 6,
+              "surface": "both",
+              "status": "published"
+            },
+            {
+              "id": "b02",
+              "number": 2,
+              "title": "가입하고 요금제 고르기",
+              "subtitle": "무료로 시작하고, 필요할 때 한 칸씩 올려요",
+              "minutes": 7,
+              "surface": "web",
+              "status": "published"
+            },
+            {
+              "id": "b03",
+              "number": 3,
+              "title": "안심하고 쓰기",
+              "subtitle": "설정 하나 확인하고, 넣지 않을 정보 카드를 만들어요",
+              "minutes": 7,
+              "surface": "web",
+              "status": "published"
+            }
+          ]
+        },
+        {
+          "number": 2,
+          "title": "대화하기",
+          "lessons": [
+            {
+              "id": "b04",
+              "number": 4,
+              "title": "첫 부탁, 한 줄과 다섯 줄",
+              "subtitle": "같은 가게 소개를 두 번 부탁해 비교해요",
+              "minutes": 7,
+              "surface": "web",
+              "status": "published"
+            },
+            {
+              "id": "b05",
+              "number": 5,
+              "title": "꽃다발처럼 부탁하기",
+              "subtitle": "받는 분·주인공·포장·가시, 네 가지만 챙겨요",
+              "minutes": 7,
+              "surface": "web",
+              "status": "published"
+            },
+            {
+              "id": "b06",
+              "number": 6,
+              "title": "사진과 서류 보여 주기",
+              "subtitle": "손글씨 가격표는 표로, 견적서 두 장은 비교표로",
+              "minutes": 8,
+              "surface": "web",
+              "status": "published"
+            },
+            {
+              "id": "b07",
+              "number": 7,
+              "title": "돌다리 두드리듯 확인하기",
+              "subtitle": "그럴듯한 답일수록 한 번 더 두드려 봐요",
+              "minutes": 7,
+              "surface": "web",
+              "status": "published"
+            },
+            {
+              "id": "b08",
+              "number": 8,
+              "title": "프로젝트와 메모리로 우리 가게 기억시키기",
+              "subtitle": "매번 설명하지 않아도 가게 사정을 알게 하기",
+              "minutes": 6,
+              "surface": "web",
+              "status": "soon"
+            },
+            {
+              "id": "b09",
+              "number": 9,
+              "title": "아티팩트로 문서·표 만들기",
+              "subtitle": "대화 옆에 바로 쓰는 문서와 표 만들기",
+              "minutes": 6,
+              "surface": "web",
+              "status": "soon"
+            },
+            {
+              "id": "b10",
+              "number": 10,
+              "title": "웹 검색·리서치와 앱 연결",
+              "subtitle": "최신 정보 찾기와 다른 앱 연결하기",
+              "minutes": 7,
+              "surface": "web",
+              "status": "soon"
+            }
+          ]
+        },
+        {
+          "number": 3,
+          "title": "일손박스에서 쓰기",
+          "lessons": [
+            {
+              "id": "b11",
+              "number": 11,
+              "title": "터미널, 버튼 하나로 시작하기",
+              "subtitle": "글로 주고받는 창을 열고 Claude에게 첫 질문하기",
+              "minutes": 6,
+              "surface": "ilson",
+              "status": "published"
+            },
+            {
+              "id": "b12",
+              "number": 12,
+              "title": "로그인과 \"이 폴더를 믿을까요?\"",
+              "subtitle": "처음 한 번이면 되는 두 가지 대답",
+              "minutes": 6,
+              "surface": "ilson",
+              "status": "published"
+            },
+            {
+              "id": "b13",
+              "number": 13,
+              "title": "첫 작업: 만들고, 고치고, 다시 열기",
+              "subtitle": "가격표 한 장을 서류함에 넣고 내일 다시 꺼내기",
+              "minutes": 8,
+              "surface": "ilson",
+              "status": "published"
+            },
+            {
+              "id": "b14",
+              "number": 14,
+              "title": "허락하기와 되돌리기",
+              "subtitle": "계획부터 보고, 고친 것을 내 손으로 되돌려요",
+              "minutes": 8,
+              "surface": "ilson",
+              "status": "published"
+            },
+            {
+              "id": "b15",
+              "number": 15,
+              "title": "회사 설명서 만들기 (/onboard)",
+              "subtitle": "우리 회사를 소개하는 기본 문서 만들기",
+              "minutes": 6,
+              "surface": "ilson",
+              "status": "soon"
+            },
+            {
+              "id": "b16",
+              "number": 16,
+              "title": "일손박스 메뉴와 같이 쓰기",
+              "subtitle": "리서치·서류함·SNS 메뉴와 함께 쓰기",
+              "minutes": 6,
+              "surface": "ilson",
+              "status": "soon"
+            }
+          ]
+        },
+        {
+          "number": 4,
+          "title": "맡기기",
+          "lessons": [
+            {
+              "id": "b17",
+              "number": 17,
+              "title": "정해진 시간에 알아서 (ilson start, 텔레그램)",
+              "subtitle": "정해 둔 시간에 보고를 받아 보기",
+              "minutes": 7,
+              "surface": "ilson",
+              "status": "soon"
+            },
+            {
+              "id": "b18",
+              "number": 18,
+              "title": "팩·스킬로 능력 더하기",
+              "subtitle": "필요한 능력을 골라 더해 쓰기",
+              "minutes": 6,
+              "surface": "ilson",
+              "status": "soon"
+            },
+            {
+              "id": "b19",
+              "number": 19,
+              "title": "더 해보기: 우리 가게 소개 페이지",
+              "subtitle": "우리 가게를 알리는 한 장짜리 페이지",
+              "minutes": 7,
+              "surface": "ilson",
+              "status": "soon"
+            }
+          ]
+        },
+        {
+          "number": 5,
+          "title": "막혔을 때",
+          "lessons": [
+            {
+              "id": "b20",
+              "number": 20,
+              "title": "사용량 한도에 걸렸을 때",
+              "subtitle": "한도에 걸렸을 때 기다릴지 바꿀지 정하기",
+              "minutes": 5,
+              "surface": "both",
+              "status": "soon"
+            },
+            {
+              "id": "b21",
+              "number": 21,
+              "title": "오류가 났을 때",
+              "subtitle": "오류 문구를 읽고 차분하게 대처하기",
+              "minutes": 6,
+              "surface": "both",
+              "status": "soon"
+            },
+            {
+              "id": "b22",
+              "number": 22,
+              "title": "용어 사전·자주 묻는 질문",
+              "subtitle": "헷갈리는 말과 자주 묻는 질문 모음",
+              "minutes": 5,
+              "surface": "both",
+              "status": "soon"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vibe",
+      "title": "바이브 코딩 심화",
+      "summary": "장난감 대신 실제로 쓸 가게 도구를 만들어요. 햇살꽃집의 예약·문의 접수 페이지를 한 단계씩 만들고, 마지막에는 손님에게 보낼 수 있는 공개 주소까지 얻어요. 기본 과정을 마친 뒤에 열릴 예정이에요.",
+      "status": "soon",
+      "parts": []
+    }
+  ]
+}

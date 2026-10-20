@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" width="720" height="420" role="img" aria-label="서류함 화면에서 회사 자료 묶음, 회사 자료 서랍, 가격표 문서를 차례로 고르는 위치를 짚은 화면 스케치">
+  <defs>
+    <path id="fd" d="M0 2.5 q0-2.5 2.5-2.5 h5 l2.5 2.5 h6.5 q2.5 0 2.5 2.5 v8 q0 2.5-2.5 2.5 h-14 q-2.5 0-2.5-2.5 z"/>
+    <path id="fl" d="M2 0 h7 l5 5 v11 q0 2-2 2 h-10 q-2 0-2-2 v-14 q0-2 2-2 z M9 0 v5 h5"/>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .s{font-size:18px;fill:#6b7078}
+    .r{font-size:18px}
+    .d{font-size:18px;fill:#1d1d21}
+    .h{font-family:'SF Mono',Menlo,monospace}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+    .card{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+  </style>
+  <rect width="720" height="420" rx="16" fill="#f5f6f6"/>
+
+  <text class="s" x="32" y="50">회사 서류함</text>
+  <text x="32" y="86" style="font-size:26px;font-weight:700">회사의 기억</text>
+  <rect x="164" y="68" width="72" height="24" rx="12" fill="#e4e4e8"/>
+  <text class="s" x="688" y="86" text-anchor="end">실제 화면은 조금 다를 수 있어요</text>
+
+  <!-- left: group with drawers -->
+  <rect x="32" y="108" width="136" height="132" rx="12" class="card"/>
+  <path d="M54 126 L60 132 L66 126" fill="none" stroke="#6b7078" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="74" y="137" style="font-size:20px;font-weight:700">회사 자료</text>
+  <path d="M33 152 H167 M33 196 H167" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="33" y="153" width="134" height="42" fill="#e6f3e9"/>
+  <rect x="33" y="153" width="4" height="42" fill="#1d8a38"/>
+  <use href="#fd" x="56" y="167" fill="none" stroke="#1d8a38" stroke-width="1.5"/>
+  <text class="r" x="82" y="181">회사 자료</text>
+  <use href="#fd" x="56" y="211" fill="none" stroke="#1d8a38" stroke-width="1.5"/>
+  <text class="r" x="82" y="225">서류함</text>
+  <circle cx="32" cy="130" r="14" fill="#5e6ad2"/><text class="n" x="32" y="136" text-anchor="middle">1</text>
+  <circle cx="32" cy="174" r="14" fill="#5e6ad2"/><text class="n" x="32" y="180" text-anchor="middle">2</text>
+
+  <!-- middle: drawer info + document list -->
+  <rect x="178" y="108" width="200" height="114" rx="12" class="card"/>
+  <rect x="192" y="122" width="86" height="28" rx="14" fill="#f5f6f6"/>
+  <text class="s" x="235" y="142" text-anchor="middle">회사 기록</text>
+  <rect x="284" y="122" width="86" height="28" rx="14" fill="#e6f3e9"/>
+  <text x="327" y="142" text-anchor="middle" style="font-size:18px;fill:#1d8a38">수정 가능</text>
+  <text class="r" x="192" y="180">수정하면 원본과 연결된</text>
+  <text class="r" x="192" y="204">새 기록을 만듭니다.</text>
+
+  <rect x="178" y="234" width="200" height="90" rx="12" class="card"/>
+  <path d="M179 279 H377" stroke="#e4e4e8" stroke-width="1.5"/>
+  <path d="M190 235 H366 Q377 235 377 246 V278 H179 V246 Q179 235 190 235 Z" fill="#eceef0"/>
+  <use href="#fl" x="194" y="247" fill="none" stroke="#6b7078" stroke-width="1.5"/>
+  <text class="r" x="218" y="263">햇살꽃집 가격표</text>
+  <use href="#fl" x="194" y="292" fill="none" stroke="#6b7078" stroke-width="1.5"/>
+  <text class="r" x="218" y="308">회사 노트 색인</text>
+  <circle cx="178" cy="256" r="14" fill="#5e6ad2"/><text class="n" x="178" y="262" text-anchor="middle">3</text>
+
+  <!-- right: the open document -->
+  <rect x="388" y="108" width="300" height="282" rx="12" class="card"/>
+  <path d="M400 109 H676 Q687 109 687 120 V152 H389 V120 Q389 109 400 109 Z" fill="#f5f6f6"/>
+  <path d="M389 152 H687" stroke="#e4e4e8" stroke-width="1.5"/>
+  <use href="#fl" x="404" y="121" fill="none" stroke="#1d8a38" stroke-width="1.5"/>
+  <text x="426" y="137" style="font-size:19px;font-weight:700">햇살꽃집 가격표</text>
+  <rect x="600" y="115" width="76" height="30" rx="8" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <path d="M614 136 L616 130 L626 120 L630 124 L620 134 Z" fill="none" stroke="#1d1d21" stroke-width="1.5" stroke-linejoin="round"/>
+  <text class="r" x="636" y="137">수정</text>
+  <text class="d" x="404" y="186"><tspan class="h">#</tspan> 햇살꽃집 가격표</text>
+  <text class="d" x="404" y="216">| 품목 | 가격 |</text>
+  <text class="d" x="404" y="246">| 계절 꽃다발 | 확인 필요 |</text>
+  <text class="d" x="404" y="276">| ○○ (추천) | 확인 필요 |</text>
+  <text class="d" x="404" y="306">가격은 사정에 따라 바뀔 수 있어요.</text>
+  <path d="M389 336 H687" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="s" x="404" y="368">vault/company / 햇살꽃집 가격표</text>
+</svg>

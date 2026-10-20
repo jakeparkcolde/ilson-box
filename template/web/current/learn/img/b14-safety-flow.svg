@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 456" width="720" height="456" role="img" aria-label="부탁, 계획 보기, 허락, 고치기, 마음에 안 들면 되돌리기로 이어지는 안전 흐름도">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrowG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#1d8a38" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:21px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#f7f8f8}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+    .k{font-size:18px;font-weight:600}
+  </style>
+  <rect width="720" height="456" rx="16" fill="#f5f6f6"/>
+
+  <!-- row 1 -->
+  <rect x="32" y="32" width="104" height="120" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <circle cx="58" cy="58" r="14" fill="#5e6ad2"/><text class="n" x="58" y="64" text-anchor="middle">1</text>
+  <text class="l" x="84" y="106" text-anchor="middle">부탁</text>
+
+  <path d="M140 92 H166" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <rect x="172" y="32" width="184" height="120" rx="12" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <circle cx="198" cy="58" r="14" fill="#5e6ad2"/><text class="n" x="198" y="64" text-anchor="middle">2</text>
+  <text class="l" x="264" y="100" text-anchor="middle">계획 보기</text>
+  <text class="s" x="264" y="130" text-anchor="middle">계획만 먼저</text>
+
+  <path d="M360 92 H386" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <rect x="392" y="32" width="296" height="120" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <circle cx="418" cy="58" r="14" fill="#5e6ad2"/><text class="n" x="418" y="64" text-anchor="middle">3</text>
+  <text class="l" x="540" y="90" text-anchor="middle">허락</text>
+  <rect x="404" y="106" width="272" height="34" rx="8" fill="#1d1d21"/>
+  <text class="m" x="540" y="129" text-anchor="middle">Do you want to proceed?</text>
+
+  <path d="M540 156 V226" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- recovery: back to just before the change -->
+  <path d="M162 230 V200 Q162 192 170 192 H528" stroke="#1d8a38" stroke-width="2" stroke-dasharray="6 5" fill="none" marker-end="url(#arrowG)"/>
+  <circle cx="540" cy="192" r="4" fill="#1d8a38"/>
+  <text x="350" y="182" text-anchor="middle" style="font-size:18px;font-weight:600;fill:#1d8a38">고치기 전으로</text>
+
+  <!-- row 2 -->
+  <rect x="392" y="232" width="296" height="120" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <circle cx="418" cy="258" r="14" fill="#5e6ad2"/><text class="n" x="418" y="264" text-anchor="middle">4</text>
+  <text class="l" x="540" y="300" text-anchor="middle">고치기</text>
+
+  <path d="M386 292 H298" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <rect x="32" y="232" width="260" height="120" rx="12" fill="#ffffff" stroke="#1d8a38" stroke-width="2"/>
+  <circle cx="58" cy="258" r="14" fill="#5e6ad2"/><text class="n" x="58" y="264" text-anchor="middle">5</text>
+  <text class="l" x="162" y="288" text-anchor="middle">마음에 안 들면</text>
+  <rect x="66" y="309" width="52" height="32" rx="7" fill="#e4e4e8"/>
+  <rect x="66" y="306" width="52" height="32" rx="7" fill="#ffffff" stroke="#c9ccd1" stroke-width="1.5"/>
+  <text class="k" x="92" y="328" text-anchor="middle">esc</text>
+  <text x="126" y="329" style="font-size:20px;font-weight:600;fill:#1d8a38">두 번 → 되돌리기</text>
+
+  <!-- footer band -->
+  <rect x="32" y="380" width="656" height="48" rx="12" fill="#f8efdc"/>
+  <g fill="#a3720a" transform="translate(-12 0)">
+    <rect x="226" y="395" width="4.6" height="14" rx="2.3"/>
+    <rect x="231.8" y="392" width="4.6" height="17" rx="2.3"/>
+    <rect x="237.6" y="394" width="4.6" height="15" rx="2.3"/>
+    <rect x="243.4" y="398" width="4.2" height="11" rx="2.1"/>
+    <rect x="226" y="404" width="21.6" height="15" rx="6"/>
+    <rect x="220.5" y="405" width="4.6" height="12" rx="2.3" transform="rotate(-38 223 411)"/>
+  </g>
+  <text x="246" y="411" style="font-size:20px;font-weight:600;fill:#a3720a">지우기·보내기 전에는 내 허락 받기</text>
+</svg>

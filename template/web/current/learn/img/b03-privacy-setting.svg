@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 460" width="720" height="460" role="img" aria-label="설정 화면에서 개인정보 메뉴를 고르고 AI 모델 개선에 도움 주기 스위치를 찾는 위치를 번호로 표시한 화면 스케치">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:24px;font-weight:700}
+    .k{font-size:18px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .c{font-size:18px;font-weight:500}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="460" rx="16" fill="#f5f6f6"/>
+
+  <!-- app window (schematic) -->
+  <rect x="32" y="32" width="656" height="372" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <path d="M32 66 V 44 A12 12 0 0 1 44 32 H 676 A12 12 0 0 1 688 44 V 66 Z" fill="#eceef0"/>
+  <g fill="#6b7078" opacity="0.45">
+    <circle cx="52" cy="49" r="5"/><circle cx="68" cy="49" r="5"/><circle cx="84" cy="49" r="5"/>
+  </g>
+  <!-- sidebar -->
+  <path d="M32.75 66 H 120 V 403.25 H 44 A11.25 11.25 0 0 1 32.75 392 Z" fill="#f5f6f6"/>
+  <path d="M120 66 V 404" stroke="#e4e4e8" stroke-width="1.5"/>
+  <g fill="#e4e4e8">
+    <rect x="48" y="86" width="56" height="10" rx="5"/>
+    <rect x="48" y="108" width="44" height="10" rx="5"/>
+    <rect x="48" y="130" width="52" height="10" rx="5"/>
+  </g>
+
+  <!-- settings page -->
+  <text class="h" x="144" y="104">Settings</text>
+  <text class="s" x="242" y="104">(설정)</text>
+  <g fill="#e4e4e8">
+    <rect x="148" y="128" width="88" height="10" rx="5"/>
+    <rect x="148" y="150" width="68" height="10" rx="5"/>
+    <rect x="148" y="242" width="78" height="10" rx="5"/>
+  </g>
+  <rect x="138" y="168" width="158" height="58" rx="10" fill="#e8eafb" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="k" x="152" y="192">Privacy</text>
+  <text class="s" x="152" y="216">(개인정보)</text>
+  <circle cx="314" cy="197" r="14" fill="#5e6ad2"/>
+  <text class="n" x="314" y="203" text-anchor="middle">3</text>
+
+  <!-- right panel -->
+  <rect x="334" y="88" width="338" height="300" rx="10" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="k" x="352" y="130">Help Improve our AI models</text>
+  <text class="s" x="352" y="156">(AI 모델 개선에 도움 주기)</text>
+  <!-- toggle drawn neutral: neither clearly on nor off -->
+  <rect x="588" y="116" width="72" height="44" rx="12" fill="none" stroke="#5e6ad2" stroke-width="2"/>
+  <rect x="598" y="124" width="52" height="28" rx="14" fill="#eceef0" stroke="#6b7078" stroke-width="1.5"/>
+  <circle cx="624" cy="138" r="10" fill="#ffffff" stroke="#6b7078" stroke-width="1.5"/>
+  <!-- callout with marker 4 -->
+  <path d="M614 182 L 624 168 L 634 182 Z" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5" stroke-linejoin="round"/>
+  <rect x="438" y="181" width="222" height="44" rx="12" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <path d="M615.5 182 H 632.5" stroke="#e8eafb" stroke-width="2.5"/>
+  <circle cx="462" cy="203" r="14" fill="#5e6ad2"/>
+  <text class="n" x="462" y="209" text-anchor="middle">4</text>
+  <text class="c" x="486" y="209">켤지 끌지 내가 정해요</text>
+  <g fill="#e4e4e8">
+    <rect x="352" y="258" width="210" height="10" rx="5"/>
+    <rect x="352" y="280" width="150" height="10" rx="5"/>
+    <rect x="352" y="318" width="190" height="10" rx="5"/>
+    <rect x="352" y="340" width="120" height="10" rx="5"/>
+  </g>
+
+  <!-- profile menu popup (opened from the avatar) -->
+  <rect x="47" y="273" width="188" height="80" rx="10" fill="#e4e4e8"/>
+  <rect x="44" y="268" width="188" height="80" rx="10" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="60" y="282" width="92" height="10" rx="5" fill="#e4e4e8"/>
+  <rect x="54" y="302" width="168" height="36" rx="8" fill="#e8eafb" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="k" x="68" y="326">Settings</text>
+  <text class="s" x="137" y="326">(설정)</text>
+  <circle cx="250" cy="320" r="14" fill="#5e6ad2"/>
+  <text class="n" x="250" y="326" text-anchor="middle">2</text>
+
+  <!-- avatar with generic letter -->
+  <circle cx="62" cy="376" r="17" fill="#e8eafb" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="k" x="62" y="382" text-anchor="middle">가</text>
+  <circle cx="100" cy="376" r="14" fill="#5e6ad2"/>
+  <text class="n" x="100" y="382" text-anchor="middle">1</text>
+
+  <text class="s" x="360" y="438" text-anchor="middle">실제 화면은 조금 다를 수 있어요</text>
+</svg>

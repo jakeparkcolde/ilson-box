@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 462" width="720" height="462" role="img" aria-label="폴더를 믿을지 묻는 질문에서 ilson chat으로 연 일손 폴더면 예, 다른 곳이면 아니요를 고르는 판단 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:21px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .a{font-size:20px;font-weight:700}
+  </style>
+  <rect width="720" height="462" rx="16" fill="#f5f6f6"/>
+
+  <!-- the question appears -->
+  <rect x="170" y="32" width="380" height="88" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="l" x="360" y="70" text-anchor="middle">폴더를 믿을지 묻는 질문이 나왔어요</text>
+  <text class="s" x="360" y="100" text-anchor="middle">(글자는 버전마다 달라요)</text>
+  <path d="M360 120 V146" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- decision pill -->
+  <rect x="216" y="152" width="288" height="48" rx="24" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="l" x="360" y="183" text-anchor="middle">ilson chat으로 열었나요?</text>
+
+  <path d="M216 176 H200 Q188 176 188 188 V272" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M504 176 H520 Q532 176 532 188 V272" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text class="a" x="206" y="246" style="fill:#1d8a38">예</text>
+  <text x="514" y="246" text-anchor="end" style="font-size:18px;font-weight:600;fill:#a3720a">아니요 · 모르겠어요</text>
+
+  <!-- yes: box folder -->
+  <rect x="32" y="280" width="312" height="150" rx="14" fill="#e6f3e9" stroke="#1d8a38" stroke-width="2"/>
+  <text class="l" x="188" y="318" text-anchor="middle">일손 폴더 <tspan style="font-family:'SF Mono',Menlo,monospace;font-size:20px;font-weight:400">~/ilson</tspan></text>
+  <circle cx="129.5" cy="345" r="10" fill="#1d8a38"/>
+  <path d="M124.5 345 L128.5 349 L134.5 341" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="a" x="147.5" y="352" style="fill:#1d8a38">「예」 믿고 진행</text>
+  <text class="s" x="188" y="380" text-anchor="middle">영어 화면: 보통 <tspan style="font-family:'SF Mono',Menlo,monospace;fill:#1d1d21">Yes</tspan>로 시작하는 줄</text>
+  <text class="s" x="188" y="410" text-anchor="middle">다음부터는 묻지 않아요</text>
+
+  <!-- no: anywhere else -->
+  <rect x="376" y="280" width="312" height="150" rx="14" fill="#f8efdc" stroke="#a3720a" stroke-width="2"/>
+  <text class="l" x="532" y="330" text-anchor="middle">다른 곳 (홈 폴더, 받은 폴더)</text>
+  <circle cx="495.5" cy="357" r="10" fill="#a3720a"/>
+  <path d="M491.5 353 L499.5 361 M499.5 353 L491.5 361" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
+  <text class="a" x="513.5" y="364" style="fill:#a3720a">「아니요」</text>
+  <text class="s" x="532" y="398" text-anchor="middle">ilson chat으로 다시 열기</text>
+</svg>

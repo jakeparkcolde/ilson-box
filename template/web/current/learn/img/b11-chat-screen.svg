@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" width="720" height="400" role="img" aria-label="ilson chat을 실행한 뒤 터미널 화면에서 글 쓰는 칸과 아래쪽 모드 표시 위치를 짚은 스케치">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .c{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#f7f8f8}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="400" rx="16" fill="#f5f6f6"/>
+  <text class="s" x="688" y="56" text-anchor="end">실제 화면은 조금 다를 수 있어요</text>
+
+  <!-- terminal -->
+  <rect x="32" y="32" width="368" height="310" rx="12" fill="#1d1d21"/>
+  <circle cx="54" cy="54" r="5" fill="#62666d"/><circle cx="72" cy="54" r="5" fill="#62666d"/><circle cx="90" cy="54" r="5" fill="#62666d"/>
+  <text x="216" y="61" text-anchor="middle" style="font-size:18px;fill:#9aa0a8">터미널</text>
+  <path d="M32 76 H400" stroke="#2c2e34" stroke-width="1.5"/>
+
+  <text class="m" x="52" y="110"><tspan style="fill:#a7b0ff">~ %</tspan> ilson chat</text>
+
+  <rect x="52" y="128" width="328" height="80" rx="10" fill="#26282e" stroke="#43464e" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <text x="216" y="174" text-anchor="middle" style="font-size:18px;fill:#9aa0a8">Claude 시작 화면 (버전마다 달라요)</text>
+
+  <rect x="52" y="232" width="328" height="50" rx="8" fill="none" stroke="#a7b0ff" stroke-width="2"/>
+  <rect x="68" y="245" width="10" height="24" fill="#f7f8f8"/>
+
+  <text class="m" x="56" y="318" style="fill:#a7b0ff">⏵⏵ auto mode on</text>
+
+  <!-- callouts -->
+  <path d="M220 104 H420" stroke="#5e6ad2" stroke-width="1.5"/>
+  <circle cx="220" cy="104" r="3.5" fill="#5e6ad2"/>
+  <text class="c" x="430" y="111">붙여 넣고 return</text>
+
+  <path d="M380 257 H420" stroke="#5e6ad2" stroke-width="1.5"/>
+  <circle cx="440" cy="257" r="14" fill="#5e6ad2"/><text class="n" x="440" y="263" text-anchor="middle">1</text>
+  <text class="c" x="464" y="264">여기에 부탁을 써요</text>
+
+  <path d="M240 312 H420" stroke="#5e6ad2" stroke-width="1.5"/>
+  <circle cx="240" cy="312" r="3.5" fill="#5e6ad2"/>
+  <circle cx="440" cy="312" r="14" fill="#5e6ad2"/><text class="n" x="440" y="318" text-anchor="middle">2</text>
+  <text class="s" x="464" y="305">지금 모드:</text>
+  <text class="c" x="464" y="331">자동 심사 모드 켜짐</text>
+
+  <text class="s" x="32" y="376"><tspan style="font-family:'SF Mono',Menlo,monospace">manual mode on</tspan> 이 보이거나 아무 표시가 없어도 괜찮아요</text>
+</svg>

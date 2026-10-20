@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 440" width="720" height="440" role="img" aria-label="ilson chat 실행, 브라우저에서 Pro·Max 계정 로그인, 터미널의 Login successful 확인으로 이어지는 흐름도">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:21px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#f7f8f8}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="440" rx="16" fill="#f5f6f6"/>
+
+  <!-- 1 terminal -->
+  <rect x="32" y="32" width="280" height="144" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <circle cx="58" cy="60" r="14" fill="#5e6ad2"/><text class="n" x="58" y="66" text-anchor="middle">1</text>
+  <text class="l" x="82" y="67">터미널</text>
+  <rect x="52" y="84" width="240" height="44" rx="8" fill="#1d1d21"/>
+  <text class="m" x="172" y="112" text-anchor="middle"><tspan style="fill:#a7b0ff">~ %</tspan> ilson chat</text>
+  <text class="s" x="172" y="158" text-anchor="middle">로그인 안내 시작</text>
+
+  <path d="M318 104 H400" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- 2 browser (generic, blank) -->
+  <rect x="408" y="32" width="280" height="144" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <circle cx="434" cy="60" r="14" fill="#5e6ad2"/><text class="n" x="434" y="66" text-anchor="middle">2</text>
+  <text class="l" x="458" y="67">브라우저</text>
+  <rect x="428" y="84" width="240" height="44" rx="8" fill="#ffffff" stroke="#c9ccd1" stroke-width="1.5"/>
+  <path d="M436 84 H660 Q668 84 668 92 V98 H428 V92 Q428 84 436 84 Z" fill="#eceef0"/>
+  <circle cx="439" cy="91" r="2.5" fill="#c9ccd1"/><circle cx="448" cy="91" r="2.5" fill="#c9ccd1"/><circle cx="457" cy="91" r="2.5" fill="#c9ccd1"/>
+  <rect x="444" y="108" width="104" height="10" rx="5" fill="#e4e4e8"/>
+  <rect x="556" y="108" width="64" height="10" rx="5" fill="#e4e4e8"/>
+  <text class="s" x="548" y="158" text-anchor="middle">브라우저가 열려요</text>
+
+  <text class="s" x="532" y="226" text-anchor="end">안 열리면 터미널에서 <tspan style="font-family:'SF Mono',Menlo,monospace;font-weight:700;fill:#1d1d21">c</tspan> → 주소 복사</text>
+  <path d="M548 182 V256" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- 3 do it yourself (caution) -->
+  <rect x="408" y="264" width="280" height="144" rx="12" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+  <circle cx="434" cy="292" r="14" fill="#5e6ad2"/><text class="n" x="434" y="298" text-anchor="middle">3</text>
+  <text class="l" x="458" y="299">직접 로그인</text>
+  <g fill="#a3720a">
+    <rect x="646" y="280" width="4.6" height="14" rx="2.3"/>
+    <rect x="651.8" y="277" width="4.6" height="17" rx="2.3"/>
+    <rect x="657.6" y="279" width="4.6" height="15" rx="2.3"/>
+    <rect x="663.4" y="283" width="4.2" height="11" rx="2.1"/>
+    <rect x="646" y="289" width="21.6" height="15" rx="6"/>
+    <rect x="640.5" y="290" width="4.6" height="12" rx="2.3" transform="rotate(-38 643 296)"/>
+  </g>
+  <text x="548" y="346" text-anchor="middle" style="font-size:20px;font-weight:600">Pro·Max 계정으로 로그인</text>
+  <path d="M450 371 V367 a4 4 0 0 1 8 0 V371" fill="none" stroke="#a3720a" stroke-width="2"/>
+  <rect x="447" y="370" width="14" height="11" rx="2" fill="#a3720a"/>
+  <text x="470" y="381" style="font-size:18px;font-weight:600;fill:#a3720a">비밀번호는 브라우저에만</text>
+
+  <path d="M402 336 H320" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- 4 terminal: success -->
+  <rect x="32" y="264" width="280" height="144" rx="12" fill="#ffffff" stroke="#1d8a38" stroke-width="2"/>
+  <circle cx="58" cy="292" r="14" fill="#5e6ad2"/><text class="n" x="58" y="298" text-anchor="middle">4</text>
+  <text class="l" x="82" y="299">터미널</text>
+  <rect x="52" y="316" width="240" height="44" rx="8" fill="#1d1d21"/>
+  <text class="m" x="172" y="344" text-anchor="middle" style="fill:#6cd38a">Login successful</text>
+  <text x="172" y="391" text-anchor="middle" style="font-size:20px;font-weight:600">→ return</text>
+</svg>

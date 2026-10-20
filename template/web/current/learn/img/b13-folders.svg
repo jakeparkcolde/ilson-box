@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 456" width="720" height="456" role="img" aria-label="일손 폴더 안 vault 폴더의 company, journal, lessons, reports/pending이 서류함에서 어떤 이름으로 보이는지 정리한 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <path id="fd" d="M0 3 q0-3 3-3 h7 l3 3 h10 q3 0 3 3 v11 q0 3-3 3 h-20 q-3 0-3-3 z"/>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:21px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .c{font-family:'SF Mono',Menlo,monospace;font-size:20px}
+    .f{fill:#ffffff;stroke:#6b7078;stroke-width:1.5}
+    .tr{stroke:#b8bcc2;stroke-width:1.5;fill:none}
+  </style>
+  <rect width="720" height="456" rx="16" fill="#f5f6f6"/>
+
+  <!-- root and vault -->
+  <use href="#fd" x="40" y="38" class="f"/>
+  <text class="c" x="78" y="56">~/ilson</text>
+  <text class="s" x="174" y="56">일손 폴더</text>
+  <path class="tr" d="M53 62 V92 H68"/>
+  <use href="#fd" x="72" y="82" class="f"/>
+  <text class="c" x="110" y="100">vault</text>
+  <text x="184" y="100" style="font-size:21px;font-weight:700">= 「서류함」</text>
+
+  <!-- tree trunk -->
+  <path class="tr" d="M85 106 V334 M85 142 H102 M85 206 H102 M85 270 H102 M85 334 H102"/>
+
+  <!-- company (today) -->
+  <rect x="96" y="116" width="592" height="66" rx="10" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <use href="#fd" x="106" y="132" fill="#ffffff" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="c" x="144" y="148">company</text>
+  <path d="M336 142 H366" stroke="#6b7078" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="l" x="380" y="149">회사 자료</text>
+  <text class="s" x="144" y="173">가게 기준 문서 (소개·가격표·영업 안내)</text>
+  <rect x="566" y="128" width="108" height="30" rx="15" fill="#5e6ad2"/>
+  <text x="620" y="149" text-anchor="middle" style="font-size:18px;font-weight:700;fill:#ffffff">오늘은 여기</text>
+
+  <!-- journal -->
+  <use href="#fd" x="106" y="196" class="f"/>
+  <text class="c" x="144" y="212">journal</text>
+  <path d="M336 206 H366" stroke="#6b7078" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="l" x="380" y="213">업무 일지</text>
+  <text class="s" x="144" y="237">하루 기록</text>
+
+  <!-- lessons -->
+  <use href="#fd" x="106" y="260" class="f"/>
+  <text class="c" x="144" y="276">lessons</text>
+  <path d="M336 270 H366" stroke="#6b7078" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="l" x="380" y="277">배운 점</text>
+  <text class="s" x="144" y="301">Claude가 지적받고 배운 점</text>
+
+  <!-- reports/pending -->
+  <use href="#fd" x="106" y="324" class="f"/>
+  <text class="c" x="144" y="340">reports/pending</text>
+  <path d="M336 334 H366" stroke="#6b7078" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="l" x="380" y="341">reports · pending</text>
+  <text class="s" x="144" y="365">손님에게 보내기 전 초안</text>
+
+  <!-- naming rules -->
+  <rect x="32" y="392" width="170" height="36" rx="18" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text x="117" y="416" text-anchor="middle" style="font-size:18px">한 주제에 한 파일</text>
+  <rect x="214" y="392" width="170" height="36" rx="18" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text x="299" y="416" text-anchor="middle" style="font-size:18px">짧은 한국어 이름</text>
+  <rect x="396" y="392" width="158" height="36" rx="18" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text x="475" y="416" text-anchor="middle" style="font-size:18px">첫 줄은 <tspan style="font-family:'SF Mono',Menlo,monospace">#</tspan> 제목</text>
+</svg>

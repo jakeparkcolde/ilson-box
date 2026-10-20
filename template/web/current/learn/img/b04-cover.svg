@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 444" width="720" height="444" role="img" aria-label="한 줄 부탁은 짐작으로 채운 곳이 많은 밋밋한 글이 되고, 자세한 부탁은 우리 가게 이야기가 되는 것을 좌우로 비교한 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrowA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#5e6ad2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:21px;font-weight:600}
+    .lb{font-size:21px;font-weight:700}
+    .b{font-size:20px}
+    .chip{font-size:18px;font-weight:600;fill:#5e6ad2}
+    .tag{font-size:18px;font-weight:600;fill:#a3720a}
+  </style>
+  <rect width="720" height="444" rx="16" fill="#f5f6f6"/>
+
+  <!-- left: one-line request -->
+  <rect x="32" y="24" width="316" height="396" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="l" x="190" y="66" text-anchor="middle" style="fill:#6b7078">한 줄 부탁</text>
+  <path d="M68 86 H312 A16 16 0 0 1 328 102 V172 A16 16 0 0 1 312 188 H300 L306 204 L282 188 H68 A16 16 0 0 1 52 172 V102 A16 16 0 0 1 68 86 Z" fill="#f5f6f6" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="b" x="190" y="144" text-anchor="middle">가게 소개 글 써 줘.</text>
+  <path d="M190 214 V242" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <rect x="80" y="254" width="220" height="76" rx="12" fill="#eceef0"/>
+  <!-- soft, unfocused text bars -->
+  <g fill="#dcdfe3">
+    <rect x="97" y="269" width="186" height="15" rx="7.5"/>
+    <rect x="97" y="285" width="162" height="15" rx="7.5"/>
+    <rect x="97" y="301" width="124" height="15" rx="7.5"/>
+  </g>
+  <g fill="#c9ccd2">
+    <rect x="100" y="272" width="180" height="9" rx="4.5"/>
+    <rect x="100" y="288" width="156" height="9" rx="4.5"/>
+    <rect x="100" y="304" width="118" height="9" rx="4.5"/>
+  </g>
+  <!-- guessed parts, joined to one tag -->
+  <rect x="190" y="267" width="68" height="19" rx="6" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+  <rect x="112" y="299" width="58" height="19" rx="6" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+  <path d="M224 286 L210 342 M141 318 L170 342" fill="none" stroke="#a3720a" stroke-width="1.5" stroke-linecap="round"/>
+  <rect x="122" y="342" width="136" height="30" rx="15" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+  <text class="tag" x="190" y="363" text-anchor="middle">짐작으로 채운 곳</text>
+  <text class="l" x="190" y="402" text-anchor="middle" style="fill:#6b7078">어디에나 붙는 글</text>
+
+  <!-- right: detailed request -->
+  <rect x="372" y="24" width="316" height="396" rx="14" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="lb" x="530" y="66" text-anchor="middle">자세한 부탁</text>
+  <path d="M408 86 H652 A16 16 0 0 1 668 102 V172 A16 16 0 0 1 652 188 H640 L646 204 L622 188 H408 A16 16 0 0 1 392 172 V102 A16 16 0 0 1 408 86 Z" fill="#f5f6f6" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="409" y="100" width="134" height="34" rx="17" fill="#ffffff" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="chip" x="476" y="123" text-anchor="middle">가게 이름·지역</text>
+  <rect x="553" y="100" width="98" height="34" rx="17" fill="#ffffff" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="chip" x="602" y="123" text-anchor="middle">대표 상품</text>
+  <rect x="434" y="142" width="98" height="34" rx="17" fill="#ffffff" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="chip" x="483" y="165" text-anchor="middle">읽는 사람</text>
+  <rect x="542" y="142" width="84" height="34" rx="17" fill="#ffffff" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="chip" x="584" y="165" text-anchor="middle">세 문장</text>
+  <path d="M530 214 V242" stroke="#5e6ad2" stroke-width="2" fill="none" marker-end="url(#arrowA)"/>
+  <rect x="420" y="254" width="220" height="118" rx="12" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <g fill="#1d1d21" opacity="0.78">
+    <rect x="440" y="274" width="138" height="9" rx="4.5"/>
+    <rect x="440" y="292" width="172" height="9" rx="4.5"/>
+    <rect x="440" y="310" width="160" height="9" rx="4.5"/>
+    <rect x="440" y="328" width="168" height="9" rx="4.5"/>
+    <rect x="440" y="346" width="110" height="9" rx="4.5"/>
+  </g>
+  <!-- small flower -->
+  <g fill="#ffffff" stroke="#5e6ad2" stroke-width="1.5">
+    <circle cx="615" cy="272" r="5"/>
+    <circle cx="621.7" cy="276.9" r="5"/>
+    <circle cx="619.1" cy="284.8" r="5"/>
+    <circle cx="610.9" cy="284.8" r="5"/>
+    <circle cx="608.3" cy="276.9" r="5"/>
+  </g>
+  <circle cx="615" cy="279" r="3.2" fill="#5e6ad2"/>
+  <text class="lb" x="530" y="402" text-anchor="middle">우리 가게 이야기</text>
+</svg>

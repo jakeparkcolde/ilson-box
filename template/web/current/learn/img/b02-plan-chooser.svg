@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 436" width="720" height="436" role="img" aria-label="처음 써 보는지, 일손박스를 쓸지, 한도에 자주 걸리는지에 따라 Free, Pro, Max로 갈리는 선택 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .q{font-size:22px;font-weight:700}
+    .l{font-size:20px;font-weight:600}
+    .t{font-size:26px;font-weight:700}
+    .s{font-size:18px;fill:#6b7078}
+  </style>
+  <rect width="720" height="436" rx="16" fill="#f5f6f6"/>
+
+  <!-- question -->
+  <rect x="210" y="32" width="300" height="58" rx="29" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="q" x="360" y="69" text-anchor="middle">어떻게 쓸 건가요?</text>
+
+  <!-- branches -->
+  <g stroke="#6b7078" stroke-width="2" fill="none" stroke-linejoin="round">
+    <path d="M360 90 V 112"/>
+    <path d="M136 138 V 112 H 584 V 138" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <path d="M360 112 V 138" marker-end="url(#arrow)"/>
+    <path d="M136 234 V 270" marker-end="url(#arrow)"/>
+    <path d="M360 234 V 270" marker-end="url(#arrow)"/>
+    <path d="M584 234 V 270" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- conditions -->
+  <g fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5">
+    <rect x="32" y="144" width="208" height="88" rx="14"/>
+    <rect x="256" y="144" width="208" height="88" rx="14"/>
+    <rect x="480" y="144" width="208" height="88" rx="14"/>
+  </g>
+  <text class="l" x="136" y="195" text-anchor="middle">처음 써 봐요</text>
+  <text class="l" x="360" y="195" text-anchor="middle">일손박스를 쓸 거예요</text>
+  <text class="l" x="584" y="182" text-anchor="middle">Pro로 쓰는데</text>
+  <text class="l" x="584" y="208" text-anchor="middle">한도에 자주 걸려요</text>
+
+  <!-- results -->
+  <rect x="32" y="276" width="208" height="128" rx="14" fill="#ffffff" stroke="#1d8a38" stroke-width="2"/>
+  <text class="t" x="136" y="326" text-anchor="middle" style="fill:#1d8a38">Free (무료)</text>
+  <text class="s" x="136" y="360" text-anchor="middle">1~2부 대부분</text>
+  <text class="s" x="136" y="385" text-anchor="middle">(리서치는 유료)</text>
+
+  <rect x="256" y="276" width="208" height="128" rx="14" fill="#5e6ad2"/>
+  <text class="t" x="360" y="326" text-anchor="middle" style="fill:#ffffff">Pro</text>
+  <text class="s" x="360" y="360" text-anchor="middle" style="fill:#ffffff">Claude Code가</text>
+  <text class="s" x="360" y="385" text-anchor="middle" style="fill:#ffffff">들어 있어요</text>
+
+  <rect x="480" y="276" width="208" height="128" rx="14" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="t" x="584" y="326" text-anchor="middle" style="fill:#5e6ad2">Max</text>
+  <text class="s" x="584" y="360" text-anchor="middle">Pro의 5배 또는 20배</text>
+</svg>

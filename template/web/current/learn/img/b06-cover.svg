@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 336" width="720" height="336" role="img" aria-label="손으로 쓴 가격표 사진이 줄과 칸이 맞는 깔끔한 표로 바뀌는 전후 비교 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:20px;font-weight:600}
+    .hw{font-size:20px;font-weight:500}
+    .h{font-size:18px;font-weight:600}
+    .c{font-size:18px}
+  </style>
+  <defs>
+    <radialGradient id="smudge">
+      <stop offset="0" stop-color="#9da2a9" stop-opacity="0.75"/>
+      <stop offset="0.55" stop-color="#9da2a9" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#9da2a9" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="720" height="336" rx="16" fill="#f5f6f6"/>
+  <g transform="translate(0 -28)">
+
+  <!-- photo of a handwritten price list, tilted -->
+  <g transform="rotate(-4 112 184)">
+    <rect x="39" y="86" width="156" height="208" rx="6" fill="#e4e4e8"/>
+    <rect x="34" y="80" width="156" height="208" rx="6" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+    <rect x="44" y="90" width="136" height="188" rx="2" fill="#f5f6f6"/>
+    <path d="M50 140 H174 M50 196 H174 M50 252 H174" stroke="#e4e4e8" stroke-width="1.5"/>
+    <path d="M54 104 q5 -6 10 0 t10 0 t10 0 t10 0 t10 0" fill="none" stroke="#1d1d21" stroke-width="2.5" stroke-linecap="round"/>
+    <text class="hw" x="52" y="133" transform="rotate(-2 52 133)">꽃다발</text>
+    <path d="M124 128 q4 -8 8 0 t8 0 t8 0 t8 0 t8 0 t8 0" fill="none" stroke="#1d1d21" stroke-width="2" stroke-linecap="round"/>
+    <text class="hw" x="52" y="189" transform="rotate(1.5 52 189)">꽃바구니</text>
+    <path d="M134 184 q4 -8 8 0 t8 0 t8 0 t8 0 t8 0" fill="none" stroke="#1d1d21" stroke-width="2" stroke-linecap="round"/>
+    <text class="hw" x="52" y="245" transform="rotate(-1.5 52 245)">화분</text>
+    <path d="M124 240 q4 -8 8 0 t8 0 t8 0 t8 0 t8 0 t8 0" fill="none" stroke="#1d1d21" stroke-width="2" stroke-linecap="round"/>
+    <ellipse cx="148" cy="238" rx="38" ry="18" fill="url(#smudge)"/>
+  </g>
+  <text class="l" x="112" y="330" text-anchor="middle" style="fill:#6b7078">손글씨 가격표</text>
+
+  <!-- arrow -->
+  <text class="l" x="250" y="166" text-anchor="middle" style="fill:#5e6ad2">Claude가</text>
+  <text class="l" x="250" y="190" text-anchor="middle" style="fill:#5e6ad2">표로</text>
+  <path d="M210 203 H272 V193 L292 210 L272 227 V217 H210 Z" fill="#5e6ad2" stroke="#5e6ad2" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- clean table -->
+  <rect x="304" y="108" width="384" height="202" rx="12" fill="#ffffff"/>
+  <path d="M316 108 H676 A12 12 0 0 1 688 120 V154 H304 V120 A12 12 0 0 1 316 108 Z" fill="#e8eafb"/>
+  <path d="M416 108 V310 M508 108 V310 M632 108 V310 M304 154 H688 M304 206 H688 M304 258 H688" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="304" y="108" width="384" height="202" rx="12" fill="none" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="h" x="316" y="137">상품 이름</text>
+  <text class="h" x="428" y="137">크기·구성</text>
+  <text class="h" x="520" y="137">가격</text>
+  <text class="h" x="644" y="137">메모</text>
+
+  <text class="c" x="316" y="186">계절 꽃다발</text>
+  <text class="c" x="428" y="186">작은 것</text>
+  <text class="c" x="520" y="186">○○,○○○원</text>
+
+  <text class="c" x="316" y="238">꽃바구니</text>
+  <text class="c" x="428" y="238">중간</text>
+  <text class="c" x="520" y="238">○○,○○○원</text>
+
+  <text class="c" x="316" y="290">화분</text>
+  <text class="c" x="428" y="290">작은 것</text>
+  <rect x="514" y="267" width="112" height="32" rx="8" fill="#f8efdc"/>
+  <text class="c" x="570" y="289" text-anchor="middle" style="fill:#a3720a">[읽기 어려움]</text>
+  </g>
+</svg>

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 460" width="720" height="460" role="img" aria-label="받는 분, 주인공, 포장, 가시 네 칸과 맨 아래 우리만의 마무리 문장 두 줄이 있는 부탁 메모 카드">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .t{font-size:26px;font-weight:700}
+    .c{font-size:20px;font-weight:600;fill:#5e6ad2}
+    .b{font-size:20px}
+    .f{font-size:20px;fill:#6b7078}
+  </style>
+  <rect width="720" height="460" rx="16" fill="#f5f6f6"/>
+
+  <!-- memo card -->
+  <rect x="32" y="24" width="656" height="412" rx="16" fill="#ffffff"/>
+  <path d="M48 24 H672 A16 16 0 0 1 688 40 V92 H32 V40 A16 16 0 0 1 48 24 Z" fill="#eceef0"/>
+  <path d="M32 92 H688" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="32" y="24" width="656" height="412" rx="16" fill="none" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <!-- pin + title -->
+  <path d="M70 64 L60 78" stroke="#6b7078" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="72" cy="58" r="9" fill="#5e6ad2"/>
+  <circle cx="69" cy="55" r="2.5" fill="#ffffff" opacity="0.7"/>
+  <text class="t" x="94" y="67">부탁 메모</text>
+
+  <!-- the four boxes -->
+  <rect x="64" y="112" width="104" height="36" rx="18" fill="#e8eafb"/>
+  <text class="c" x="116" y="137" text-anchor="middle">[받는 분]</text>
+  <text class="b" x="188" y="137">이 글을 읽을 사람</text>
+  <path d="M412 140 H656" stroke="#c9ccd2" stroke-width="1.5"/>
+
+  <rect x="64" y="168" width="104" height="36" rx="18" fill="#e8eafb"/>
+  <text class="c" x="116" y="193" text-anchor="middle">[주인공]</text>
+  <text class="b" x="188" y="193">써 줄 것과 꼭 들어갈 내용</text>
+  <path d="M412 196 H656" stroke="#c9ccd2" stroke-width="1.5"/>
+
+  <rect x="64" y="224" width="104" height="36" rx="18" fill="#e8eafb"/>
+  <text class="c" x="116" y="249" text-anchor="middle">[포장]</text>
+  <text class="b" x="188" y="249">길이·말투·모양</text>
+  <path d="M412 252 H656" stroke="#c9ccd2" stroke-width="1.5"/>
+
+  <rect x="64" y="280" width="104" height="36" rx="18" fill="#f8e3e1"/>
+  <text class="c" x="116" y="305" text-anchor="middle" style="fill:#c4423b">[가시]</text>
+  <text class="b" x="188" y="305">빼거나 조심할 것</text>
+  <path d="M412 308 H656" stroke="#c9ccd2" stroke-width="1.5"/>
+
+  <!-- footer: our two closing lines, always kept -->
+  <path d="M56 344 H664" stroke="#e4e4e8" stroke-width="1.5"/>
+  <g fill="none" stroke="#6b7078" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M70 384 V376 A8 8 0 0 1 86 376 V384"/>
+    <rect x="65" y="384" width="26" height="20" rx="4"/>
+  </g>
+  <circle cx="78" cy="394" r="2.5" fill="#6b7078"/>
+  <text class="f" x="112" y="382">바로 쓰지 말고, 궁금한 점부터 물어봐 주세요</text>
+  <text class="f" x="112" y="414">드린 내용 안에서만, 모자란 곳은 [확인 필요]</text>
+</svg>

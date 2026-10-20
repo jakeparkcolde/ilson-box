@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 380" width="720" height="380" role="img" aria-label="가게 일 더미가 Claude의 밑손질을 거쳐 초안이 되고, 사람이 확인하고 마무리하는 흐름을 보여 주는 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:22px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .p{font-size:18px;font-weight:500}
+  </style>
+  <rect width="720" height="380" rx="16" fill="#f5f6f6"/>
+
+  <!-- left: pile of shop work (three fanned sheets) -->
+  <g transform="rotate(-4 114 96)">
+    <rect x="40" y="36" width="150" height="120" rx="10" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+    <text class="p" x="58" y="64">손님 답장</text>
+  </g>
+  <g transform="rotate(-1 120 136)">
+    <rect x="46" y="76" width="150" height="120" rx="10" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+    <text class="p" x="64" y="104">가격표</text>
+  </g>
+  <g transform="rotate(2.5 126 166)">
+    <rect x="52" y="116" width="150" height="100" rx="10" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+    <text class="p" x="70" y="144">가게 소개</text>
+    <rect x="70" y="162" width="112" height="10" rx="5" fill="#e4e4e8"/>
+    <rect x="70" y="182" width="80" height="10" rx="5" fill="#e4e4e8"/>
+  </g>
+  <text class="l" x="121" y="256" text-anchor="middle">가게 일</text>
+
+  <path d="M212 126 H 250" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- centre: Claude does the trimming -->
+  <rect x="262" y="36" width="196" height="180" rx="14" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="l" x="360" y="70" text-anchor="middle">Claude</text>
+  <!-- flower stem -->
+  <path d="M356 112 C 354 140, 362 160, 356 196" fill="none" stroke="#6b7078" stroke-width="3" stroke-linecap="round"/>
+  <path d="M357 150 C 340 142, 330 146, 324 156 C 336 160, 348 158, 357 150 Z" fill="#ffffff" stroke="#6b7078" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M359 132 C 374 122, 386 124, 392 134 C 380 140, 368 140, 359 132 Z" fill="#ffffff" stroke="#6b7078" stroke-width="2" stroke-linejoin="round"/>
+  <g fill="#ffffff" stroke="#5e6ad2" stroke-width="2">
+    <circle cx="356" cy="88" r="9"/>
+    <circle cx="368" cy="97" r="9"/>
+    <circle cx="363" cy="111" r="9"/>
+    <circle cx="349" cy="111" r="9"/>
+    <circle cx="344" cy="97" r="9"/>
+  </g>
+  <circle cx="356" cy="100" r="6" fill="#5e6ad2"/>
+  <!-- cut mark and scissors -->
+  <path d="M340 184 H 372" stroke="#5e6ad2" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round"/>
+  <g fill="none" stroke="#1d1d21" stroke-linecap="round">
+    <path d="M362 173 L 404 190" stroke-width="3.2"/>
+    <path d="M362 195 L 404 178" stroke-width="3.2"/>
+    <ellipse cx="414" cy="195" rx="10" ry="7.5" stroke-width="2.4" transform="rotate(22 414 195)"/>
+    <ellipse cx="414" cy="173" rx="10" ry="7.5" stroke-width="2.4" transform="rotate(-22 414 173)"/>
+  </g>
+  <circle cx="389" cy="184" r="3" fill="#1d1d21"/>
+  <text class="l" x="360" y="256" text-anchor="middle">밑손질</text>
+  <text class="s" x="360" y="284" text-anchor="middle">초안 · 정리 · 요약</text>
+
+  <path d="M468 126 H 506" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- right: the person checks and finishes -->
+  <rect x="518" y="36" width="170" height="180" rx="14" fill="#ffffff" stroke="#1d8a38" stroke-width="2"/>
+  <circle cx="612" cy="92" r="22" fill="#e4e4e8" stroke="#6b7078" stroke-width="2"/>
+  <path d="M570 200 C 570 150, 584 130, 612 130 C 640 130, 654 150, 654 200 Z" fill="#e4e4e8" stroke="#6b7078" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="544" y="142" width="50" height="62" rx="6" fill="#ffffff" stroke="#6b7078" stroke-width="2"/>
+  <rect x="553" y="156" width="32" height="7" rx="3.5" fill="#e4e4e8"/>
+  <rect x="553" y="170" width="24" height="7" rx="3.5" fill="#e4e4e8"/>
+  <circle cx="590" cy="196" r="15" fill="#1d8a38"/>
+  <path d="M583 196 L 588 201 L 598 190" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="l" x="603" y="256" text-anchor="middle">나</text>
+  <text class="s" x="603" y="284" text-anchor="middle">확인 · 마무리</text>
+
+  <!-- ribbon -->
+  <rect x="32" y="306" width="656" height="44" rx="12" fill="#e8eafb"/>
+  <text class="l" x="360" y="335" text-anchor="middle" style="font-size:21px">밑손질은 Claude, 마무리는 나</text>
+</svg>
