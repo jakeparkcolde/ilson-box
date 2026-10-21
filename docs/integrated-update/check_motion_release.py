@@ -1,8 +1,9 @@
 import importlib.util,json,tempfile,os,subprocess
 from pathlib import Path
-A=Path('/Users/koldeumaegmini/orca/workspaces/agents/ilson-box-safe-update')
+# Paths come from the environment; defaults are this checkout and the usual release folder under the home directory.
+A=Path(os.environ.get('ILSON_BOX_SOURCE',Path(__file__).resolve().parents[2]))
 spec=importlib.util.spec_from_file_location('u',A/'tools/update.py');u=importlib.util.module_from_spec(spec);spec.loader.exec_module(u)
-old=Path('/Users/koldeumaegmini/agents/webapp/ilson/downloads/box');new=Path('/tmp/ilson-motion-release-20261013-7')
+old=Path(os.environ.get('ILSON_RELEASE_SERVER',Path.home()/'agents/webapp/ilson/downloads/box'));new=Path(os.environ.get('ILSON_NEW_RELEASE','/tmp/ilson-motion-release-20261013-7'))
 with tempfile.TemporaryDirectory() as t:
  root=Path(t);roots={'box':root/'box','cli':root/'cli'}
  for folder,v in [(old,'2026.10.13.6'),(new,'2026.10.13.7')]:

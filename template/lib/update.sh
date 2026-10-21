@@ -3,4 +3,7 @@
 set -eu
 cli_root="${ILSON_CLI_DIR:-$HOME/.ilson-cli}"
 [ -f "$cli_root/tools/update.py" ] || { echo '새 업데이트 도구를 최초 한 번 설치해야 합니다.' >&2; exit 1; }
+# Scheduled run only: a box without an update address skips instead of failing every day.
+# Older update.py versions ignore this variable.
+export ILSON_UPDATE_SKIP_IF_NO_FEED=1
 exec python3 "$cli_root/tools/update.py" --home "${ILSON_HOME:-$HOME/ilson}" --cli "$cli_root" "$@"

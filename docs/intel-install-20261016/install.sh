@@ -9,7 +9,9 @@ if [ "${1:-}" != --check ]; then
     exit 1
   fi
 fi
-KIT_URL='https://macmini.tailb24b18.ts.net:10000/assets/ilson-install/2026.10.16.3/ilson-intel-mac-20261016.zip'
+# Reference copy only. The hosted install.sh (with the real host in KIT_URL) is the one that runs;
+# this copy keeps a placeholder host because the repository is public.
+KIT_URL='https://<배포 호스트>:10000/assets/ilson-install/2026.10.16.3/ilson-intel-mac-20261016.zip'
 KIT_SHA='bd4c7820160537701e9229079b7e15d73e32a0c3896c135205bfc9d2b1e8e6d5'
 ILSON_TMP="$(mktemp -d "${TMPDIR:-/tmp}/ilson-install.XXXXXXXX")"
 trap 'rm -rf "$ILSON_TMP"' EXIT

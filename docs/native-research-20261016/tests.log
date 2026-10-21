@@ -9,9 +9,9 @@
 FAIL: test_관리대화는_박스에서_auto로_시작하고_권한우회하지않는다 (test_setup.SetupTests)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/Users/koldeumaegmini/ilson-box-native-research/tests/test_setup.py", line 355, in test_관리대화는_박스에서_auto로_시작하고_권한우회하지않는다
+  File "~/ilson-box-native-research/tests/test_setup.py", line 355, in test_관리대화는_박스에서_auto로_시작하고_권한우회하지않는다
     self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-AssertionError: 1 != 0 : Ignoring 11 permissions.allow entries from .claude/settings.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["/private/var/folders/v2/3pzpz8js3cb24r5scxyjpq2r0000gn/T/ilson-test-67ppkphn/box"].hasTrustDialogAccepted: true in /Users/koldeumaegmini/.claude.json.
+AssertionError: 1 != 0 : Ignoring 11 permissions.allow entries from .claude/settings.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["/private/var/folders/v2/3pzpz8js3cb24r5scxyjpq2r0000gn/T/ilson-test-67ppkphn/box"].hasTrustDialogAccepted: true in ~/.claude.json.
 Error: Input must be provided either through stdin or as a prompt argument when using --print
 
 

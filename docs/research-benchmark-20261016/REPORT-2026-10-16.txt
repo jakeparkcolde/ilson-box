@@ -45,7 +45,7 @@ Codex 기본 검색을 리서치 선택 경로로 추가해 10~20개 실제 업�
 
 아티팩트와 마감
 로컬: docs/research-benchmark-20261016/results — 원문 답변, 이벤트, 메타, summary.json.
-원격: /Users/jake_mini/ilson-research-benchmark-20261016.
+원격: ~/ilson-research-benchmark-20261016.
 임시 LaunchAgent는 정상 종료(exit 0)를 확인한 뒤 bootout하고 plist 삭제.
 Aside 열린 탭 확인 결과 시험 질문의 검색 탭은 남아 있지 않았고 기존 사용자 탭 3개는 보존했다. 자체 서버는 시작하지 않았다.
 정리 시 Aside 스킬 지침에 따라 CLI를 1.26.916.1741에서 1.26.1015.732로 업데이트했다. 벤치마크는 업데이트 전에 완료되어 측정값에 영향 없음.

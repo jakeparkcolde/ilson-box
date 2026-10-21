@@ -1,1 +1,1 @@
-일손Box 안전 업데이트를 이어서 확인해줘. /Users/koldeumaegmini/orca/workspaces/agents/ilson-box-safe-update/docs/safe-update/HANDOFF-2026-10-13.md 를 읽고 제이크 맥미니에서 최초 설치 명령을 실행했는지와 ilson update --check 결과를 확인해줘. 운영 데이터와 수정된 설정은 절대 덮어쓰지 말고 충돌을 별도로 처리해줘.
+일손Box 안전 업데이트를 이어서 확인해줘. ~/orca/workspaces/agents/ilson-box-safe-update/docs/safe-update/HANDOFF-2026-10-13.md 를 읽고 제이크 맥미니에서 최초 설치 명령을 실행했는지와 ilson update --check 결과를 확인해줘. 운영 데이터와 수정된 설정은 절대 덮어쓰지 말고 충돌을 별도로 처리해줘.

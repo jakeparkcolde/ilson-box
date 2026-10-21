@@ -8,7 +8,7 @@
 검증: 220 tests + 79 subtests 통과. .6→.7 임시 설치, 작품 파일 보존, CLI cwd·인자 전달, 셸 주입 방지, sandbox 차단 통과. Node UI 모형으로 카드 클릭·실행 안내·잘못된 다운로드 숨김 확인. bash/node 구문 및 quick_validate.py 성공(PyYAML은 /tmp 전용 venv에 설치).
 Jake 원격: ilson update --check 성공, 변경 41개. 실제 업데이트는 사용자에게 맡겼으며 .7 관리자 실행이나 영상 제작·렌더는 아직 검증하지 않음.
 릴리스 조립: /tmp/ilson-motion-release-20261013-7
-배포 루트: /Users/koldeumaegmini/agents/webapp/ilson/downloads/box
+배포 루트: ~/agents/webapp/ilson/downloads/box
 리서치 ZIP도 agents/webapp/ilson/downloads에 게시. main 서버의 기존 팩 UI는 별도 변경하지 않았음. Box 관리자 UI는 업데이트 후 반영.
 Git: 이전 작업과 함께 미커밋. 커밋·push 하지 않음. 기존 운영 데이터 변경 없음. 새 미리보기/브라우저 프로세스 없음. 이전 영상 미리보기는 검토 대기로 보존.
 다음: 사용자가 ilson update → 관리자 새로고침 → ilson motion --check → ilson motion. 첫 실제 제작 결과와 도구 설치 경로를 확인한 후 웹 작업 흐름 확장 여부 판단.

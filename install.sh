@@ -3,6 +3,7 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/install.sh | sh
 #   sh install.sh --cli-only  # only install the CLI, without setup
+#   sh install.sh --feed <url>  # save the update feed address (…/latest-v2.json) on the box
 #
 # What it does (setup may prompt for Homebrew admin privileges):
 #   1. preflight   macOS · Apple Silicon/Intel · curl · tar
@@ -15,6 +16,11 @@
 #   ILSON_SRC        local directory or tarball  (testing today, before a host exists)
 #   ILSON_DIST_BASE  optional custom https base serving ilson-<version>.tar.gz
 #   otherwise       public GitHub source archive (ILSON_SOURCE_REF, default main)
+#
+# Update feed (optional): --feed <url> or ILSON_UPDATE_FEED, saved to $BOX_HOME/.updates/feed for
+# `ilson update`. --feed replaces a saved address. Otherwise the address stamped into the CLI being
+# replaced (release builds stamp it) wins over a saved one, as in update.py. ILSON_UPDATE_FEED only fills
+# a missing, empty or invalid saved address.
 #
 # Design: coldbyte-vault wiki/plans/2026-09-05-ilson-init-원커맨드-온보딩-설계.md
 # User-facing strings are Korean on purpose; code comments stay English.
@@ -29,6 +35,8 @@ CLI_DIR="${ILSON_CLI_DIR:-$HOME/.ilson-cli}"
 BIN_DIR="${ILSON_BIN_DIR:-$HOME/.local/bin}"
 BOX_HOME="${ILSON_HOME:-$HOME/ilson}"           # the box itself — must never be the CLI dir
 CODE=""
+UPDATE_FEED="${ILSON_UPDATE_FEED:-}"            # optional update feed address (https)
+FEED_EXPLICIT=0                                 # 1 with --feed: may replace a saved address
 PASS_SANDBOX=""                                 # forwarded to `ilson setup` — safe rehearsal
 CLI_ONLY=0
 TMP=""
@@ -39,6 +47,20 @@ ok()   { printf '  ✅ %s\n' "$1"; }
 die()  { printf '\n❌ %s\n' "$1" >&2; exit 1; }
 has()  { command -v "$1" >/dev/null 2>&1; }
 
+# valid_feed <url> — the same rule as valid_feed in tools/update.py (tests/test_update_feed.py runs one
+# case list through both): lowercase https, a host, optional port 1-65535, no userinfo, and only plain
+# URL characters (no quotes, spaces, newlines, '@', '#' or '$').
+valid_feed() {
+    [ -n "$1" ] || return 1
+    # Anything left after deleting allowed characters (the x keeps a trailing newline visible) is refused.
+    [ "$(printf '%s' "$1" | LC_ALL=C tr -d 'A-Za-z0-9._~%/:?=&,;!*()+-'; echo x)" = x ] || return 1
+    printf '%s\n' "$1" | grep -Eq '^https://[A-Za-z0-9][A-Za-z0-9.-]*(:[0-9]{1,5})?(/.*)?$' || return 1
+    feed_authority="${1#https://}"; feed_authority="${feed_authority%%/*}"
+    case "$feed_authority" in
+        *:*) feed_port="${feed_authority##*:}"; [ "$feed_port" -ge 1 ] && [ "$feed_port" -le 65535 ] ;;
+    esac
+}
+
 cleanup() { [ -n "$TMP" ] && [ -d "$TMP" ] && rm -rf "$TMP"; }
 trap cleanup EXIT INT TERM
 
@@ -48,6 +70,8 @@ while [ $# -gt 0 ]; do
         --dir)     CLI_DIR="${2:-}"; shift ;;
         --sandbox) PASS_SANDBOX="--sandbox" ;;
         --cli-only) CLI_ONLY=1 ;;
+        --feed)    [ $# -ge 2 ] || die "--feed 뒤에 업데이트 주소가 필요합니다"
+                   UPDATE_FEED="$2"; FEED_EXPLICIT=1; shift ;;
         *) die "모르는 옵션: $1" ;;
     esac
     shift
@@ -74,9 +98,58 @@ ok "curl · tar"
 [ "$CLI_DIR" != "$BOX_HOME" ] || die "설치 위치가 박스 자리와 같습니다 ($CLI_DIR) — --dir 로 다른 곳을 지정하세요"
 [ "$CLI_DIR" != "$HOME" ]     || die "설치 위치가 홈 폴더입니다 — --dir 로 다른 곳을 지정하세요"
 
+# Guard: an update address must be a plain https URL — checked before anything is downloaded.
+if [ -n "$UPDATE_FEED" ] || [ "$FEED_EXPLICIT" = 1 ]; then
+    valid_feed "$UPDATE_FEED" || die "업데이트 주소는 https:// 로 시작하는 주소여야 합니다: $UPDATE_FEED"
+fi
+
 # Guard: refuse to replace a directory that is not a previous ilson install.
 if [ -e "$CLI_DIR" ] && [ ! -f "$CLI_DIR/ilson" ]; then
     die "$CLI_DIR 가 이미 있는데 일손 설치본이 아닙니다 — 확인 후 직접 지우거나 --dir 를 쓰세요"
+fi
+
+# Decide the update address before anything is replaced, in update.py's order: --feed, then the
+# address stamped into the CLI being replaced, then the saved one. ILSON_UPDATE_FEED only fills a
+# missing, empty or invalid saved address. If an address must be written but cannot be, stop now,
+# while the old CLI (possibly the only copy of the address) is still in place.
+FEED_FILE="$BOX_HOME/.updates/feed"
+OLD_FEED=""
+if [ -f "$CLI_DIR/tools/update.py" ]; then
+    OLD_FEED="$(sed -n "s/^FEED='\([^']*\)'[[:space:]]*\$/\1/p" "$CLI_DIR/tools/update.py" 2>/dev/null | head -n 1)"
+    valid_feed "$OLD_FEED" || OLD_FEED=""
+fi
+# A saved address counts only if update.py would accept it (trimmed, at most 4 KB, valid).
+SAVED_FEED=""
+if [ -f "$FEED_FILE" ] && [ ! -L "$FEED_FILE" ] && [ "$(( $(wc -c < "$FEED_FILE") ))" -le 4096 ]; then
+    SAVED_FEED="$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d' "$FEED_FILE" 2>/dev/null)" || SAVED_FEED=""
+    valid_feed "$SAVED_FEED" || SAVED_FEED=""
+fi
+if [ "$FEED_EXPLICIT" = 1 ]; then
+    FEED_VALUE="$UPDATE_FEED"
+elif [ -n "$OLD_FEED" ]; then
+    FEED_VALUE="$OLD_FEED"
+elif [ -z "$SAVED_FEED" ]; then
+    FEED_VALUE="$UPDATE_FEED"
+else
+    FEED_VALUE=""
+fi
+[ "$FEED_EXPLICIT" = 1 ] || [ "$FEED_VALUE" != "$SAVED_FEED" ] || FEED_VALUE=""
+WRITE_FEED=0
+if [ -n "$FEED_VALUE" ]; then
+    # The nearest existing folder on the way to .updates must be a real, writable directory.
+    FEED_DIR="$BOX_HOME/.updates"
+    while [ ! -e "$FEED_DIR" ] && [ ! -L "$FEED_DIR" ]; do FEED_DIR="$(dirname "$FEED_DIR")"; done
+    if [ -L "$BOX_HOME" ] && [ ! -e "$BOX_HOME" ]; then
+        die "업데이트 주소를 저장할 수 없습니다 — 박스 폴더 링크가 깨져 있습니다: $BOX_HOME"
+    elif [ -L "$BOX_HOME/.updates" ] || [ ! -d "$FEED_DIR" ] \
+        || [ -L "$FEED_FILE" ] || { [ -e "$FEED_FILE" ] && [ ! -f "$FEED_FILE" ]; }; then
+        die "업데이트 주소를 저장할 수 없습니다 — 링크·파일·폴더 위치를 확인하세요: $FEED_FILE"
+    elif [ ! -w "$FEED_DIR" ]; then
+        die "업데이트 주소를 저장할 수 없습니다 — 폴더에 쓸 권한이 없습니다: $FEED_DIR"
+    fi
+    WRITE_FEED=1
+elif [ -n "$SAVED_FEED" ]; then
+    KEEP_FEED=1
 fi
 
 # --- 2. fetch ---------------------------------------------------------------
@@ -132,6 +205,22 @@ mkdir -p "$(dirname "$CLI_DIR")"
 mv "$STAGE" "$CLI_DIR"
 chmod +x "$CLI_DIR/ilson"
 ok "$CLI_DIR"
+
+# Keep the update address on the box so it survives CLI reinstalls (decided in the preflight above).
+# Write through an unpredictable temporary file in the same folder, then rename it into place.
+if [ "$WRITE_FEED" = 1 ]; then
+    mkdir -p "$BOX_HOME/.updates"
+    FEED_TMP="$(mktemp "$BOX_HOME/.updates/.feed.XXXXXX")" || die "업데이트 주소를 저장하지 못했습니다: $FEED_FILE"
+    if printf '%s\n' "$FEED_VALUE" > "$FEED_TMP" && chmod 644 "$FEED_TMP" \
+        && [ ! -L "$FEED_FILE" ] && [ ! -d "$FEED_FILE" ] && mv -f "$FEED_TMP" "$FEED_FILE"; then
+        ok "업데이트 주소 저장"
+    else
+        rm -f "$FEED_TMP"
+        die "업데이트 주소를 저장하지 못했습니다: $FEED_FILE"
+    fi
+elif [ "${KEEP_FEED:-0}" = 1 ]; then
+    ok "업데이트 주소 유지"
+fi
 
 # --- 4. link + PATH ---------------------------------------------------------
 printf '\n[4] 명령 등록\n'
