@@ -17,16 +17,19 @@ WEB = ROOT / 'template/web/current'
 LEARN = WEB / 'learn'
 STATIC = fixtures.admin.STATIC
 TYPES = {'.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-         '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml'}
+         '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8'}
 ID_RE = re.compile(r'^[a-z][0-9]{2}$')
 FIG_RE = re.compile(r'^img/[a-z][0-9]{2}-[a-z0-9]+(?:-[a-z0-9]+)*\.svg$')
+FILE_RE = re.compile(r'^files/v[0-9]{2}-[a-z0-9]+(-[a-z0-9]+)*\.txt$')
+FILE_TEXT = ('<script>fileMarker(1)</script>\n-- {{가게이름}} 그대로 둡니다\n' + ''.join('select %d;\n' % n for n in range(1, 10))
+             + '  끝 공백  \n')  # 12줄: 처음 8줄만 보이다가 펼치면 전체
 DATE_RE = re.compile(r'^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
 PLACEHOLDERS = {'가게이름', '업종', '지역', '대표상품'}
 CHECK_IDS = {'claude', 'company', 'trust', 'telegram', 'search'}
 SURFACES = {'web', 'ilson', 'both'}
 LESSON_KEYS = {'id', 'track', 'part', 'number', 'title', 'subtitle', 'minutes', 'surface', 'checked', 'cover', 'outcome',
                'prepare', 'steps', 'explain', 'trouble', 'checklist', 'keep', 'links', 'sources', 'history'}
-STEP_KEYS = {'title', 'why', 'body', 'prompt', 'command', 'memo', 'self', 'success', 'status', 'figure', 'tip', 'caution'}
+STEP_KEYS = {'title', 'why', 'body', 'prompt', 'command', 'memo', 'file', 'self', 'success', 'status', 'figure', 'tip', 'caution'}
 EXPLAIN_KEYS = {'heading', 'body', 'table', 'figure'}
 TROUBLE_KEYS = {'symptom', 'fix', 'prompt'}
 ALLOWED_SVG = {'svg', 'g', 'defs', 'title', 'desc', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'path', 'text',
@@ -60,6 +63,10 @@ def lesson_files():
     return sorted((LEARN / 'lessons').glob('*.json')) if (LEARN / 'lessons').is_dir() else []
 
 
+def file_refs(lesson):
+    return [step['file'].get('src') for step in lesson.get('steps', []) if isinstance(step, dict) and isinstance(step.get('file'), dict)]
+
+
 def figures(lesson):
     found = []
     if isinstance(lesson.get('cover'), dict):
@@ -82,6 +89,55 @@ def strings(value):
     elif isinstance(value, list):
         for item in value:
             yield from strings(item)
+
+
+TRACK_BY_LETTER = {'b': 'basic', 'v': 'vibe'}
+
+
+def track_problems(data):
+    """과정마다 id(b01.., v01..)·강 번호·부 번호가 1부터 순서대로인지 본다. 문제 목록을 돌려준다."""
+    problems = []
+    letter = {track: key for key, track in TRACK_BY_LETTER.items()}
+    for track in data['tracks']:
+        if track['id'] not in letter:
+            problems.append('모르는 과정 ' + track['id'])
+            continue
+        lessons = [l for part in track['parts'] for l in part['lessons']]
+        want = [letter[track['id']] + '%02d' % n for n in range(1, len(lessons) + 1)]
+        if [l['id'] for l in lessons] != want:
+            problems.append('%s: id 순서 %s' % (track['id'], [l['id'] for l in lessons]))
+        if [l['number'] for l in lessons] != list(range(1, len(lessons) + 1)):
+            problems.append('%s: 강 번호 순서' % track['id'])
+        if [part['number'] for part in track['parts']] != list(range(1, len(track['parts']) + 1)):
+            problems.append('%s: 부 번호 순서' % track['id'])
+    return problems
+
+
+def vibe_fixture(vibe_status='open'):
+    """심화 과정이 열린 상황을 흉내 내는 시험용 목록과 강의. learn/ 폴더에는 만들지 않는다."""
+    def row(lesson_id, number, title, status='published', surface='both'):
+        return {'id': lesson_id, 'number': number, 'title': title, 'subtitle': title + ' 부제', 'minutes': 6,
+                'surface': surface, 'status': status}
+    data = {'version': '2026-10-21', 'intro': '시험용 목록', 'example_shop': {'name': '시험가게', 'kind': '빵집', 'area': '시험동', 'product': '식빵'},
+            'tracks': [
+                {'id': 'basic', 'title': '기본 과정', 'summary': '기본 요약', 'status': 'open', 'parts': [
+                    {'number': 1, 'title': '시작', 'lessons': [row('b01', 1, '기본 첫 강', surface='web'), row('b02', 2, '기본 끝 강', surface='web')]}]},
+                {'id': 'vibe', 'title': '바이브 코딩 심화', 'summary': '심화 요약', 'status': vibe_status, 'parts': [
+                    {'number': 1, 'title': '만들 것 정하기', 'lessons': [row('v01', 1, '한 장으로 정하기'), row('v02', 2, '첫 화면')]},
+                    {'number': 2, 'title': '저장하기', 'lessons': [row('v03', 3, '저장점', 'soon')]}]}]}
+    lessons = {}
+    for track in data['tracks']:
+        for part in track['parts']:
+            for entry in part['lessons']:
+                if entry['status'] == 'published':
+                    lessons[entry['id']] = {
+                        'id': entry['id'], 'track': track['id'], 'part': part['number'], 'number': entry['number'],
+                        'title': entry['title'], 'subtitle': entry['subtitle'], 'minutes': entry['minutes'], 'surface': entry['surface'],
+                        'checked': '2026-10-21', 'outcome': ['시험 결과물'],
+                        'steps': [{'title': '시험 단계', 'body': ['시험 본문'], 'prompt': {'text': '{{가게이름}} 시험 부탁'},
+                                   'file': {'src': 'files/v01-sample.txt', 'label': '시험 자료 파일', 'note': '시험 설명'}}],
+                        'checklist': ['시험 확인'], 'keep': ['시험 정리'], 'history': [{'date': '2026-10-21', 'note': '시험'}]}
+    return data, lessons
 
 
 class 정적등록시험(unittest.TestCase):
@@ -131,10 +187,10 @@ class 목록시험(unittest.TestCase):
             self.assertIsInstance(track['title'], str)
             self.assertIsInstance(track['summary'], str)
             self.assertIsInstance(track['parts'], list)
-        self.assertEqual(tracks[1]['status'], 'soon')
         ids = [l['id'] for _, _, l in catalog_rows()]
         self.assertEqual(len(ids), len(set(ids)), '강 id 중복')
-        self.assertEqual(ids, ['b%02d' % n for n in range(1, 23)])
+        self.assertEqual([l['id'] for t, _, l in catalog_rows() if t['id'] == 'basic'], ['b%02d' % n for n in range(1, 23)])
+        self.assertEqual(track_problems(data), [])
         for track, part, lesson in catalog_rows():
             with self.subTest(lesson=lesson.get('id')):
                 self.assertTrue(ID_RE.match(lesson['id']))
@@ -147,7 +203,25 @@ class 목록시험(unittest.TestCase):
                 self.assertTrue(1 <= lesson['minutes'] <= 30)
                 self.assertIn(lesson['surface'], SURFACES)
                 self.assertIn(lesson['status'], {'published', 'soon'})
-        self.assertEqual([l['number'] for _, _, l in catalog_rows()], list(range(1, 23)))
+                self.assertEqual(TRACK_BY_LETTER.get(lesson['id'][0]), track['id'], 'id 첫 글자와 과정이 맞아야 합니다')
+
+    def test_과정순서점검이_잘못된목록을_찾아낸다(self):
+        good, _ = vibe_fixture()
+        self.assertEqual(track_problems(good), [])
+        self.assertEqual(track_problems(vibe_fixture('soon')[0]), [])
+        swapped = json.loads(json.dumps(good))
+        lessons = swapped['tracks'][1]['parts'][0]['lessons']
+        lessons[0], lessons[1] = lessons[1], lessons[0]
+        self.assertTrue(track_problems(swapped))
+        wrong_track = json.loads(json.dumps(good))
+        wrong_track['tracks'][1]['parts'][1]['lessons'][0]['id'] = 'b03'
+        self.assertTrue(track_problems(wrong_track))
+        restarted = json.loads(json.dumps(good))
+        restarted['tracks'][1]['parts'][1]['lessons'][0]['number'] = 1
+        self.assertTrue(track_problems(restarted), '심화 강 번호는 부가 바뀌어도 이어서 매긴다')
+        parts = json.loads(json.dumps(good))
+        parts['tracks'][1]['parts'][1]['number'] = 3
+        self.assertTrue(track_problems(parts))
 
     def test_발행된강은_파일이있고_목록과_일치한다(self):
         self.assertTrue(published(), '발행된 강이 하나는 있어야 합니다')
@@ -194,7 +268,8 @@ class 강의형식시험(unittest.TestCase):
     def check_lesson(self, lesson, name):
         self.assertLessEqual(set(lesson) - LESSON_KEYS, set(), name + ': 모르는 항목')
         self.assertTrue(ID_RE.match(lesson['id']), name)
-        self.assertEqual(lesson['track'], 'basic' if lesson['id'].startswith('b') else 'vibe')
+        self.assertIn(lesson['id'][0], TRACK_BY_LETTER, name)
+        self.assertEqual(lesson['track'], TRACK_BY_LETTER[lesson['id'][0]], name)
         self.assertIsInstance(lesson['part'], int)
         self.assertIsInstance(lesson['number'], int)
         self.check_text(lesson['title'], name + '.title', 80, True)
@@ -230,6 +305,13 @@ class 강의형식시험(unittest.TestCase):
                     self.assertLessEqual(set(step[key]) - {'text', 'note'}, set(), where + '.' + key)
                     if 'note' in step[key]:
                         self.check_text(step[key]['note'], where + '.' + key + '.note', 300)
+            if 'file' in step:
+                self.assertIsInstance(step['file'], dict, where + '.file')
+                self.assertLessEqual(set(step['file']) - {'src', 'label', 'note'}, set(), where + '.file')
+                self.assertRegex(step['file'].get('src', ''), FILE_RE, where + '.file.src')
+                self.check_text(step['file'].get('label'), where + '.file.label', 80, True)
+                if 'note' in step['file']:
+                    self.check_text(step['file']['note'], where + '.file.note', 400)
             if 'status' in step:
                 self.assertIsInstance(step['status'], list, where)
                 self.assertLessEqual(set(step['status']) - CHECK_IDS, set(), where + '.status')
@@ -275,6 +357,11 @@ class 강의형식시험(unittest.TestCase):
         for text in strings(lesson):
             for found in re.findall(r'\{\{([^{}]*)\}\}', text):
                 self.assertIn(found, PLACEHOLDERS, name + ': 모르는 자리표시 {{' + found + '}}')
+
+    def test_심화과정_시험강의도_같은형식을_지킨다(self):
+        for lesson_id, lesson in vibe_fixture()[1].items():
+            with self.subTest(lesson=lesson_id):
+                self.check_lesson(lesson, lesson_id)
 
     def test_모든강의파일이_형식을_지킨다(self):
         files = lesson_files()
@@ -342,6 +429,53 @@ class 그림시험(unittest.TestCase):
                 self.assertIn('img/' + path.name, used, '어느 강에도 쓰이지 않는 그림: ' + path.name)
 
 
+class 자료파일시험(unittest.TestCase):
+    def test_자료파일은_이름_등록_크기_UTF8_규칙을_지킨다(self):
+        folder = LEARN / 'files'
+        if not folder.is_dir():
+            self.skipTest('자료 파일 폴더가 아직 없습니다.')
+        for path in sorted(folder.iterdir()):
+            with self.subTest(file=path.name):
+                self.assertTrue(path.is_file())
+                self.assertRegex('files/' + path.name, FILE_RE)
+                self.assertEqual(STATIC.get('/current/learn/files/' + path.name),
+                                 ('web/current/learn/files/' + path.name, 'text/plain; charset=utf-8'))
+                self.assertLessEqual(path.stat().st_size, 64 * 1024)
+                raw = path.read_bytes()
+                raw.decode('utf-8')  # 깨진 UTF-8이면 여기서 실패한다.
+                self.assertFalse(raw.startswith(b'\xef\xbb\xbf'), 'BOM이 있으면 복사한 글이 파일과 달라집니다')
+
+    def test_발행된강의_자료파일은_있고_등록된다(self):
+        for _, _, entry in published():
+            lesson = read_json(LEARN / 'lessons' / (entry['id'] + '.json'))
+            for src in file_refs(lesson):
+                with self.subTest(lesson=entry['id'], src=src):
+                    self.assertRegex(src, FILE_RE)
+                    self.assertTrue((LEARN / src).is_file(), src)
+                    self.assertEqual(STATIC.get('/current/learn/' + src), ('web/current/learn/' + src, 'text/plain; charset=utf-8'))
+
+    def test_자료파일폴더에_쓰이지않는_파일이_없다(self):
+        folder = LEARN / 'files'
+        if not folder.is_dir():
+            self.skipTest('자료 파일 폴더가 아직 없습니다.')
+        used = {src for path in lesson_files() for src in file_refs(read_json(path))}
+        for path in folder.iterdir():
+            self.assertIn('files/' + path.name, used, '어느 강에도 쓰이지 않는 자료 파일: ' + path.name)
+
+    def test_txt는_업데이트와_정리도구가_함께_싣는다(self):
+        import importlib.util
+        loaded = {}
+        for name, path in (('learn_updater_txt', 'tools/update.py'), ('learn_sync_txt', 'tools/sync_learn.py')):
+            spec = importlib.util.spec_from_file_location(name, ROOT / path)
+            loaded[path] = importlib.util.module_from_spec(spec); spec.loader.exec_module(loaded[path])
+        updater, sync = loaded['tools/update.py'], loaded['tools/sync_learn.py']
+        self.assertTrue(updater.allowed('box', 'web/current/learn/files/v01-schema.txt'))
+        self.assertTrue(updater.allowed('cli', 'template/web/current/learn/files/v01-schema.txt'))
+        self.assertEqual(sync.KINDS, TYPES)
+        lesson = {'steps': [{'title': 't', 'file': {'src': 'files/v09-missing.txt', 'label': 'x'}}]}
+        self.assertEqual(sync.files(lesson), ['files/v09-missing.txt'], '빠진 자료 파일이 있으면 강을 공개하지 않는다')
+
+
 class 메뉴연결시험(unittest.TestCase):
     def test_메뉴_주소_화면맵에_배우기가_등록된다(self):
         shell = (WEB / 'shell.js').read_text(encoding='utf-8')
@@ -402,7 +536,7 @@ function make(search, storage, files) {
     document: { getElementById: id => id === 'main' ? main : null, querySelector: () => null, querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} },
     navigator: { clipboard: { writeText: async t => { copied.push(t); } } },
     localStorage: { getItem(k) { guard(); return store.has(k) ? store.get(k) : null; }, setItem(k, v) { guard(); store.set(k, String(v)); }, removeItem(k) { guard(); store.delete(k); } },
-    fetch: async path => { fetched.push(path); return path in files ? { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(files[path])) } : { ok: false, status: 404, json: async () => ({}) }; },
+    fetch: async path => { fetched.push(path); return path in files ? { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(files[path])), text: async () => String(files[path]) } : { ok: false, status: 404, json: async () => ({}), text: async () => '' }; },
     addEventListener() {}, scrollTo() {}
   };
   ctx.window = ctx;
@@ -415,9 +549,14 @@ async function settle(env) { let html = ''; for (let i = 0; i < 6; i++) { html =
 (async () => {
   const out = {};
   const base = { 'learn/catalog.json': P.catalog, '/api/overview': P.overview };
-  const a = make('?tab=learn&lesson=b01', null, { ...base, 'learn/lessons/b01.json': P.evil });
+  const a = make('?tab=learn&lesson=b01', null, { ...base, 'learn/lessons/b01.json': P.evil, 'learn/files/v01-sample.txt': P.file_text });
   out.a_html = await settle(a);
+  out.a_fetched_first = a.fetched.slice();
   a.L.copy('p0'); a.L.copy('m0'); await tick();
+  a.L.fileCopy(0); out.a_file_ready = await settle(a);
+  a.L.fileToggle(0); out.a_file_open = await settle(a);
+  a.L.fileCopy(0); await settle(a);
+  a.L.fileToggle(1); a.L.fileToggle(2); out.a_file_error = await settle(a);
   out.a_copied = a.copied; out.a_fetched = a.fetched;
   a.L.toggleLarge(); out.a_large = a.L.render().includes('lr-large');
   const a2 = make('?tab=learn', {}, { 'learn/catalog.json': P.catalog, '/api/overview': P.overview_placeholder });
@@ -439,6 +578,27 @@ async function settle(env) { let html = ''; for (let i = 0; i < 6; i++) { html =
   p1.L.home(); out.p1_catalog = p1.L.render();
   const p2 = make('?tab=learn', {}, { 'learn/catalog.json': P.p_catalog, '/api/overview': P.p_overview });
   out.p2_html = await settle(p2);
+  // 심화 과정이 열린 시험용 목록
+  const vfiles = (cat, lessons) => Object.assign({ 'learn/catalog.json': cat, '/api/overview': P.overview },
+    Object.fromEntries(Object.entries(lessons).map(([id, l]) => ['learn/lessons/' + id + '.json', l])));
+  const prog = ids => JSON.stringify(Object.fromEntries(ids.map(id => [id, { done: true }])));
+  const V = vfiles(P.vibe_catalog, P.vibe_lessons);
+  out.v_catalog = await settle(make('?tab=learn', { 'ilson-learn-progress': prog(['b01']) }, V));
+  out.v_resume_vibe = await settle(make('?tab=learn', { 'ilson-learn-progress': prog(['b01', 'b02']), 'ilson-learn-last': '"v02"' }, V));
+  out.v_resume_basic = await settle(make('?tab=learn', { 'ilson-learn-progress': prog(['v01']), 'ilson-learn-last': '"v01"' }, V));
+  out.v_resume_basic2 = await settle(make('?tab=learn', { 'ilson-learn-progress': prog(['b01']), 'ilson-learn-last': '"v02"' }, V));
+  out.v_all_done = await settle(make('?tab=learn', { 'ilson-learn-progress': prog(['b01', 'b02', 'v01', 'v02']) }, V));
+  out.v_lesson1 = await settle(make('?tab=learn&lesson=v01', {}, V));
+  out.v_lesson2 = await settle(make('?tab=learn&lesson=v02', {}, V));
+  out.v_basic_end = await settle(make('?tab=learn&lesson=b02', {}, V));
+  const VS = vfiles(P.vibe_soon_catalog, P.vibe_lessons);
+  out.v_soon_end = await settle(make('?tab=learn&lesson=b02', {}, VS));
+  out.v_soon_catalog = await settle(make('?tab=learn', {}, VS));
+  const vs = make('?tab=learn&lesson=v01', {}, VS); out.v_soon_lesson = await settle(vs); out.v_soon_fetched = vs.fetched;
+  const PV = vfiles(P.p_vibe_catalog, P.p_vibe_lessons);
+  out.pv_catalog = await settle(make('?tab=learn', { 'ilson-learn-progress': prog(['b01', 'b02']) }, PV));
+  out.pv_lesson = await settle(make('?tab=learn&lesson=v01', {}, PV));
+  out.pv_end = await settle(make('?tab=learn&lesson=b02', {}, PV));
   console.log(JSON.stringify(out));
 })().catch(e => { console.error(e && e.stack || e); process.exit(1); });
 """
@@ -497,7 +657,10 @@ class 이스케이프시험(unittest.TestCase):
             'cover': {'src': '../../shell.js', 'alt': 'x', 'caption': 'x'},
             'steps': [{'title': '<b>t</b>', 'body': ['`<svg onload=x>` 와 **굵게**'],
                        'prompt': {'text': '{{가게이름}} <i>x</i> {{없는것}}'},
-                       'memo': {'text': '{{업종}} <i>m</i>', 'note': '<u>n</u>'}, 'status': ['claude', 'evil']}],
+                       'memo': {'text': '{{업종}} <i>m</i>', 'note': '<u>n</u>'}, 'status': ['claude', 'evil'],
+                       'file': {'src': 'files/v01-sample.txt', 'label': '<b>파일</b>', 'note': '<i>n</i>'}},
+                      {'title': 'bad', 'file': {'src': 'files/../v01-x.txt', 'label': 'bad'}},
+                      {'title': 'missing', 'file': {'src': 'files/v01-missing.txt', 'label': 'missing'}}],
             'explain': [{'heading': 'h', 'figure': {'src': 'img/b01-sample.svg" onerror="x', 'alt': 'a', 'caption': 'c'}}],
             'links': [{'label': 'bad', 'url': 'javascript:alert(1)'}, {'label': 'quote', 'url': 'https://example.com/a"b'},
                       {'label': '<u>ok</u>', 'url': 'https://example.com/x'}],
@@ -525,9 +688,12 @@ class 이스케이프시험(unittest.TestCase):
             soon = 'b99'
             real_catalog['tracks'][0]['parts'][-1]['lessons'].append(
                 {'id': soon, 'number': 99, 'title': '시험용 준비 중 강', 'subtitle': '', 'minutes': 5, 'surface': 'both', 'status': 'soon'})
-        fixture = {'js': str(LEARN / 'learn.js'), 'soon_id': soon, 'catalog': real_catalog, 'overview': overview, 'overview_placeholder': placeholder,
+        fixture = {'js': str(LEARN / 'learn.js'), 'soon_id': soon, 'file_text': FILE_TEXT, 'catalog': real_catalog, 'overview': overview, 'overview_placeholder': placeholder,
                    'evil': evil, 'real': real_lesson, 'p_catalog': p_catalog, 'p_overview': p_overview, 'p_lesson': poison(source),
                    'poison_shop': {k: v + POISON for k, v in real_catalog['example_shop'].items()}}
+        vibe_catalog, vibe_lessons = vibe_fixture()
+        fixture.update({'vibe_catalog': vibe_catalog, 'vibe_lessons': vibe_lessons, 'vibe_soon_catalog': vibe_fixture('soon')[0],
+                        'p_vibe_catalog': poison(vibe_catalog), 'p_vibe_lessons': {k: poison(v) for k, v in vibe_lessons.items()}})
         import tempfile
         with tempfile.NamedTemporaryFile('w', suffix='.json', encoding='utf-8', delete=False) as handle:
             json.dump(fixture, handle, ensure_ascii=False)
@@ -547,7 +713,7 @@ class 이스케이프시험(unittest.TestCase):
             self.assertNotIn(bad, html, bad)
         self.assertIn('&lt;img src=x onerror=alert(1)&gt;', html)
         self.assertIn('<strong>&lt;script&gt;alert(1)&lt;/script&gt;</strong>', html)
-        self.assertIn('<code>&lt;svg onload=x&gt;</code>', html)
+        self.assertRegex(html, r'<code(?: class="lr-nw")?>&lt;svg onload=x&gt;</code>')
         self.assertIn('<strong>굵게</strong>', html)
         self.assertIn('<mark class="lr-fill">&lt;회사&gt;</mark>', html)
         self.assertIn('{{없는것}}', html)
@@ -558,8 +724,37 @@ class 이스케이프시험(unittest.TestCase):
         self.assertIn('&lt;L&gt;', html)
         self.assertIn('&lt;D&gt;', html)
         self.assertIn('learn/lessons/b01.json', out['a_fetched'])
-        self.assertEqual(out['a_copied'], ['<회사> <i>x</i> {{없는것}}', '꽃집 <i>m</i>'])
+        self.assertEqual(out['a_copied'], ['<회사> <i>x</i> {{없는것}}', '꽃집 <i>m</i>', FILE_TEXT, FILE_TEXT],
+                         '파일은 받기 전이든 후든 자리표시도 바꾸지 않고 그대로 복사')
         self.assertTrue(out['a_large'], '저장소가 막혀도 글자 크게가 이 화면 동안 유지되어야 합니다')
+
+    def test_자료파일상자는_늦게받고_글자로만_보인다(self):
+        self.node_or_skip()
+        out = self.run_harness()
+        html = out['a_html']
+        self.assertEqual(html.count('class="lr-box lr-box-file"'), 2, '경로가 틀린 파일 단계는 그리지 않는다')
+        self.assertIn('<i data-lucide="file-code"></i>&lt;b&gt;파일&lt;/b&gt;', html)
+        self.assertIn('<p class="lr-box-note">&lt;i&gt;n&lt;/i&gt;</p>', html)
+        self.assertIn('펼치기', html)
+        self.assertFalse(any(p.startswith('learn/files/') for p in out['a_fetched_first']), '펼치거나 복사하기 전에는 받지 않는다')
+        self.assertFalse(any('..' in p for p in out['a_fetched']), out['a_fetched'])
+        self.assertEqual(out['a_fetched'].count('learn/files/v01-sample.txt'), 1, '같은 파일은 한 번만 받는다')
+        ready = out['a_file_ready']
+        self.assertIn('12줄 · ', ready)
+        self.assertIn('처음 8줄만 보여요', ready)
+        self.assertIn('class="lr-file-text lr-file-cut"', ready)
+        self.assertIn('data-file-open="false"', ready)
+        self.assertIn('펼치기 (모두 12줄)', ready)
+        opened = out['a_file_open']
+        self.assertIn('data-file-open="true"', opened)
+        self.assertIn('aria-expanded="true" aria-controls="lr-text-f0"', opened)
+        self.assertIn('접기', opened)
+        self.assertNotIn('lr-file-cut', opened)
+        for name in ('a_html', 'a_file_ready', 'a_file_open', 'a_file_error'):
+            self.assertNotIn('fileMarker', out[name], '파일 글자는 HTML에 넣지 않는다(textContent만)')
+            self.assertNotIn('<script', out[name])
+        self.assertIn('파일을 불러오지 못했어요', out['a_file_error'])
+        self.assertIn('onclick="IlsonLearn.fileRetry(2)"', out['a_file_error'])
 
     def test_회사정보가_확인되기전에는_예시가게를_쓴다(self):
         self.node_or_skip()
@@ -578,7 +773,7 @@ class 이스케이프시험(unittest.TestCase):
         self.assertIn('준비 중이거나', out['c2_html'])
         self.assertEqual(out['c2_query'], '')
         self.assertEqual(out['d_query'], '')
-        self.assertIn('%d강 중 0강 마침' % len(published()), out['d_html'])
+        self.assertIn('%d강 중 0강 마침' % len([1 for t, _, _ in published() if t['id'] == 'basic']), out['d_html'])
         self.assertIn('바이브 코딩 심화', out['d_html'])
         self.assertIn('준비 중', out['d_html'])
 
@@ -589,6 +784,78 @@ class 이스케이프시험(unittest.TestCase):
         self.assertEqual(out['e_restored'], 480)
         self.assertEqual(out['e_menu_query'], '')
         self.assertEqual(out['e_catalog_top'], 300)
+
+    @staticmethod
+    def resume_id(html):
+        found = re.search(r'class="lr-btn lr-btn-primary lr-btn-big" href="\?tab=learn&amp;lesson=([a-z][0-9]{2})"', html)
+        return found.group(1) if found else None
+
+    def test_심화과정이_열리면_목록에_과정별진도와_줄이_나온다(self):
+        self.node_or_skip()
+        out = self.run_harness()
+        html = out['v_catalog']
+        self.assertIn('<div class="lr-progress-track">기본 과정</div><strong class="lr-progress-num">2강 중 1강 마침</strong>', html)
+        self.assertIn('다음 차례: 2강 기본 끝 강', html)
+        self.assertEqual(self.resume_id(html), 'b02')
+        vibe = html[html.index('<h2 class="lr-h2">바이브 코딩 심화</h2>'):]
+        self.assertIn('<div class="lr-track-progress"><span>2강 중 0강 마침</span>', vibe)
+        self.assertIn('1부 · 만들 것 정하기', vibe)
+        self.assertIn('2부 · 저장하기', vibe)
+        for label in ('심화 1강', '심화 2강', '심화 3강'):
+            self.assertIn('<span class="lr-row-num">%s</span>' % label, vibe)
+        self.assertIn('data-lr-row="v01"', vibe)
+        self.assertNotIn('data-lr-row="v03"', vibe, '준비 중인 강은 열리지 않는다')
+        self.assertIn('<span class="lr-row-num">1강</span>', html[:html.index('바이브 코딩 심화</h2>')])
+        soon = out['v_soon_catalog']
+        self.assertNotIn('심화 1강', soon)
+        self.assertIn('<h2 class="lr-h2">바이브 코딩 심화</h2><span class="lr-badge">준비 중</span>', soon)
+
+    def test_이어서배우기는_기본과정_먼저_다음은_심화(self):
+        self.node_or_skip()
+        out = self.run_harness()
+        self.assertEqual(self.resume_id(out['v_resume_basic']), 'b01')
+        self.assertEqual(self.resume_id(out['v_resume_basic2']), 'b02', '심화 강을 보다 왔어도 기본 과정에 남은 강이 먼저')
+        self.assertIn('<div class="lr-progress-track">기본 과정</div>', out['v_resume_basic'])
+        self.assertEqual(self.resume_id(out['v_resume_vibe']), 'v02')
+        self.assertIn('<div class="lr-progress-track">바이브 코딩 심화</div><strong class="lr-progress-num">2강 중 0강 마침</strong>', out['v_resume_vibe'])
+        self.assertIn('다음 차례: 심화 2강 첫 화면', out['v_resume_vibe'])
+        done = out['v_all_done']
+        self.assertIsNone(self.resume_id(done))
+        self.assertIn('<div class="lr-progress-track">모든 과정</div><strong class="lr-progress-num">4강 중 4강 마침</strong>', done)
+        self.assertIn('준비된 강을 모두 마쳤어요', done)
+
+    def test_심화강의_머리말과_이동은_과정안에서만(self):
+        self.node_or_skip()
+        out = self.run_harness()
+        first = out['v_lesson1']
+        self.assertIn('<div class="lr-eyebrow">바이브 코딩 심화 · 1부 · 만들 것 정하기<span class="lr-dot" aria-hidden="true"></span>심화 1강</div>', first)
+        self.assertIn('<span class="lr-pager-label">다음 강으로</span><span class="lr-pager-title">심화 2강 · 첫 화면</span>', first)
+        self.assertNotIn('lr-prev', first, '심화 첫 강의 앞 강은 기본 과정으로 넘어가지 않는다')
+        self.assertNotIn('lr-next-track', first)
+        second = out['v_lesson2']
+        self.assertIn('<span class="lr-pager-label">앞 강</span><span class="lr-pager-title">심화 1강 · 한 장으로 정하기</span>', second)
+        self.assertIn('<span class="lr-pager-title">준비 중이에요</span>', second)
+        self.assertNotIn('lr-next-track', second)
+        end = out['v_basic_end']
+        self.assertIn('<div class="lr-eyebrow">1부 · 시작<span class="lr-dot" aria-hidden="true"></span>2강</div>', end)
+        self.assertNotIn('다음 강으로', end)
+        self.assertIn('class="lr-next-track" href="?tab=learn&amp;lesson=v01"', end)
+        self.assertIn('기본 과정의 마지막 강이에요', end)
+        self.assertIn('심화 1강 · 한 장으로 정하기', end)
+        self.assertNotIn('lr-next-track', out['v_soon_end'], '심화 과정이 준비 중이면 이어 주는 카드를 보이지 않는다')
+        self.assertFalse(any('lessons/v01' in p for p in out['v_soon_fetched']), '준비 중인 과정의 강은 받지 않는다')
+        self.assertIn('준비 중이거나', out['v_soon_lesson'])
+
+    def test_심화과정_글자를_오염시켜도_새지않는다(self):
+        self.node_or_skip()
+        out = self.run_harness()
+        for name in ('pv_catalog', 'pv_lesson', 'pv_end'):
+            self.assertNotIn('<x-', out[name], name)
+            self.assertGreater(out[name].count('&lt;x-p onclick=&quot;alert(1)&quot;&gt;'), 3, name)
+        escaped = '&lt;x-p onclick=&quot;alert(1)&quot;&gt;&#39;&amp;amp;'
+        self.assertIn('바이브 코딩 심화' + escaped, out['pv_lesson'])
+        self.assertIn('class="lr-next-track"', out['pv_end'])
+        self.assertIn('심화 1강', out['pv_catalog'])
 
     def test_실제목록과_강의의_모든글자를_오염시켜도_새지않는다(self):
         self.node_or_skip()
@@ -603,7 +870,7 @@ class 이스케이프시험(unittest.TestCase):
 class 서빙시험(unittest.TestCase):
     def setUp(self):
         fixture = fixtures.WorkspaceHTTPTests(); fixture.setUp(); self.addCleanup(fixture.doCleanups)
-        self.server, self.cookie = fixture.server, fixture.cookie
+        self.server, self.cookie, self.home = fixture.server, fixture.cookie, fixture.home
         shutil.copytree(ROOT / 'template/web', fixture.home / 'web', dirs_exist_ok=True)
 
     def get(self, path, cookie=False):
@@ -626,6 +893,21 @@ class 서빙시험(unittest.TestCase):
                 self.assertEqual(status, 200, key)
                 self.assertEqual(headers['Content-Type'], kind, key)
                 self.assertEqual(body, (ROOT / 'template' / relative).read_bytes(), key)
+
+    def test_자료파일은_text_plain으로_그대로_서빙한다(self):
+        name = 'v99-test-fixture.txt'
+        target = self.home / 'web/current/learn/files' / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(FILE_TEXT, encoding='utf-8')
+        key = '/current/learn/files/' + name
+        STATIC[key] = ('web/current/learn/files/' + name, 'text/plain; charset=utf-8')
+        self.addCleanup(STATIC.pop, key, None)
+        status, headers, body = self.get(key)
+        self.assertEqual(status, 200)
+        self.assertEqual(headers['Content-Type'], 'text/plain; charset=utf-8')
+        self.assertEqual(headers['X-Content-Type-Options'], 'nosniff')
+        self.assertEqual(body.decode('utf-8'), FILE_TEXT)
+        self.assertEqual(self.get('/current/learn/files/v99-other.txt', cookie=True)[0], 404)
 
     def test_SVG는_스크립트없는_전용CSP로_서빙한다(self):
         for path in [k for k, v in STATIC.items() if v[1] == 'image/svg+xml' and k.startswith('/current/')]:

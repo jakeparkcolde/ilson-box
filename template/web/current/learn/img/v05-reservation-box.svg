@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" width="720" height="360" role="img" aria-label="손님 쪽 예약 화면에서 서울의 Supabase 예약 표로 보내기 화살표만 들어가고, 표에서 꺼내 읽는 화살표는 막혀 있으며, 읽는 규칙은 심화 7강에서 붙인다는 개념도">
+  <defs>
+    <marker id="arrowG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#1d8a38" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrowR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#c4423b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="none"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:22px;font-weight:600}
+    .l{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px}
+    .bw{fill:#ffffff;stroke:#b9bec6;stroke-width:1.2}
+    .bg{fill:#eceef0;stroke:#b9bec6;stroke-width:1.2}
+  </style>
+  <rect width="720" height="360" rx="16" fill="#f5f6f6"/>
+
+  <!-- customer page sketch -->
+  <rect x="32" y="56" width="184" height="204" rx="12" fill="#ffffff"/>
+  <path d="M32 84 V68 Q32 56 44 56 H204 Q216 56 216 68 V84 Z" fill="#eceef0"/>
+  <circle cx="50" cy="70" r="4.5" fill="#c9ccd1"/><circle cx="66" cy="70" r="4.5" fill="#c9ccd1"/><circle cx="82" cy="70" r="4.5" fill="#c9ccd1"/>
+  <rect x="32" y="56" width="184" height="204" rx="12" fill="none" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="l" x="52" y="118">예약 화면</text>
+  <rect x="52" y="136" width="144" height="12" rx="6" fill="#e4e4e8"/>
+  <rect x="52" y="160" width="112" height="12" rx="6" fill="#e4e4e8"/>
+  <rect x="52" y="184" width="144" height="12" rx="6" fill="#e4e4e8"/>
+  <rect x="52" y="210" width="144" height="34" rx="9" fill="#5e6ad2"/>
+  <rect x="92" y="223" width="64" height="8" rx="4" fill="#ffffff" opacity="0.75"/>
+  <text class="s" x="124" y="292" text-anchor="middle">손님</text>
+
+  <!-- send: passes -->
+  <path d="M224 114 H366" stroke="#1d8a38" stroke-width="2" fill="none" marker-end="url(#arrowG)"/>
+  <text class="l" x="296" y="100" text-anchor="middle" style="fill:#1d8a38">보내기 (insert)</text>
+
+  <!-- read: blocked -->
+  <text class="l" x="296" y="164" text-anchor="middle">읽기 (select)</text>
+  <path d="M366 190 H226" stroke="#c4423b" stroke-width="2" fill="none" stroke-dasharray="6 5" marker-end="url(#arrowR)"/>
+  <circle cx="296" cy="190" r="14" fill="#ffffff" stroke="#c4423b" stroke-width="2"/>
+  <path d="M290 184 L302 196 M302 184 L290 196" stroke="#c4423b" stroke-width="2.2" stroke-linecap="round"/>
+  <text x="296" y="230" text-anchor="middle" style="font-size:18px;font-weight:600;fill:#c4423b">막혀 있어요</text>
+
+  <!-- Supabase table card -->
+  <rect x="376" y="56" width="312" height="184" rx="14" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="h" x="400" y="98">Supabase · 서울</text>
+  <text class="m" x="400" y="132">reservation_requests</text>
+  <!-- paper order form: 7 white boxes, 4 grey boxes -->
+  <rect x="400" y="152" width="270" height="64" rx="8" fill="#ffffff" stroke="#c9ccd1" stroke-width="1.2"/>
+  <rect class="bw" x="412" y="166" width="18" height="36" rx="4"/>
+  <rect class="bw" x="434" y="166" width="18" height="36" rx="4"/>
+  <rect class="bw" x="456" y="166" width="18" height="36" rx="4"/>
+  <rect class="bw" x="478" y="166" width="18" height="36" rx="4"/>
+  <rect class="bw" x="500" y="166" width="18" height="36" rx="4"/>
+  <rect class="bw" x="522" y="166" width="18" height="36" rx="4"/>
+  <rect class="bw" x="544" y="166" width="18" height="36" rx="4"/>
+  <rect class="bg" x="578" y="166" width="18" height="36" rx="4"/>
+  <rect class="bg" x="600" y="166" width="18" height="36" rx="4"/>
+  <rect class="bg" x="622" y="166" width="18" height="36" rx="4"/>
+  <rect class="bg" x="644" y="166" width="18" height="36" rx="4"/>
+
+  <text class="s" x="376" y="272">사장님이 읽는 규칙: 심화 7강</text>
+</svg>

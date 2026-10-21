@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 444" width="720" height="444" role="img" aria-label="홈 폴더 안에 ilson chat으로 여는 일손 폴더와 claude로 여는 작업 폴더가 따로 있고, 작업 폴더에는 작업 약속 파일이, 옆에는 GitHub 로그인이 이어진 개념도">
+  <defs>
+    <symbol id="doc" viewBox="0 0 12 15">
+      <path d="M1 1 H8 L11 4 V14 H1 Z" fill="#ffffff" stroke="#6b7078" stroke-width="1.4" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="fold" viewBox="0 0 26 19">
+      <path d="M1 3 Q1 1 3 1 H9 L11.5 3.5 H23 Q25 3.5 25 5.5 V16 Q25 18 23 18 H3 Q1 18 1 16 Z" fill="#ffffff" stroke="#6b7078" stroke-width="1.5" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:20px;font-weight:600}
+    .hb{font-size:22px;font-weight:600}
+    .r{font-size:20px}
+    .s{font-size:18px;fill:#6b7078}
+    .mp{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#6b7078}
+    .mi{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#1d1d21}
+    .mt{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#f7f8f8}
+    .chip{fill:#ffffff;stroke:#c9ccd1;stroke-width:1.5}
+  </style>
+  <rect width="720" height="444" rx="16" fill="#f5f6f6"/>
+
+  <!-- home folder frame -->
+  <path d="M44 24 H164 Q171 24 175 30 L182 40 H472 Q484 40 484 52 V408 Q484 420 472 420 H44 Q32 420 32 408 V36 Q32 24 44 24 Z" fill="none" stroke="#b8bcc2" stroke-width="1.5"/>
+  <text class="h" x="52" y="72">홈 폴더</text>
+  <text class="mp" x="120" y="72">~</text>
+
+  <!-- box folder -->
+  <path d="M56 88 H114 Q121 88 125 94 L132 104 H184 Q196 104 196 116 V276 Q196 288 184 288 H56 Q44 288 44 276 V100 Q44 88 56 88 Z" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="h" x="60" y="140">일손 폴더</text>
+  <text class="mp" x="60" y="168">~/ilson</text>
+  <text class="r" x="60" y="226">가게 일</text>
+  <rect x="52" y="240" width="136" height="34" rx="10" fill="#1d1d21"/>
+  <text class="mt" x="120" y="263" text-anchor="middle">ilson chat</text>
+
+  <!-- work folder -->
+  <path d="M220 88 H278 Q285 88 289 94 L296 104 H460 Q472 104 472 116 V392 Q472 404 460 404 H220 Q208 404 208 392 V100 Q208 88 220 88 Z" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="h" x="224" y="140">작업 폴더</text>
+  <text class="mp" x="224" y="168">~/Projects/</text>
+  <text class="mp" x="224" y="192">haetsal-booking</text>
+  <text class="r" x="224" y="226">예약 페이지 일</text>
+  <rect x="224" y="240" width="104" height="34" rx="10" fill="#1d1d21"/>
+  <text class="mt" x="276" y="263" text-anchor="middle">claude</text>
+
+  <!-- what sits in the work folder: the promise file beside the public folder -->
+  <rect class="chip" x="222" y="288" width="236" height="38" rx="8"/>
+  <use href="#doc" x="234" y="299" width="12" height="15"/>
+  <text class="mi" x="254" y="313">CLAUDE.md</text>
+  <text class="h" x="364" y="314">작업 약속</text>
+
+  <rect class="chip" x="222" y="334" width="236" height="60" rx="8"/>
+  <use href="#fold" x="230" y="343" width="26" height="19"/>
+  <text class="mi" x="264" y="358">public/</text>
+  <text class="s" x="264" y="384">손님에게 보일 파일</text>
+
+  <!-- GitHub, prepared for later -->
+  <path d="M472 152 H508" stroke="#6b7078" stroke-width="1.8" stroke-dasharray="5 5"/>
+  <rect x="508" y="88" width="180" height="128" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="hb" x="524" y="124">GitHub</text>
+  <text class="mi" x="524" y="158">gh auth login</text>
+  <text class="s" x="524" y="192">심화 4강에서 올려요</text>
+</svg>

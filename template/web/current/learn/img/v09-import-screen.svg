@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 464" width="720" height="464" role="img" aria-label="Vercel 새 프로젝트 화면에서 haetsal-booking 저장소를 고르고, Framework Preset을 Other로, Output Directory를 Override로 public으로 둔 뒤 Deploy를 누르는 순서를 번호로 보여 주는 화면 스케치">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:22px;font-weight:600}
+    .l{font-size:20px;font-weight:600}
+    .r{font-size:20px}
+    .c{font-size:18px}
+    .sh{font-size:18px;font-weight:600;fill:#6b7078}
+    .s{font-size:18px;fill:#6b7078}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#1d1d21}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+    .btn{font-size:20px;font-weight:600;fill:#ffffff}
+    .win{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+    .pan{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+    .bar{fill:#e4e4e8}
+    .b{fill:#5e6ad2}
+  </style>
+  <rect width="720" height="464" rx="16" fill="#f5f6f6"/>
+
+  <!-- window -->
+  <rect class="win" x="32" y="24" width="656" height="360" rx="12"/>
+  <path d="M32 58 V36 Q32 24 44 24 H676 Q688 24 688 36 V58 Z" fill="#eceef0"/>
+  <circle cx="52" cy="41" r="5" fill="#c9ccd1"/><circle cx="70" cy="41" r="5" fill="#c9ccd1"/><circle cx="88" cy="41" r="5" fill="#c9ccd1"/>
+  <text class="h" x="56" y="92">New Project</text>
+
+  <!-- repository list -->
+  <rect class="pan" x="56" y="108" width="286" height="258" rx="10"/>
+  <rect class="bar" x="102" y="128" width="120" height="12" rx="6"/>
+  <rect class="bar" x="102" y="164" width="170" height="14" rx="7"/>
+  <path d="M72 190 H326" stroke="#eceef0" stroke-width="1.5"/>
+  <rect x="98" y="200" width="228" height="42" rx="8" fill="#e8eafb" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="m" x="114" y="227">haetsal-booking</text>
+  <circle class="b" cx="78" cy="221" r="14"/><text class="n" x="78" y="227" text-anchor="middle">1</text>
+  <path d="M72 252 H326" stroke="#eceef0" stroke-width="1.5"/>
+  <rect class="bar" x="102" y="268" width="140" height="14" rx="7"/>
+  <path d="M72 298 H326" stroke="#eceef0" stroke-width="1.5"/>
+  <rect class="bar" x="102" y="318" width="156" height="14" rx="7"/>
+
+  <!-- settings -->
+  <rect class="pan" x="366" y="108" width="298" height="258" rx="10"/>
+  <text class="l" x="412" y="138">Framework Preset</text>
+  <rect x="412" y="150" width="228" height="38" rx="8" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="r" x="428" y="176">Other</text>
+  <path d="M612 166 L618 172 L624 166" fill="none" stroke="#1d1d21" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle class="b" cx="390" cy="169" r="14"/><text class="n" x="390" y="175" text-anchor="middle">2</text>
+
+  <path d="M382 200 H648" stroke="#eceef0" stroke-width="1.5"/>
+  <text class="sh" x="412" y="226">Build Output Settings</text>
+  <path d="M586 216 L591 221 L596 216" fill="none" stroke="#6b7078" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text class="l" x="412" y="258">Output Directory</text>
+  <circle class="b" cx="390" cy="251" r="14"/><text class="n" x="390" y="257" text-anchor="middle">3</text>
+  <rect x="412" y="273" width="44" height="24" rx="12" fill="#5e6ad2"/>
+  <circle cx="444" cy="285" r="9" fill="#ffffff"/>
+  <text class="c" x="466" y="291">Override</text>
+  <rect x="546" y="269" width="94" height="32" rx="8" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="m" x="593" y="291" text-anchor="middle">public</text>
+
+  <rect x="412" y="318" width="228" height="38" rx="10" fill="#5e6ad2"/>
+  <text class="btn" x="526" y="344" text-anchor="middle">Deploy</text>
+  <circle class="b" cx="390" cy="337" r="14"/><text class="n" x="390" y="343" text-anchor="middle">4</text>
+
+  <text class="s" x="32" y="424">실제 화면은 조금 다를 수 있어요</text>
+</svg>

@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 460" width="720" height="460" role="img" aria-label="public 폴더 안에서 index.html과 reserve.html이 style.css를 함께 쓰고, reserve.html의 보내기 버튼은 reserve.js가 맡으며 지금은 연습 안내, 심화 6강에서 보내기로 바뀐다는 관계 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .r{font-size:20px}
+    .s{font-size:18px;fill:#6b7078}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:20px;font-weight:600;fill:#1d1d21}
+    .card{fill:#ffffff;stroke:#d5d8dd;stroke-width:1.5}
+    .ln{stroke:#6b7078;stroke-width:2;fill:none}
+  </style>
+  <rect width="720" height="460" rx="16" fill="#f5f6f6"/>
+
+  <!-- the public folder holds all four files -->
+  <path d="M38 20 H140 Q150 20 154 30 L160 52 H682 Q696 52 696 66 V370 Q696 384 682 384 H38 Q24 384 24 370 V34 Q24 20 38 20 Z" fill="#ffffff" stroke="#6b7078" stroke-width="1.5" stroke-dasharray="6 5" stroke-linejoin="round"/>
+  <text class="m" x="40" y="44">public/</text>
+  <text class="s" x="696" y="42" text-anchor="end">CLAUDE.md는 바깥에</text>
+
+  <!-- the two pages -->
+  <rect class="card" x="40" y="72" width="200" height="96" rx="14"/>
+  <text class="m" x="60" y="110">index.html</text>
+  <text class="r" x="60" y="146">첫 화면</text>
+
+  <path class="ln" d="M246 120 H372" marker-end="url(#arrow)"/>
+  <text class="s" x="309" y="108" text-anchor="middle">예약 요청하기</text>
+
+  <rect class="card" x="380" y="72" width="220" height="96" rx="14"/>
+  <text class="m" x="400" y="110">reserve.html</text>
+  <text class="r" x="400" y="146">예약 요청 칸</text>
+
+  <!-- shared look -->
+  <path class="ln" d="M140 174 V264" marker-end="url(#arrow)"/>
+  <text class="s" x="152" y="226">꾸밈</text>
+  <path class="ln" d="M404 174 V264" marker-end="url(#arrow)"/>
+  <text class="s" x="416" y="226">꾸밈</text>
+
+  <rect x="40" y="272" width="388" height="64" rx="14" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="m" x="60" y="312">style.css</text>
+  <text class="r" x="188" y="312">두 화면이 함께 쓰는 꾸밈</text>
+
+  <!-- the button's job -->
+  <path class="ln" d="M540 174 V248" marker-end="url(#arrow)"/>
+  <text class="s" x="552" y="218">예약 요청 보내기</text>
+
+  <rect class="card" x="468" y="256" width="200" height="112" rx="14"/>
+  <text class="m" x="488" y="292">reserve.js</text>
+  <text x="488" y="324" style="font-size:20px;font-weight:600;fill:#1d8a38">지금: 연습 안내</text>
+  <text class="s" x="488" y="352">심화 6강: 보내기</text>
+</svg>

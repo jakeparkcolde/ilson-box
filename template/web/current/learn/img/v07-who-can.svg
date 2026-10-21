@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 332" width="720" height="332" role="img" aria-label="손님, 사장님, 다른 로그인 계정이 보내기·읽기·상태 바꾸기를 할 수 있는지 표로 보여 주고 사장님 줄만 강조한 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .hd{font-size:20px;font-weight:600;fill:#6b7078}
+    .l{font-size:20px;font-weight:600}
+    .yes{fill:#ffffff;stroke:#1d8a38;stroke-width:2}
+    .no{fill:#ffffff;stroke:#c4423b;stroke-width:2}
+    .ty{font-size:20px;font-weight:600;fill:#1d8a38}
+    .tn{font-size:20px;font-weight:600;fill:#c4423b}
+  </style>
+  <rect width="720" height="332" rx="16" fill="#f5f6f6"/>
+
+  <!-- header -->
+  <text class="hd" x="282" y="54" text-anchor="middle">보내기</text>
+  <text class="hd" x="410" y="54" text-anchor="middle">읽기</text>
+  <text class="hd" x="538" y="54" text-anchor="middle">상태 바꾸기</text>
+
+  <!-- customer, not signed in -->
+  <rect x="32" y="74" width="568" height="68" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="l" x="48" y="115">손님 (로그인 안 함)</text>
+  <rect class="yes" x="230" y="88" width="104" height="40" rx="20"/><text class="ty" x="282" y="115" text-anchor="middle">돼요</text>
+  <rect class="no" x="358" y="88" width="104" height="40" rx="20"/><text class="tn" x="410" y="115" text-anchor="middle">안 돼요</text>
+  <rect class="no" x="486" y="88" width="104" height="40" rx="20"/><text class="tn" x="538" y="115" text-anchor="middle">안 돼요</text>
+
+  <!-- owner: the highlighted row -->
+  <rect x="32" y="150" width="568" height="68" rx="12" fill="#e8eafb" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="l" x="48" y="191" style="fill:#5e6ad2">사장님</text>
+  <rect class="no" x="230" y="164" width="104" height="40" rx="20"/><text class="tn" x="282" y="191" text-anchor="middle">안 돼요</text>
+  <rect class="yes" x="358" y="164" width="104" height="40" rx="20"/><text class="ty" x="410" y="191" text-anchor="middle">모든 요청</text>
+  <rect class="yes" x="486" y="164" width="104" height="40" rx="20"/><text class="ty" x="538" y="191" text-anchor="middle">두 칸만</text>
+
+  <!-- another signed-in account -->
+  <rect x="32" y="226" width="568" height="68" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="l" x="48" y="267">다른 로그인 계정</text>
+  <rect class="no" x="230" y="240" width="104" height="40" rx="20"/><text class="tn" x="282" y="267" text-anchor="middle">안 돼요</text>
+  <rect class="no" x="358" y="240" width="104" height="40" rx="20"/><text class="tn" x="410" y="267" text-anchor="middle">0건</text>
+  <rect class="no" x="486" y="240" width="104" height="40" rx="20"/><text class="tn" x="538" y="267" text-anchor="middle">0건</text>
+</svg>

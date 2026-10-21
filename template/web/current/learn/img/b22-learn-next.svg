@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 436" width="720" height="436" role="img" aria-label="이 과정을 마친 뒤 가게 일이 먼저면 AI Fluency for small businesses, claude.ai를 더 넓게 쓰려면 Claude 101, 터미널이 궁금하면 Claude Code 101로 가는 배움 길과 준비 중인 바이브 코딩 심화를 보여 주는 그림">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 436" width="720" height="436" role="img" aria-label="이 과정을 마친 뒤 가게 일이 먼저면 AI Fluency for small businesses, claude.ai를 더 넓게 쓰려면 Claude 101, 터미널이 궁금하면 Claude Code 101로 가는 배움 길과 이 안내서의 바이브 코딩 심화를 보여 주는 그림">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -44,8 +44,8 @@
   <text class="c" x="579" y="278" text-anchor="middle">유료 요금제 필요</text>
   <text class="s" x="352" y="306">강의 12개 · 약 1시간 30분</text>
 
-  <!-- next track in this guide: not published yet -->
-  <path d="M100 324 V 350" fill="none" stroke="#6b7078" stroke-width="2" stroke-dasharray="4 5" stroke-linecap="round"/>
-  <rect x="32" y="356" width="240" height="48" rx="12" fill="none" stroke="#6b7078" stroke-width="1.5" stroke-dasharray="6 5"/>
-  <text class="l" x="152" y="387" text-anchor="middle" style="fill:#6b7078">바이브 코딩 심화 (준비 중)</text>
+  <!-- next track in this guide -->
+  <path d="M100 324 V 348" fill="none" stroke="#6b7078" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <rect x="32" y="356" width="200" height="48" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="l" x="132" y="387" text-anchor="middle">바이브 코딩 심화</text>
 </svg>

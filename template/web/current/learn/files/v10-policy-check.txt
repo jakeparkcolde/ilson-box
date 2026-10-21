@@ -1,0 +1,5 @@
+-- 4) 확인: 결과 칸에 규칙 3개가 보이면 성공이에요.
+select policyname as "규칙 이름", cmd as "종류", roles as "누구에게"
+from pg_policies
+where schemaname = 'public' and tablename = 'reservation_requests'
+order by policyname;

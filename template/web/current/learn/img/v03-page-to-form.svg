@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 466" width="720" height="466" role="img" aria-label="19강의 가게 안내 파일을 작업 폴더의 public 폴더로 복사해 index.html이 되고, 예약 요청하기 버튼을 누르면 reserve.html 칸으로 이어지며, 예약 요청 보내기를 누르면 아직 연습 중이라는 안내가 나오는 흐름도">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrowP" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#5e6ad2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:20px;font-weight:600}
+    .r{font-size:20px}
+    .zl{font-size:18px;font-weight:600;fill:#6b7078}
+    .mi{font-family:'SF Mono',Menlo,'Apple SD Gothic Neo',monospace;font-size:18px;fill:#1d1d21}
+    .mp{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#6b7078}
+    .btn{font-size:18px;font-weight:600;fill:#ffffff}
+    .zone{fill:none;stroke:#b8bcc2;stroke-width:1.5;stroke-dasharray:6 5}
+    .win{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+    .in{fill:#ffffff;stroke:#c9ccd1;stroke-width:1.5}
+  </style>
+  <rect width="720" height="466" rx="16" fill="#f5f6f6"/>
+
+  <!-- folders -->
+  <rect class="zone" x="24" y="24" width="184" height="316" rx="14"/>
+  <text class="zl" x="40" y="54">일손 폴더</text>
+  <rect class="zone" x="248" y="24" width="448" height="316" rx="14"/>
+  <text class="zl" x="264" y="54">작업 폴더의 public</text>
+
+  <!-- 1. lesson-19 page -->
+  <path d="M48 122 H172 L196 146 V262 Q196 274 184 274 H48 Q36 274 36 262 V134 Q36 122 48 122 Z" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M172 122 V146 H196 Z" fill="#eceef0" stroke="#e4e4e8" stroke-width="1.5" stroke-linejoin="round"/>
+  <text class="h" x="50" y="158">19강</text>
+  <text class="mi" x="50" y="192">가게-안내.html</text>
+  <text class="mp" x="50" y="226">~/ilson/</text>
+  <text class="mp" x="50" y="250">projects</text>
+
+  <path d="M202 198 H256" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text class="mp" x="228" y="186" text-anchor="middle">cp</text>
+
+  <!-- 2. public/index.html -->
+  <rect class="win" x="264" y="72" width="196" height="252" rx="12"/>
+  <path d="M264 124 V84 Q264 72 276 72 H448 Q460 72 460 84 V124 Z" fill="#eceef0"/>
+  <text class="mp" x="280" y="94">public/</text>
+  <text class="mi" x="280" y="116">index.html</text>
+  <text class="h" x="280" y="162">햇살꽃집 안내</text>
+  <rect x="280" y="180" width="150" height="12" rx="6" fill="#e4e4e8"/>
+  <rect x="280" y="202" width="110" height="12" rx="6" fill="#e4e4e8"/>
+  <rect x="280" y="224" width="132" height="12" rx="6" fill="#e4e4e8"/>
+  <rect x="280" y="276" width="164" height="36" rx="10" fill="#5e6ad2"/>
+  <text class="btn" x="362" y="300" text-anchor="middle">예약 요청하기</text>
+
+  <path d="M448 294 H480" stroke="#5e6ad2" stroke-width="2.5" fill="none" marker-end="url(#arrowP)"/>
+
+  <!-- 3. public/reserve.html -->
+  <rect class="win" x="488" y="72" width="192" height="252" rx="12"/>
+  <path d="M488 124 V84 Q488 72 500 72 H668 Q680 72 680 84 V124 Z" fill="#eceef0"/>
+  <text class="mp" x="504" y="94">public/</text>
+  <text class="mi" x="504" y="116">reserve.html</text>
+  <rect class="in" x="504" y="136" width="160" height="16" rx="5"/>
+  <rect class="in" x="504" y="158" width="160" height="16" rx="5"/>
+  <rect class="in" x="504" y="180" width="160" height="16" rx="5"/>
+  <rect class="in" x="504" y="202" width="160" height="16" rx="5"/>
+  <rect class="in" x="504" y="224" width="160" height="16" rx="5"/>
+  <rect x="505" y="251" width="16" height="16" rx="3" fill="#ffffff" stroke="#6b7078" stroke-width="1.8"/>
+  <text x="530" y="265" style="font-size:18px">동의</text>
+  <rect x="504" y="276" width="160" height="36" rx="10" fill="#5e6ad2"/>
+  <text class="btn" x="584" y="300" text-anchor="middle">예약 요청 보내기</text>
+
+  <!-- 4. practice message -->
+  <path d="M584 316 V350" stroke="#5e6ad2" stroke-width="2.5" fill="none" marker-end="url(#arrowP)"/>
+  <rect x="320" y="358" width="276" height="84" rx="14" fill="#e6f3e9" stroke="#1d8a38" stroke-width="2"/>
+  <text class="r" x="342" y="392" style="fill:#1d8a38;font-weight:600">아직 연습 중이에요.</text>
+  <text class="r" x="342" y="422">이 요청은 저장되지 않았어요.</text>
+</svg>

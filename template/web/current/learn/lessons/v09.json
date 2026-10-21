@@ -1,0 +1,332 @@
+{
+  "id": "v09",
+  "track": "vibe",
+  "part": 3,
+  "number": 9,
+  "title": "Vercel에 올리기",
+  "subtitle": "GitHub 보관함을 Vercel에 이어 인터넷 주소를 받고, 올리면 바뀌는 길과 되돌리는 길을 익혀요",
+  "minutes": 30,
+  "surface": "both",
+  "checked": "2026-10-21",
+  "cover": {
+    "src": "img/v09-push-to-web.svg",
+    "alt": "작업 폴더에서 올린 내용이 GitHub 비공개 저장소를 거쳐 Vercel로 가서 손님이 보는 인터넷 주소가 바뀌는 흐름과, 연습 가게는 Hobby, 실제 가게는 Pro라는 표시가 있는 그림",
+    "caption": "올리면 Vercel이 새 페이지를 만들어요. 실제 가게 페이지라면 Pro로 올려요."
+  },
+  "outcome": [
+    "인터넷 주소(`…vercel.app`)로 열리는 예약 페이지 (`public` 폴더만 공개)",
+    "휴대폰으로 보낸 연습 요청을 예약함에서 확인하고, 작업 약속은 보이지 않는 것까지 확인한 경험",
+    "올리면 바뀌고, 문제가 생기면 되돌리는 두 가지 길"
+  ],
+  "prepare": [
+    "심화 4강의 GitHub 비공개 저장소 `haetsal-booking` (손님용 파일은 `public` 폴더 안)",
+    "휴대폰 (공개 주소를 열어 볼 기기)",
+    "실제 가게로 공개한다면 결제할 카드 (Vercel Pro)"
+  ],
+  "steps": [
+    {
+      "title": "어느 요금제로 올릴지 먼저 정하기",
+      "why": "Vercel은 무료 요금제를 개인·비상업용으로만 허락해요. 실제 가게 페이지는 처음부터 Pro로 올려야 규정에 맞아요.",
+      "body": [
+        "**Vercel**(버셀)은 GitHub 보관함의 파일로 인터넷 페이지를 만들어 주는 서비스예요.",
+        "무료 요금제 Hobby는 「개인·비상업용」이에요. Vercel은 상업적 사용의 예로 「상품이나 서비스 판매 광고」를 들어서, 가게의 서비스를 알리는 실제 예약 페이지는 여기에 해당한다고 봐야 해요.",
+        "그래서 지어낸 가게로 연습만 하는 페이지는 Hobby, 실제 손님이 쓰는 내 가게 페이지는 Pro예요. Pro는 2026-10-21 기준 월 $20(부가세 별도)이고, 14일 무료 체험이 있어요.",
+        "「내 가게 정보」에 실제 가게 이름이 들어가 있었다면, 손님에게 알리지 않아도 실제 가게를 알리는 페이지예요. Hobby로 연습하려면 가게 이름을 지어낸 이름(예: 햇살꽃집)으로 바꾼 판을 올리고, 아니면 처음부터 Pro로 올려요."
+      ],
+      "figure": {
+        "src": "img/v09-plan-choice.svg",
+        "alt": "실제 가게를 알리는 페이지인지 묻고, 지어낸 가게 이름으로 연습하면 Hobby 0달러, 실제 가게 이름이 들어가면 Pro 월 20달러와 부가세 별도로 가는 판단 그림",
+        "caption": "연습은 Hobby, 실제 가게는 Pro. 금액은 2026-10-21 기준이에요."
+      },
+      "success": "연습인지 실제 가게인지, 그래서 Hobby인지 Pro인지 정했으면 돼요.",
+      "caution": "실제 가게 페이지를 Hobby로 올리는 건 Vercel 규정에 맞지 않아요. 「일단 무료로 올리고 나중에」는 하지 않아요. 애매하면 Vercel 지원팀에 물어보라고 공식 안내에 적혀 있어요.",
+      "tip": "Pro 요금에는 매달 $20만큼의 사용 크레딧이 들어 있고, 쓴 금액이 그 75%에 닿으면 메일로 알려 줘요."
+    },
+    {
+      "title": "GitHub로 가입하고 public 폴더만 올리기",
+      "why": "손님용 파일만 공개해야 작업 약속 같은 내 메모가 인터넷에 보이지 않아요.",
+      "body": [
+        "vercel.com/signup에서 **Continue with GitHub**(GitHub로 계속하기)를 눌러요. GitHub 화면에서 Vercel이 내 계정에 접근하도록 허락하면, 이 연결이 Vercel의 기본 로그인이 돼요.",
+        "실제 가게라면 저장소를 가져오기 전에 팀의 **Settings**(설정) → **Billing**(결제) → **Upgrade**(업그레이드)로 Pro를 켜요. 카드 정보를 넣고 **Confirm and Upgrade**(확인 후 업그레이드)를 눌러요.",
+        "**New Project**(새 프로젝트) 화면의 저장소 목록에서 `haetsal-booking`을 골라요. 다음 화면의 프로젝트 이름은 Vercel 화면과 주소에 보일 수 있으니, 실제 가게라면 알아보기 쉬운 영어 이름으로 지어요.",
+        "**Framework Preset**(프레임워크 프리셋)은 **Other**(기타)로 두고 빌드 명령은 비워요. 우리 페이지는 HTML·CSS·JS뿐이라 따로 만드는 단계가 필요 없어요.",
+        "**Build Output Settings**를 펼쳐 **Output Directory**(내보낼 폴더) 옆 **Override**(직접 지정)를 켜고 `public`을 적어요. 이렇게 하면 `public` 폴더만 공개되고, 그 폴더가 없을 때는 배포가 멈춰요.",
+        "Environment Variables(환경 변수)에는 아무것도 넣지 않아요. 이 과정에는 숨길 값이 없으니, 그대로 **Deploy**(배포)를 눌러요."
+      ],
+      "self": "Vercel 가입, GitHub 허락, 실제 가게라면 Pro 결제까지 브라우저에서 직접 해 주세요. 화면 모양은 바뀔 수 있어요.",
+      "figure": {
+        "src": "img/v09-import-screen.svg",
+        "alt": "Vercel 새 프로젝트 화면에서 haetsal-booking 저장소를 고르고, Framework Preset을 Other로, Output Directory를 Override로 public으로 둔 뒤 Deploy를 누르는 순서를 번호로 보여 주는 화면 스케치",
+        "caption": "저장소 고르기 → Other → Output Directory public → Deploy. 실제 화면은 조금 다를 수 있어요."
+      },
+      "success": "배포가 끝났다는 화면과 함께 `…vercel.app`으로 끝나는 주소가 보이면 성공이에요.",
+      "caution": "내 GitHub 개인 계정의 비공개 저장소는 Hobby에서도 가져올 수 있어요. GitHub 조직(organization)이 가진 비공개 저장소라면 Pro가 필요해요."
+    },
+    {
+      "title": "휴대폰으로 열고, 작업 약속이 숨었는지 보기",
+      "why": "심화 3강에서 미뤄 둔 진짜 휴대폰 확인을 이제 해요. 보이면 안 되는 파일이 숨었는지도 같이 봐요.",
+      "body": [
+        "새 프로젝트의 첫 배포는 언제나 **Production**(손님이 보는 페이지)이에요. 프로젝트 화면의 `…vercel.app` 주소가 손님에게 알려 줄 주소예요.",
+        "휴대폰 브라우저로 그 주소를 열고 예약 화면에서 연습 요청을 한 건 보내요. Mac에서는 같은 주소 끝에 `/admin.html`을 붙여 열고, 로그인해 그 요청이 왔는지 봐요.",
+        "이번에는 주소 끝에 `/CLAUDE.md`를 붙여 열어요. 404(찾을 수 없음)가 나와야 해요.",
+        "작업 약속은 `public` 밖 맨 위 폴더에 있어서, `public`만 내보내면 공개되지 않아요.",
+        "프로젝트의 Settings → **Deployment Protection**(배포 보호)도 열어 봐요. 손님이 보는 주소까지 막는 **All Deployments**가 아니라, 공식 안내가 대부분에게 권하는 **Standard Protection**이면 돼요."
+      ],
+      "success": "휴대폰에서 보낸 연습 요청이 예약함에 보이고, `/CLAUDE.md`가 404이면 성공이에요.",
+      "caution": "`/CLAUDE.md`에서 작업 약속 내용이 보이면 손님에게 주소를 알리지 않아요. 프로젝트 Settings → **Build and Deployment**(빌드 및 배포)에서 Output Directory가 Override로 `public`인지 고치고, 다음 배포부터 적용되니 한 번 더 올려 확인해요.",
+      "tip": "손님에게는 Production 주소만 알려요. 그리고 알리기 전에 심화 8강의 [전문가 확인]을 마쳐요."
+    },
+    {
+      "title": "고쳐서 마감 저장하기",
+      "why": "이제부터는 마감 저장의 「올리기」가 곧 인터넷 페이지 바꾸기예요. 한 번 눈으로 봐 두면 조심할 곳이 보여요.",
+      "body": [
+        "Vercel은 GitHub에 올릴 때마다 새로 배포해요. `main`에 올리면 손님이 보는 페이지가 바뀌어요.",
+        "작업 폴더의 Claude에게 아래 부탁으로 작은 곳을 하나 고쳐요. 고친 것을 확인했으면 메모 앱의 「마감 저장」을 보내 저장하고 올려요."
+      ],
+      "prompt": {
+        "text": "첫 화면 public/index.html의 「예약 요청하기」 버튼 바로 아래에 '예약은 요청이에요. 가게에서 연락드리면 확정돼요.' 한 줄을 넣어 주세요.\n바로 고치지 말고 어디에 넣을지 먼저 말해 주세요. 그 밖의 내용은 그대로 두세요."
+      },
+      "success": "Claude가 저장하고 올렸다고 알리면 다음 단계로 가요. 올리기 앞에서 멈췄어도 다음 단계로 가요."
+    },
+    {
+      "title": "멈추면 직접 올리고, 새 배포 확인하기",
+      "why": "손님 페이지를 바꾸는 일 앞에서 Claude가 멈추는 건 안전장치예요. 그때는 내가 읽고 직접 올려요.",
+      "body": [
+        "자동 심사 모드는 프로덕션 배포를 기본으로 막아요. 이 올리기를 배포로 보고 멈추면, 묻는 창의 명령을 읽고 허락하거나 아래 명령을 새 터미널 창에 넣어요.",
+        "멈추지 않고 올라갔다면 이 명령은 넣지 않아도 돼요.",
+        "Vercel 프로젝트 화면에 새 배포가 생기면, 휴대폰에서 주소를 새로 고쳐 봐요."
+      ],
+      "command": {
+        "text": "cd ~/Projects/haetsal-booking && git push origin main",
+        "note": "저장(commit)이 끝난 뒤에만 써요. `origin`은 심화 4강에서 만든 GitHub 보관함 연결의 이름이에요."
+      },
+      "success": "Vercel 프로젝트 화면에 새 배포가 생기고, 휴대폰에서 새 한 줄이 보이면 이번 강은 끝이에요."
+    }
+  ],
+  "explain": [
+    {
+      "heading": "문제가 생기면 되돌리는 두 길",
+      "body": [
+        "급할 때는 Vercel의 **Instant Rollback**(즉시 되돌리기)이에요. Production 배포 칸에서 **Instant Rollback**을 누르고 돌아갈 배포를 고른 뒤 Continue → Confirm Rollback 순서이고, Hobby는 바로 앞 배포로만 돌아가요.",
+        "되돌린 뒤에는 새로 올려도 손님 페이지가 바뀌지 않아요. 고친 것을 올린 다음 **Undo Rollback**(되돌리기 취소)에서 배포를 골라 Confirm을 눌러야 다시 올리는 대로 바뀌어요.",
+        "평소의 되돌리기는 심화 4강의 `git revert`예요. 되돌린 내용을 새 저장으로 남겨 올리면, Vercel도 그 모습으로 새로 배포해요."
+      ],
+      "figure": {
+        "src": "img/v09-rollback.svg",
+        "alt": "문제가 생기면 즉시 되돌리기로 바로 앞 배포로 돌아가고, 고친 뒤 올리고 되돌리기 취소를 눌러야 다시 자동으로 바뀐다는 흐름과, 평소에는 git revert로 되돌려 올리는 길을 함께 보여 주는 그림",
+        "caption": "급하면 즉시 되돌리기, 고친 뒤에는 되돌리기 취소. 평소에는 git revert."
+      }
+    },
+    {
+      "heading": "주소 두 종류: 손님용과 시험용",
+      "body": [
+        "Vercel에는 **Production**(손님이 보는 페이지)과 **Preview**(미리보기)가 있어요. `main`이 아닌 다른 줄에 올리면 미리보기가 생겨요.",
+        "배포 보호를 켜 두면 미리보기 주소는 Vercel 로그인을 요구해요. 그래서 손님에게는 Production 주소만 알려요.",
+        "예약함 주소를 아는 누구나 로그인 화면은 열 수 있어요. 요청을 지키는 건 Vercel이 아니라 심화 7강의 Supabase 로그인과 규칙이에요."
+      ],
+      "table": {
+        "head": [
+          "",
+          "Production",
+          "Preview"
+        ],
+        "rows": [
+          [
+            "언제 생기나요",
+            "`main`에 올릴 때 (첫 배포도)",
+            "다른 줄에 올릴 때"
+          ],
+          [
+            "누가 보나요",
+            "누구나",
+            "배포 보호가 켜져 있으면 Vercel에 로그인한 팀만"
+          ],
+          [
+            "이 과정에서",
+            "손님에게 알릴 주소",
+            "쓰지 않아도 돼요"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "Hobby와 Pro, 이 과정에 필요한 차이 (2026-10-21 확인)",
+      "table": {
+        "head": [
+          "",
+          "Hobby",
+          "Pro"
+        ],
+        "rows": [
+          [
+            "요금",
+            "$0",
+            "월 $20, 부가세 별도 (14일 체험)"
+          ],
+          [
+            "쓸 수 있는 곳",
+            "개인·비상업용",
+            "상업적 사용"
+          ],
+          [
+            "즉시 되돌리기",
+            "바로 앞 배포로만",
+            "고른 배포로"
+          ],
+          [
+            "사용량",
+            "정해진 한도, 넘으면 30일 기다리기",
+            "매달 $20 사용 크레딧 포함"
+          ],
+          [
+            "이메일 지원",
+            "없어요",
+            "있어요"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "도메인은 나중에 골라도 돼요",
+      "body": [
+        "가게 이름 주소(도메인)는 원할 때만 붙여요. 프로젝트의 Settings → **Domains**(도메인) → **Add Domain**(도메인 추가)에 사 둔 도메인을 적어요.",
+        "도메인을 산 곳의 DNS 설정에는 Vercel이 보여 주는 값을 넣어요. `example.com` 같은 기본 도메인은 **A** 레코드, `www.example.com` 같은 하위 도메인은 **CNAME** 레코드이고, 값은 도메인 카드에 보이는 것을 그대로 복사해요.",
+        "DNS 변경은 퍼지는 데 시간이 걸릴 수 있어요. 네임서버를 통째로 옮기기 전에는 메일용 MX 레코드 같은 기존 기록을 먼저 적어 둬요.",
+        ".kr 도메인은 한국인터넷진흥원과 계약한 등록대행자에서 사고, 비용은 업체마다 달라요. Pro 팀은 .app, .dev, .store 같은 일부 도메인을 첫해 무료로 받을 수 있지만, 체험 기간에는 안 돼요."
+      ]
+    }
+  ],
+  "trouble": [
+    {
+      "symptom": "New Project 목록에 `haetsal-booking`이 없어요",
+      "fix": "가져오기 화면의 **Configure GitHub App**을 눌러요. 「Only select repositories」(고른 저장소만)로 되어 있으면 `haetsal-booking`을 더하고 저장해요. 그 저장소의 주인(Owner)이어야 가져올 수 있어요."
+    },
+    {
+      "symptom": "배포가 오류로 멈추거나, 주소를 열면 404가 나와요",
+      "fix": "Output Directory를 `public`으로 직접 지정했는데 그 폴더가 없거나 비어 있으면 배포가 멈춰요. `public` 폴더 안에 `index.html`이 있는지, 마지막 저장이 GitHub에 올라갔는지 아래 문장으로 확인해요.",
+      "prompt": "Vercel 배포가 멈추거나 주소를 열면 404가 나와요.\n이 저장소에 public 폴더가 있고 그 안에 index.html, reserve.html, admin.html, privacy.html, style.css, config.js, reserve.js, admin.js가 있는지 확인해 주세요.\n마지막 저장이 GitHub의 haetsal-booking 저장소 main에 올라갔는지도 봐 주세요.\n파일은 고치지 말고 확인한 결과만 알려 주세요."
+    },
+    {
+      "symptom": "올렸는데 손님 페이지가 바뀌지 않아요",
+      "fix": "즉시 되돌리기를 한 뒤라면 자동 반영이 꺼져 있어요. Production 배포 칸에서 Undo Rollback으로 배포를 고르고 Confirm해요. 되돌린 적이 없다면 올리기가 실제로 됐는지 물어요.",
+      "prompt": "마지막 저장이 GitHub의 haetsal-booking 저장소 main에 올라갔는지 확인해 주세요.\n올라가지 않았다면 이유를 먼저 알려 주세요. 강제로 덮어 올리기(force push)는 하지 마세요."
+    }
+  ],
+  "checklist": [
+    "연습인지 실제 가게인지 정했고, 실제 가게라면 Pro로 올렸어요",
+    "Framework Preset은 Other, Output Directory는 `public`으로 두고 배포했어요",
+    "휴대폰에서 보낸 연습 요청을 예약함에서 봤고, `/CLAUDE.md`는 404였어요",
+    "올리면 바뀌는 것과 즉시 되돌리기·되돌리기 취소·git revert를 알아요"
+  ],
+  "keep": [
+    "연습 가게는 Hobby, 실제 가게는 Pro.",
+    "공개는 `public` 폴더만. `/CLAUDE.md`가 404인지 확인해요.",
+    "이제 올리기가 곧 공개예요. 마감 저장 전에 한 번 더 봐요."
+  ],
+  "links": [
+    {
+      "label": "Vercel 요금 안내 (영어)",
+      "url": "https://vercel.com/pricing"
+    },
+    {
+      "label": "Vercel 상업적 사용 규정 (영어)",
+      "url": "https://vercel.com/docs/limits/fair-use-guidelines"
+    },
+    {
+      "label": "Vercel 즉시 되돌리기 안내 (영어)",
+      "url": "https://vercel.com/docs/instant-rollback"
+    }
+  ],
+  "sources": [
+    {
+      "label": "Fair use: Hobby는 비상업용, 상업적 사용의 예(판매 광고), 모르면 지원팀",
+      "url": "https://vercel.com/docs/limits/fair-use-guidelines"
+    },
+    {
+      "label": "Pricing: Hobby $0, Pro $20, Hobby는 개인·비상업용",
+      "url": "https://vercel.com/pricing"
+    },
+    {
+      "label": "Pro plan: 부가세 별도, $20 크레딧, 75% 알림, 첫해 무료 도메인(체험 중 제외)",
+      "url": "https://vercel.com/docs/plans/pro"
+    },
+    {
+      "label": "Accounts: Pro 14일 체험, Git 연결이 기본 로그인",
+      "url": "https://vercel.com/docs/accounts"
+    },
+    {
+      "label": "Hobby plan: Settings → Billing → Upgrade, 한도와 30일, 지원 비교",
+      "url": "https://vercel.com/docs/plans/hobby"
+    },
+    {
+      "label": "Sign up: Continue with GitHub",
+      "url": "https://vercel.com/signup"
+    },
+    {
+      "label": "Getting started: 저장소 고르고 Deploy, 올릴 때마다 배포",
+      "url": "https://vercel.com/docs/getting-started-with-vercel"
+    },
+    {
+      "label": "Git: New Project 가져오기 화면, Build Output Settings, 조직 비공개 저장소는 Hobby 불가",
+      "url": "https://vercel.com/docs/git"
+    },
+    {
+      "label": "저장소가 안 보일 때: Configure GitHub App",
+      "url": "https://vercel.com/kb/guide/unable-to-find-github-repository"
+    },
+    {
+      "label": "Vercel for GitHub: 모든 올리기를 배포, 주인만 가져오기",
+      "url": "https://vercel.com/docs/git/vercel-for-github"
+    },
+    {
+      "label": "Builds: 정적 사이트는 빌드 없음, Framework Preset Other, Output Directory 지정",
+      "url": "https://vercel.com/docs/builds"
+    },
+    {
+      "label": "Configure a build: Output Directory만 공개, Other는 public 또는 맨 위, Override, Build and Deployment",
+      "url": "https://vercel.com/docs/builds/configure-a-build"
+    },
+    {
+      "label": "Error list: Output Directory가 없거나 비면 오류, Git 배포는 .gitignore 기본 제외 없음",
+      "url": "https://vercel.com/docs/errors/error-list"
+    },
+    {
+      "label": "Environments: 첫 배포는 Production, Preview가 생기는 때",
+      "url": "https://vercel.com/docs/deployments/environments"
+    },
+    {
+      "label": "Deployment Protection: Standard Protection과 All Deployments",
+      "url": "https://vercel.com/docs/deployment-protection"
+    },
+    {
+      "label": "Vercel Authentication: 보호된 주소는 로그인 요구",
+      "url": "https://vercel.com/docs/deployment-protection/methods-to-protect-deployments/vercel-authentication"
+    },
+    {
+      "label": "Instant Rollback: Hobby는 바로 앞 배포, Undo Rollback",
+      "url": "https://vercel.com/docs/instant-rollback"
+    },
+    {
+      "label": "Add a domain: A·CNAME, 도메인 카드 값, 전파 시간, MX 기록",
+      "url": "https://vercel.com/docs/domains/working-with-domains/add-a-domain"
+    },
+    {
+      "label": ".kr 도메인 등록대행자 (비용은 업체마다)",
+      "url": "https://krnic.or.kr/jsp/business/management/domain/regAgencyInfo.jsp"
+    },
+    {
+      "label": "Permission modes: 자동 심사는 프로덕션 배포를 기본으로 막음",
+      "url": "https://code.claude.com/docs/en/permission-modes.md"
+    },
+    {
+      "label": "Pushing commits: git push origin main",
+      "url": "https://docs.github.com/en/get-started/using-git/pushing-commits-to-a-remote-repository"
+    }
+  ],
+  "history": [
+    {
+      "date": "2026-10-21",
+      "note": "처음 작성"
+    }
+  ]
+}

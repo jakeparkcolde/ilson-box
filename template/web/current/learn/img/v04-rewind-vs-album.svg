@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 430" width="720" height="430" role="img" aria-label="14강의 되돌리기는 부탁마다 저절로, Claude가 고친 것만, 한 대화 안에서 남고, 마감 사진첩은 내가 저장할 때, 폴더 전체를, 지우기 전까지 이 Mac과 GitHub에 남는다는 비교 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:22px;font-weight:600}
+    .k{font-size:18px;fill:#6b7078}
+    .v{font-size:20px}
+    .u{font-size:20px;font-weight:600}
+    .tri{fill:#5e6ad2}
+  </style>
+  <rect width="720" height="430" rx="16" fill="#f5f6f6"/>
+
+  <!-- checkpoints (lesson 14) -->
+  <rect x="32" y="28" width="300" height="322" rx="16" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="h" x="52" y="70">되돌리기 (14강)</text>
+  <rect x="52" y="88" width="100" height="32" rx="8" fill="#f5f6f6" stroke="#c9ccd1" stroke-width="1.5"/>
+  <text x="102" y="110" text-anchor="middle" style="font-size:18px"><tspan style="font-family:'SF Mono',Menlo,monospace">esc</tspan> 두 번</text>
+  <path d="M52 136 H312" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="k" x="52" y="170">언제</text><text class="v" x="120" y="170">부탁마다 저절로</text>
+  <text class="k" x="52" y="206">무엇</text><text class="v" x="120" y="206">Claude가 고친 것만</text>
+  <text class="k" x="52" y="242">얼마나</text><text class="v" x="120" y="242">한 대화 안, 30일쯤</text>
+  <text class="k" x="52" y="278">어디</text><text class="v" x="120" y="278">이 Mac</text>
+  <path d="M52 298 H312" stroke="#e4e4e8" stroke-width="1.5"/>
+  <path class="tri" d="M54 315 L66 323 L54 331 Z"/>
+  <text class="u" x="76" y="330">방금 한 부탁 무르기</text>
+
+  <!-- closing album (git) -->
+  <rect x="356" y="28" width="300" height="322" rx="16" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="h" x="376" y="70">마감 사진첩 (git)</text>
+  <rect x="376" y="88" width="132" height="32" rx="8" fill="#ffffff" stroke="#c9ccd1" stroke-width="1.5"/>
+  <text x="442" y="110" text-anchor="middle" style="font-size:18px">마감 저장 메모</text>
+  <path d="M376 136 H636" stroke="#c9cdf0" stroke-width="1.5"/>
+  <text class="k" x="376" y="170">언제</text><text class="v" x="444" y="170">내가 저장할 때</text>
+  <text class="k" x="376" y="206">무엇</text><text class="v" x="444" y="206">폴더 전체</text>
+  <text class="k" x="376" y="242">얼마나</text><text class="v" x="444" y="242">지우기 전까지</text>
+  <text class="k" x="376" y="278">어디</text><text class="v" x="444" y="278">이 Mac + GitHub</text>
+  <path d="M376 298 H636" stroke="#c9cdf0" stroke-width="1.5"/>
+  <path class="tri" d="M378 315 L390 323 L378 331 Z"/>
+  <text class="u" x="400" y="330">지난 날로 돌아가기</text>
+</svg>

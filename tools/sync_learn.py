@@ -1,7 +1,7 @@
 """Claude 배우기 목차와 서버 허용 목록을 강의 파일에 맞춘다.
 
 - catalog.json: 강의 파일의 title/subtitle/minutes/surface를 목차에 옮기고,
-  강의가 가리키는 그림이 모두 있을 때만 status를 published로 둔다.
+  강의가 가리키는 그림과 자료 파일(files/*.txt)이 모두 있을 때만 status를 published로 둔다.
 - web-admin-server.py: "Claude 배우기 화면" 주석 아래 줄을 learn/ 폴더의 실제 파일로 다시 쓴다.
 
 사용: python3 tools/sync_learn.py [--check]
@@ -16,7 +16,8 @@ LEARN = ROOT / 'template/web/current/learn'
 SERVER = ROOT / 'template/lib/web-admin-server.py'
 MARKER = '# Claude 배우기 화면 — 강의 파일을 추가하면 여기에도 한 줄씩 등록한다.\n'
 KINDS = {'.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-         '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml'}
+         '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml',
+         '.txt': 'text/plain; charset=utf-8'}
 FIRST = ['learn.js', 'learn.css', 'catalog.json']
 
 
@@ -25,6 +26,10 @@ def figures(lesson):
     found += [s['figure']['src'] for s in lesson.get('steps', []) if s.get('figure')]
     found += [e['figure']['src'] for e in lesson.get('explain', []) if e.get('figure')]
     return found
+
+
+def files(lesson):
+    return [s['file']['src'] for s in lesson.get('steps', []) if s.get('file')]
 
 
 def synced_catalog():
@@ -39,7 +44,7 @@ def synced_catalog():
                 lesson = json.loads(path.read_text(encoding='utf-8'))
                 for key in ('title', 'subtitle', 'minutes', 'surface'):
                     entry[key] = lesson[key]
-                missing = [src for src in figures(lesson) if not (LEARN / src).exists()]
+                missing = [src for src in figures(lesson) + files(lesson) if not (LEARN / src).exists()]
                 entry['status'] = 'soon' if missing else 'published'
                 report.append((entry['id'], entry['status'], missing))
     return json.dumps(catalog, ensure_ascii=False, indent=2) + '\n', report

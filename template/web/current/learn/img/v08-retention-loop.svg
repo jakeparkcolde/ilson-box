@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 388" width="720" height="388" role="img" aria-label="요청을 받고 연락한 뒤 보관 기간이 지나면 한 달에 한 번 지우는 흐름과, 같은 보관 기간이 동의 안내·처리방침·지우기 SQL 세 곳에 들어간다는 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .g{font-size:20px;font-weight:600;fill:#1d8a38}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#1d1d21}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+    .card{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+    .b{fill:#5e6ad2}
+    .a{stroke:#6b7078;stroke-width:2;fill:none}
+  </style>
+  <rect width="720" height="388" rx="16" fill="#f5f6f6"/>
+
+  <!-- flow: receive, contact, keep, delete -->
+  <rect class="card" x="32" y="24" width="136" height="108" rx="12"/>
+  <circle class="b" cx="56" cy="48" r="14"/><text class="n" x="56" y="54" text-anchor="middle">1</text>
+  <text class="l" x="100" y="105" text-anchor="middle">요청 받기</text>
+
+  <path class="a" d="M172 78 H201" marker-end="url(#arrow)"/>
+
+  <rect class="card" x="205" y="24" width="136" height="108" rx="12"/>
+  <circle class="b" cx="229" cy="48" r="14"/><text class="n" x="229" y="54" text-anchor="middle">2</text>
+  <text class="l" x="273" y="105" text-anchor="middle">연락하기</text>
+
+  <path class="a" d="M345 78 H374" marker-end="url(#arrow)"/>
+
+  <rect x="378" y="24" width="136" height="108" rx="12" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <circle class="b" cx="402" cy="48" r="14"/><text class="n" x="402" y="54" text-anchor="middle">3</text>
+  <text class="l" x="446" y="92" text-anchor="middle">내가 정한 기간</text>
+  <text class="l" x="446" y="118" text-anchor="middle">동안 보관</text>
+
+  <path class="a" d="M518 78 H547" marker-end="url(#arrow)"/>
+
+  <rect class="card" x="551" y="24" width="136" height="108" rx="12"/>
+  <circle class="b" cx="575" cy="48" r="14"/><text class="n" x="575" y="54" text-anchor="middle">4</text>
+  <text class="l" x="619" y="92" text-anchor="middle">한 달에 한 번</text>
+  <text class="l" x="619" y="118" text-anchor="middle">지우기</text>
+  <text class="s" x="619" y="158" text-anchor="middle">(심화 10강)</text>
+
+  <path d="M32 180 H688" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <!-- the same period in three places -->
+  <text class="g" x="316" y="216" text-anchor="middle">같은 기간을 세 곳에</text>
+  <path d="M120 248 V232 H512 V248 M316 232 V248" stroke="#1d8a38" stroke-width="2" fill="none" stroke-linejoin="round"/>
+
+  <rect class="card" x="32" y="252" width="176" height="104" rx="12"/>
+  <text class="l" x="120" y="292" text-anchor="middle">동의 안내</text>
+  <text class="m" x="120" y="324" text-anchor="middle">reserve.html</text>
+
+  <rect class="card" x="228" y="252" width="176" height="104" rx="12"/>
+  <text class="l" x="316" y="292" text-anchor="middle">처리방침</text>
+  <text class="m" x="316" y="324" text-anchor="middle">privacy.html</text>
+
+  <rect class="card" x="424" y="252" width="176" height="104" rx="12"/>
+  <text class="l" x="512" y="292" text-anchor="middle">지우기 SQL</text>
+  <text class="s" x="512" y="324" text-anchor="middle"><tspan class="m">'6 months'</tspan><tspan class="s"> 자리</tspan></text>
+</svg>

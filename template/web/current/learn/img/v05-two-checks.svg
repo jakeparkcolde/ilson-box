@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 352" width="720" height="352" role="img" aria-label="손님의 보내기 요청은 권한 확인과 규칙 확인을 차례로 지나 예약 표에 들어가고, 손님의 읽기 요청은 첫 번째 권한 확인에서 42501로 멈추는 흐름도">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrowG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#1d8a38" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .ok{font-size:18px;font-weight:600;fill:#1d8a38}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+    .chk{fill:#ffffff;stroke:#5e6ad2;stroke-width:2}
+  </style>
+  <rect width="720" height="352" rx="16" fill="#f5f6f6"/>
+
+  <!-- send lane enters from above -->
+  <text class="l" x="125" y="50" text-anchor="middle">보내기 (손님)</text>
+  <path d="M125 62 V104" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- check 1: grant -->
+  <rect class="chk" x="32" y="112" width="186" height="100" rx="14"/>
+  <circle cx="64" cy="141" r="14" fill="#5e6ad2"/><text class="n" x="64" y="147" text-anchor="middle">1</text>
+  <text class="l" x="86" y="148">권한 (GRANT)</text>
+  <text class="s" x="50" y="187">흰 칸 7개 쓰기만</text>
+
+  <path d="M226 162 H280" stroke="#1d8a38" stroke-width="2" fill="none" marker-end="url(#arrowG)"/>
+  <text class="ok" x="253" y="148" text-anchor="middle">통과</text>
+
+  <!-- check 2: policy -->
+  <rect class="chk" x="288" y="112" width="186" height="100" rx="14"/>
+  <circle cx="320" cy="141" r="14" fill="#5e6ad2"/><text class="n" x="320" y="147" text-anchor="middle">2</text>
+  <text class="l" x="342" y="148">규칙 (policy)</text>
+  <text class="s" x="306" y="187">동의했나요?</text>
+
+  <path d="M482 162 H530" stroke="#1d8a38" stroke-width="2" fill="none" marker-end="url(#arrowG)"/>
+  <text class="ok" x="506" y="148" text-anchor="middle">통과</text>
+
+  <!-- the table -->
+  <rect x="538" y="112" width="150" height="100" rx="14" fill="#ffffff" stroke="#1d8a38" stroke-width="2"/>
+  <text class="l" x="613" y="154" text-anchor="middle">예약 표</text>
+  <text class="s" x="613" y="186" text-anchor="middle">한 줄 들어가요</text>
+
+  <!-- read lane enters from below and stops at check 1 -->
+  <path d="M125 298 V256" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <circle cx="125" cy="234" r="14" fill="#ffffff" stroke="#c4423b" stroke-width="2"/>
+  <path d="M119 228 L131 240 M131 228 L119 240" stroke="#c4423b" stroke-width="2.2" stroke-linecap="round"/>
+  <text x="152" y="241" style="font-family:'SF Mono',Menlo,monospace;font-size:18px;font-weight:600;fill:#c4423b">42501</text>
+  <text x="218" y="241" style="font-size:18px;font-weight:600;fill:#c4423b">읽기 권한이 없어요</text>
+  <text class="l" x="125" y="326" text-anchor="middle">읽기 (손님)</text>
+</svg>

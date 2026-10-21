@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" width="720" height="400" role="img" aria-label="로그인한 사장님만 예약함에서 요청 목록을 보고 새 요청·확인함·완료로 상태를 바꾸며, 로그인하지 않은 손님과 다른 계정은 아무것도 보지 못하는 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrowP" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#5e6ad2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:22px;font-weight:600}
+    .l{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .no{font-size:18px;font-weight:600;fill:#c4423b}
+  </style>
+  <rect width="720" height="400" rx="16" fill="#f5f6f6"/>
+
+  <!-- owner: signed in, id matches the rule -->
+  <text class="l" x="32" y="167" style="fill:#5e6ad2">사장님 (로그인)</text>
+  <path d="M166 160 H290" stroke="#5e6ad2" stroke-width="2.5" fill="none" marker-end="url(#arrowP)"/>
+
+  <!-- the inbox -->
+  <rect x="300" y="40" width="388" height="200" rx="14" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="h" x="324" y="82">예약함</text>
+  <text class="s" x="324" y="114">예약 요청 1건 (최신순)</text>
+  <rect x="324" y="132" width="340" height="56" rx="10" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text x="344" y="167" style="font-size:20px">연습 손님</text>
+  <rect x="500" y="144" width="148" height="32" rx="16" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <text x="520" y="166" style="font-size:18px">새 요청</text>
+  <path d="M618 156 L625 163 L632 156" fill="none" stroke="#5e6ad2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="s" x="648" y="216" text-anchor="end">새 요청 · 확인함 · 완료</text>
+
+  <!-- not signed in -->
+  <text class="l" x="32" y="307">손님 (로그인 안 함)</text>
+  <path d="M194 300 H282" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <circle cx="306" cy="300" r="14" fill="#ffffff" stroke="#c4423b" stroke-width="2"/>
+  <path d="M300 294 L312 306 M312 294 L300 306" stroke="#c4423b" stroke-width="2.2" stroke-linecap="round"/>
+  <text class="no" x="332" y="306">로그인 화면만</text>
+
+  <!-- another signed-in account -->
+  <text class="l" x="32" y="363">다른 로그인 계정</text>
+  <path d="M176 356 H282" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <circle cx="306" cy="356" r="14" fill="#ffffff" stroke="#c4423b" stroke-width="2"/>
+  <path d="M300 350 L312 362 M312 350 L300 362" stroke="#c4423b" stroke-width="2.2" stroke-linecap="round"/>
+  <text class="no" x="332" y="362">0건</text>
+</svg>

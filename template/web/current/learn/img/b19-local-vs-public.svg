@@ -44,7 +44,7 @@
 
   <path class="ln" d="M468 171 H492" marker-end="url(#arrow)"/>
 
-  <!-- later: public address (not available yet) -->
+  <!-- later: public address (taught in the advanced track) -->
   <rect x="500" y="40" width="188" height="262" rx="14" fill="#ffffff" stroke="#6b7078" stroke-width="1.5" stroke-dasharray="6 5"/>
   <text class="hb mu" x="594" y="78" text-anchor="middle">나중에</text>
   <circle cx="594" cy="120" r="22" fill="none" stroke="#9aa0a8" stroke-width="2"/>
@@ -53,7 +53,5 @@
   <text class="l mu" x="594" y="182" text-anchor="middle">인터넷 주소</text>
   <text class="r mu" x="594" y="214" text-anchor="middle">누구나 볼 수 있어요</text>
   <text class="r8 mu" x="594" y="248" text-anchor="middle">바이브 코딩 심화</text>
-  <rect x="560" y="260" width="68" height="28" rx="14" fill="#eceef0"/>
-  <text class="r8 mu" x="594" y="280" text-anchor="middle" style="font-weight:600">준비 중</text>
   </g>
 </svg>

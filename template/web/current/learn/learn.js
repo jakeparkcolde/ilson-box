@@ -6,12 +6,17 @@
   const ID_RE = /^[a-z][0-9]{2}$/;
   const FIG_RE = /^img\/[a-z][0-9]{2}-[a-z0-9]+(?:-[a-z0-9]+)*\.svg$/;
   const COPY_RE = /^[pctm][0-9]{1,3}$/;
+  // 긴 검증 자료(SQL·JS·HTML)는 .txt 파일로 따로 둔다. ilson update는 .txt만 싣는다.
+  const FILE_RE = /^files\/v[0-9]{2}-[a-z0-9]+(?:-[a-z0-9]+)*\.txt$/;
+  const FILE_PREVIEW = 8;
   const PH = /\{\{(가게이름|업종|지역|대표상품)\}\}/g;
   const PH_ONE = /\{\{(가게이름|업종|지역|대표상품)\}\}/;
   const PH_KEY = { 가게이름: "name", 업종: "kind", 지역: "area", 대표상품: "product" };
   const FIELDS = [["name", "가게 이름"], ["kind", "업종"], ["area", "지역"], ["product", "대표 상품"]];
   const KEYS = { shop: "ilson-learn-shop", progress: "ilson-learn-progress", last: "ilson-learn-last", large: "ilson-learn-large" };
   const SURFACE = { web: "브라우저·앱", ilson: "일손박스 터미널", both: "둘 다" };
+  // 과정마다 강 번호가 1부터 다시 시작하므로 기본 과정이 아닌 과정은 번호 앞에 이름을 붙인다.
+  const NUM_PREFIX = { vibe: "심화 " };
   const CHECKS = { claude: "Claude 로그인", company: "회사 정보", trust: "회사 폴더 신뢰", telegram: "텔레그램 알림", search: "웹 검색 준비" };
   const STATE = { ok: "됐어요", attention: "확인 필요", unknown: "알 수 없음" };
   const STATE_ICON = { ok: "circle-check", attention: "circle-alert", unknown: "circle-help" };
@@ -19,7 +24,8 @@
   const L = {
     catalog: null, catalogState: "idle", lessons: {}, lessonState: {}, overview: null, overviewState: "idle",
     lesson: null, notice: "", shopOpen: false, shopMsg: "", copied: "", copyTimer: 0, view: "", catalogTop: 0,
-    sh: null, zoomFrom: null, zoomN: "", figN: 0, leftLesson: null, leftTop: 0, focusTitle: false
+    sh: null, zoomFrom: null, zoomN: "", figN: 0, leftLesson: null, leftTop: 0, focusTitle: false,
+    files: {}, fileOpen: {}
   };
 
   try {
@@ -88,7 +94,7 @@
   /* 이스케이프 다음에만 **굵게**·`코드`·자리표시를 바꾼다. 원문 HTML은 글자로 보인다. */
   function inl(text) {
     return esc(txt(text)).split(/(`[^`\n]+`)/).map((part, i) => i % 2
-      ? (part.length <= 20 ? '<code class="lr-nw">' : "<code>") + part.slice(1, -1).replace(PH, (_, name) => esc(value(name))) + "</code>"
+      ? (part.length <= 34 ? '<code class="lr-nw">' : "<code>") + part.slice(1, -1).replace(PH, (_, name) => esc(value(name))) + "</code>"
       : part.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>").replace(PH, (_, name) => '<span class="lr-fillin">' + esc(value(name)) + "</span>")
     ).join("");
   }
@@ -106,6 +112,49 @@
     if (response.status === 401) { location.assign("/"); throw new Error("login"); }
     if (!response.ok) throw new Error(String(response.status));
     return response.json();
+  }
+  async function getText(path) {
+    const response = await fetch(path, { cache: "no-store", credentials: "same-origin" });
+    if (response.status === 401) { location.assign("/"); throw new Error("login"); }
+    if (!response.ok) throw new Error(String(response.status));
+    return response.text();
+  }
+  /* 파일은 펼치거나 복사할 때 처음 받고, 같은 파일은 다시 받지 않는다. */
+  function loadFile(src) {
+    if (!FILE_RE.test(txt(src))) return Promise.reject(new Error("src"));
+    const st = L.files[src];
+    if (st && st.promise && st.state !== "error") return st.promise;
+    const promise = getText("learn/" + src);
+    L.files[src] = { state: "loading", promise };
+    promise.then(text => { L.files[src] = { state: "ready", text, promise }; }, () => { L.files[src] = { state: "error" }; })
+      .then(() => {
+        const active = document.activeElement;
+        shellRender(active && active.dataset ? txt(active.dataset.lrFocus) : "");
+        fillFiles();
+      });
+    return promise;
+  }
+  const fileHead = text => text.split("\n").slice(0, FILE_PREVIEW).join("\n");
+  const lineCount = text => { const n = text.split("\n").length; return text.endsWith("\n") ? n - 1 : n; };
+  function fileSize(text) {
+    let bytes = text.length;
+    try { bytes = typeof TextEncoder === "function" ? new TextEncoder().encode(text).length : encodeURIComponent(text).replace(/%[0-9A-F]{2}/g, "x").length; } catch { /* 대략값 */ }
+    return bytes < 1024 ? bytes + " B" : (bytes / 1024).toFixed(1) + " KB";
+  }
+  /* 파일 글자는 HTML로 넣지 않고 textContent로만 채운다(화면을 그린 뒤). */
+  function fillFiles() {
+    document.querySelectorAll("pre[data-file-src]").forEach(pre => {
+      const src = txt(pre.dataset.fileSrc), st = L.files[src];
+      if (!FILE_RE.test(src) || !st || st.state !== "ready") return;
+      const text = pre.dataset.fileOpen === "true" ? st.text : fileHead(st.text);
+      if (pre.textContent !== text) pre.textContent = text;
+    });
+  }
+  function fileItem(i) {
+    const D = L.lessons[L.lesson];
+    if (!D || !Number.isInteger(i) || i < 0) return null;
+    const s = obj(arr(D.steps)[i]), f = s ? obj(s.file) : null;
+    return f && FILE_RE.test(txt(f.src)) ? f : null;
   }
   function refresh() {
     if (typeof S !== "undefined" && S.tab === "learn" && typeof renderIdle === "function") renderIdle();
@@ -155,6 +204,9 @@
   }
   const isOpen = r => r.l.status === "published" && r.t.status !== "soon";
   const published = () => index().filter(isOpen);
+  const openTracks = () => arr(L.catalog && L.catalog.tracks).filter(t => obj(t) && t.status !== "soon");
+  const numLabel = (t, n) => (NUM_PREFIX[t && t.id] || "") + txt(n) + "강";
+  const isDone = (prog, r) => obj(prog[r.l.id]) && prog[r.l.id].done === true;
   const find = id => index().find(r => r.l.id === id);
   function resolve() {
     if (!L.lesson || !L.catalog) return;
@@ -164,12 +216,23 @@
       L.lesson = null;
     }
   }
-  function resumeTarget(pub, prog) {
-    const done = r => obj(prog[r.l.id]) && prog[r.l.id].done === true;
-    const last = load(KEYS.last, "");
-    const at = pub.findIndex(r => r.l.id === last);
-    if (at >= 0 && !done(pub[at])) return pub[at];
-    return pub.slice(at + 1).find(r => !done(r)) || pub.find(r => !done(r)) || null;
+  /* 이어서 배우기: 목록 순서대로(기본 과정 먼저) 아직 안 마친 강이 있는 과정에서, 마지막에 본 자리부터 */
+  function resumeTarget(prog) {
+    const last = load(KEYS.last, ""), pub = published();
+    for (const t of openTracks()) {
+      const rows = pub.filter(r => r.t === t), left = r => !isDone(prog, r);
+      if (!rows.some(left)) continue;
+      const at = rows.findIndex(r => r.l.id === last);
+      if (at >= 0 && left(rows[at])) return rows[at];
+      return rows.slice(at + 1).find(left) || rows.find(left);
+    }
+    return null;
+  }
+  /* 한 과정의 마지막 강 다음: 바로 뒤 과정이 열려 있을 때만 그 과정의 첫 강 */
+  function nextTrackStart(here) {
+    if (!here) return null;
+    const tracks = arr(L.catalog && L.catalog.tracks).filter(obj), after = tracks[tracks.indexOf(here.t) + 1];
+    return after && after.status !== "soon" ? published().find(r => r.t === after) || null : null;
   }
   function neighbours(id) {
     const here = find(id);
@@ -218,6 +281,23 @@
       <pre class="lr-box-text" id="lr-text-${esc(key)}">${cmd ? esc(text) : fillMark(text)}</pre>${note ? `<p class="lr-box-note">${inl(note)}</p>` : ""}
     </div>`;
   }
+  function fileBox(i, item) {
+    const f = obj(item), src = f ? txt(f.src) : "";
+    if (!FILE_RE.test(src)) return "";
+    const label = txt(f.label) || "파일", note = txt(f.note), st = L.files[src] || {}, key = "f" + i;
+    const open = L.fileOpen[L.lesson + ":" + i] === true, ready = st.state === "ready";
+    const lines = ready ? lineCount(st.text) : 0, cut = ready && !open && lines > FILE_PREVIEW;
+    const meta = ready ? lines + "줄 · " + fileSize(st.text) + (cut ? " · 처음 " + FILE_PREVIEW + "줄만 보여요" : "") : "텍스트 파일 · 「펼치기」를 누르면 내용이 보여요";
+    let body = "";
+    if (st.state === "loading") body = loadingBox("파일을 불러오는 중이에요…");
+    else if (st.state === "error") body = `<div class="lr-file-error" role="alert"><p>파일을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.</p><button type="button" class="lr-btn lr-btn-small" onclick="IlsonLearn.fileRetry(${esc(i)})">다시 시도</button></div>`;
+    else if (ready) body = `<pre class="lr-file-text${cut ? " lr-file-cut" : ""}" id="lr-text-${esc(key)}" data-file-src="${esc(src)}" data-file-open="${open}"${lines <= FILE_PREVIEW ? ` data-lr-focus="file-${esc(i)}"` : ""} tabindex="0" role="region" aria-label="${esc(label + " 내용")}"></pre>`;
+    const toggle = ready && lines <= FILE_PREVIEW ? "" : `<button type="button" class="lr-file-toggle" aria-expanded="${open}"${ready ? ` aria-controls="lr-text-${esc(key)}"` : ""} data-lr-focus="file-${esc(i)}" onclick="IlsonLearn.fileToggle(${esc(i)})"><i data-lucide="${open ? "chevron-up" : "chevron-down"}"></i>${open ? "접기" : ready ? esc("펼치기 (모두 " + lines + "줄)") : "펼치기"}</button>`;
+    return `<div class="lr-box lr-box-file">
+      <div class="lr-box-head"><span><i data-lucide="file-code"></i>${esc(label)}</span><button type="button" class="lr-copy" data-copy="${esc(key)}" onclick="IlsonLearn.fileCopy(${esc(i)})" aria-label="${esc(label + " 전체 복사")}"><i data-lucide="copy"></i><span class="lr-copy-label" aria-live="polite">${L.copied === key ? "복사했어요" : "복사"}</span></button></div>
+      <p class="lr-file-meta">${esc(meta)}</p>${body}${toggle}${note ? `<p class="lr-box-note">${inl(note)}</p>` : ""}
+    </div>`;
+  }
   function statusCard(ids, i) {
     const wanted = arr(ids).filter(id => Object.prototype.hasOwnProperty.call(CHECKS, id));
     if (!wanted.length) return "";
@@ -260,10 +340,11 @@
   /* ── 목록 화면 ── */
   function catalogView() {
     const C = L.catalog, pub = published(), prog = progress();
-    const doneCount = pub.filter(r => obj(prog[r.l.id]) && prog[r.l.id].done === true).length;
-    const next = resumeTarget(pub, prog);
-    const started = doneCount > 0 || Object.keys(prog).length > 0 || !!load(KEYS.last, "");
-    const pct = pub.length ? Math.round(doneCount / pub.length * 100) : 0;
+    const next = resumeTarget(prog), rows = next ? pub.filter(r => r.t === next.t) : pub;
+    const doneCount = rows.filter(r => isDone(prog, r)).length;
+    const started = pub.some(r => isDone(prog, r)) || Object.keys(prog).length > 0 || !!load(KEYS.last, "");
+    const pct = rows.length ? Math.round(doneCount / rows.length * 100) : 0;
+    const label = next ? txt(next.t.title) : openTracks().length > 1 ? "모든 과정" : txt((openTracks()[0] || {}).title);
     const go = next ? lessonLink(next.l.id, `${started ? "이어서 배우기" : "첫 강 시작하기"}<i data-lucide="arrow-right"></i>`, "lr-btn lr-btn-primary lr-btn-big") : "";
     return `<header class="lr-head">
         <div class="lr-eyebrow">배우기</div>
@@ -272,27 +353,29 @@
       </header>
       ${L.notice ? `<div class="lr-notice" role="status"><span>${esc(L.notice)}</span><button type="button" class="lr-btn lr-btn-small" onclick="IlsonLearn.dismiss()">닫기</button></div>` : ""}
       <section class="lr-progress" aria-label="진도">
-        <div class="lr-progress-row"><div><strong class="lr-progress-num">${esc(pub.length)}강 중 ${esc(doneCount)}강 마침</strong>
-          ${next ? `<div class="lr-muted">다음 차례: ${esc(next.l.number)}강 ${esc(next.l.title)}</div>` : pub.length ? '<div class="lr-muted">준비된 강을 모두 마쳤어요. 새 강이 열리면 여기에 보여요.</div>' : ""}</div>${go}</div>
-        <div class="lr-bar" role="progressbar" aria-label="마친 강" aria-valuemin="0" aria-valuemax="${esc(pub.length)}" aria-valuenow="${esc(doneCount)}"><span style="width:${esc(pct)}%"></span></div>
+        <div class="lr-progress-row"><div>${label ? `<div class="lr-progress-track">${esc(label)}</div>` : ""}<strong class="lr-progress-num">${esc(rows.length)}강 중 ${esc(doneCount)}강 마침</strong>
+          ${next ? `<div class="lr-muted">다음 차례: ${esc(numLabel(next.t, next.l.number))} ${esc(next.l.title)}</div>` : pub.length ? '<div class="lr-muted">준비된 강을 모두 마쳤어요. 새 강이 열리면 여기에 보여요.</div>' : ""}</div>${go}</div>
+        <div class="lr-bar" role="progressbar" aria-label="${esc((label || "") + " 마친 강")}" aria-valuemin="0" aria-valuemax="${esc(rows.length)}" aria-valuenow="${esc(doneCount)}"><span style="width:${esc(pct)}%"></span></div>
       </section>
       ${shopPanel(false)}
       ${arr(C.tracks).filter(obj).map(t => trackView(t, prog)).join("")}`;
   }
   function trackView(t, prog) {
-    const soon = t.status === "soon";
+    const soon = t.status === "soon", rows = soon ? [] : published().filter(r => r.t === t);
+    const done = rows.filter(r => isDone(prog, r)).length, pct = rows.length ? Math.round(done / rows.length * 100) : 0;
+    const meter = rows.length ? `<div class="lr-track-progress"><span>${esc(rows.length)}강 중 ${esc(done)}강 마침</span><span class="lr-bar lr-bar-small" role="progressbar" aria-label="${esc(txt(t.title) + " 마친 강")}" aria-valuemin="0" aria-valuemax="${esc(rows.length)}" aria-valuenow="${esc(done)}"><span style="width:${esc(pct)}%"></span></span></div>` : "";
     return `<section class="lr-track${soon ? " lr-track-soon" : ""}">
       <div class="lr-track-head"><h2 class="lr-h2">${esc(t.title)}</h2>${soon ? '<span class="lr-badge">준비 중</span>' : ""}</div>
-      ${txt(t.summary) ? `<p class="lr-track-sum">${inl(t.summary)}</p>` : ""}
+      ${meter}${txt(t.summary) ? `<p class="lr-track-sum">${inl(t.summary)}</p>` : ""}
       ${soon ? "" : arr(t.parts).filter(obj).map(p => `<div class="lr-part"><h3 class="lr-part-title">${esc(p.number)}부 · ${esc(p.title)}</h3>
-        <ol class="lr-rows">${arr(p.lessons).filter(l => obj(l) && ID_RE.test(txt(l.id))).map(l => lessonRow(l, prog)).join("")}</ol></div>`).join("")}
+        <ol class="lr-rows">${arr(p.lessons).filter(l => obj(l) && ID_RE.test(txt(l.id))).map(l => lessonRow(l, prog, t)).join("")}</ol></div>`).join("")}
     </section>`;
   }
-  function lessonRow(l, prog) {
+  function lessonRow(l, prog, t) {
     const open = l.status === "published", done = open && obj(prog[l.id]) && prog[l.id].done === true;
     const meta = [l.minutes ? "약 " + txt(l.minutes) + "분" : "", SURFACE[l.surface] ? "어디서: " + SURFACE[l.surface] : ""].filter(Boolean).join(" · ");
     const tail = !open ? '<span class="lr-badge">준비 중</span>' : done ? '<span class="lr-row-done"><i data-lucide="circle-check"></i>마침</span>' : '<i data-lucide="chevron-right" class="lr-row-go"></i>';
-    const inner = `<span class="lr-row-num">${esc(l.number)}강</span><span class="lr-row-text"><span class="lr-row-title">${esc(l.title)}</span>${txt(l.subtitle) ? `<span class="lr-row-sub">${esc(l.subtitle)}</span>` : ""}${meta ? `<span class="lr-row-meta">${esc(meta)}</span>` : ""}</span>${tail}`;
+    const inner = `<span class="lr-row-num">${esc(numLabel(t, l.number))}</span><span class="lr-row-text"><span class="lr-row-title">${esc(l.title)}</span>${txt(l.subtitle) ? `<span class="lr-row-sub">${esc(l.subtitle)}</span>` : ""}${meta ? `<span class="lr-row-meta">${esc(meta)}</span>` : ""}</span>${tail}`;
     return `<li>${open ? lessonLink(l.id, inner, "lr-row" + (done ? " lr-row-finished" : ""), true) : `<div class="lr-row lr-row-soon">${inner}</div>`}</li>`;
   }
 
@@ -311,7 +394,7 @@
       ${txt(s.why) ? `<p class="lr-why">${inl(s.why)}</p>` : ""}
       ${paras(s.body)}${fig(s.figure)}
       ${callout("self", "이건 직접 해 주세요", "hand", s.self)}
-      ${box("c", i, s.command)}${box("p", i, s.prompt)}${box("m", i, s.memo)}${statusCard(s.status, i)}
+      ${box("c", i, s.command)}${box("p", i, s.prompt)}${box("m", i, s.memo)}${fileBox(i, s.file)}${statusCard(s.status, i)}
       ${callout("success", "이렇게 보이면 성공", "circle-check", s.success)}
       ${callout("tip", "알아두면 좋아요", "lightbulb", s.tip)}
       ${callout("caution", "조심하세요", "triangle-alert", s.caution)}
@@ -336,15 +419,16 @@
   }
   function lessonView(D) {
     const here = find(D.id), id = D.id, prog = lessonProgress(id), done = prog.done === true;
-    const part = here ? here.p : null, nb = neighbours(id), checks = arr(prog.checks);
+    const part = here ? here.p : null, nb = neighbours(id), checks = arr(prog.checks), track = here ? here.t : null;
+    const after = nb.next ? null : nextTrackStart(here);
     if (load(KEYS.last, "") !== id) save(KEYS.last, id);
     const chips = [txt(D.minutes) ? "약 " + txt(D.minutes) + "분" : "", SURFACE[D.surface] ? "어디서: " + SURFACE[D.surface] : "", txt(D.checked) ? "내용 확인일 " + txt(D.checked) : ""].filter(Boolean);
     const checklist = arr(D.checklist).filter(x => txt(x)).map((c, i) => `<li><label class="lr-check"><input type="checkbox" id="lr-check-${esc(i)}"${checks[i] === true ? " checked" : ""} onchange="IlsonLearn.check(${esc(i)},this.checked)"><span>${inl(c)}</span></label></li>`).join("");
     const history = arr(D.history).filter(obj).map(h => `<li><span class="lr-mono">${esc(h.date)}</span> ${inl(h.note)}</li>`).join("");
-    const pagerItem = (r, label, cls) => r ? lessonLink(r.l.id, `<span class="lr-pager-label">${esc(label)}</span><span class="lr-pager-title">${esc(r.l.number)}강 · ${esc(r.l.title)}</span>`, "lr-pager-item " + cls) : "";
+    const pagerItem = (r, label, cls) => r ? lessonLink(r.l.id, `<span class="lr-pager-label">${esc(label)}</span><span class="lr-pager-title">${esc(numLabel(r.t, r.l.number))} · ${esc(r.l.title)}</span>`, "lr-pager-item " + cls) : "";
     return `${toolbar()}
       <header class="lr-head">
-        <div class="lr-eyebrow">${esc(D.part)}부 · ${esc(part ? part.title : "")}<span class="lr-dot" aria-hidden="true"></span>${esc(D.number)}강</div>
+        <div class="lr-eyebrow">${track && track.id !== "basic" ? esc(txt(track.title) + " · ") : ""}${esc(D.part)}부 · ${esc(part ? part.title : "")}<span class="lr-dot" aria-hidden="true"></span>${esc(numLabel(track, D.number))}</div>
         <h1 class="lr-h1" id="lrTitle" tabindex="-1">${esc(D.title)}</h1>
         ${txt(D.subtitle) ? `<p class="lr-sub">${inl(D.subtitle)}</p>` : ""}
         <div class="lr-chips">${chips.map(c => `<span class="lr-chip">${esc(c)}</span>`).join("")}</div>
@@ -365,6 +449,7 @@
         <button type="button" class="lr-done${done ? " on" : ""}" aria-pressed="${done}" data-lr-focus="done" onclick="IlsonLearn.toggleDone()"><i data-lucide="${done ? "circle-check" : "circle"}"></i>이 강 마쳤어요</button>
         ${done ? '<p class="lr-muted">잘하셨어요. 기록해 두었어요.</p>' : ""}
         <nav class="lr-pager" aria-label="강 이동">${pagerItem(nb.prev, "앞 강", "lr-prev") || "<span></span>"}${pagerItem(nb.next, "다음 강으로", "lr-next") || (nb.soon ? '<span class="lr-pager-item lr-pager-off"><span class="lr-pager-label">다음 강</span><span class="lr-pager-title">준비 중이에요</span></span>' : "")}</nav>
+        ${after ? lessonLink(after.l.id, `<span class="lr-next-track-note">${esc(txt(track.title) + "의 마지막 강이에요. 다음 과정으로 이어가 볼까요?")}</span><span class="lr-next-track-name"><i data-lucide="graduation-cap"></i>${esc(after.t.title)}</span><span class="lr-next-track-first">${esc(numLabel(after.t, after.l.number))} · ${esc(after.l.title)}<i data-lucide="arrow-right"></i></span>`, "lr-next-track") : ""}
       </footer>`;
   }
 
@@ -428,6 +513,23 @@
   function copyLabel(key, label) {
     document.querySelectorAll('[data-copy="' + key + '"] .lr-copy-label').forEach(n => { n.textContent = label; });
   }
+  function copiedOk(key) {
+    L.copied = key;
+    copyLabel(key, "복사했어요");
+    clearTimeout(L.copyTimer);
+    L.copyTimer = setTimeout(() => { if (L.copied === key) L.copied = ""; copyLabel(key, "복사"); }, 2000);
+  }
+  function copyFailed(key) {
+    if (key[0] === "f") { L.fileOpen[L.lesson + ":" + key.slice(1)] = true; shellRender(); fillFiles(); }
+    const n = document.getElementById("lr-text-" + key);
+    if (n && window.getSelection) { const r = document.createRange(); r.selectNodeContents(n); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+    copyLabel(key, "글자를 골라 두었어요. ⌘+C로 복사하세요");
+  }
+  /* 복사: 클립보드 → 옛 방식 → 글자 골라 두기 */
+  function clip(key, text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => copiedOk(key), () => (legacyCopy(text) ? copiedOk(key) : copyFailed(key)));
+    else if (legacyCopy(text)) copiedOk(key); else copyFailed(key);
+  }
   function legacyCopy(text) {
     const area = document.createElement("textarea");
     area.value = text; area.setAttribute("readonly", "");
@@ -443,6 +545,7 @@
   window.IlsonLearn = {
     render() {
       L.figN = 0;
+      Promise.resolve().then(fillFiles);
       ensureCatalog();
       ensureOverview();
       L.sh = shop();
@@ -576,20 +679,39 @@
     },
     copy(key) {
       const text = copyText(txt(key));
-      if (!text) return;
-      const ok = () => {
-        L.copied = key;
-        copyLabel(key, "복사했어요");
-        clearTimeout(L.copyTimer);
-        L.copyTimer = setTimeout(() => { if (L.copied === key) L.copied = ""; copyLabel(key, "복사"); }, 2000);
-      };
-      const fail = () => {
-        const n = document.getElementById("lr-text-" + key);
-        if (n && window.getSelection) { const r = document.createRange(); r.selectNodeContents(n); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
-        copyLabel(key, "글자를 골라 두었어요. ⌘+C로 복사하세요");
-      };
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, () => (legacyCopy(text) ? ok() : fail()));
-      else if (legacyCopy(text)) ok(); else fail();
+      if (text) clip(key, text);
+    },
+    fileToggle(i) {
+      const f = fileItem(i);
+      if (!f) return;
+      const k = L.lesson + ":" + i;
+      L.fileOpen[k] = L.fileOpen[k] !== true;
+      const st = L.files[f.src];
+      if (L.fileOpen[k] && (!st || st.state === "error")) loadFile(f.src);
+      shellRender("file-" + i);
+      fillFiles();
+    },
+    fileRetry(i) {
+      const f = fileItem(i);
+      if (!f) return;
+      delete L.files[f.src];
+      L.fileOpen[L.lesson + ":" + i] = true;
+      loadFile(f.src);
+      shellRender("file-" + i);
+    },
+    fileCopy(i) {
+      const f = fileItem(i);
+      if (!f) return;
+      const key = "f" + i, st = L.files[f.src];
+      if (st && st.state === "ready") return clip(key, st.text);
+      const pending = loadFile(f.src);
+      if (typeof ClipboardItem === "function" && navigator.clipboard && navigator.clipboard.write) {
+        // 사파리는 누른 순간에 복사를 시작해야 해서, 아직 받는 중인 글을 약속(Promise)으로 넘긴다.
+        const item = new ClipboardItem({ "text/plain": pending.then(text => new Blob([text], { type: "text/plain" })) });
+        navigator.clipboard.write([item]).then(() => copiedOk(key), () => pending.then(text => clip(key, text), () => {}));
+      } else {
+        pending.then(text => clip(key, text), () => {});
+      }
     },
     zoom(src, button) {
       if (!FIG_RE.test(txt(src))) return;

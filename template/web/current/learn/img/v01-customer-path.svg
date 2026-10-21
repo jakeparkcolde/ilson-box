@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 440" width="720" height="440" role="img" aria-label="손님이 안내 화면에서 예약 요청 화면으로 가 요청을 보내고, 로그인한 사장님만 예약함에서 그 요청을 읽는 세 화면 동선 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrowP" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#5e6ad2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .lane{font-size:20px;font-weight:600;fill:#6b7078}
+    .h{font-size:22px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .mp{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#6b7078}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+    .card{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+  </style>
+  <rect width="720" height="440" rx="16" fill="#f5f6f6"/>
+
+  <!-- customer lane -->
+  <text class="lane" x="40" y="48">손님</text>
+
+  <rect class="card" x="32" y="64" width="200" height="90" rx="14"/>
+  <circle cx="58" cy="90" r="14" fill="#5e6ad2"/><text class="n" x="58" y="96" text-anchor="middle">1</text>
+  <text class="h" x="82" y="97">안내</text>
+  <text class="mp" x="82" y="134">index.html</text>
+
+  <path d="M238 109 H272" stroke="#5e6ad2" stroke-width="2.5" fill="none" marker-end="url(#arrowP)"/>
+
+  <rect class="card" x="280" y="64" width="200" height="90" rx="14"/>
+  <circle cx="306" cy="90" r="14" fill="#5e6ad2"/><text class="n" x="306" y="96" text-anchor="middle">2</text>
+  <text class="h" x="330" y="97">예약 요청</text>
+  <text class="mp" x="330" y="134">reserve.html</text>
+
+  <!-- the customer only sends -->
+  <path d="M486 109 H620 V188" stroke="#5e6ad2" stroke-width="2.5" fill="none" stroke-linejoin="round" marker-end="url(#arrowP)"/>
+  <text x="553" y="98" text-anchor="middle" style="font-size:18px;font-weight:600;fill:#5e6ad2">예약 요청 보내기</text>
+
+  <rect x="226" y="170" width="244" height="36" rx="18" fill="#f8e3e1"/>
+  <path d="M244 182 L256 194 M256 182 L244 194" stroke="#c4423b" stroke-width="2.2" stroke-linecap="round"/>
+  <text x="266" y="194" style="font-size:18px;font-weight:600;fill:#c4423b">다른 손님의 요청은 못 봐요</text>
+
+  <!-- reservation box between the lanes -->
+  <rect class="card" x="552" y="196" width="136" height="60" rx="14"/>
+  <text class="h" x="620" y="234" text-anchor="middle">예약 상자</text>
+
+  <path d="M32 230 H528" stroke="#e4e4e8" stroke-width="1.5" stroke-dasharray="6 6"/>
+
+  <!-- owner lane -->
+  <text class="lane" x="40" y="266">사장님</text>
+
+  <rect class="card" x="32" y="280" width="200" height="90" rx="14"/>
+  <rect x="90" y="322" width="18" height="14" rx="3" fill="none" stroke="#6b7078" stroke-width="2"/>
+  <path d="M93 322 V317 a6 6 0 0 1 12 0 V322" fill="none" stroke="#6b7078" stroke-width="2"/>
+  <text class="h" x="118" y="333">로그인</text>
+
+  <path d="M238 325 H272" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <rect class="card" x="280" y="280" width="200" height="90" rx="14"/>
+  <circle cx="306" cy="306" r="14" fill="#5e6ad2"/><text class="n" x="306" y="312" text-anchor="middle">3</text>
+  <text class="h" x="330" y="313">사장님 예약함</text>
+  <text class="mp" x="330" y="350">admin.html</text>
+
+  <path d="M620 262 V325 H488" stroke="#6b7078" stroke-width="2" fill="none" stroke-linejoin="round" marker-end="url(#arrow)"/>
+
+  <!-- replies happen outside the page -->
+  <path d="M380 376 V398 H16 V42 H28" stroke="#6b7078" stroke-width="1.8" fill="none" stroke-dasharray="5 5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+  <text class="s" x="40" y="424">답은 화면 밖에서 (전화·메시지)</text>
+</svg>
