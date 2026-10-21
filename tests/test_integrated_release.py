@@ -1,5 +1,5 @@
 import importlib.util,io,json,os,subprocess,tempfile,unittest,zipfile,sys
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr,redirect_stdout
 from unittest.mock import patch
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
@@ -139,7 +139,7 @@ class ReleaseCommandTests(unittest.TestCase):
  def setUp(self):
   self.b=load('command_builder',ROOT/'tools/build_release.py')
  def test_작업트리가_깨끗하지않으면_명령행빌드를_거부(self):
-  args=['--output','out','--version','9999.7','--pack','pack.zip','--feed',FEED]
+  args=['--output','out','--version','9999.7','--pack','pack.zip','--feed',FEED,'--no-preserve-from']
   with patch.object(self.b,'dirty_files',return_value=[' M tools/update.py']),patch.object(self.b,'build') as build:
    with self.assertRaises(SystemExit) as stop:self.b.main(args)
    build.assert_not_called();self.assertIn('--allow-dirty',str(stop.exception.code))
@@ -157,3 +157,93 @@ class ReleaseCommandTests(unittest.TestCase):
    self.assertEqual(self.b.dirty_files(repo),[])
    (repo/'a.txt').write_text('2');(repo/'new.txt').write_text('x')
    self.assertEqual(sorted(line[3:] for line in self.b.dirty_files(repo)),['a.txt','new.txt'])
+
+class PreserveCarryTests(unittest.TestCase):
+ # Reviewed owner edits (preserve_sha256) ride from the previous release manifest into every new one.
+ KEY='box/lib/job-rules.md'
+ @classmethod
+ def setUpClass(cls):
+  cls.b=load('preserve_builder',ROOT/'tools/build_release.py')
+  cls.tmp=tempfile.TemporaryDirectory();base=Path(cls.tmp.name)
+  cls.edited=(ROOT/'template/lib/job-rules.md').read_bytes()+'\n- 소유자 수정: 예약 검색은 WebSearch\n'.encode()
+  cls.edit_hash=u.digest(cls.edited)
+  (base/'prev').mkdir();cls.previous=base/'prev/release-9999.8.json'
+  cls.previous.write_text(json.dumps({'schema':1,'version':'9999.8','files':[
+   {'area':'box','path':'lib/job-rules.md','sha256':'1'*64,'previous_sha256':['2'*64],'preserve_sha256':[cls.edit_hash]},
+   {'area':'box','path':'lib/retired-rules.md','sha256':'3'*64,'previous_sha256':[],'preserve_sha256':['4'*64]},
+   {'area':'cli','path':'ilson','sha256':'5'*64,'previous_sha256':[]}]}))
+  cls.stage=base/'stage';log=io.StringIO()
+  with redirect_stdout(log):cls.release=cls.b.build(cls.stage,'9999.9',research_pack(cls.tmp.name),FEED,preserve_from=cls.previous)
+  cls.log=log.getvalue();cls.archive=(cls.stage/cls.release['archive']).read_bytes()
+ @classmethod
+ def tearDownClass(cls):cls.tmp.cleanup()
+ def previous_with(self,folder,values):
+  prev=Path(folder)/'release-bad.json'
+  prev.write_text(json.dumps({'files':[{'area':'box','path':'lib/job-rules.md','sha256':'1'*64,'previous_sha256':[],'preserve_sha256':values}]}))
+  return prev
+ def test_이전manifest의_보존해시를_같은자리로_이월(self):
+  written=json.loads((self.stage/'release-9999.9.json').read_text())
+  for manifest in (self.release,written):
+   entries={f['area']+'/'+f['path']:f for f in manifest['files']}
+   self.assertEqual(entries[self.KEY]['preserve_sha256'],[self.edit_hash])
+   # Same key order as the hand-edited 2026.10.16.3 manifest.
+   self.assertEqual(list(entries[self.KEY]),['area','path','sha256','previous_sha256','preserve_sha256'])
+   self.assertEqual([k for k,f in entries.items() if 'preserve_sha256' in f],[self.KEY])
+  self.assertEqual([line for line in self.log.splitlines() if self.KEY in line],['보존 해시 이월: '+self.KEY+' (1개)'])
+ def test_새배포에없는경로는_메모만남기고_건너뜀(self):
+  self.assertNotIn('box/lib/retired-rules.md',[f['area']+'/'+f['path'] for f in self.release['files']])
+  self.assertIn('보존 해시 이월 건너뜀(새 배포에 없는 파일): box/lib/retired-rules.md',self.log.splitlines())
+ def test_잘못된_보존해시는_빌드거부(self):
+  bad={'uppercase':[self.edit_hash.upper()],'short':[self.edit_hash[:63]],'long':[self.edit_hash+'0'],'not hex':['g'*64],
+       'newline':[self.edit_hash+'\n'],'not a list':self.edit_hash,'empty':[],'not text':[123]}
+  with tempfile.TemporaryDirectory() as tmp:
+   pack=research_pack(tmp)
+   for name,values in bad.items():
+    with self.subTest(name):
+     with self.assertRaisesRegex(ValueError,'preserve_sha256'):self.b.build(Path(tmp)/'out','9999.10',pack,FEED,preserve_from=self.previous_with(tmp,values))
+     self.assertFalse((Path(tmp)/'out').exists())
+ def test_새배포_자기해시와_같은_보존해시는_빌드거부(self):
+  own=u.digest((ROOT/'template/lib/job-rules.md').read_bytes())
+  with tempfile.TemporaryDirectory() as tmp:
+   with redirect_stdout(io.StringIO()),self.assertRaisesRegex(ValueError,self.KEY):
+    self.b.build(Path(tmp)/'out','9999.11',research_pack(tmp),FEED,preserve_from=self.previous_with(tmp,[self.edit_hash,own]))
+   self.assertFalse((Path(tmp)/'out').exists())
+ def test_명령행은_보존이월_선택없이_빌드거부(self):
+  args=['--output','out','--version','9999.7','--pack','pack.zip','--feed',FEED]
+  with patch.object(self.b,'dirty_files',return_value=[]),patch.object(self.b,'build',return_value={'version':'9999.7','files':[]}) as build:
+   with self.assertRaises(SystemExit) as stop:self.b.main(args)
+   build.assert_not_called()
+   for flag in ('--preserve-from','--no-preserve-from'):self.assertIn(flag,str(stop.exception.code))
+   with redirect_stdout(io.StringIO()):self.b.main(args+['--no-preserve-from'])
+   self.assertIsNone(build.call_args.kwargs['preserve_from'])
+   with redirect_stdout(io.StringIO()):self.b.main(args+['--preserve-from','prev/release-9999.6.json'])
+   self.assertEqual(build.call_args.kwargs['preserve_from'],Path('prev/release-9999.6.json'))
+   with redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):self.b.main(args+['--no-preserve-from','--preserve-from','x.json'])
+   self.assertEqual(build.call_count,2)
+ def test_게시검증을_통과하고_최신포인터에_보존해시가_남는다(self):
+  publisher=load('preserve_publisher',ROOT/'tools/publish_release.py');base=FEED.rsplit('/',1)[0]
+  with tempfile.TemporaryDirectory() as tmp:
+   server=Path(tmp)/'box';server.mkdir()
+   (server/'install-updater.sh').write_text("#!/bin/bash\nUPDATER='updater-2026.10.13.6.py'\nSHA='"+'0'*64+"'\n")
+   urlopen=lambda url,timeout=None:io.BytesIO((server/url[len(base)+1:]).read_bytes())
+   with patch.object(publisher.urllib.request,'urlopen',side_effect=urlopen),redirect_stdout(io.StringIO()):publisher.publish(self.stage,server,base)
+   for name in ('latest-v2.json','release-9999.9.json'):
+    self.assertEqual((server/name).read_bytes(),(self.stage/'release-9999.9.json').read_bytes())
+    entry=[f for f in json.loads((server/name).read_text())['files'] if f['area']+'/'+f['path']==self.KEY]
+    self.assertEqual(entry[0]['preserve_sha256'],[self.edit_hash])
+ def test_구버전과_현재updater가_보존해시와_같은_소유자수정을_지킨다(self):
+  legacy=load('preserve_legacy_update',ROOT/'tests/fixtures/legacy_update_v2.py')
+  for name,module in (('legacy v2',legacy),('current',u)):
+   with self.subTest(name),tempfile.TemporaryDirectory() as tmp:
+    roots={'box':Path(tmp)/'box','cli':Path(tmp)/'cli'}
+    for p in roots.values():p.mkdir()
+    rules=roots['box']/'lib/job-rules.md';rules.parent.mkdir();rules.write_bytes(self.edited)
+    log=io.StringIO()
+    with redirect_stdout(log):module.apply(roots,self.release,self.archive)
+    self.assertEqual(rules.read_bytes(),self.edited)
+    self.assertIn('기존 확장 기능 보존: '+self.KEY,log.getvalue())
+    self.assertNotIn(self.KEY,module.read(roots['box']/'.updates/installed.json')['files'])
+    # An edit nobody reviewed still stops the update.
+    rules.write_bytes(self.edited+b'unreviewed\n')
+    with redirect_stdout(io.StringIO()),self.assertRaisesRegex(ValueError,self.KEY):module.apply(roots,self.release,self.archive)
+    self.assertEqual(rules.read_bytes(),self.edited+b'unreviewed\n')

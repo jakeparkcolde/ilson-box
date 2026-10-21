@@ -5,13 +5,9 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import zipfile
-
-# 2026-10-13: Jake 설치본의 확장 관리자/SNS 코드를 공개 저장소 버전으로 내리지 않는다.
-# 정확히 검토한 해시만 보존하며 알 수 없는 수정은 계속 전체 적용을 차단한다.
-PRESERVE={}
-
 
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('updater',ROOT/'tools/update.py');updater=importlib.util.module_from_spec(spec);spec.loader.exec_module(updater)
@@ -30,10 +26,35 @@ def dirty_files(root=ROOT):
     if result.returncode:raise ValueError('git 상태를 확인하지 못했습니다')
     return [line for line in result.stdout.splitlines() if line.strip()]
 
-def build(output,version,pack,feed=None):
+def load_preserve(path):
+    # preserve_sha256 lists the exact hashes of owner edits that were reviewed and approved: update.py keeps such a
+    # file instead of stopping with a conflict. They live only in published manifests, so each build carries them
+    # forward from the previous one. Unknown edits still stop the whole update.
+    carried={}
+    for item in json.loads(Path(path).read_text())['files']:
+        if 'preserve_sha256' not in item:continue
+        key=item['area']+'/'+item['path'];values=item['preserve_sha256']
+        if key in carried:raise ValueError('이전 manifest에 같은 파일이 두 번 있습니다: '+key)
+        if not isinstance(values,list) or not values or not all(isinstance(v,str) and re.fullmatch('[0-9a-f]{64}',v) for v in values):
+            raise ValueError('preserve_sha256 값은 64자리 소문자 16진수 목록이어야 합니다: '+key)
+        carried[key]=values
+    return carried
+
+def carry_preserve(files,carried):
+    entries={f['area']+'/'+f['path']:f for f in files}
+    for key,values in carried.items():
+        entry=entries.get(key)
+        if entry is None:print('보존 해시 이월 건너뜀(새 배포에 없는 파일):',key);continue
+        if entry['sha256'] in values:raise ValueError('보존 해시가 새 배포 파일의 해시와 같습니다. 이전 manifest를 검토하세요: '+key)
+        # Added last, after previous_sha256, like the reviewed 2026.10.16.x manifests.
+        entry['preserve_sha256']=list(values)
+        print('보존 해시 이월:',key,'('+str(len(values))+'개)')
+
+def build(output,version,pack,feed=None,preserve_from=None):
     # Every box updates from the feed stamped into the shipped updater. An empty feed would strand them all.
     feed=feed or os.environ.get('ILSON_RELEASE_FEED','')
     if not updater.valid_feed(feed):raise ValueError('릴리스 업데이트 주소가 필요합니다: --feed 또는 ILSON_RELEASE_FEED (https://.../latest-v2.json)')
+    carried=load_preserve(preserve_from) if preserve_from else {}
     files=[];members={}
     accepted=json.loads((ROOT/'tools/manager-baseline.json').read_text())
     with zipfile.ZipFile(pack) as z:
@@ -49,7 +70,6 @@ def build(output,version,pack,feed=None):
     stale=sorted(rel for rel,data in overrides.items() if not (ROOT/rel).is_file() or (ROOT/rel).read_bytes()!=data)
     stale+=sorted(set(pack_sources())-set(overrides))
     if stale:raise ValueError('리서치 팩이 저장소와 다릅니다. 현재 template 파일로 팩을 다시 만드세요: '+', '.join(stale))
-    output.mkdir(parents=True,exist_ok=True)
 
     def add(area,name,data,baseline=None):
         if not updater.allowed(area,name):return
@@ -101,6 +121,9 @@ def build(output,version,pack,feed=None):
             if not updater.allowed('box',name):raise ValueError('팩에 코드 외 파일이 있습니다')
             add('box',name,z.read(info))
     if updater.feed_of(members.get(updater.UPDATER_KEY,b''))!=feed:raise ValueError('배포 updater에 업데이트 주소가 없습니다')
+    carry_preserve(files,carried)
+    # Nothing is written until every check has passed, so a refused build leaves no output folder.
+    output.mkdir(parents=True,exist_ok=True)
     buf=io.BytesIO()
     with zipfile.ZipFile(buf,'w',zipfile.ZIP_DEFLATED) as z:
         for key,data in members.items():z.writestr(key,data)
@@ -112,10 +135,15 @@ def build(output,version,pack,feed=None):
 def main(argv=None):
     p=argparse.ArgumentParser();p.add_argument('--output',type=Path,required=True);p.add_argument('--version',required=True);p.add_argument('--pack',type=Path,required=True)
     p.add_argument('--feed',help='latest-v2.json URL stamped into the shipped updater (default: ILSON_RELEASE_FEED)')
-    p.add_argument('--allow-dirty',action='store_true',help='build from uncommitted changes (rehearsals only, never for a published release)');a=p.parse_args(argv)
+    p.add_argument('--allow-dirty',action='store_true',help='build from uncommitted changes (rehearsals only, never for a published release)')
+    previous=p.add_mutually_exclusive_group()
+    previous.add_argument('--preserve-from',type=Path,help='previous release manifest (release-<version>.json) whose preserve_sha256 entries are carried forward')
+    previous.add_argument('--no-preserve-from',action='store_true',help='build without carrying preserve_sha256 (first release or rehearsals)');a=p.parse_args(argv)
+    if a.preserve_from is None and not a.no_preserve_from:
+        raise SystemExit('이전 배포의 검토한 보존 해시를 이어받아야 합니다: --preserve-from <배포 폴더>/release-<이전 버전>.json (이어받을 것이 없을 때만 --no-preserve-from)')
     dirty=dirty_files()
     if dirty and not a.allow_dirty:
         raise SystemExit('커밋하지 않은 변경이 있어 빌드하지 않습니다. 커밋 후 다시 실행하세요(시험 빌드만 --allow-dirty):\n'+'\n'.join(dirty[:20]))
-    r=build(a.output,a.version,a.pack,a.feed);print('릴리스:',r['version'],'코드 파일:',len(r['files']))
+    r=build(a.output,a.version,a.pack,a.feed,preserve_from=a.preserve_from);print('릴리스:',r['version'],'코드 파일:',len(r['files']))
 
 if __name__=='__main__':main()
