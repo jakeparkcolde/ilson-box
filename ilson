@@ -4,6 +4,7 @@
 # Commands:
 #   setup [--configure-machine] [--sandbox]   provision tools and stage the box
 #   start                                    activate after login and onboarding
+#   pause <job> | resume <job>               stop / re-register one scheduled job
 #   open                                     open this box's local web manager
 #   admin start | status | stop               manage only the web manager service
 #   doctor [--probe-tcc]                read-only checks, 12-step mapping
@@ -168,6 +169,20 @@ check_tools() {
     { [ -d /Applications/Obsidian.app ] || [ -d "$HOME/Applications/Obsidian.app" ]; } && ok "Obsidian 앱" || bad "Obsidian 앱" "brew install --cask obsidian"
     [ -x "$TS_BIN" ] && ok "Tailscale 앱" || bad "Tailscale 앱" "brew install --cask tailscale-app"
     has aside && ok "Aside CLI" || warn "Aside (선택)" "브라우저 업무를 사용할 때 연결 — 기본 보고 업무에는 불필요"
+    check_update_feed
+}
+
+# 업데이트 주소는 있는지만 확인한다. 주소 자체는 화면·로그에 쓰지 않는다.
+# 출처: 환경 변수, 배포 때 CLI 업데이트 도구에 찍힌 FEED 줄, 이 Box가 기억한 주소 파일.
+check_update_feed() {
+    local feed="$ILSON_HOME/.updates/feed"
+    if [ -n "${ILSON_UPDATE_FEED:-}" ] ||
+        grep -q "^FEED='https://" "$SELF_DIR/tools/update.py" 2>/dev/null ||
+        { [ -f "$feed" ] && [ ! -L "$feed" ] && [ -n "$(tr -d '[:space:]' < "$feed" 2>/dev/null)" ]; }; then
+        ok "업데이트 주소" "설정됨"
+    else
+        warn "업데이트 주소 없음 — 자동 업데이트를 건너뜁니다. 설치를 도와준 담당자에게 받은 주소로 ilson update --feed <주소> 를 한 번 실행하세요"
+    fi
 }
 
 check_search() {
@@ -281,13 +296,18 @@ check_tcc() {
 
 check_jobs() {
     sec 8 "예약 업무 (launchd)"
-    local dir n loaded
+    local dir n loaded label f paused="" stuck=""
     if is_sandbox_box || [ -f "$ILSON_HOME/state/setup-pending" ]; then dir="$ILSON_HOME/launchd/rendered"; else dir="$LAUNCH_AGENTS"; fi
+    for f in "$ILSON_HOME"/state/paused.*; do [ -e "$f" ] && paused="$paused ${f##*/paused.}"; done
     n=0
     for p in "$dir"/com.ilson.*.plist; do
         [ "$(basename "$p")" = com.ilson.admin.plist ] && continue
+        label=$(basename "$p" .plist)
+        # ilson pause 로 멈춘 업무는 적재 기대값에서 뺀다.
+        is_paused "${label#com.ilson.}" && continue
         [ ! -f "$p" ] || n=$((n+1))
     done
+    [ -z "$paused" ] || ok "멈춘 업무" "${paused# } · 다시 켜기: ilson resume <업무명>"
     if [ "$n" -gt 0 ]; then
         ok "ilson 잡 plist" "${n}개$(is_sandbox_box && echo ' (렌더만)')"
         for p in "$dir"/com.ilson.*.plist; do
@@ -297,8 +317,12 @@ check_jobs() {
         if is_sandbox_box; then skip "잡 적재(launchctl)";
         elif [ -f "$ILSON_HOME/state/setup-pending" ]; then warn "예약 업무 대기" "로그인·회사 인터뷰 후 ilson start";
         else
-            loaded=$(launchctl list 2>/dev/null | awk '$NF ~ /^com[.]ilson[.]/ && $NF != "com.ilson.admin" { n++ } END { print n+0 }')
+            loaded=0
+            for label in $(launchctl list 2>/dev/null | awk '$NF ~ /^com[.]ilson[.]/ && $NF != "com.ilson.admin" { print $NF }'); do
+                if is_paused "${label#com.ilson.}"; then stuck="$stuck ${label#com.ilson.}"; else loaded=$((loaded+1)); fi
+            done
             [ "$loaded" -eq "$n" ] && ok "잡 적재" "${loaded}/${n}" || bad "잡 적재" "${loaded}/${n} (launchctl bootstrap 필요)"
+            for label in $stuck; do bad "멈춘 업무가 아직 등록됨" "$label · 다시 멈추기: ilson pause $label"; done
         fi
     else bad "ilson 잡 plist" "6개 (브리핑·주간·정리·워치독·스냅샷·업데이트)"; fi
 }
@@ -399,29 +423,139 @@ pair_write() {
     chmod 600 "$ILSON_HOME/state/pairing.json"
 }
 
-init_step_jobs() {
-    sec 8 "예약 업무"
-    local out="$ILSON_HOME/launchd/rendered"; mkdir -p "$out"
+# Job names in the box's jobs.conf (comments and blank lines skipped).
+job_names() {
+    local job rest
+    while IFS='|' read -r job rest; do
+        job=$(echo "$job" | xargs); [ -z "$job" ] && continue; case "$job" in \#*) continue ;; esac
+        printf '%s\n' "$job"
+    done < "$ILSON_HOME/launchd/jobs.conf"
+}
+
+# ilson pause 로 멈춘 업무. resume 전까지 start·doctor·워치독이 건너뛴다.
+is_paused() { [ -e "$ILSON_HOME/state/paused.$1" ]; }
+
+render_jobs() {
+    local out="$ILSON_HOME/launchd/rendered" job script args sched; mkdir -p "$out"
     while IFS='|' read -r job script args sched; do
         job=$(echo "$job" | xargs); [ -z "$job" ] && continue; case "$job" in \#*) continue ;; esac
         script=$(echo "$script" | xargs); args=$(echo "$args" | xargs); sched=$(echo "$sched" | xargs)
         render_plist "$job" "$script" "$args" "$sched" > "$out/com.ilson.$job.plist"
         plutil -lint -s "$out/com.ilson.$job.plist" >/dev/null || die "plist 렌더 실패: $job"
     done < "$ILSON_HOME/launchd/jobs.conf"
+}
+
+# load_job <rendered plist> — register one job with launchd unless already loaded.
+load_job() {
+    local p="$1" label marker; label=$(basename "$p" .plist)
+    marker="$ILSON_HOME/state/enabled.${label#com.ilson.}"
+    # Resuming after a partial start must not restart already running jobs.
+    if launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1; then
+        # bootout이 0을 돌려준 직후에도 잠시 목록에 남을 수 있다. 사본이 없으면 다음 로그인에 사라지므로 채운다.
+        [ -e "$LAUNCH_AGENTS/$(basename "$p")" ] || cp "$p" "$LAUNCH_AGENTS/" || return 1
+        # 이미 등록된 업무는 워치독 기준(처음 켠 시각)을 바꾸지 않는다. 표시가 없을 때만 만든다.
+        [ -e "$marker" ] || touch "$marker"
+        return 0
+    fi
+    cp "$p" "$LAUNCH_AGENTS/" || return 1
+    if ! launchctl bootstrap "gui/$(id -u)" "$LAUNCH_AGENTS/$(basename "$p")"; then
+        # 실패한 사본이 남으면 다음 로그인 때 launchd가 그 업무를 적재한다.
+        rm -f "$LAUNCH_AGENTS/$(basename "$p")"
+        bad "적재" "$label"; return 1
+    fi
+    # 새로 등록한 업무는 지금부터 잰다. 오래된 표시·성공 기록으로 바로 알리지 않는다.
+    touch "$marker"
+}
+
+init_step_jobs() {
+    sec 8 "예약 업무"
+    local out="$ILSON_HOME/launchd/rendered" p label paused=""
+    render_jobs
     ok "plist 렌더" "$(ls "$out" | wc -l | tr -d ' ')개"
     [ "$STAGE_ONLY" = "1" ] && { warn "예약 업무 대기" "회사 인터뷰 후 ilson start"; return 0; }
     if [ "$SANDBOX" = "1" ]; then skip "launchctl bootstrap"; return; fi
     mkdir -p "$LAUNCH_AGENTS"
     for p in "$out"/com.ilson.*.plist; do
-        local label; label=$(basename "$p" .plist)
-        # Resuming after a partial start must not restart already running jobs.
-        if ! launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1; then
-            cp "$p" "$LAUNCH_AGENTS/" || return 1
-            launchctl bootstrap "gui/$(id -u)" "$LAUNCH_AGENTS/$(basename "$p")" || { bad "적재" "$label"; return 1; }
-        fi
-        touch "$ILSON_HOME/state/enabled.${label#com.ilson.}"
+        label=$(basename "$p" .plist)
+        if is_paused "${label#com.ilson.}"; then paused="$paused ${label#com.ilson.}"; continue; fi
+        load_job "$p" || return 1
     done
     ok "launchd 적재"
+    [ -z "$paused" ] || ok "멈춘 업무 유지" "${paused# } · 다시 켜기: ilson resume <업무명>"
+}
+
+# 기본 관리 업무는 Box 보호(점검·복구 기록·업데이트)에 필요해 멈추지 않는다.
+BASE_JOBS="watchdog snapshot update"
+
+# 업무명은 소문자·숫자·_- 만 받는다. UTF-8 로캘에서는 [a-z]가 대문자도 받으므로 글자를 나열한다.
+# (macOS 파일시스템은 대소문자를 구분하지 않아 paused.Tidy 가 paused.tidy 를 가리킨다.)
+job_name_check() {
+    case "$1" in
+        ''|[!abcdefghijklmnopqrstuvwxyz]*|*[!abcdefghijklmnopqrstuvwxyz0123456789_-]*)
+            die "모르는 업무입니다: '$1' — launchd/jobs.conf 에 있는 업무명만 쓸 수 있습니다" ;;
+    esac
+}
+
+sandbox_job_check() {
+    [ "$SANDBOX" = "0" ] && ! is_sandbox_box || die "샌드박스에서는 예약 업무를 멈추거나 다시 켜지 않습니다"
+}
+
+job_control_check() {
+    local command="$1" job="$2"
+    job_name_check "$job"
+    [ -f "$ILSON_HOME/launchd/jobs.conf" ] || die "예약 설정(launchd/jobs.conf)이 없습니다 — 먼저 ilson setup 을 실행하세요"
+    job_names | grep -Fxq -- "$job" || die "모르는 업무입니다: '$job' — launchd/jobs.conf 에 있는 업무명만 쓸 수 있습니다"
+    case " $BASE_JOBS " in
+        *" $job "*)
+            [ "$command" = pause ] && die "기본 관리 업무($job)는 멈출 수 없습니다 — 업무 점검·복구 기록·업데이트에 필요합니다"
+            die "기본 관리 업무($job)는 멈출 수 없어 다시 켤 대상이 아닙니다 — 등록 상태는 ilson doctor 로 확인하세요" ;;
+    esac
+    sandbox_job_check
+}
+
+pause_job() {
+    local job="${1:-}" label domain
+    job_control_check pause "$job"
+    label="com.ilson.$job"; domain="gui/$(id -u)"
+    mkdir -p "$ILSON_HOME/state"
+    if launchctl print "$domain/$label" >/dev/null 2>&1; then
+        launchctl bootout "$domain/$label" || die "예약 해제 실패: $job — 잠시 후 다시 실행하세요"
+    fi
+    # 로그인 때 다시 적재되지 않도록 LaunchAgents 사본도 내린다. 렌더 사본은 resume 용으로 둔다.
+    rm -f "$LAUNCH_AGENTS/$label.plist" || die "등록 파일을 지우지 못했습니다: $label.plist"
+    touch "$ILSON_HOME/state/paused.$job" || die "멈춤 표시를 남기지 못했습니다: $job"
+    rm -f "$ILSON_HOME/state/enabled.$job"
+    ok "업무 멈춤" "$job · 실행 중이던 회차는 바로 끝나며 알림·성공 기록은 남지 않습니다 · 다시 켜기: ilson resume $job"
+}
+
+resume_job() {
+    local job="${1:-}" label
+    job_name_check "$job"
+    label="com.ilson.$job"
+    # 설정에서 빠진 업무의 멈춤 표시는 등록 없이 정리만 한다.
+    if [ -f "$ILSON_HOME/launchd/jobs.conf" ] && ! job_names | grep -Fxq -- "$job" && is_paused "$job"; then
+        sandbox_job_check
+        rm -f "$ILSON_HOME/state/paused.$job"
+        ok "멈춤 표시 정리" "$job · launchd/jobs.conf 에 없는 업무라 등록하지 않았습니다"; return 0
+    fi
+    job_control_check resume "$job"
+    if [ ! -f "$ILSON_HOME/state/setup-complete" ]; then
+        rm -f "$ILSON_HOME/state/paused.$job"
+        ok "멈춤 해제" "$job · 예약 업무를 시작할 때(ilson start) 함께 등록됩니다"; return 0
+    fi
+    if launchctl print "gui/$(id -u)/$label" >/dev/null 2>&1; then
+        if ! is_paused "$job"; then
+            ok "이미 켜져 있음" "$job · 바뀐 일정을 적용하려면 「ilson pause ${job}」 후 「ilson resume ${job}」"; return 0
+        fi
+        # 멈춤 표시가 있는데 아직 등록된 업무는 내린 뒤 현재 설정으로 다시 등록한다.
+        launchctl bootout "gui/$(id -u)/$label" || die "예약 해제 실패: $job — 잠시 후 다시 실행하세요"
+    fi
+    # 멈춘 동안 바뀐 일정도 반영되도록 현재 jobs.conf 로 다시 렌더해 등록한다.
+    render_jobs
+    mkdir -p "$LAUNCH_AGENTS"
+    load_job "$ILSON_HOME/launchd/rendered/$label.plist" || return 1
+    rm -f "$ILSON_HOME/state/paused.$job"
+    ok "업무 다시 켬" "$job · 등록 상태는 ilson doctor 로 확인하세요"
 }
 
 # Fresh machines need tools before preflight can check them. Keep all privileged
@@ -570,13 +704,15 @@ usage() {
   setup [--configure-machine] [--sandbox]      도구·볼트·예약 파일 구성 (로그인은 직접)
   init                                        setup 과 같은 명령 (코드 없이 로컬 사용 가능)
   start                                       로그인·회사 정보 확인 후 예약 업무 시작
+  pause <업무명>                               예약 업무 멈춤 (워치독·스냅샷·업데이트는 제외)
+  resume <업무명>                              멈춘 예약 업무를 현재 설정으로 다시 등록
   chat                                        설치·관리까지 가능한 대화 (auto 자동 심사)
   open                                        이 맥의 웹 관리자 열기
   admin start | status | stop                 웹 관리자 시작·상태·중지 (예약 업무와 별개)
   pair --code <코드> [--pairing-file <json>]     페어링 파일 (다시) 쓰기
   telegram connect                            안내에 따라 텔레그램 알림 연결·변경
   telegram status [--verify]                   저장 상태 확인 (verify: Telegram에 연결 점검)
-  update [--check|--rollback]                    배포 코드 갱신·확인·복구
+  update [--check|--rollback] [--feed <주소>]    배포 코드 갱신·확인·복구 (--feed: 업데이트 주소 1회 설정)
   llm [claude|codex] [모델명]                  기본 대화·리서치 LLM 확인/변경
   research                                      설치된 최신 리서치 실행
   motion [--check|제작 요청]                    모션그래픽 제작·준비 상태 확인
@@ -601,6 +737,11 @@ if [ "$cmd" = telegram ]; then
         connect|status) telegram_box "$telegram_command" "$@"; exit $? ;;
         *) usage; exit 2 ;;
     esac
+fi
+if [ "$cmd" = pause ] || [ "$cmd" = resume ]; then
+    [ "$#" -eq 1 ] || die "사용법: ilson $cmd <업무명>"
+    if [ "$cmd" = pause ]; then pause_job "$1"; else resume_job "$1"; fi
+    exit $?
 fi
 if [ "$cmd" = update ]; then
     exec python3 "$SELF_DIR/tools/update.py" --home "$ILSON_HOME" --cli "$SELF_DIR" "$@"
