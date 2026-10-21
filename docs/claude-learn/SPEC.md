@@ -59,11 +59,31 @@ Generic facts (what a token is, that Git saves versions) are fine. Our own frami
 
 Surfaces: `web` = claude.ai in a browser or the Claude desktop/mobile app; `ilson` = Claude Code through 일손 Box (`ilson chat`); `both`.
 
-### Track B: 바이브 코딩 심화 (planned, not in first release)
+### Track B: 바이브 코딩 심화 (Jake, 2026-10-21: Vercel + Supabase, 10 lessons)
 
-A business-tool project instead of a toy: build a 예약·문의 접수 page for the running shop, step by step, ending with a public link.
-Working outline (to be refined later): v01 만들 것 한 장으로 정하기 · v02 첫 화면 · v03 저장점과 되돌리기 · v04 문의 내용 저장 · v05 외부 서비스와 비밀 열쇠 · v06 관리자 로그인 · v07 인터넷에 공개 (상업적 사용 조건 확인) · v08 손님 의견으로 고치기 · v09 디자인 다듬기 · v10 휴대폰 홈 화면에 올리기.
-The catalog shows this track as "준비 중" with a one-paragraph description only.
+One business project from start to finish: the reader turns the local shop guide page from b19 into a small public 예약·문의 page. Customers send a reservation request; only the owner can read requests, after signing in. Facts: docs/claude-learn/FACTS-VIBE.md (V1–V8). Verified SQL and test log: docs/claude-learn/vibe/.
+
+| id | 부 | 심화 강 | title (working) | surface |
+|---|---|---|---|---|
+| v01 | 1 준비와 설계 | 1 | 손님 동선부터 그려 보기 (what to ask, minimal collection, 3 screens memo) | both |
+| v02 | 1 | 2 | 작업 폴더와 작업 약속 (folder outside ~/ilson, plain `claude`, trust, CLAUDE.md, `gh auth login`, git name/email) | ilson |
+| v03 | 1 | 3 | 안내 페이지를 예약 화면으로 (copy the b19 page, form without saving, phone-width check) | ilson |
+| v04 | 2 저장하고 지키기 | 4 | 하루 마감 저장점 (git commit, private GitHub repo, checkpoints vs git) | ilson |
+| v05 | 2 | 5 | Supabase에 예약 상자 만들기 (Seoul region, paste verified SQL into SQL Editor, look in Table Editor) | both |
+| v06 | 2 | 6 | 예약 요청 보내 보기 (supabase-js from CDN, publishable key only, customer can send but cannot read — private-window test) | both |
+| v07 | 2 | 7 | 사장님만 보는 예약함 (sign-ups off, owner user, admin page login, owner-only read and status change) | both |
+| v08 | 3 세상에 내놓기 | 8 | 개인정보 안내 붙이기 (consent with the four items, privacy page, retention and deletion habit) | both |
+| v09 | 3 | 9 | Vercel에 올리기 (import repo, Framework Preset Other, Hobby is practice only, a real shop needs Pro, preview vs production, rollback, optional domain) | both |
+| v10 | 3 | 10 | 오래 운영하기 (free-plan pause, CSV backup, deleting old requests, weekly check, costs, when to call a developer) | both |
+
+Project blueprint (all lessons build exactly this; keep names identical):
+- Folder: `~/Projects/<english-name>` outside `~/ilson` and not the home folder itself; example `~/Projects/haetsal-booking`. Start plain `claude` there (not `ilson chat`) and answer yes to the folder-trust question for this folder only.
+- Files: everything customers may see lives in `public/`: `public/index.html` (shop guide + 예약 버튼), `public/reserve.html` (request form + consent), `public/admin.html` (owner sign-in + request list), `public/privacy.html` (개인정보 처리방침), `public/style.css`, `public/config.js` (Supabase project URL + publishable key only), `public/reserve.js`, `public/admin.js`. `CLAUDE.md` (작업 약속), `.gitignore` and notes stay at the project root and are never served. No build step, no framework, no Node.
+- Why `public/`: with Framework Preset "Other" Vercel serves `public` if it exists, otherwise the whole root, which would expose CLAUDE.md (FACTS-VIBE V8.20). In 심화 9강 set Output Directory → Override → `public`, then check that `…vercel.app/CLAUDE.md` returns 404.
+- Keys: only the project URL and the publishable key may appear in files, the repo or the page. The secret key and the database password never go into files, the repo, Vercel, or the chat.
+- Data: table and policies exactly as in `docs/claude-learn/vibe/schema.sql` (tested); the owner pastes SQL into the SQL Editor and runs it. Customers insert without reading back (no `.select()` after `.insert()`).
+- Hosting: GitHub private repo → Vercel dashboard import, every push deploys. The fictional 햇살꽃집 practice page may stay on Hobby; a real shop page is commercial use and needs Pro (quote FACTS-VIBE, dated).
+- Privacy: collect only name, contact, wanted date/time, item, short message; consent checkbox with the four items; a retention period chosen by the owner and a deletion routine.
 
 ## 5. Architecture
 
@@ -79,7 +99,7 @@ The catalog shows this track as "준비 중" with a one-paragraph description on
   - `shell.js`: nav group `배우기` with item `{id:'learn', icon:<a bundled Lucide icon such as graduation-cap>, label:'Claude 배우기'}`; add `learn` to the `A.go` whitelist and the `render()` map.
   - `index.html`: add the CSS and script (script before `shell.js`).
   - `template/lib/web-admin-server.py`: add every new file explicitly to `STATIC` with the right content type. Query strings only on whitelisted `/current/` paths are already supported.
-- Updates: `ilson update` ships `web/` files with `.html .css .js .svg .json` only. No other formats.
+- Updates: `ilson update` ships `web/` files with `.html .css .js .svg .json .txt` only (lesson file boxes use `.txt`). No other formats.
 - CSP is `default-src 'self'`; images allow `'self' data:` (and `https:` under `/current/`). External iframes (YouTube) are blocked, so videos are links that open a new tab.
 - Content rendering: never inject raw lesson text as HTML. Escape everything, then apply a tiny safe inline markup: `**bold**` and `` `code` ``. Links only from structured `links`/`sources` arrays, `https:` only, `target="_blank" rel="noopener noreferrer"`.
 - Live status: fetch `/api/overview` (session required; 401 → shell already redirects). Map check ids `claude`, `company`, `trust`, `telegram`, `search` to state `ok | attention | unknown` and show `label` + `detail`. In sandbox mode the server returns `unknown`; show that honestly.
