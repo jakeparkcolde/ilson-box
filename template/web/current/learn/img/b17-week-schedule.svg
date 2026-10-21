@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" width="720" height="400" role="img" aria-label="아침 브리핑은 매일 8시, 주간 보고는 금요일 17시, 자료 정리는 매일 23시 30분에 돌고, 결과가 보고서와 텔레그램으로 가는 한 주 일정 그림">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" width="720" height="400" role="img" aria-label="아침 브리핑은 매일 8시, 주간 보고는 금요일 17시에 돌아 보고서와 텔레그램으로 가고, 매일 23시 30분 자료 정리는 이상할 때만 텔레그램으로 알리는 한 주 일정 그림">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -49,9 +49,9 @@
   <path class="ln" d="M404 144 H452" marker-end="url(#arrow)"/>
   <circle cx="404" cy="144" r="4" fill="#6b7078"/>
   <circle cx="404" cy="200" r="4" fill="#6b7078"/>
-  <!-- tidy: telegram only, dashed -->
+  <!-- tidy: telegram only when something is unusual, dashed -->
   <path class="ln" d="M364 280 H452" stroke-dasharray="6 5" marker-end="url(#arrow)"/>
-  <text class="s" x="408" y="306" text-anchor="middle">짧은 결과</text>
+  <text class="s" x="410" y="306" text-anchor="middle">이상할 때만</text>
 
   <!-- destination: report (always) -->
   <rect class="card" x="460" y="88" width="228" height="112" rx="12"/>
