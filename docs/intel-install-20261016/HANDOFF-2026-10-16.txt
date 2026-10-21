@@ -2,7 +2,7 @@ Intel Mac 설치 준비 완료 — 2026-10-16
 
 요청: 사진의 2020 13형 Intel Core i5/16GB MacBook Pro에도 일손을 설치할 수 있게 준비. 대상 장치 접속 정보 없음. 설치 준비/코드 변경/묶음 제작·검증까지 수행. 실제 Intel 기기에 설치·로그인·검색했다고 주장하지 않는다.
 
-소스: /Users/koldeumaegmini/ilson-box-native-research, branch feat/native-research-20261016. 앞선 native 리서치 작업의 미커밋 변경과 함께 보존. 원래 /Users/koldeumaegmini/ilson-box worktree는 미변경. git commit/push 없음.
+소스: ~/ilson-box-native-research, branch feat/native-research-20261016. 앞선 native 리서치 작업의 미커밋 변경과 함께 보존. 원래 ~/ilson-box worktree는 미변경. git commit/push 없음.
 변경: ilson의 Apple Silicon-only 차단 제거. arm64/x86_64 허용, 기타 CPU와 Rosetta 변환 터미널 거부. macOS13 이상 요구. doctor는 Intel을 오류 아닌 제한 지원 안내로 표시. install.sh의 모호한 Intel 안내 수정 및 로컬 소스 설치 시 tools/update.py 누락 수정.
 노트북 전원/잠자기/FileVault 변경은 기본 설치에서 실행하지 않는다. 예약업무는 수동 start 전까지 켜지 않는다.
 
@@ -30,12 +30,12 @@ Close-out: 테스트 임시 설치는 TemporaryDirectory로 정리. 상주 서�
 다음 단계: 사용자가 ZIP을 해당 Intel 맥북에 옮겨 실행. 발생한 실제 오류가 있으면 그 출력부터 점검. 실제 실행이 정상일 때에만 설치/검색 완료로 기록. 필요하면 승인된 원격 접속 경로를 사용자에게 확인하되 자격정보를 출력하거나 저장하지 않는다.
 
 계속하기 프롬프트:
-/Users/koldeumaegmini/ilson-box-native-research/docs/intel-install-20261016/HANDOFF-2026-10-16.txt를 읽고 Intel 맥북 설치 지원을 이어가라. ZIP과 Box2026.10.16.3/research0.16.1은 준비·모의 검증 완료, 대상 Intel 실기 설치는 아직 하지 않았다. 기존 사용자 데이터와 예약 설정을 보존하고 실기 검증과 모의시험을 구분해 보고하라.
+~/ilson-box-native-research/docs/intel-install-20261016/HANDOFF-2026-10-16.txt를 읽고 Intel 맥북 설치 지원을 이어가라. ZIP과 Box2026.10.16.3/research0.16.1은 준비·모의 검증 완료, 대상 Intel 실기 설치는 아직 하지 않았다. 기존 사용자 데이터와 예약 설정을 보존하고 실기 검증과 모의시험을 구분해 보고하라.
 
 One-line distribution (2026-10-16):
 Bootstrap source: docs/intel-install-20261016/install.sh
-Public Funnel URL: https://macmini.tailb24b18.ts.net:10000/assets/ilson-install/2026.10.16.3/install.sh
-Hosted files: /Users/koldeumaegmini/Library/Application Support/orca-funnel-web/public/assets/ilson-install/2026.10.16.3/
+Public Funnel URL: https://<배포 호스트>:10000/assets/ilson-install/2026.10.16.3/install.sh
+Hosted files: ~/Library/Application Support/orca-funnel-web/public/assets/ilson-install/2026.10.16.3/
 Uses existing Funnel assets route and existing Python server PID 51625 port 6769. No new server or route. Keep this service for installer availability.
 Bootstrap pins package SHA256, downloads HTTPS only, verifies before extraction, cleans temporary files, gives inner installer /dev/tty for interactive setup. --check verifies without installing.
 Validation: bash -n passed; HTTPS download and end-to-end bootstrap --check passed on current ARM macOS26.5.1. Intel hardware install remains untested. Public availability depends on this Mac mini and existing Funnel service.

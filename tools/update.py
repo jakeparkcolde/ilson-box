@@ -6,6 +6,7 @@ import io
 import json
 import os
 from pathlib import Path, PurePosixPath
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -17,8 +18,13 @@ import urllib.parse
 import zipfile
 from datetime import datetime, timezone
 
-FEED='https://macmini.tailb24b18.ts.net/pack-library/downloads/box/latest-v2.json'
+# Release builds stamp the feed URL into this line (tools/build_release.py). Source checkouts keep it empty.
+FEED=''
 LIMIT=80*1024*1024
+FEED_LINE=re.compile(rb"^FEED='([^'\\\r\n]*)'[ \t]*$",re.M)
+UPDATER_KEY='cli/tools/update.py'
+NO_FEED='업데이트 주소가 아직 설정되지 않았습니다. 설치를 도와드린 담당자에게 받은 주소로 `ilson update --feed <주소>`를 한 번 실행하세요.'
+class MissingFeed(ValueError):pass
 
 def digest(data):return hashlib.sha256(data).hexdigest()
 def read(path):return json.loads(path.read_text())
@@ -38,6 +44,72 @@ def fetch(url):
         data=r.read(LIMIT+1)
         if len(data)>LIMIT:raise ValueError('배포 파일 크기 초과')
         return data
+
+# The same rule as valid_feed in install.sh (tests/test_update_feed.py runs one case list through both):
+# lowercase https, a host, optional port 1-65535, no userinfo, and only these printable ASCII characters.
+FEED_CHARS=frozenset('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._~%/:?=&,;!*()+-')
+FEED_FORM=re.compile(r'https://[A-Za-z0-9][A-Za-z0-9.-]*(?::([0-9]{1,5}))?(?:/.*)?\Z',re.S)
+def valid_feed(url):
+    # The value is stamped into Python source and saved on the box.
+    if not isinstance(url,str) or not url or any(c not in FEED_CHARS for c in url):return False
+    form=FEED_FORM.match(url)
+    return bool(form) and (form.group(1) is None or 1<=int(form.group(1))<=65535)
+def feed_of(source):
+    # A carriage return lets Python see a line the FEED pattern cannot; refuse such sources outright.
+    if b'\r' in source:raise ValueError('업데이트 도구에 CR 문자가 있습니다')
+    found=FEED_LINE.findall(source)
+    if len(found)!=1:raise ValueError('업데이트 도구의 FEED 줄은 하나여야 합니다')
+    return found[0].decode()
+def stamp_feed(source,url):
+    if not valid_feed(url):raise ValueError('업데이트 주소는 https 주소여야 합니다')
+    if b'\r' in source:raise ValueError('업데이트 도구에 CR 문자가 있습니다')
+    result,count=re.subn(rb"^FEED=''[ \t]*$",lambda m:b"FEED='"+url.encode()+b"'",source,flags=re.M)
+    if count!=1 or len(FEED_LINE.findall(result))!=1:raise ValueError("업데이트 도구에 FEED='' 줄이 정확히 하나 있어야 합니다")
+    return result
+def unstamp(source):return FEED_LINE.sub(b"FEED=''",source)
+
+def resolve_feed(home,explicit=None):
+    # Order: --feed, ILSON_UPDATE_FEED, the release-stamped FEED, then the address this box remembered.
+    for name,url in (('--feed',explicit),('ILSON_UPDATE_FEED',os.environ.get('ILSON_UPDATE_FEED') or None),('FEED',FEED or None)):
+        if url is None:continue
+        if not valid_feed(url):raise ValueError(name+' 업데이트 주소는 https 주소여야 합니다')
+        return url
+    path=Path(home)/'.updates/feed'
+    if path.parent.is_symlink() or path.is_symlink():raise ValueError('업데이트 주소 파일의 링크는 허용하지 않습니다')
+    if not path.exists():raise MissingFeed(NO_FEED)
+    if not path.is_file():raise ValueError('업데이트 주소 파일을 확인하세요: '+str(path))
+    with path.open('rb') as stream:data=stream.read(4097)
+    try:url=data.decode().strip() if len(data)<=4096 else None
+    except UnicodeDecodeError:url=None
+    if url=='':raise MissingFeed(NO_FEED)
+    if not valid_feed(url):raise ValueError('저장된 업데이트 주소가 올바르지 않습니다. '+NO_FEED)
+    return url
+
+def remember_feed(home,url):
+    store=Path(home)/'.updates';path=store/'feed'
+    if not valid_feed(url):raise ValueError('업데이트 주소는 https 주소여야 합니다')
+    if store.is_symlink() or path.is_symlink():raise ValueError('업데이트 주소 파일의 링크는 허용하지 않습니다')
+    data=(url+'\n').encode()
+    if path.is_file() and path.read_bytes()==data:return
+    atomic(path,data)
+
+def same_updater(current,expected,release,home):
+    # A CLI reinstalled from source has FEED='' and never matches a release-stamped hash. Only the FEED line may differ:
+    # accept the verified release's own code, or an owned hash after re-stamping the plain bytes with each known feed.
+    try:plain=unstamp(current);feeds={feed_of(release),feed_of(current)}
+    except ValueError:return False
+    if plain==unstamp(release):return True
+    saved=Path(home)/'.updates/feed'
+    if saved.is_file() and not saved.is_symlink():
+        try:feeds.add(saved.read_text().strip())
+        except (OSError,ValueError):pass
+    if digest(plain) in expected:return True
+    for url in feeds:
+        if not valid_feed(url):continue
+        try:
+            if digest(stamp_feed(plain,url)) in expected:return True
+        except ValueError:pass
+    return False
 
 def allowed(area,name):
     p=PurePosixPath(name)
@@ -130,7 +202,8 @@ def apply(roots,manifest,archive,check=False):
                 continue
             expected=[owned[key]] if key in owned else item.get('previous_sha256',[])
             if not isinstance(expected,list):expected=[expected]
-            if actual is not None and actual not in expected:raise ValueError('사용자가 변경했거나 출처가 다른 파일을 보존합니다: '+key)
+            if actual is not None and actual not in expected and not (key==UPDATER_KEY and same_updater(target.read_bytes(),expected,bodies[key],roots['box'])):
+                raise ValueError('사용자가 변경했거나 출처가 다른 파일을 보존합니다: '+key)
             changes.append((item,target,key))
         print('배포 버전:',manifest['version'],'· 변경 코드:',len(changes),'개')
         if check:return
@@ -257,7 +330,7 @@ def main():
     parser.add_argument('--home',type=Path,default=Path(os.environ.get('ILSON_HOME',str(Path.home()/'ilson'))))
     parser.add_argument('--cli',type=Path,default=Path(__file__).resolve().parents[1])
     parser.add_argument('--check',action='store_true');parser.add_argument('--rollback',action='store_true')
-    parser.add_argument('--feed',default=FEED)
+    parser.add_argument('--feed',default=None)
     parser.add_argument('--manifest',type=Path);parser.add_argument('--archive',type=Path)
     args=parser.parse_args();roots={'box':args.home.resolve(),'cli':args.cli.resolve()}
     if roots['box']==roots['cli'] or roots['cli'].is_relative_to(roots['box']) or roots['box'].is_relative_to(roots['cli']):raise ValueError('CLI와 운영 폴더를 분리해야 합니다')
@@ -273,10 +346,17 @@ def main():
     if args.manifest:
         manifest=read(args.manifest);archive=args.archive.read_bytes()
     else:
-        manifest=json.loads(fetch(args.feed));url=urllib.parse.urljoin(args.feed,manifest['archive'])
-        if urllib.parse.urlsplit(url).netloc!=urllib.parse.urlsplit(args.feed).netloc:raise ValueError('배포 서버가 다른 묶음입니다')
+        try:feed=resolve_feed(roots['box'],args.feed)
+        except MissingFeed as exc:
+            # The scheduled job (lib/update.sh) sets this so a box without an address skips quietly.
+            if os.environ.get('ILSON_UPDATE_SKIP_IF_NO_FEED')=='1':print('업데이트 주소가 없어 자동 업데이트를 건너뜁니다.');return
+            print(exc,file=sys.stderr);raise SystemExit(1)
+        manifest=json.loads(fetch(feed));url=urllib.parse.urljoin(feed,manifest['archive'])
+        if urllib.parse.urlsplit(url).netloc!=urllib.parse.urlsplit(feed).netloc:raise ValueError('배포 서버가 다른 묶음입니다')
         archive=fetch(url)
     apply_running(roots,manifest,archive,args.check)
+    # Remember the feed only after a real run finished (applied or already latest), so a CLI reinstalled with FEED='' keeps updating.
+    if not args.manifest and not args.check:remember_feed(roots['box'],feed)
 
 if __name__=='__main__':
     try:main()

@@ -29,7 +29,9 @@
 ## 대화형 관리 — 요청받은 일은 설정까지 완료
 - `ilson chat`은 관리용 대화입니다. 검색, 자료 작성, 요청받은 도구·스킬 설치, 업데이트, 설정 수정, 예약 업무 등록·시험·복구까지 수행합니다. 이미 받은 요청의 범위에서 반복 확인하지 않습니다.
 - 업무에 필요하면 Box의 `.claude/commands/`, `launchd/`, `lib/`도 수정할 수 있습니다. 먼저 현재 설정과 명령을 읽고, 변경 후 검증합니다. 단순히 볼트 밖이라는 이유로 거절하지 않습니다.
-- 예약 업무 추가는 `.claude/commands/<업무명>.md`와 `launchd/jobs.conf`에 정의하고 `ilson start`로 새 업무를 등록합니다. `bash lib/run-job.sh <업무명>`으로 시험할 수 있습니다. 기존 실행 중 업무는 start가 재시작하지 않으므로 일정 변경 시 해당 서비스만 별도 재등록하고 확인합니다.
+- 예약 업무 추가는 `.claude/commands/<업무명>.md`와 `launchd/jobs.conf`에 정의하고 `ilson start`로 새 업무를 등록합니다. 시험 실행은 이 대화 안에서 직접 돌리지 않습니다(대화 속 Claude가 `claude -p`를 중첩 실행해 멈추거나 실패 알림이 갈 수 있습니다). 사장님께 별도의 일반 터미널에서 `cd <Box 폴더> && ILSON_HOME="$PWD" bash lib/run-job.sh <업무명>`을 실행해 달라고 안내합니다. `<Box 폴더>`는 이 대화의 실제 Box 폴더 경로(현재 작업 폴더)로, `<업무명>`은 실제 업무명으로 채워 드립니다(ILSON_HOME을 빼면 기본 위치 ~/ilson 의 Box를 씁니다). 결과는 `logs/`와 `vault/reports/`에서 함께 확인합니다.
+- 기존 실행 중 업무는 start가 재시작하지 않습니다. 일정 변경은 `ilson pause <업무명>` 후 `ilson resume <업무명>`으로 해당 업무만 다시 등록하고 확인합니다. 업무를 잠시 쉬게 할 때도 `ilson pause`를 씁니다. 기본 관리 업무(watchdog·snapshot·update)는 멈출 수 없습니다.
+- 기본 관리 업무(watchdog·snapshot·update)의 일정 변경은 `ilson start`로 `launchd/rendered/`를 jobs.conf에 맞게 다시 만든 뒤, Box 폴더에서 그 업무 하나만 `launchctl bootout gui/$(id -u)/com.ilson.<업무명>` → `cp launchd/rendered/com.ilson.<업무명>.plist ~/Library/LaunchAgents/` → `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.ilson.<업무명>.plist` 순서로 다시 등록하고 `ilson doctor`로 확인합니다. 다른 업무는 내리지 않습니다.
 - 회사 노트와 사용자 추가 업무를 보존합니다. 기본 명령과 실행 스크립트는 재설치 시 갱신되므로 사용자 업무는 별도 이름으로 작성합니다.
 - 공식 설치 출처와 실행 내용을 확인한 뒤 설치합니다. 필요한 관리자 비밀번호·브라우저 로그인·macOS 권한 승인은 사용자에게 해당 단계만 안내합니다.
 - `auto`의 심사나 조직 정책이 막으면 이유를 설명합니다. `bypassPermissions` 전환이나 보호 규칙 삭제로 자동 우회하지 않습니다.

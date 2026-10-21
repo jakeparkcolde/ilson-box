@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import plistlib
 import re
 import secrets
 import shutil
@@ -37,6 +38,8 @@ LABELS = {
     "watchdog": "업무 점검", "snapshot": "복구용 기록", "update": "일손 업데이트",
     "admin": "웹 관리자",
 }
+# ilson pause 가 거절하는 기본 관리 업무.
+BASE_JOBS = {"watchdog", "snapshot", "update"}
 STATIC = {"/": ("web/index.html", "text/html; charset=utf-8"),
           "/index.html": ("web/index.html", "text/html; charset=utf-8"),
           "/styles.css": ("web/styles.css", "text/css; charset=utf-8"),
@@ -272,6 +275,22 @@ def schedule_label(value):
     return None
 
 
+def plist_schedule(data):
+    """ilson start가 쓰는 plist 일정을 jobs.conf 표기로 바꾼다. 다른 형식은 None."""
+    interval, calendar = data.get("StartInterval"), data.get("StartCalendarInterval")
+    if type(interval) is int and calendar is None:
+        return f"every {interval}"
+    if interval is not None or not isinstance(calendar, dict) or not set(calendar) <= {"Weekday", "Hour", "Minute"}:
+        return None
+    hour, minute, weekday = calendar.get("Hour"), calendar.get("Minute"), calendar.get("Weekday")
+    if type(hour) is not int or type(minute) is not int or not 0 <= hour < 24 or not 0 <= minute < 60:
+        return None
+    if weekday is None:
+        return f"daily {hour:02d}:{minute:02d}"
+    # launchd는 7도 일요일로 읽는다.
+    return f"weekly {weekday % 7} {hour:02d}:{minute:02d}" if type(weekday) is int and 0 <= weekday <= 7 else None
+
+
 class Box:
     def __init__(self, home, *, probe=None, user_home=None, clock=time.time):
         # Claude와 ilson doctor는 사용자가 진입한 경로를 신뢰 키로 기록한다.
@@ -381,6 +400,21 @@ class Box:
         except (Unreadable, ValueError):
             return "unknown", "Claude 폴더 신뢰 설정을 읽지 못했습니다."
 
+    def registered_schedule(self, name):
+        """launchd에 실제 등록된 이 Box의 일정. ilson start가 복사한 LaunchAgents 사본을 읽는다."""
+        try:
+            raw, _ = self.user_files.read(f"Library/LaunchAgents/com.ilson.{name}.plist", 65536)
+            data = plistlib.loads(raw)
+            environment = data.get("EnvironmentVariables") if isinstance(data, dict) else None
+            box = environment.get("ILSON_HOME") if isinstance(environment, dict) else None
+            # 같은 이름의 다른 Box 등록은 이 Box의 일정으로 보이지 않는다.
+            if not isinstance(box, str) or box not in self.project_paths or data.get("Label") != f"com.ilson.{name}":
+                return None
+            return schedule_label(plist_schedule(data) or "")
+        # 참고용 표시다. 손상된 plist(잘못된 날짜·깊은 중첩 등)의 어떤 예외도 화면을 깨뜨리지 않고 설정 일정으로 돌아간다.
+        except Exception:
+            return None
+
     def jobs(self, sandbox):
         try:
             text, _ = self.files.text("launchd/jobs.conf", 65536)
@@ -423,8 +457,21 @@ class Box:
                         label = description[1].strip(" \"'")[:80]
                 except (FileNotFoundError, Unreadable):
                     pass
-            registration = "sandbox" if sandbox else ("unknown" if registered is None else ("loaded" if "com.ilson." + name in registered else "not_loaded"))
-            labels = {"loaded": "예약 등록 확인", "not_loaded": "등록되지 않음", "unknown": "등록 상태 확인 불가", "sandbox": "샌드박스 · 실행하지 않음"}
+            paused = not sandbox and self.files.marker(f"state/paused.{name}") is True
+            loaded = None if registered is None else "com.ilson." + name in registered
+            registration = "sandbox" if sandbox else "paused" if paused else ("unknown" if loaded is None else ("loaded" if loaded else "not_loaded"))
+            labels = {"loaded": "예약 등록 확인", "not_loaded": "등록되지 않음", "unknown": "등록 상태 확인 불가",
+                      "sandbox": "샌드박스 · 실행하지 않음", "paused": "멈춤"}
+            # 일정은 jobs.conf가 아니라 실제 등록된 plist 기준이다. 읽지 못하면 설정값을 쓴다.
+            actual = None if sandbox else self.registered_schedule(name)
+            note = None
+            if paused and loaded:
+                note = f"멈춤으로 기록됐지만 아직 예약에 남아 있어요 · 터미널에서 다시 멈추기: 「ilson pause {name}」"
+            elif not paused and actual and actual != schedule:
+                # 기본 관리 업무의 다시 등록 절차는 template/CLAUDE.md 에 있다.
+                again = ("기본 관리 업무라 ilson chat에서 다시 등록을 요청하세요" if name in BASE_JOBS
+                         else f"다시 등록해야 적용돼요: 「ilson pause {name}」 후 「ilson resume {name}」")
+                note = f"설정이 바뀌었어요 · 지금은 등록된 일정({actual})으로 돌아요. {again}"
             last, state = None, "missing"
             try:
                 raw, _ = self.files.text(f"state/last-run.{name}", 32)
@@ -436,7 +483,8 @@ class Box:
                 pass
             except (Unreadable, ValueError, OverflowError):
                 state = "unknown"
-            rows.append({"id": name, "label": label, "schedule": schedule, "registration": registration,
+            rows.append({"id": name, "label": label, "schedule": actual or schedule, "configured_schedule": schedule,
+                         "registered_schedule": actual, "schedule_note": note, "registration": registration,
                          "registration_label": labels[registration], "last_success_at": last,
                          "last_success_state": state, "execution_state": "unknown",
                          "execution_label": "현재 실행 중인지와 최근 실패 여부는 이 기록으로 알 수 없습니다."})
@@ -519,7 +567,8 @@ class Box:
                 continue
             path = Path(relative)
             title = path.stem[:120]
-            for line in text.splitlines()[:40]:
+            # run-job 의 report_heading 과 같은 규칙: 앞 BOM을 빼고 40줄 안의 '# 제목'을 찾는다.
+            for line in text.removeprefix("\ufeff").splitlines()[:40]:
                 if line.startswith("# ") and line[2:].strip():
                     title = line[2:].strip()[:120]
                     break

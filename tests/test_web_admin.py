@@ -151,6 +151,130 @@ class 상태조회시험(BoxFixture):
                 self.assertIsNone(row["last_success_at"])
                 self.assertEqual(row["last_success_state"], "unknown")
 
+    def launch_agent(self, name, schedule_xml, home=None):
+        # ilson start가 쓰는 plist 형식(앞자리 0 정수 포함)을 그대로 흉내 낸다.
+        home = home or self.home
+        path = self.user_home / "Library/LaunchAgents" / f"com.ilson.{name}.plist"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict>'
+                        f'<key>Label</key><string>com.ilson.{name}</string><key>ProgramArguments</key><array>'
+                        f'<string>/bin/bash</string><string>{home}/lib/run-job.sh</string></array>'
+                        f'<key>EnvironmentVariables</key><dict><key>ILSON_HOME</key><string>{home}</string></dict>'
+                        f'{schedule_xml}<key>RunAtLoad</key><false/></dict></plist>\n')
+        return path
+
+    def test_업무화면은_실제등록된_일정을_보여주고_설정변경을_알린다(self):
+        self.launch_agent("briefing", "<key>StartCalendarInterval</key><dict><key>Hour</key><integer>07</integer><key>Minute</key><integer>30</integer></dict>")
+        self.launch_agent("weekly", "<key>StartCalendarInterval</key><dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>")
+        self.launch_agent("watchdog", "<key>StartInterval</key><integer>600</integer>")
+        jobs = {row["id"]: row for row in self.box.overview()["jobs"]}
+        self.assertEqual(jobs["briefing"]["schedule"], "매일 07:30")
+        self.assertEqual(jobs["briefing"]["registered_schedule"], "매일 07:30")
+        self.assertEqual(jobs["briefing"]["configured_schedule"], "매일 08:00")
+        self.assertIn("설정이 바뀌었어요", jobs["briefing"]["schedule_note"])
+        self.assertIn("ilson resume briefing", jobs["briefing"]["schedule_note"])
+        self.assertEqual(jobs["weekly"]["schedule"], "매주 금요일 17:00")
+        self.assertIsNone(jobs["weekly"]["schedule_note"])
+        self.assertEqual(jobs["watchdog"]["schedule"], "10분마다")
+        self.assertIsNone(jobs["watchdog"]["schedule_note"])
+        self.assertNotIn(str(self.home), json.dumps(jobs, ensure_ascii=False))
+
+    def test_멈춘업무는_멈춤으로_표시하고_등록이남았으면_알린다(self):
+        self.write("state/paused.weekly", "")
+        self.write("state/paused.briefing", "")
+        jobs = {row["id"]: row for row in self.box.overview()["jobs"]}
+        self.assertEqual(jobs["weekly"]["registration"], "paused")
+        self.assertEqual(jobs["weekly"]["registration_label"], "멈춤")
+        self.assertIsNone(jobs["weekly"]["schedule_note"])
+        # launchctl 목록에 아직 남은 멈춘 업무는 다시 멈춤을 안내한다.
+        self.assertEqual(jobs["briefing"]["registration"], "paused")
+        self.assertIn("ilson pause briefing", jobs["briefing"]["schedule_note"])
+        # 업무명에 따라 틀리는 조사(을/를)를 명령 바로 뒤에 붙이지 않는다.
+        self.assertNotRegex(jobs["briefing"]["schedule_note"], r"ilson pause briefing\s?[을를]")
+
+    def test_다른박스나_링크된_등록파일은_일정으로_쓰지않는다(self):
+        other = Path(self.temp.name) / "other-box"
+        self.launch_agent("briefing", "<key>StartCalendarInterval</key><dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>", home=other)
+        target = self.launch_agent("weekly", "<key>StartInterval</key><integer>60</integer>")
+        moved = Path(self.temp.name) / "elsewhere.plist"
+        target.rename(moved)
+        target.symlink_to(moved)
+        jobs = {row["id"]: row for row in self.box.overview()["jobs"]}
+        self.assertEqual(jobs["briefing"]["schedule"], "매일 08:00")
+        self.assertIsNone(jobs["briefing"]["registered_schedule"])
+        self.assertEqual(jobs["weekly"]["schedule"], "매주 금요일 17:00")
+        self.assertIsNone(jobs["weekly"]["registered_schedule"])
+        self.assertIsNone(jobs["briefing"]["schedule_note"])
+
+    def test_깨지거나_모르는형식의_등록파일은_설정일정으로_대신한다(self):
+        agents = self.user_home / "Library/LaunchAgents"
+        agents.mkdir(parents=True)
+        (agents / "com.ilson.briefing.plist").write_text("<plist><array><string>x</string></array></plist>")
+        (agents / "com.ilson.weekly.plist").write_text("<plist><dict><key>Label</key>")
+        self.launch_agent("watchdog", "<key>StartCalendarInterval</key><array/>")
+        jobs = {row["id"]: row for row in self.box.overview()["jobs"]}
+        self.assertEqual([jobs[n]["schedule"] for n in ("briefing", "weekly", "watchdog")],
+                         ["매일 08:00", "매주 금요일 17:00", "10분마다"])
+        self.assertTrue(all(jobs[n]["registered_schedule"] is None for n in jobs))
+
+    @staticmethod
+    def nested_binary_plist(depth):
+        # 각 배열이 다음 배열 하나를 담는 binary plist. plistlib 재귀 한도를 넘긴다.
+        objects = [bytes([0xA1]) + (i + 1).to_bytes(2, "big") for i in range(depth)] + [bytes([0xA0])]
+        body, offsets = b"bplist00", []
+        for item in objects:
+            offsets.append(len(body))
+            body += item
+        table = len(body)
+        body += b"".join(offset.to_bytes(2, "big") for offset in offsets)
+        return body + b"\0" * 6 + bytes([2, 2]) + len(objects).to_bytes(8, "big") + (0).to_bytes(8, "big") + table.to_bytes(8, "big")
+
+    def test_해석중_예외가_나는_등록파일도_업무화면을_깨뜨리지않는다(self):
+        agents = self.user_home / "Library/LaunchAgents"
+        agents.mkdir(parents=True)
+        schedule = "<key>StartInterval</key><integer>60</integer>"
+        broken_date = self.launch_agent("briefing", schedule + "<key>Built</key><date>not-a-date</date>")
+        (agents / "com.ilson.weekly.plist").write_bytes(self.nested_binary_plist(3000))
+        expected = {"briefing": "매일 08:00", "weekly": "매주 금요일 17:00", "watchdog": "10분마다"}
+        for home_value in ("<dict/>", "<array><string>x</string></array>"):
+            with self.subTest(home=home_value):
+                text = self.launch_agent("watchdog", schedule).read_text()
+                (agents / "com.ilson.watchdog.plist").write_text(
+                    text.replace(f"<key>ILSON_HOME</key><string>{self.home}</string>", "<key>ILSON_HOME</key>" + home_value))
+                jobs = {row["id"]: row for row in self.box.overview()["jobs"]}
+                self.assertEqual({name: row["schedule"] for name, row in jobs.items()}, expected)
+                self.assertTrue(all(row["registered_schedule"] is None for row in jobs.values()))
+        self.assertTrue(broken_date.exists())
+
+    def test_기본관리업무의_일정변경_안내는_관리대화의_다시등록_절차를_가리킨다(self):
+        self.launch_agent("watchdog", "<key>StartInterval</key><integer>300</integer>")
+        self.launch_agent("weekly", "<key>StartInterval</key><integer>300</integer>")
+        jobs = {row["id"]: row for row in self.box.overview()["jobs"]}
+        note = jobs["watchdog"]["schedule_note"]
+        self.assertIn("ilson chat", note)
+        self.assertNotIn("ilson pause watchdog", note)
+        self.assertIn("「ilson pause weekly」 후 「ilson resume weekly」", jobs["weekly"]["schedule_note"])
+        rules = (ROOT / "template/CLAUDE.md").read_text()
+        self.assertIn("기본 관리 업무(watchdog·snapshot·update)의 일정 변경", rules)
+
+    def test_샌드박스는_사용자_LaunchAgents를_읽지않는다(self):
+        self.write("state/sandbox", "")
+        self.launch_agent("briefing", "<key>StartInterval</key><integer>60</integer>")
+        row = self.box.overview()["jobs"][0]
+        self.assertEqual(row["schedule"], "매일 08:00")
+        self.assertIsNone(row["registered_schedule"])
+
+    def test_보고서제목은_BOM을_빼고_run_job과_같은규칙으로_찾는다(self):
+        self.write("vault/reports/briefing/2026-10-20.md", "﻿# BOM 뒤의 제목\n내용\n")
+        titles = {row["title"] for row in self.box.reports()["reports"]}
+        self.assertIn("BOM 뒤의 제목", titles)
+        self.assertNotIn("2026-10-20", titles)
+
+    def test_업무화면이_멈춤과_일정안내를_표시한다(self):
+        page = (ROOT / "template/web/index.html").read_text()
+        self.assertIn("paused:'멈춤'", page)
+        self.assertIn("job.schedule_note", page)
+
     def test_텔레그램은_설정과_이전확인시각만_노출한다(self):
         token = "123456789:" + secrets.token_urlsafe(30)
         self.write("state/pairing.json", json.dumps({"telegram_bot_token": token, "telegram_chat_id": -42, "telegram_bot_username": "fixture_bot", "telegram_verified_at": "2026-10-06T10:00:00+09:00", "private_field": "원본 페어링"}))

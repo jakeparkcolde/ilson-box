@@ -2,19 +2,35 @@
 
 목표: 개발 중 변경은 그대로 고객 기기에 보내지 않는다. 검증한 배포를 만들고 각 PC의 ilson update로 CLI·관리자·통합 리서치·독립 팩을 함께 적용한다.
 
-정본:
-- Box 관리자/업데이트: /Users/koldeumaegmini/orca/workspaces/agents/ilson-box-safe-update
-- 리서치: /Users/koldeumaegmini/orca/workspaces/agents/ilson-search-image/tools/ilson_research
+정본 (2026-10-21 개정):
+- 코드의 정본은 이 저장소다. 리서치 엔진은 template/lib/research/*.py, 리서치·팩 화면은 template/web/current/pack-library/* 가 정본이다. 별도 작업 폴더나 리서치 ZIP을 정본으로 삼지 않는다.
+- 리서치 팩 ZIP은 정본에서 다시 만든 사본이다. 팩 전용 파일(serve.py, start.sh, README.txt, manifest.json)만 이전 팩에서 가져온다: python3 tools/refresh_pack.py --from <이전 검증 팩.zip> --version <새 팩 버전> --output <새 팩.zip>
+- build_release.py는 팩의 엔진/웹이 template과 바이트 단위로 같은지 양방향으로 확인한다(다르거나, 팩에만 있거나, 팩에 빠진 파일이 있으면 거부). 같은 바이트를 CLI template, 관리자 lib/research 및 web/current/pack-library, 독립 packs/research에 넣는다.
 - 기존 mini-workspace 코드 64개를 실제 Jake 설치 파일과 대조하여 승격. tools/manager-baseline.json은 검토한 이전 코드 해시만 담는다. 새 고객 수정 해시를 자동 수용하지 않는다.
-- build_release.py는 지정한 리서치 ZIP의 엔진/웹을 CLI template, 관리자 lib/research 및 web/current/pack-library, 독립 packs/research에 같은 바이트로 넣는다. 소스 복사만 하고 별도 팩만 갱신하는 배포는 금지한다.
 
 다음 배포 순서:
 1. 관련 수정과 실패 재현·회귀 시험 완료. 운영 데이터와 설정은 소스에 포함하지 않는다.
-2. 리서치 변경이면 새 팩 버전 ZIP을 조립·검증한다. 기존 발행 버전은 덮어쓰지 않는다.
-3. python3 tools/build_release.py --output <빈 스테이징 폴더> --version <증가한 Box 버전> --pack <검증한 ZIP>
+2. 배포마다 python3 tools/refresh_pack.py 로 새 팩 버전 ZIP을 만들고 검증한다. 기존 발행 버전은 덮어쓰지 않는다.
+3. 변경을 모두 커밋한 뒤 python3 tools/build_release.py --output <빈 스테이징 폴더> --version <증가한 Box 버전> --pack <새 팩.zip> --feed "$ILSON_RELEASE_FEED"
+   - 리서치 팩은 매 배포 전에 현재 template/web/current/pack-library 와 template/lib/research 로 다시 만든다. 저장소와 다른 팩은 build_release가 거부한다.
+   - 커밋하지 않은 변경이나 추적하지 않는 파일이 있으면 빌드하지 않는다. 현재 updater의 원본이 git 기록에 없으면 아직 소유 기록이 없는 기기가 충돌로 멈추기 때문이다. --allow-dirty 는 게시하지 않는 시험 빌드에만 쓴다.
+   - ILSON_RELEASE_BASE 는 배포 폴더의 HTTPS 주소, ILSON_RELEASE_FEED 는 "$ILSON_RELEASE_BASE/latest-v2.json". 두 값은 운영 맥에서만 설정하고 저장소에 쓰지 않는다.
+   - 빌드는 이 주소를 배포 묶음의 tools/update.py 에 기록한다(소스의 FEED는 비어 있음). 주소 없이는 빌드하지 않는다. 주소가 빠진 배포는 모든 기기의 업데이트를 끊는다.
 4. 임시 설치의 적용/충돌/데이터 보존/복구, 관리자 API와 엔진·웹 파일 일치 확인. 실제 기기는 --check로 충돌 확인.
-5. python3 tools/publish_release.py --stage <스테이징 폴더> --server /Users/koldeumaegmini/agents/webapp/ilson/downloads/box --base https://macmini.tailb24b18.ts.net/pack-library/downloads/box
+5. python3 tools/publish_release.py --stage <스테이징 폴더> --server <배포 폴더> --base "$ILSON_RELEASE_BASE"
+   - updater의 기록 주소가 --base/latest-v2.json(도메인 이전 때는 --stamped-feed 값)과 다르거나, 주소 외 내용이 저장소 소스와 다르면 게시하지 않는다. install-updater.sh 에는 주소가 기록된 updater의 SHA256을 고정한다.
 6. ilson update를 실행한 설치본에서 /api/health.release 및 적용 완료 확인. 운영 데이터 보존과 실제 기능을 별도 검증한다.
+
+병합 후 첫 배포(브리지) — 반드시 지킨다:
+- 지금 설치된 기기의 updater는 주소가 코드에 고정된 구버전이다. 첫 배포는 그 기기들이 지금 읽는 주소에서 받아야 한다.
+- ILSON_RELEASE_BASE 는 오늘의 배포 주소 그대로, ILSON_RELEASE_FEED 는 "$ILSON_RELEASE_BASE/latest-v2.json". 같은 주소로 기록(build --feed)하고 같은 주소에 게시(publish --base)한다. --stamped-feed 는 쓰지 않는다.
+- 게시 후 기기에서 ilson update 를 한 번 실행하면 구버전 updater가 브리지 배포를 적용해 주소가 기록된 updater를 설치한다. 구버전 updater는 ~/ilson/.updates/feed 를 쓰지 않는다. 그동안은 새 updater에 기록된 주소를 쓰고, 새 updater가 다음 실행(수동 또는 예약)에 성공하면 그때 .updates/feed 를 쓴다.
+
+배포 도메인 이전(예: 중립 도메인으로):
+1. 새 호스트에 배포 폴더를 준비하고 같은 파일(latest-v2.json, release/zip/updater, install-updater.sh)을 둔다. 복사한 install-updater.sh 에는 옛 주소의 base= 값이 그대로 있으므로 새 주소로 고친다(publish_release는 updater 파일 이름과 SHA256만 바꾼다). 새 주소가 HTTPS로 열리는지 확인한다.
+2. 이전용 배포 하나를 새 주소로 기록해 빌드한다(build --feed "<새 주소>/latest-v2.json"). 먼저 새 주소에 게시하고(publish --base "<새 주소>"), 그다음 같은 스테이징을 옛 주소에 게시한다(publish --base "<옛 주소>" --stamped-feed "<새 주소>/latest-v2.json").
+3. 기기는 옛 주소에서 이 배포를 받으며 새 주소가 기록된 updater로 바뀌고, 다음 실행부터 새 주소를 쓰고 기억한다.
+4. 모든 기기가 새 버전으로 확인될 때까지(관리 화면의 release 또는 ilson update --check) 옛 호스트를 유지한다. 그 뒤에 옛 호스트를 내린다. 확인하지 못한 기기는 ilson update --feed <새 주소> 로 직접 옮긴다.
 
 설치 기기 동작:
 - CLI와 관리자는 배포 manifest 화이트리스트 파일만 교체한다. vault, state, credentials, 사용자 설정, 예약 설정, 업무 SQLite는 배포 파일에 포함하지 않는다.
