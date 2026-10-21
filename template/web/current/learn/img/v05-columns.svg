@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 448" width="720" height="448" role="img" aria-label="예약 표의 칸 열한 개 가운데 손님이 채우는 일곱 칸은 흰색, 요청 번호·받은 시각·처리 상태·처리한 시각 네 칸은 가게 칸으로 회색인 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:22px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px}
+    .k{font-size:20px}
+    .w{fill:#ffffff;stroke:#c9ccd1;stroke-width:1.5}
+    .g{fill:#eceef0;stroke:#c9ccd1;stroke-width:1.5}
+  </style>
+  <rect width="720" height="448" rx="16" fill="#f5f6f6"/>
+
+  <text class="h" x="32" y="48">손님이 채우는 칸</text>
+  <text class="h" x="432" y="48">가게 칸</text>
+
+  <!-- white boxes: the customer fills these seven -->
+  <rect class="w" x="32" y="68" width="180" height="68" rx="12"/>
+  <text class="m" x="48" y="97">customer_name</text><text class="k" x="48" y="124">이름</text>
+  <rect class="w" x="220" y="68" width="180" height="68" rx="12"/>
+  <text class="m" x="236" y="97">contact</text><text class="k" x="236" y="124">연락처</text>
+
+  <rect class="w" x="32" y="144" width="180" height="68" rx="12"/>
+  <text class="m" x="48" y="173">wanted_date</text><text class="k" x="48" y="200">원하는 날짜</text>
+  <rect class="w" x="220" y="144" width="180" height="68" rx="12"/>
+  <text class="m" x="236" y="173">wanted_time</text><text class="k" x="236" y="200">원하는 시간</text>
+
+  <rect class="w" x="32" y="220" width="180" height="68" rx="12"/>
+  <text class="m" x="48" y="249">item</text><text class="k" x="48" y="276">원하는 상품</text>
+  <rect class="w" x="220" y="220" width="180" height="68" rx="12"/>
+  <text class="m" x="236" y="249">message</text><text class="k" x="236" y="276">남길 말</text>
+
+  <rect class="w" x="32" y="296" width="180" height="68" rx="12"/>
+  <text class="m" x="48" y="325">consent</text><text class="k" x="48" y="352">동의</text>
+
+  <!-- grey boxes: the shop's four -->
+  <rect class="g" x="432" y="68" width="192" height="68" rx="12"/>
+  <text class="m" x="448" y="97">id</text><text class="k" x="448" y="124">요청 번호</text>
+  <rect class="g" x="432" y="144" width="192" height="68" rx="12"/>
+  <text class="m" x="448" y="173">created_at</text><text class="k" x="448" y="200">받은 시각</text>
+  <rect class="g" x="432" y="220" width="192" height="68" rx="12"/>
+  <text class="m" x="448" y="249">status</text><text class="k" x="448" y="276">처리 상태</text>
+  <rect class="g" x="432" y="296" width="192" height="68" rx="12"/>
+  <text class="m" x="448" y="325">handled_at</text><text class="k" x="448" y="352">처리한 시각</text>
+
+  <text class="s" x="432" y="394">저절로 채워지거나</text>
+  <text class="s" x="432" y="420">사장님만 바꿔요</text>
+</svg>

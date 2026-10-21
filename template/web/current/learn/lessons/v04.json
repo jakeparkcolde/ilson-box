@@ -1,0 +1,327 @@
+{
+  "id": "v04",
+  "track": "vibe",
+  "part": 2,
+  "number": 4,
+  "title": "하루 마감 저장점",
+  "subtitle": "오늘의 작업 폴더를 사진첩에 한 장 남기고, 나만 보는 GitHub 보관함에 사본을 둬요",
+  "minutes": 20,
+  "surface": "ilson",
+  "checked": "2026-10-21",
+  "cover": {
+    "src": "img/v04-closing-album.svg",
+    "alt": "작업 폴더의 모습을 날마다 한 장씩 남기는 마감 사진첩의 두 장이 있고, 그 사본을 올리기로 나만 보는 GitHub 비공개 보관함에 보내는 그림",
+    "caption": "하루를 마칠 때 폴더 모습을 한 장 남기고, 사본은 나만 여는 GitHub 보관함에 둬요."
+  },
+  "outcome": [
+    "작업 폴더 「마감 사진첩」의 첫 두 장 (git 저장 기록)",
+    "나만 보는 GitHub 비공개 저장소 `haetsal-booking`에 올라간 사본",
+    "하루를 마칠 때마다 보내는 「마감 저장」 부탁 메모"
+  ],
+  "prepare": [
+    "심화 2강의 GitHub 로그인(`gh auth login`)과 이름·이메일 설정",
+    "심화 3강까지 만든 작업 폴더의 파일들"
+  ],
+  "steps": [
+    {
+      "title": "첫 저장 계획 듣기",
+      "why": "저장하기 전에 무엇이 들어가고 무엇이 빠지는지 보면, 비밀이 섞여 올라가는 일을 막을 수 있어요.",
+      "body": [
+        "이번 강의 도구는 **git**(깃)이에요. 하루 일을 마칠 때 작업 폴더의 모습을 사진첩에 한 장 붙이고, 그 밑에 무엇을 했는지 한 줄 적어 두는 「마감 사진첩」이라고 생각하면 돼요.",
+        "사진 한 장을 **커밋**(commit, 저장 기록)이라고 불러요. 아래 명령으로 작업 폴더의 Claude를 열고 문장을 보내면, Claude가 먼저 계획을 말로 보여 줘요."
+      ],
+      "command": {
+        "text": "cd ~/Projects/haetsal-booking && claude"
+      },
+      "prompt": {
+        "text": "이 작업 폴더를 git으로 저장하기 시작하려고 해요. 먼저 계획만 말로 보여 주세요.\n- 사진첩(git)을 새로 펴는 일. 기본 줄 이름은 main으로 해 주세요. 심화 9강에서 Vercel이 이 줄을 봐요.\n- .gitignore에 넣을 것 (Mac이 만드는 .DS_Store, 비밀값을 담는 .env 같은 파일)\n- 첫 저장에 들어갈 파일 목록 (public 폴더와 CLAUDE.md가 함께 들어가는지)\n- 파일 안에 비밀번호나 secret key처럼 보이는 글자가 있는지 확인한 결과\n계획을 보고 제가 좋다고 하면 그때 저장해 주세요.",
+        "note": "`.gitignore`(깃이그노어)는 「사진에서 뺄 것 목록」이에요. 여기 적은 파일은 저장 기록에 들어가지 않아요."
+      },
+      "success": "Claude가 할 일의 순서, `.gitignore`에 넣을 것, 저장할 파일 목록을 말로 보여 주고 아직 아무것도 바꾸지 않았다면 성공이에요."
+    },
+    {
+      "title": "마감 사진 첫 장 남기기",
+      "why": "첫 장이 있어야 앞으로 언제든 「오늘 모습」으로 돌아올 수 있어요.",
+      "body": [
+        "계획이 괜찮으면 아래 문장을 보내요. 사진 밑의 한 줄(저장 메시지)은 한국어로 적게 해요.",
+        "묻는 창이 나오면 명령에 `git`이 들어 있고 이 작업 폴더의 일인지 읽은 뒤 골라요.",
+        "이름이나 이메일이 없다며 멈추면 심화 2강 5단계를 마친 뒤 「다시 저장해 주세요」라고 보내요."
+      ],
+      "prompt": {
+        "text": "좋아요. 계획대로 .gitignore를 만들고 첫 저장을 해 주세요.\n저장 메시지는 '첫 마감: 안내 페이지와 예약 화면 연습판'으로 해 주세요.\n다 되면 저장 기록을 보여 주세요."
+      },
+      "success": "Claude가 저장을 마쳤다고 알리고, 기록 맨 위에 「첫 마감」 메시지가 보이면 사진첩 첫 장이 생긴 거예요."
+    },
+    {
+      "title": "나만 보는 GitHub 보관함에 올리기",
+      "why": "사진첩이 이 Mac에만 있으면, Mac에 문제가 생길 때 함께 잃을 수 있어요.",
+      "body": [
+        "Claude 창은 그대로 두고 ⌘+N으로 새 터미널 창을 열어 아래 명령을 넣어요. 보관함을 만드는 일은 컴퓨터 밖으로 나가는 일이라 내 손으로 해요.",
+        "`gh repo create`는 「GitHub에 저장소 만들기」, `--private`는 「비공개」, `--source=.`는 「지금 폴더로」, `--push`는 「저장한 것을 올려 보내기」예요. **저장소**(repository)는 사진첩 한 권이라고 보면 돼요.",
+        "다 되면 Claude 창으로 돌아가 `/exit`로 닫고 `claude -c`(이 폴더의 마지막 대화 이어 가기)로 다시 열어요. 자동 심사 모드는 대화를 시작할 때 이어져 있던 보관함 연결을 믿는다고 안내돼 있어서, 다시 열어 두면 올리기가 덜 막혀요."
+      ],
+      "command": {
+        "text": "cd ~/Projects/haetsal-booking && gh repo create haetsal-booking --private --source=. --push",
+        "note": "`--private`가 빠지지 않았는지 한 번 더 보고 return을 눌러요."
+      },
+      "self": "github.com에 로그인해 내 저장소 목록에 `haetsal-booking`이 비공개(Private)로 생겼는지 직접 확인해 주세요.",
+      "success": "터미널에 저장소를 만들고 올렸다는 줄이 나오고 `%`가 다시 보이면 성공이에요.",
+      "caution": "공개(public) 저장소는 인터넷의 누구나 볼 수 있어요. 이 과정의 저장소는 언제나 비공개로 만들어요.",
+      "tip": "자동 심사 모드의 Claude는 내가 이름을 짚어 부탁하지 않은 새 보관함 연결은 더하지 않도록 막혀 있어요. Claude에게 맡기려면 저장소 이름과 비공개를 꼭 적고, 묻는 창의 명령을 읽고 골라요."
+    },
+    {
+      "title": "「마감 저장」 메모 만들고 한 번 해 보기",
+      "why": "날마다 같은 부탁을 보내면 저장이 습관이 되고, 빠뜨리는 날이 줄어요.",
+      "body": [
+        "먼저 아래 부탁을 보내요. 작업 약속에 마감 저장 순서를 한 줄 더하는 연습이에요.",
+        "그다음 아래 「마감 저장」 틀을 메모 앱에 저장하고, 바로 복사해 Claude에게 한 번 보내요. 바뀐 작업 약속이 사진첩 둘째 장이 돼요.",
+        "**올리기**(push)는 GitHub 보관함의 사본을 이 Mac의 사진첩과 같게 맞추는 일이에요. 심화 9강에서 이 보관함을 Vercel에 이으면, 올릴 때마다 인터넷 페이지도 함께 바뀌어요."
+      ],
+      "prompt": {
+        "text": "작업 약속(CLAUDE.md) 맨 아래에 이 한 줄을 더해 주세요.\n'마감 저장: 바뀐 파일을 먼저 보여 주고, 비밀값이 없는지 확인한 뒤, 한국어 한 줄 메시지로 저장하고 GitHub의 haetsal-booking 저장소에 올린다. 강제로 덮어 올리기(force push)는 하지 않는다.'\n그 밖의 내용은 그대로 두세요."
+      },
+      "memo": {
+        "text": "오늘 일을 마감하려고 해요.\n1) 지난 저장 뒤에 바뀐 파일 목록을 먼저 보여 주세요.\n2) 그 안에 비밀번호나 secret key처럼 보이는 글자가 있으면 저장하지 말고 알려 주세요. Supabase 프로젝트 주소와 publishable key(sb_publishable_…)는 넣어도 되는 값이에요.\n3) 문제가 없으면 오늘 한 일을 한국어 한 줄로 적어 저장(commit)하고, GitHub의 haetsal-booking 저장소에 올려(push) 주세요.\n4) 강제로 덮어 올리기(force push)는 하지 마세요.\n다 되면 저장 메시지와 올린 결과를 알려 주세요.",
+        "note": "메모 앱에 「마감 저장」이라는 이름으로 두고, 하루를 마칠 때마다 복사해 작업 폴더의 Claude에게 보내요."
+      },
+      "figure": {
+        "src": "img/v04-daily-close.svg",
+        "alt": "마감 저장 카드에 바뀐 파일 먼저 보기, 비밀값 확인, 한 줄 메시지로 저장, GitHub에 올리기 네 줄과 강제로 덮어 올리기는 하지 않는다는 빨간 줄이 있는 그림",
+        "caption": "하루를 마칠 때 이 네 줄을 한 번에 부탁해요. 강제로 덮어 올리기는 하지 않아요."
+      },
+      "success": "Claude가 바뀐 파일(`CLAUDE.md`)을 보여 주고 저장하고 올렸다고 알리면, 사진첩 둘째 장과 그 사본이 생긴 거예요.",
+      "tip": "올리기 앞에서 묻는 창이 나오면 명령에 `haetsal-booking`이나 보관함 연결 이름(보통 `origin`)이 보이는지 읽고 골라요."
+    },
+    {
+      "title": "기록 보기와 안전하게 되돌리는 길",
+      "why": "되돌리는 방법을 미리 알아 두면, 실수해도 당황하지 않아요.",
+      "body": [
+        "사진첩은 언제든 넘겨 볼 수 있어요. 아래 문장으로 기록을 보고, 되돌리는 방법은 계획으로만 들어 둬요.",
+        "git의 되돌리기는 기록을 지우지 않아요. 「되돌린 모습」을 새 사진으로 한 장 더 붙이는 방식(`git revert`)이라 그 전 기록이 다 남아요.",
+        "강제로 덮어 올리기(force push)는 쓰지 않아요. 자동 심사 모드도 기본으로 막는 일이에요."
+      ],
+      "prompt": {
+        "text": "최근 저장 기록 다섯 개를 보여 주세요. 날짜와 메시지만 한 줄씩이면 돼요.\n그리고 마지막 저장을 없던 일로 하고 싶을 때의 방법을 계획으로만 알려 주세요.\n- 기록을 지우지 않고, 되돌린 내용을 새 저장으로 남기는 방법이면 좋겠어요.\n- 강제로 덮어 올리기(force push)는 쓰지 마세요.\n오늘은 방법만 듣고 싶어요. 실제 되돌리기는 제가 부탁할 때 해 주세요."
+      },
+      "success": "기록 두 줄(「첫 마감」과 오늘 저장)이 보이고 되돌리는 계획만 받았다면 이번 강은 끝이에요.",
+      "caution": "되돌린 내용도 올려야 GitHub 사본과 심화 9강의 인터넷 페이지에 반영돼요. 되돌릴 때도 계획을 먼저 듣고 허락해요."
+    }
+  ],
+  "explain": [
+    {
+      "heading": "esc 두 번과 마감 사진첩, 언제 무엇을 쓰나요",
+      "body": [
+        "14강의 되돌리기(체크포인트)는 Claude가 부탁마다 저절로 남기는 「고치기 전 상태」예요. 공식 안내도 이것이 버전 관리(git)를 대신하지 않는다고 해요.",
+        "되돌리기는 방금 한 부탁을 무를 때, 마감 사진첩은 어제나 지난주 모습으로 돌아갈 때 써요. 둘 다 쓰면 가장 든든해요."
+      ],
+      "table": {
+        "head": [
+          "",
+          "되돌리기 (14강)",
+          "마감 사진첩 (git)"
+        ],
+        "rows": [
+          [
+            "언제 남나요",
+            "부탁을 보낼 때마다 저절로",
+            "내가 저장해 달라고 할 때"
+          ],
+          [
+            "무엇을",
+            "Claude가 파일 고치기로 바꾼 것만",
+            "폴더 전체 (`.gitignore`에 적은 것 빼고)"
+          ],
+          [
+            "터미널 명령으로 바뀐 것",
+            "되돌리지 못해요",
+            "저장할 때의 모습 그대로 담겨요"
+          ],
+          [
+            "얼마나",
+            "한 대화에 최근 100개, 쓰지 않으면 30일쯤 뒤 지워져요",
+            "내가 지우기 전까지"
+          ],
+          [
+            "어디에",
+            "이 Mac의 Claude 대화 기록 안",
+            "이 Mac과 GitHub 비공개 사본"
+          ]
+        ]
+      },
+      "figure": {
+        "src": "img/v04-rewind-vs-album.svg",
+        "alt": "14강의 되돌리기는 부탁마다 저절로, Claude가 고친 것만, 한 대화 안에서 남고, 마감 사진첩은 내가 저장할 때, 폴더 전체를, 지우기 전까지 이 Mac과 GitHub에 남는다는 비교 그림",
+        "caption": "방금 부탁은 되돌리기로, 지난 날은 마감 사진첩으로 돌아가요."
+      }
+    },
+    {
+      "heading": "비공개 저장소에도 넣지 않는 것",
+      "body": [
+        "비공개 저장소는 나와 내가 초대한 사람만 볼 수 있어요. GitHub의 무료 요금제로도 개수 제한 없이 만들 수 있어요.",
+        "그래도 secret key와 데이터베이스 비밀번호는 넣지 않아요. Supabase 안내는 secret key를 「소스 저장소(source control)」에 절대 넣지 말라고 해요.",
+        "작업 약속(`CLAUDE.md`)도 비공개 저장소에 함께 올라가요. `public` 폴더 밖이라 인터넷 페이지에는 나가지 않지만, 그래도 비밀은 적지 않아요."
+      ]
+    },
+    {
+      "heading": "이번 강에서 본 영어",
+      "body": [
+        "사진첩에 빗대면 기억하기 쉬워요."
+      ],
+      "table": {
+        "head": [
+          "화면 글자",
+          "뜻",
+          "사진첩으로 말하면"
+        ],
+        "rows": [
+          [
+            "git",
+            "폴더의 바뀐 내용을 차례로 기록하는 도구",
+            "마감 사진첩"
+          ],
+          [
+            "commit (커밋)",
+            "저장 한 번. 바뀐 내용과 한 줄 메시지를 함께 남겨요",
+            "사진 한 장과 밑의 한 줄"
+          ],
+          [
+            "repository (저장소)",
+            "기록이 모인 곳",
+            "사진첩 한 권"
+          ],
+          [
+            "`.gitignore`",
+            "저장 기록에서 뺄 파일 목록",
+            "사진에서 뺄 것 목록"
+          ],
+          [
+            "push (푸시)",
+            "GitHub 사본에 올려 보내기",
+            "사본 사진첩을 같게 맞추기"
+          ],
+          [
+            "main",
+            "기록이 쌓이는 기본 줄의 이름",
+            "사진첩의 기본 줄"
+          ],
+          [
+            "`git revert`",
+            "되돌린 내용을 새 저장으로 남기기",
+            "되돌린 모습을 새 사진으로 붙이기"
+          ],
+          [
+            "force push",
+            "GitHub의 기록을 강제로 덮어 올리기",
+            "쓰지 않아요"
+          ]
+        ]
+      }
+    }
+  ],
+  "trouble": [
+    {
+      "symptom": "저장하려는데 이름이나 이메일을 알려 달라며 멈춰요",
+      "fix": "git이 누가 저장했는지 알아야 해서 그래요. 심화 2강 5단계의 두 줄을 일반 터미널 창에 넣은 뒤, 아래 문장을 보내요.",
+      "prompt": "git 이름과 이메일을 정했어요.\n방금 하려던 첫 저장을 계획대로 다시 해 주세요. 저장 메시지는 '첫 마감: 안내 페이지와 예약 화면 연습판'이에요.\n다 되면 저장 기록을 보여 주세요."
+    },
+    {
+      "symptom": "`gh repo create`에서 로그인하라거나, 같은 이름의 저장소가 이미 있다고 나와요",
+      "fix": "로그인 문제라면 심화 2강 4단계의 `gh auth login`을 다시 해요. 같은 이름이 있다면 github.com에서 그 저장소가 내 것인지 먼저 확인하고, 모르겠으면 아래 문장으로 Claude에게 물어요.",
+      "prompt": "GitHub에 haetsal-booking 저장소를 만들려는데 같은 이름이 이미 있다고 나와요.\n제 GitHub 계정의 저장소 목록에서 그 저장소가 비공개인지, 비어 있는지 확인하는 방법을 알려 주세요.\n아무것도 지우거나 바꾸지 말고 확인만 해 주세요."
+    },
+    {
+      "symptom": "Claude가 올리기(push)가 막혔다거나 거절됐다고 해요",
+      "fix": "Claude를 연 뒤에 보관함 연결을 만들었다면, 그 연결을 아직 믿지 않을 수 있어요. `/exit`로 나와 `%` 줄에 `claude -c`를 넣고 return을 눌러 다시 연 뒤, 아래 문장을 보내요.",
+      "prompt": "이 폴더에 이어 둔 GitHub 보관함의 이름과 주소를 먼저 보여 주세요.\n주소가 제 haetsal-booking 저장소가 맞으면 그곳에 올려(push) 주세요.\n강제로 덮어 올리기(force push)는 하지 마세요."
+    }
+  ],
+  "checklist": [
+    "첫 저장 전에 계획을 듣고 `.gitignore`를 확인했어요",
+    "GitHub에 비공개 저장소 `haetsal-booking`을 만들고 올렸어요",
+    "「마감 저장」 메모로 둘째 장을 저장하고 올렸어요",
+    "기록을 보고, 되돌리는 계획을 들어 봤어요"
+  ],
+  "keep": [
+    "하루를 마칠 때는 「마감 저장」 메모 한 번.",
+    "보관함은 언제나 비공개, 비밀값은 어디에도 넣지 않아요.",
+    "방금 부탁은 esc 두 번, 지난 날은 마감 사진첩으로."
+  ],
+  "links": [
+    {
+      "label": "git 버전 관리란 (Pro Git 책, 영어)",
+      "url": "https://git-scm.com/book/en/v2/Getting-Started-About-Version-Control"
+    },
+    {
+      "label": "GitHub 저장소 알아보기 (영어)",
+      "url": "https://docs.github.com/en/repositories/creating-and-managing-repositories/about-repositories"
+    },
+    {
+      "label": "되돌리기(체크포인트) 안내 (영어)",
+      "url": "https://code.claude.com/docs/en/checkpointing"
+    }
+  ],
+  "sources": [
+    {
+      "label": "About version control: 지난 버전으로 돌아가기",
+      "url": "https://git-scm.com/book/en/v2/Getting-Started-About-Version-Control"
+    },
+    {
+      "label": "About commits: 커밋과 커밋 메시지",
+      "url": "https://docs.github.com/en/pull-requests/committing-changes-to-your-project/creating-and-editing-commits/about-commits"
+    },
+    {
+      "label": "About repositories: 비공개 저장소는 나와 초대한 사람만",
+      "url": "https://docs.github.com/en/repositories/creating-and-managing-repositories/about-repositories"
+    },
+    {
+      "label": "GitHub plans: 무료 요금제의 비공개 저장소",
+      "url": "https://docs.github.com/en/get-started/learning-about-github/githubs-plans"
+    },
+    {
+      "label": "gh repo create: --private, --source, --push",
+      "url": "https://cli.github.com/manual/gh_repo_create"
+    },
+    {
+      "label": "Pushing commits: 올리기(git push)와 remote",
+      "url": "https://docs.github.com/en/get-started/using-git/pushing-commits-to-a-remote-repository"
+    },
+    {
+      "label": "Quickstart: 대화로 git 쓰기 (바뀐 파일, 커밋, 최근 커밋 보기)",
+      "url": "https://code.claude.com/docs/en/quickstart.md"
+    },
+    {
+      "label": "Permission modes: 자동 심사는 강제 푸시와 이름 짚지 않은 remote 추가를 막고, 시작할 때의 remote를 믿음",
+      "url": "https://code.claude.com/docs/en/permission-modes.md"
+    },
+    {
+      "label": "Checkpointing: 버전 관리를 대신하지 않음, 100개·30일",
+      "url": "https://code.claude.com/docs/en/checkpointing.md"
+    },
+    {
+      "label": "Best practices: 체크포인트는 Claude의 파일 고치기만 기억",
+      "url": "https://code.claude.com/docs/en/best-practices.md"
+    },
+    {
+      "label": "Commands: claude -c로 마지막 대화 이어 가기",
+      "url": "https://code.claude.com/docs/en/commands.md"
+    },
+    {
+      "label": "Supabase API keys: secret key는 소스 저장소에 넣지 않기, publishable key는 sb_publishable_로 시작",
+      "url": "https://supabase.com/docs/guides/api/api-keys"
+    },
+    {
+      "label": "Memory: CLAUDE.md는 저장소로 함께 공유",
+      "url": "https://code.claude.com/docs/en/memory.md"
+    },
+    {
+      "label": "Vercel for GitHub: 올릴 때마다 배포",
+      "url": "https://vercel.com/docs/git/vercel-for-github"
+    }
+  ],
+  "history": [
+    {
+      "date": "2026-10-21",
+      "note": "처음 작성"
+    }
+  ]
+}

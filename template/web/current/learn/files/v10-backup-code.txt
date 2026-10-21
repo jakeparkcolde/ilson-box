@@ -1,0 +1,103 @@
+## 9. CSV로 내려받기 (심화 10강)
+
+사장님 예약함에 버튼 하나와 함수 몇 개를 더해요. 사장님으로 로그인했을 때만 줄이 담기고, 다른 계정은 0건이에요 (RLS).
+
+```html
+<!-- admin.html 에 추가 : <section id="inbox"> 안, 로그아웃 버튼 다음 줄 -->
+<button id="csv-button" type="button">CSV로 내려받기</button>
+```
+
+```js
+// admin.js 맨 아래에 추가 : CSV로 내려받기 (사장님만)
+const CSV_COLUMNS = [
+  ['created_at', '받은 시각'],
+  ['customer_name', '이름'],
+  ['contact', '연락처'],
+  ['wanted_date', '원하는 날짜'],
+  ['wanted_time', '원하는 시간'],
+  ['item', '상품'],
+  ['message', '남긴 말'],
+  ['status', '상태'],
+  ['handled_at', '처리 시각'],
+];
+
+document.getElementById('csv-button').addEventListener('click', () => downloadCsv());
+
+async function downloadCsv() {
+  inboxMessage.textContent = 'CSV 파일을 만드는 중…';
+  const rows = await fetchAllRequests();
+  if (!rows) {
+    inboxMessage.textContent = 'CSV를 만들지 못했어요. 로그아웃한 뒤 다시 로그인해 보세요.';
+    return;
+  }
+  if (rows.length === 0) {
+    inboxMessage.textContent = '내려받을 예약 요청이 없어요.';
+    return;
+  }
+  const lines = [CSV_COLUMNS.map(([, title]) => csvCell(title))];
+  for (const row of rows) {
+    lines.push(CSV_COLUMNS.map(([key]) => csvCell(csvText(key, row[key]))));
+  }
+  // 맨 앞의 ﻿(BOM) 덕분에 엑셀·Numbers 가 한글을 깨뜨리지 않고 열어요.
+  const csv = '﻿' + lines.map((cells) => cells.join(',')).join('\r\n') + '\r\n';
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' }); // 예: 2026-10-21
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  link.download = `예약요청-${today}.csv`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+  inboxMessage.textContent = `예약 요청 ${rows.length}건을 CSV로 내려받았어요.`;
+}
+
+// 한 번에 최대 1,000줄씩 오니까, 빈 묶음이 올 때까지 이어서 가져와요.
+async function fetchAllRequests() {
+  const rows = [];
+  const seen = new Set(); // 받는 도중 새 요청이 들어와 겹친 줄은 한 번만 담아요
+  let from = 0;
+  for (;;) {
+    const { data, error } = await db
+      .from('reservation_requests')
+      .select('id, ' + CSV_COLUMNS.map(([key]) => key).join(', '))
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, from + 999);
+    if (error) {
+      console.error('CSV 불러오기 실패', error);
+      return null;
+    }
+    if (data.length === 0) return rows;
+    from += data.length;
+    for (const row of data) {
+      if (!seen.has(row.id)) {
+        seen.add(row.id);
+        rows.push(row);
+      }
+    }
+  }
+}
+
+// 시각은 한국 시간 "2026-10-21 14:05:09" 꼴로 바꾸고, 빈칸은 비워 둬요.
+function csvText(key, value) {
+  if (value === null || value === undefined) return '';
+  if (key === 'created_at' || key === 'handled_at') {
+    return new Date(value).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' });
+  }
+  return String(value);
+}
+
+// 한 칸을 CSV 규칙대로 만들어요: 큰따옴표로 감싸고, 안의 " 는 "" 로 바꿔요.
+// = + - @ 나 탭으로 시작하면 앞에 ' 를 붙여 엑셀이 수식으로 실행하지 않게 해요.
+function csvCell(text) {
+  const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
+```
+
+알아 둘 것:
+- 쉼표, 큰따옴표, 줄바꿈이 든 글도 칸이 밀리지 않아요 (시험 X2).
+- `=`, `+`, `-`, `@`, 탭으로 시작하는 칸은 앞에 `'` 가 붙어요. 그래서 `+82` 로 시작하는 연락처는 `'+82…` 로 보여요 (시험 X3).
+- 1,000건이 넘어도 끝까지 담아요 (시험 X1, X5).
+- 파일 이름은 `예약요청-2026-10-21.csv` 처럼 한국 날짜예요.
+- 내려받은 파일에도 손님 개인정보가 있어요. 안전한 곳에 두고, 보관 기간이 지나면 cleanup.sql 로 지울 때 이 파일도 함께 지워요.

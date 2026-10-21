@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 428" width="720" height="428" role="img" aria-label="작업 약속 카드에 만들 것, 일하는 순서, 열쇠 약속, 손님 파일은 public 폴더에 두는 파일 자리, 지우기 전 허락의 다섯 줄이 있고 잠금장치가 아니라 약속이라는 메모가 붙은 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .t{font-size:24px;font-weight:700}
+    .r{font-size:20px}
+    .mp{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#6b7078}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+    .b{fill:#5e6ad2}
+  </style>
+  <rect width="720" height="428" rx="16" fill="#f5f6f6"/>
+
+  <!-- the promise file -->
+  <path d="M48 28 H664 L688 52 V328 Q688 344 672 344 H48 Q32 344 32 328 V44 Q32 28 48 28 Z" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M664 28 V52 H688 Z" fill="#eceef0" stroke="#e4e4e8" stroke-width="1.5" stroke-linejoin="round"/>
+  <text class="t" x="58" y="72">작업 약속</text>
+  <text class="mp" x="166" y="71">CLAUDE.md</text>
+  <path d="M58 92 H662" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <circle class="b" cx="72" cy="130" r="14"/><text class="n" x="72" y="136" text-anchor="middle">1</text>
+  <text class="r" x="100" y="137">만들 것: 화면 세 개와 받을 칸</text>
+
+  <circle class="b" cx="72" cy="176" r="14"/><text class="n" x="72" y="182" text-anchor="middle">2</text>
+  <text class="r" x="100" y="183">일하는 순서: 계획 먼저, 허락 뒤 고치기</text>
+
+  <circle class="b" cx="72" cy="222" r="14"/><text class="n" x="72" y="228" text-anchor="middle">3</text>
+  <text class="r" x="100" y="229">열쇠: <tspan style="fill:#1d8a38;font-weight:600">publishable key만</tspan>, <tspan style="fill:#c4423b;font-weight:600">secret key는 어디에도</tspan></text>
+
+  <circle class="b" cx="72" cy="268" r="14"/><text class="n" x="72" y="274" text-anchor="middle">4</text>
+  <text class="r" x="100" y="275">손님 파일은 public 폴더에, 목록 밖은 묻기</text>
+
+  <circle class="b" cx="72" cy="314" r="14"/><text class="n" x="72" y="320" text-anchor="middle">5</text>
+  <text class="r" x="100" y="321">지우기·옮기기 전에 허락받기</text>
+
+  <!-- honest note -->
+  <rect x="32" y="364" width="304" height="42" rx="21" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+  <circle cx="60" cy="385" r="10" fill="none" stroke="#a3720a" stroke-width="2"/>
+  <path d="M60 384 V390" stroke="#a3720a" stroke-width="2.2" stroke-linecap="round"/>
+  <circle cx="60" cy="379.5" r="1.4" fill="#a3720a"/>
+  <text x="80" y="392" style="font-size:20px;font-weight:600;fill:#a3720a">잠금장치가 아니라 약속이에요</text>
+</svg>

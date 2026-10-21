@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480" width="720" height="480" role="img" aria-label="학습 허용, 학습 안 함, 지운 대화, 시크릿 대화, 의견을 보낸 대화, 위반으로 표시된 대화가 각각 얼마나 보관되는지와, 대화를 지워도 메모리는 남는다는 점을 정리한 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:20px;font-weight:600}
+    .ok{font-size:18px;font-weight:500;fill:#1d8a38}
+    .cw{font-size:18px;font-weight:500;fill:#a3720a}
+    .nt{font-size:18px;font-weight:500;fill:#6b7078}
+  </style>
+  <rect width="720" height="480" rx="16" fill="#f5f6f6"/>
+  <rect x="32" y="32" width="656" height="416" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <!-- six retention rows: separators -->
+  <path d="M52 94 H 668 M52 148 H 668 M52 202 H 668 M52 256 H 668 M52 310 H 668" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <!-- memory row, set apart: tinted band + divider (not a retention period) -->
+  <path d="M32.75 374 H 687.25 V 433 A14.25 14.25 0 0 1 673 447.25 H 47 A14.25 14.25 0 0 1 32.75 433 Z" fill="#f5f6f6"/>
+  <path d="M32.75 374 H 687.25" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <!-- line icons (no glyphs), each centred on its row -->
+  <g fill="none" stroke="#6b7078" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 1 toggle off -->
+    <rect x="56" y="56" width="40" height="22" rx="11" fill="#ffffff"/>
+    <!-- 2 ghost -->
+    <path transform="translate(76 121)" d="M-12 14 V -2 A12 12 0 0 1 12 -2 V 14 L 8 10 L 4 14 L 0 10 L -4 14 L -8 10 Z"/>
+    <!-- 3 trash can -->
+    <g transform="translate(76 175)">
+      <path d="M-14 -11 H 14"/>
+      <path d="M-5 -11 V -15 H 5 V -11"/>
+      <path d="M-10.5 -11 L -8.5 14 H 8.5 L 10.5 -11"/>
+      <path d="M-3.5 -5 V 8 M3.5 -5 V 8"/>
+    </g>
+    <!-- 4 warning triangle -->
+    <g transform="translate(76 229)">
+      <path d="M0 -15 L 15 12 H -15 Z"/>
+      <path d="M0 -6 V 3"/>
+    </g>
+    <!-- 5 toggle on -->
+    <rect x="56" y="272" width="40" height="22" rx="11" fill="#6b7078"/>
+    <!-- 6 thumb up -->
+    <g transform="translate(76 339)">
+      <path d="M-15 -3 H -9 V 15 H -15 Z"/>
+      <path d="M-9 13 H 8 C 11.5 13, 13.5 11, 14 8 L 16 -2 C 16.5 -5, 14.5 -7.5, 11.5 -7.5 H 3 L 4.5 -15 C 5 -18, 3 -20.5, 0 -19.5 L -9 -3"/>
+    </g>
+    <!-- 7 memory: remembered note -->
+    <g transform="translate(76 411)">
+      <path d="M-12 -14 H 12 V 6 L 4 14 H -12 Z" fill="#ffffff"/>
+      <path d="M4 14 V 6 H 12"/>
+      <path d="M-7 -6 H 7 M-7 1 H 2"/>
+    </g>
+  </g>
+  <circle cx="67" cy="67" r="7" fill="#6b7078"/>
+  <circle cx="85" cy="283" r="7" fill="#ffffff"/>
+  <circle cx="71.5" cy="121" r="2" fill="#6b7078"/>
+  <circle cx="80.5" cy="121" r="2" fill="#6b7078"/>
+  <circle cx="76" cy="236.5" r="1.6" fill="#6b7078"/>
+
+  <!-- labels -->
+  <text class="l" x="116" y="74">학습 안 함 (스위치 끔)</text>
+  <text class="l" x="116" y="128">시크릿 대화</text>
+  <text class="l" x="116" y="182">지운 대화</text>
+  <text class="l" x="116" y="236">위반으로 표시된 대화</text>
+  <text class="l" x="116" y="290">학습 허용 (스위치 켬)</text>
+  <text class="l" x="116" y="344">의견을 보낸 대화</text>
+  <text class="l" x="116" y="418">대화에서 생긴 메모리(기억)</text>
+
+  <!-- duration pills -->
+  <g fill="#ffffff" stroke="#1d8a38" stroke-width="1.5">
+    <rect x="404" y="50" width="80" height="34" rx="17"/>
+    <rect x="404" y="104" width="194" height="34" rx="17"/>
+    <rect x="404" y="158" width="246" height="34" rx="17"/>
+  </g>
+  <rect x="404" y="212" width="98" height="34" rx="17" fill="#ffffff" stroke="#a3720a" stroke-width="1.5"/>
+  <g fill="#f8efdc" stroke="#a3720a" stroke-width="1.5">
+    <rect x="404" y="266" width="98" height="34" rx="17"/>
+    <rect x="404" y="320" width="172" height="34" rx="17"/>
+  </g>
+  <rect x="404" y="394" width="236" height="34" rx="17" fill="#ffffff" stroke="#6b7078" stroke-width="1.5"/>
+  <text class="ok" x="444" y="73" text-anchor="middle">30일</text>
+  <text class="ok" x="501" y="127" text-anchor="middle">30일 · 목록에 안 남음</text>
+  <text class="ok" x="527" y="181" text-anchor="middle">목록에서 바로 · 서버 30일 안</text>
+  <text class="cw" x="453" y="235" text-anchor="middle">최대 2년</text>
+  <text class="cw" x="453" y="289" text-anchor="middle">최대 5년</text>
+  <text class="cw" x="490" y="343" text-anchor="middle">대화 전체 최대 5년</text>
+  <text class="nt" x="522" y="417" text-anchor="middle">지워도 남아요 · 직접 지우기</text>
+</svg>

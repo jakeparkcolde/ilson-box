@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 380" width="720" height="380" role="img" aria-label="웹 검색, 리서치, 앱 연결 세 카드에 각각 '찾아서 출처와 함께', '여러 번 찾아 보고서로', '내 메일·일정·파일, 권한 정해서'라는 설명이 붙은 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .t{font-size:24px;font-weight:600}
+    .r{font-size:20px}
+    .c{font-size:18px}
+    .w{font-size:18px;font-weight:600;fill:#a3720a}
+    .f{font-size:18px;font-weight:600;fill:#5e6ad2}
+  </style>
+  <rect width="720" height="380" rx="16" fill="#f5f6f6"/>
+
+  <!-- three cards -->
+  <g fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5">
+    <rect x="32" y="28" width="202" height="288" rx="14"/>
+    <rect x="259" y="28" width="202" height="288" rx="14"/>
+    <rect x="486" y="28" width="202" height="288" rx="14"/>
+  </g>
+
+  <!-- 1: web search -->
+  <g fill="none" stroke="#5e6ad2" stroke-width="3" stroke-linecap="round">
+    <circle cx="127" cy="86" r="18"/>
+    <path d="M140 99 L155 114"/>
+  </g>
+  <text class="t" x="133" y="170" text-anchor="middle">웹 검색</text>
+  <text class="r" x="133" y="206" text-anchor="middle">찾아서 출처와 함께</text>
+  <rect x="91" y="256" width="84" height="34" rx="10" fill="#f5f6f6" stroke="#c9ccd2" stroke-width="1.5"/>
+  <g transform="translate(111 273) rotate(-45)" fill="none" stroke="#6b7078" stroke-width="1.8">
+    <rect x="-10" y="-3.5" width="11" height="7" rx="3.5"/><rect x="-1" y="-3.5" width="11" height="7" rx="3.5"/>
+  </g>
+  <text class="c" x="127" y="279">출처</text>
+
+  <!-- 2: research -->
+  <g fill="#ffffff" stroke="#5e6ad2" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="354" y="58" width="30" height="40" rx="4"/>
+    <rect x="347" y="65" width="30" height="40" rx="4"/>
+    <path d="M340 72 H362 L370 80 V112 H340 Z"/>
+    <path d="M362 72 V80 H370 M346 90 H362 M346 98 H358" fill="none"/>
+  </g>
+  <circle cx="378" cy="110" r="11" fill="#ffffff"/>
+  <g transform="translate(378 110) rotate(-45)" fill="none" stroke="#5e6ad2" stroke-width="1.8">
+    <rect x="-9" y="-3" width="10" height="6" rx="3"/><rect x="-1" y="-3" width="10" height="6" rx="3"/>
+  </g>
+  <text class="t" x="360" y="170" text-anchor="middle">리서치</text>
+  <text class="r" x="360" y="206" text-anchor="middle">여러 번 찾아</text>
+  <text class="r" x="360" y="232" text-anchor="middle">보고서로</text>
+  <rect x="306" y="256" width="108" height="34" rx="17" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+  <text class="w" x="360" y="279" text-anchor="middle">유료 · 몇 분</text>
+
+  <!-- 3: app connection (plug) -->
+  <g fill="none" stroke="#5e6ad2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M579 62 V74 M595 62 V74"/>
+    <rect x="571" y="74" width="32" height="24" rx="6" fill="#ffffff"/>
+    <path d="M587 98 V106 C587 118 603 114 603 126"/>
+  </g>
+  <text class="t" x="587" y="170" text-anchor="middle">앱 연결</text>
+  <text class="r" x="587" y="206" text-anchor="middle">내 메일·일정·파일</text>
+  <rect x="530" y="256" width="114" height="34" rx="17" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="f" x="587" y="279" text-anchor="middle">권한 정해서</text>
+</svg>

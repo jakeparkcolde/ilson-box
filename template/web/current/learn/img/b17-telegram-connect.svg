@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 448" width="720" height="448" role="img" aria-label="새 터미널 창에서 연결 명령을 넣고, 공식 BotFather에서 받은 토큰을 숨김 칸에 붙여 넣고, 링크를 열어 시작을 누르는 세 단계와 토큰을 넣지 않는 곳을 그린 흐름도">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:22px;font-weight:600}
+    .l{font-size:20px;font-weight:600}
+    .r{font-size:20px}
+    .s{font-size:18px;fill:#6b7078}
+    .ss{font-size:18px;font-weight:600}
+    .m{font-family:'SF Mono',Menlo,'Apple SD Gothic Neo',monospace;font-size:18px;fill:#f7f8f8}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+    .card{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+    .ln{fill:none;stroke:#6b7078;stroke-width:2}
+  </style>
+  <rect width="720" height="448" rx="16" fill="#f5f6f6"/>
+
+  <!-- step 1: new terminal window -->
+  <rect class="card" x="32" y="24" width="656" height="68" rx="12"/>
+  <circle cx="60" cy="58" r="14" fill="#5e6ad2"/><text class="n" x="60" y="64" text-anchor="middle">1</text>
+  <text class="h" x="88" y="66">새 터미널 창 (⌘+N)</text>
+  <rect x="336" y="38" width="336" height="40" rx="10" fill="#1d1d21"/>
+  <text class="m" x="352" y="64"><tspan style="fill:#a7b0ff">%</tspan> ilson telegram connect</text>
+
+  <path class="ln" d="M60 96 V112" marker-end="url(#arrow)"/>
+
+  <!-- step 2: BotFather token into the hidden prompt -->
+  <rect class="card" x="32" y="120" width="656" height="104" rx="12"/>
+  <circle cx="60" cy="151" r="14" fill="#5e6ad2"/><text class="n" x="60" y="157" text-anchor="middle">2</text>
+  <text class="h" x="88" y="158">공식 BotFather에서 <tspan style="font-family:'SF Mono',Menlo,monospace;font-size:20px">/newbot</tspan> → 토큰 받기</text>
+  <rect x="88" y="172" width="180" height="38" rx="10" fill="#1d1d21"/>
+  <text class="m" x="104" y="197" style="font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif">봇 토큰 붙여넣기:</text>
+  <rect x="240" y="181" width="11" height="21" rx="1.5" fill="#a7b0ff"/>
+  <path d="M282 191 H490" stroke="#b8bcc2" stroke-width="1.5" stroke-dasharray="3 4"/>
+  <text class="s" x="672" y="197" text-anchor="end">화면에 안 보여요 (정상)</text>
+
+  <path class="ln" d="M60 228 V244" marker-end="url(#arrow)"/>
+
+  <!-- step 3: open the link and press start -->
+  <rect class="card" x="32" y="252" width="656" height="68" rx="12"/>
+  <circle cx="60" cy="286" r="14" fill="#5e6ad2"/><text class="n" x="60" y="292" text-anchor="middle">3</text>
+  <text class="h" x="88" y="294">링크 열고 텔레그램에서 「시작」</text>
+  <rect x="576" y="270" width="96" height="32" rx="16" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+  <text class="ss" x="624" y="292" text-anchor="middle" style="fill:#a3720a">5분 안에</text>
+
+  <path class="ln" d="M60 324 V352" marker-end="url(#arrow)"/>
+
+  <!-- result -->
+  <rect x="32" y="360" width="260" height="56" rx="12" fill="#e6f3e9" stroke="#1d8a38" stroke-width="2"/>
+  <circle cx="62" cy="388" r="12" fill="#1d8a38"/>
+  <path d="M56 388.5 L60.5 393 L68.5 383.5" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="l" x="84" y="395" style="fill:#1d8a38">연결을 저장했습니다</text>
+
+  <!-- never put the token here -->
+  <rect x="316" y="344" width="284" height="88" rx="12" fill="#f8e3e1" stroke="#c4423b" stroke-width="1.5"/>
+  <circle cx="342" cy="374" r="12" fill="#c4423b"/>
+  <path d="M337 369 L347 379 M347 369 L337 379" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+  <text class="h" x="364" y="382">토큰을 넣지 않는 곳</text>
+  <text class="r" x="332" y="416">Claude 대화창 · 노트 · 메신저</text>
+</svg>

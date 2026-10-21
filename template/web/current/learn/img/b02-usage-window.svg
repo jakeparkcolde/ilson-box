@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 432" width="720" height="432" role="img" aria-label="claude.ai, 데스크톱 앱, Claude Code가 한 사용량 한도를 함께 쓰고, 5시간 단위로 다시 채워지며 유료 요금제는 주간 한도가 더 있다는 개념 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrowA" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#5e6ad2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .a{font-size:18px;font-weight:500;fill:#5e6ad2}
+    .c{font-size:18px;fill:#a3720a}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#a7b0ff}
+  </style>
+  <rect width="720" height="432" rx="16" fill="#f5f6f6"/>
+
+  <!-- source 1: browser -->
+  <rect x="102" y="34" width="68" height="48" rx="6" fill="#ffffff" stroke="#6b7078" stroke-width="2"/>
+  <path d="M102 47 H 170" stroke="#6b7078" stroke-width="2"/>
+  <circle cx="110" cy="40.5" r="2.2" fill="#6b7078"/><circle cx="117" cy="40.5" r="2.2" fill="#6b7078"/><circle cx="124" cy="40.5" r="2.2" fill="#6b7078"/>
+  <rect x="112" y="56" width="36" height="7" rx="3.5" fill="#e4e4e8"/>
+  <rect x="112" y="68" width="24" height="7" rx="3.5" fill="#e4e4e8"/>
+  <text class="l" x="136" y="110" text-anchor="middle">claude.ai</text>
+
+  <!-- source 2: laptop (generic) -->
+  <rect x="330" y="36" width="60" height="40" rx="4" fill="#ffffff" stroke="#6b7078" stroke-width="2"/>
+  <path d="M316 80 H 404 L 398 88 H 322 Z" fill="#ffffff" stroke="#6b7078" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="340" y="47" width="30" height="7" rx="3.5" fill="#e4e4e8"/>
+  <rect x="340" y="59" width="20" height="7" rx="3.5" fill="#e4e4e8"/>
+  <text class="l" x="360" y="110" text-anchor="middle">데스크톱 앱</text>
+
+  <!-- source 3: terminal -->
+  <rect x="550" y="34" width="68" height="48" rx="7" fill="#1d1d21"/>
+  <circle cx="560" cy="43" r="3" fill="#62666d"/><circle cx="569" cy="43" r="3" fill="#62666d"/><circle cx="578" cy="43" r="3" fill="#62666d"/>
+  <text class="m" x="560" y="72">&gt;_</text>
+  <text class="l" x="584" y="110" text-anchor="middle">Claude Code (일손박스)</text>
+
+  <!-- merge into one allowance -->
+  <g stroke="#6b7078" stroke-width="2" fill="none">
+    <path d="M136 122 C 136 144, 200 140, 212 156" marker-end="url(#arrow)"/>
+    <path d="M360 122 C 360 140, 312 140, 310 156" marker-end="url(#arrow)"/>
+    <path d="M584 122 C 584 146, 420 136, 408 156" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- shared allowance -->
+  <rect x="120" y="162" width="380" height="94" rx="14" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="l" x="144" y="196">내 사용량 한도 (하나)</text>
+  <rect x="144" y="214" width="332" height="18" rx="9" fill="#e4e4e8"/>
+  <rect x="144" y="214" width="190" height="18" rx="9" fill="#5e6ad2"/>
+
+  <!-- refills every five hours -->
+  <path d="M550 196 A 18 18 0 1 1 534 191" fill="none" stroke="#5e6ad2" stroke-width="2.5" stroke-linecap="round" marker-end="url(#arrowA)"/>
+  <text class="a" x="582" y="204">5시간 단위로</text>
+  <text class="a" x="582" y="230">다시 채워져요</text>
+
+  <!-- weekly limit on paid plans -->
+  <rect x="120" y="278" width="480" height="58" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="l" x="144" y="314" style="fill:#6b7078">주간 한도 (유료 요금제)</text>
+  <rect x="356" y="298" width="220" height="18" rx="9" fill="#e4e4e8"/>
+  <rect x="356" y="298" width="104" height="18" rx="9" fill="#6b7078" opacity="0.7"/>
+
+  <!-- when you hit the limit -->
+  <text class="l" x="120" y="386">한도에 걸리면:</text>
+  <g fill="#f8efdc" stroke="#a3720a" stroke-width="1.5">
+    <rect x="250" y="362" width="96" height="36" rx="18"/>
+    <rect x="358" y="362" width="133" height="36" rx="18"/>
+    <rect x="503" y="362" width="117" height="36" rx="18"/>
+  </g>
+  <text class="c" x="298" y="386" text-anchor="middle">기다리기</text>
+  <text class="c" x="424.5" y="386" text-anchor="middle">요금제 올리기</text>
+  <text class="c" x="561.5" y="386" text-anchor="middle">사용 크레딧</text>
+</svg>

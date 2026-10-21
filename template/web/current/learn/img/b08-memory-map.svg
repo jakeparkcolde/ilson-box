@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" width="720" height="420" role="img" aria-label="계정 메모리와 햇살꽃집 프로젝트 메모리는 그 프로젝트의 대화에 쓰이고, 다른 프로젝트의 메모리는 쓰이지 않으며, 계정 메모리 사용을 끄면 계정 메모리 연결이 끊기는 것을 보여 주는 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrowG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#a9adb4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:22px;font-weight:600}
+    .l{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .q{fill:#6b7078}
+    .no{font-size:20px;font-weight:600;fill:#c4423b}
+  </style>
+  <rect width="720" height="420" rx="16" fill="#f5f6f6"/>
+
+  <!-- account memory -->
+  <rect x="32" y="24" width="656" height="80" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <g transform="translate(56 44)" fill="none" stroke="#6b7078" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="4" y="0" width="24" height="32" rx="3" fill="#ffffff"/>
+    <path d="M0 7 H8 M0 16 H8 M0 25 H8 M13 9 H23 M13 16 H23"/>
+  </g>
+  <text class="h" x="100" y="58">계정 메모리</text>
+  <text class="s" x="100" y="86">프로젝트 밖 대화에서 생긴 기억</text>
+
+  <!-- link from account memory, with the switch -->
+  <rect x="322" y="128" width="48" height="26" rx="13" fill="#5e6ad2"/>
+  <circle cx="357" cy="141" r="10" fill="#ffffff"/>
+  <text class="l" x="384" y="148">Use account memory</text>
+  <text class="s" x="384" y="176">끄면 이 연결이 끊겨요</text>
+
+  <!-- this project -->
+  <rect x="32" y="200" width="336" height="152" rx="14" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="h" x="52" y="234">햇살꽃집 프로젝트</text>
+  <rect x="52" y="254" width="156" height="72" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="l" x="130" y="297" text-anchor="middle">프로젝트 메모리</text>
+  <path d="M212 290 H248" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <rect x="256" y="254" width="92" height="72" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="l" x="302" y="297" text-anchor="middle">대화</text>
+
+  <!-- account memory link drawn over the project box -->
+  <path d="M302 104 V250" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- another project (quiet) -->
+  <rect x="496" y="200" width="192" height="152" rx="14" fill="#eef0f1" stroke="#dcdee2" stroke-width="1.5"/>
+  <text class="h q" x="516" y="234">다른 프로젝트</text>
+  <rect x="514" y="254" width="156" height="72" rx="12" fill="#f7f8f8" stroke="#dcdee2" stroke-width="1.5"/>
+  <text class="l q" x="592" y="297" text-anchor="middle">프로젝트 메모리</text>
+
+  <!-- cut link -->
+  <path d="M512 290 H356" stroke="#a9adb4" stroke-width="2" stroke-dasharray="6 6" fill="none" marker-end="url(#arrowG)"/>
+  <circle cx="432" cy="290" r="15" fill="#ffffff" stroke="#c4423b" stroke-width="2"/>
+  <path d="M425 283 L439 297 M439 283 L425 297" stroke="#c4423b" stroke-width="3" stroke-linecap="round"/>
+  <text class="no" x="432" y="336" text-anchor="middle">쓰지 않아요</text>
+</svg>

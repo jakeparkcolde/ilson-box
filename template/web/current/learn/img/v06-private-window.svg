@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 388" width="720" height="388" role="img" aria-label="개인 창에서 읽기 시험 화면이 42501과 permission denied를 보여 주고, 그 결과가 손님은 읽을 수 없다는 뜻이라는 설명과 0건이나 목록이 보이면 멈추라는 경고가 붙은 화면 스케치">
+  <defs>
+    <marker id="arrowG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#1d8a38" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .s{font-size:18px;fill:#6b7078}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px}
+  </style>
+  <rect width="720" height="388" rx="16" fill="#f5f6f6"/>
+
+  <!-- private window (generic) -->
+  <rect x="32" y="24" width="380" height="240" rx="12" fill="#ffffff"/>
+  <path d="M32 60 V36 Q32 24 44 24 H400 Q412 24 412 36 V60 Z" fill="#62666d"/>
+  <circle cx="50" cy="42" r="4.5" fill="#9a9ea6"/><circle cx="66" cy="42" r="4.5" fill="#9a9ea6"/><circle cx="82" cy="42" r="4.5" fill="#9a9ea6"/>
+  <text x="102" y="48" style="font-size:18px;font-weight:600;fill:#ffffff">개인 창</text>
+  <rect x="32" y="24" width="380" height="240" rx="12" fill="none" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="46" y="70" width="352" height="32" rx="16" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="m" x="60" y="92" style="fill:#6b7078">127.0.0.1:8000/read-test.html</text>
+
+  <!-- the result: where to look -->
+  <rect x="46" y="112" width="352" height="132" rx="10" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text x="66" y="158" style="font-family:'SF Mono',Menlo,monospace;font-size:26px;font-weight:700">42501</text>
+  <text class="m" x="66" y="194">permission denied for table</text>
+  <text class="m" x="66" y="222">reservation_requests</text>
+
+  <path d="M404 158 H446" stroke="#1d8a38" stroke-width="2" fill="none" marker-end="url(#arrowG)"/>
+
+  <!-- success card -->
+  <rect x="456" y="108" width="232" height="96" rx="14" fill="#ffffff" stroke="#1d8a38" stroke-width="2"/>
+  <path d="M476 141 L483 148 L496 134" fill="none" stroke="#1d8a38" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="506" y="148" style="font-size:20px;font-weight:600;fill:#1d8a38">이렇게 보이면 성공</text>
+  <text x="476" y="182" style="font-size:18px">손님은 읽을 수 없어요</text>
+
+  <!-- stop card -->
+  <rect x="456" y="216" width="232" height="92" rx="14" fill="#f8e3e1" stroke="#c4423b" stroke-width="1.5"/>
+  <text x="476" y="252" style="font-size:20px;font-weight:600;fill:#c4423b">「0건」이나 목록이 보이면</text>
+  <text x="476" y="284" style="font-size:20px;font-weight:600">멈추고 공개하지 않아요</text>
+
+  <text class="s" x="32" y="298">실제 화면은 조금 다를 수 있어요</text>
+</svg>

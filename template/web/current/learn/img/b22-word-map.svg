@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 472" width="720" height="472" role="img" aria-label="과정에 나온 낱말들을 Claude와 만나는 곳, 부탁과 답, 기억하고 만들기, 일손박스 안에서 네 무리로 묶어 지도처럼 보여 주는 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:20px;font-weight:600}
+    .c{font-size:18px}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="472" rx="16" fill="#f5f6f6"/>
+
+  <!-- group 1 -->
+  <rect x="32" y="28" width="316" height="182" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <circle cx="62" cy="58" r="14" fill="#5e6ad2"/>
+  <text class="n" x="62" y="64" text-anchor="middle">1</text>
+  <text class="l" x="86" y="65">Claude와 만나는 곳</text>
+  <g fill="#f5f6f6" stroke="#e4e4e8" stroke-width="1.5">
+    <rect x="48" y="86" width="78" height="32" rx="16"/>
+    <rect x="134" y="86" width="93" height="32" rx="16"/>
+    <rect x="48" y="126" width="122" height="32" rx="16"/>
+    <rect x="178" y="126" width="74" height="32" rx="16"/>
+    <rect x="48" y="166" width="90" height="32" rx="16"/>
+    <rect x="146" y="166" width="58" height="32" rx="16"/>
+  </g>
+  <text class="c" x="87" y="108" text-anchor="middle">Claude</text>
+  <text class="c" x="180.5" y="108" text-anchor="middle">claude.ai</text>
+  <text class="c" x="109" y="148" text-anchor="middle">Claude Code</text>
+  <text class="c" x="215" y="148" text-anchor="middle">터미널</text>
+  <text class="c" x="93" y="188" text-anchor="middle">일손박스</text>
+  <text class="c" x="175" y="188" text-anchor="middle">명령</text>
+  <!-- group 2 -->
+  <rect x="372" y="28" width="316" height="182" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <circle cx="402" cy="58" r="14" fill="#5e6ad2"/>
+  <text class="n" x="402" y="64" text-anchor="middle">2</text>
+  <text class="l" x="426" y="65">부탁과 답</text>
+  <g fill="#f5f6f6" stroke="#e4e4e8" stroke-width="1.5">
+    <rect x="388" y="86" width="58" height="32" rx="16"/>
+    <rect x="454" y="86" width="58" height="32" rx="16"/>
+    <rect x="520" y="86" width="58" height="32" rx="16"/>
+    <rect x="388" y="126" width="79" height="32" rx="16"/>
+    <rect x="475" y="126" width="111" height="32" rx="16"/>
+    <rect x="388" y="166" width="132" height="32" rx="16"/>
+  </g>
+  <text class="c" x="417" y="108" text-anchor="middle">부탁</text>
+  <text class="c" x="483" y="108" text-anchor="middle">모델</text>
+  <text class="c" x="549" y="108" text-anchor="middle">환각</text>
+  <text class="c" x="427.5" y="148" text-anchor="middle">웹 검색</text>
+  <text class="c" x="530.5" y="148" text-anchor="middle">사용량 한도</text>
+  <text class="c" x="454" y="188" text-anchor="middle">대화 길이 한도</text>
+  <!-- group 3 -->
+  <rect x="32" y="226" width="316" height="182" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <circle cx="62" cy="256" r="14" fill="#5e6ad2"/>
+  <text class="n" x="62" y="262" text-anchor="middle">3</text>
+  <text class="l" x="86" y="263">기억하고 만들기</text>
+  <g fill="#f5f6f6" stroke="#e4e4e8" stroke-width="1.5">
+    <rect x="48" y="284" width="90" height="32" rx="16"/>
+    <rect x="146" y="284" width="74" height="32" rx="16"/>
+    <rect x="228" y="284" width="90" height="32" rx="16"/>
+    <rect x="48" y="324" width="74" height="32" rx="16"/>
+    <rect x="130" y="324" width="95" height="32" rx="16"/>
+    <rect x="48" y="364" width="58" height="32" rx="16"/>
+    <rect x="114" y="364" width="42" height="32" rx="16"/>
+  </g>
+  <text class="c" x="93" y="306" text-anchor="middle">프로젝트</text>
+  <text class="c" x="183" y="306" text-anchor="middle">메모리</text>
+  <text class="c" x="273" y="306" text-anchor="middle">아티팩트</text>
+  <text class="c" x="85" y="346" text-anchor="middle">커넥터</text>
+  <text class="c" x="177.5" y="346" text-anchor="middle">속임 지시</text>
+  <text class="c" x="77" y="386" text-anchor="middle">스킬</text>
+  <text class="c" x="135" y="386" text-anchor="middle">팩</text>
+  <!-- group 4 -->
+  <rect x="372" y="226" width="316" height="182" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <circle cx="402" cy="256" r="14" fill="#5e6ad2"/>
+  <text class="n" x="402" y="262" text-anchor="middle">4</text>
+  <text class="l" x="426" y="263">일손박스 안에서</text>
+  <g fill="#f5f6f6" stroke="#e4e4e8" stroke-width="1.5">
+    <rect x="388" y="284" width="95" height="32" rx="16"/>
+    <rect x="491" y="284" width="132" height="32" rx="16"/>
+    <rect x="388" y="324" width="90" height="32" rx="16"/>
+    <rect x="486" y="324" width="74" height="32" rx="16"/>
+    <rect x="388" y="364" width="95" height="32" rx="16"/>
+    <rect x="491" y="364" width="95" height="32" rx="16"/>
+  </g>
+  <text class="c" x="435.5" y="306" text-anchor="middle">폴더 신뢰</text>
+  <text class="c" x="557" y="306" text-anchor="middle">자동 심사 모드</text>
+  <text class="c" x="433" y="346" text-anchor="middle">되돌리기</text>
+  <text class="c" x="523" y="346" text-anchor="middle">서류함</text>
+  <text class="c" x="435.5" y="386" text-anchor="middle">회사 노트</text>
+  <text class="c" x="538.5" y="386" text-anchor="middle">예약 업무</text>
+</svg>

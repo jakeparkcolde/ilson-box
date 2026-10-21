@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" width="720" height="420" role="img" aria-label="Supabase 프로젝트 화면 왼쪽 그림 단추 메뉴에서 SQL Editor를 열고, 가운데 칸에 SQL을 붙여 넣은 뒤 Run을 눌러 Success. No rows returned가 나오는 순서를 번호로 보여 주는 화면 스케치">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .s{font-size:18px;fill:#6b7078}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+    .bar{fill:#e4e4e8}
+    .ic{fill:#ffffff;stroke:#c9ccd1;stroke-width:1.5}
+    .ig{fill:#c9ccd1}
+  </style>
+  <rect width="720" height="420" rx="16" fill="#f5f6f6"/>
+
+  <!-- dashboard window (schematic) -->
+  <rect x="32" y="24" width="656" height="332" rx="12" fill="#ffffff"/>
+  <path d="M32 60 V36 Q32 24 44 24 H676 Q688 24 688 36 V60 Z" fill="#eceef0"/>
+  <circle cx="52" cy="42" r="5" fill="#c9ccd1"/><circle cx="68" cy="42" r="5" fill="#c9ccd1"/><circle cx="84" cy="42" r="5" fill="#c9ccd1"/>
+  <!-- icon-only sidebar -->
+  <path d="M32 60 H88 V356 H44 Q32 356 32 344 Z" fill="#f8f9fa"/>
+  <path d="M88 60 V356" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="32" y="24" width="656" height="332" rx="12" fill="none" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <rect class="ic" x="45" y="77" width="30" height="30" rx="8"/><rect class="ig" x="53" y="85" width="14" height="14" rx="3"/>
+  <rect class="ic" x="45" y="121" width="30" height="30" rx="8"/><rect class="ig" x="53" y="129" width="14" height="14" rx="3"/>
+  <rect x="44" y="164" width="32" height="32" rx="8" fill="#e8eafb" stroke="#5e6ad2" stroke-width="2"/><rect x="53" y="173" width="14" height="14" rx="3" fill="#5e6ad2"/>
+  <rect class="ic" x="45" y="209" width="30" height="30" rx="8"/><rect class="ig" x="53" y="217" width="14" height="14" rx="3"/>
+  <rect class="ic" x="45" y="253" width="30" height="30" rx="8"/><rect class="ig" x="53" y="261" width="14" height="14" rx="3"/>
+
+  <!-- hover tooltip shows the name -->
+  <path d="M92 180 L100 173 V187 Z" fill="#1d1d21"/>
+  <rect x="99" y="164" width="106" height="32" rx="8" fill="#1d1d21"/>
+  <text x="152" y="186" text-anchor="middle" style="font-size:18px;fill:#ffffff">SQL Editor</text>
+  <circle cx="224" cy="180" r="14" fill="#5e6ad2"/><text class="n" x="224" y="186" text-anchor="middle">1</text>
+
+  <!-- toolbar with Run button -->
+  <rect class="bar" x="248" y="88" width="132" height="12" rx="6"/>
+  <circle cx="570" cy="94" r="14" fill="#5e6ad2"/><text class="n" x="570" y="100" text-anchor="middle">3</text>
+  <rect x="592" y="76" width="76" height="36" rx="18" fill="#5e6ad2"/>
+  <text x="630" y="100" text-anchor="middle" style="font-size:18px;font-weight:600;fill:#ffffff">Run</text>
+
+  <!-- editor area -->
+  <rect x="248" y="124" width="420" height="152" rx="10" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <circle cx="644" cy="148" r="14" fill="#5e6ad2"/><text class="n" x="644" y="154" text-anchor="middle">2</text>
+  <text class="m" x="264" y="160" style="fill:#6b7078">-- schema.sql : 예약·문의 상자 만들기</text>
+  <text class="m" x="264" y="190">create table public.reservation_…</text>
+  <rect class="bar" x="264" y="206" width="290" height="10" rx="5"/>
+  <rect class="bar" x="264" y="228" width="352" height="10" rx="5"/>
+  <rect class="bar" x="264" y="250" width="240" height="10" rx="5"/>
+
+  <!-- result -->
+  <rect x="248" y="290" width="420" height="48" rx="10" fill="#e6f3e9" stroke="#1d8a38" stroke-width="1.5"/>
+  <path d="M268 314 L275 321 L288 307" fill="none" stroke="#1d8a38" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="300" y="321" style="font-family:'SF Mono',Menlo,monospace;font-size:20px;fill:#1d8a38">Success. No rows returned</text>
+
+  <text class="s" x="32" y="392">실제 화면은 조금 다를 수 있어요</text>
+</svg>

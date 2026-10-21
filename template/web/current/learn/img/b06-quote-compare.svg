@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 470" width="720" height="470" role="img" aria-label="거래처 두 곳의 견적서가 한 표로 합쳐지고, 적혀 있지 않은 칸에 확인 필요가 표시된 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:20px;font-weight:600}
+    .h{font-size:18px;font-weight:600}
+    .c{font-size:18px}
+    .q{font-size:18px;fill:#a3720a}
+    .qm{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="470" rx="16" fill="#f5f6f6"/>
+
+  <!-- two different quote documents -->
+  <rect x="234" y="22" width="30" height="38" rx="3" fill="#ffffff" stroke="#6b7078" stroke-width="1.5"/>
+  <rect x="238" y="27" width="22" height="6" rx="1.5" fill="#9da2a9"/>
+  <path d="M239 40 H259 M239 47 H259 M239 54 H252" stroke="#c9ccd2" stroke-width="2" stroke-linecap="round"/>
+  <text class="l" x="276" y="48">거래처 1 견적서</text>
+
+  <path d="M485 22 H504 L512 30 V57 A3 3 0 0 1 509 60 H485 A3 3 0 0 1 482 57 V25 A3 3 0 0 1 485 22 Z" fill="#ffffff" stroke="#6b7078" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M504 22 V30 H512" fill="none" stroke="#6b7078" stroke-width="1.5" stroke-linejoin="round"/>
+  <rect x="486" y="27" width="8" height="8" rx="1.5" fill="#9da2a9"/>
+  <path d="M486 42 H508 M486 50 H508 M497 38 V56" stroke="#c9ccd2" stroke-width="2" stroke-linecap="round"/>
+  <text class="l" x="524" y="48">거래처 2 견적서</text>
+
+  <path d="M316 70 V92" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <path d="M564 70 V92" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- comparison table -->
+  <rect x="32" y="102" width="656" height="220" rx="12" fill="#ffffff"/>
+  <path d="M44 102 H676 A12 12 0 0 1 688 114 V146 H32 V114 A12 12 0 0 1 44 102 Z" fill="#e8eafb"/>
+  <path d="M192 102 V322 M440 102 V322 M32 146 H688 M32 190 H688 M32 234 H688 M32 278 H688" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="32" y="102" width="656" height="220" rx="12" fill="none" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="h" x="52" y="130">항목</text>
+  <text class="h" x="316" y="130" text-anchor="middle">거래처 1</text>
+  <text class="h" x="564" y="130" text-anchor="middle">거래처 2</text>
+
+  <text class="c" x="52" y="175">단가</text>
+  <text class="c" x="316" y="175" text-anchor="middle">○○,○○○원</text>
+  <text class="c" x="564" y="175" text-anchor="middle">○○,○○○원</text>
+
+  <text class="c" x="52" y="219">배송비</text>
+  <text class="c" x="316" y="219" text-anchor="middle">○○,○○○원</text>
+  <rect x="502" y="197" width="124" height="30" rx="8" fill="#f8efdc"/>
+  <circle cx="520" cy="212" r="11" fill="#a3720a"/><text class="qm" x="520" y="218" text-anchor="middle">?</text>
+  <text class="q" x="538" y="218">확인 필요</text>
+
+  <text class="c" x="52" y="263">결제 조건</text>
+  <rect x="254" y="241" width="124" height="30" rx="8" fill="#f8efdc"/>
+  <circle cx="272" cy="256" r="11" fill="#a3720a"/><text class="qm" x="272" y="262" text-anchor="middle">?</text>
+  <text class="q" x="290" y="262">확인 필요</text>
+  <text class="c" x="564" y="263" text-anchor="middle">적혀 있음</text>
+
+  <text class="c" x="52" y="307">유효 기간</text>
+  <text class="c" x="316" y="307" text-anchor="middle">적혀 있음</text>
+  <rect x="502" y="285" width="124" height="30" rx="8" fill="#f8efdc"/>
+  <circle cx="520" cy="300" r="11" fill="#a3720a"/><text class="qm" x="520" y="306" text-anchor="middle">?</text>
+  <text class="q" x="538" y="306">확인 필요</text>
+
+  <path d="M360 328 V348" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- questions to ask -->
+  <rect x="32" y="356" width="656" height="90" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="33" y="368" width="5" height="66" rx="2.5" fill="#a3720a"/>
+  <text class="l" x="60" y="390">거래처에 물어볼 것</text>
+  <circle cx="64" cy="420" r="4" fill="#a3720a"/><text class="c" x="76" y="426">거래처 2 배송비</text>
+  <circle cx="252" cy="420" r="4" fill="#a3720a"/><text class="c" x="264" y="426">거래처 1 결제 조건</text>
+  <circle cx="452" cy="420" r="4" fill="#a3720a"/><text class="c" x="464" y="426">거래처 2 유효 기간</text>
+</svg>

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" width="720" height="420" role="img" aria-label="프로젝트에 넣을 가게 소개, 대조한 가격표, 가게 약속과, 넣지 않을 손님 연락처 전체 목록, 카드·계좌 정보, 비밀번호·인증번호, 직원 개인정보를 나란히 비교한 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:22px;font-weight:600}
+    .l{font-size:20px;font-weight:600}
+    .r{font-size:20px}
+    .s{font-size:18px;fill:#6b7078}
+    .ok{fill:#1d8a38}
+    .no{fill:#c4423b}
+  </style>
+  <rect width="720" height="420" rx="16" fill="#f5f6f6"/>
+
+  <!-- left column: goes in -->
+  <rect x="32" y="24" width="316" height="264" rx="14" fill="#ffffff" stroke="#1d8a38" stroke-width="2"/>
+  <path d="M56 56 L63 63 L76 49" fill="none" stroke="#1d8a38" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="h ok" x="88" y="64">넣어요</text>
+  <path d="M52 84 H328" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <g fill="none" stroke="#1d8a38" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- doc -->
+    <g transform="translate(56 108)"><path d="M4 1 H15 L21 7 V25 H4 Z M15 1 V7 H21 M8 14 H17 M8 19 H15"/></g>
+    <!-- table -->
+    <g transform="translate(56 154)"><rect x="1" y="3" width="24" height="20" rx="3"/><path d="M1 10 H25 M1 16.5 H25 M9 3 V23"/></g>
+    <!-- clipboard -->
+    <g transform="translate(56 200)"><rect x="4" y="3" width="18" height="22" rx="3"/><rect x="9" y="0" width="8" height="5" rx="2" fill="#ffffff"/><path d="M8 12 H18 M8 17 H18 M8 21 H14"/></g>
+  </g>
+  <text class="r" x="96" y="128">가게 소개 <tspan class="s">(4강)</tspan></text>
+  <text class="r" x="96" y="174">대조한 가격표 <tspan class="s">(6강)</tspan></text>
+  <text class="r" x="96" y="220">가게 약속 <tspan class="s">(지침)</tspan></text>
+
+  <!-- right column: never goes in -->
+  <rect x="372" y="24" width="316" height="264" rx="14" fill="#f8e3e1" stroke="#c4423b" stroke-width="2"/>
+  <g fill="none" stroke="#c4423b" stroke-width="2.6" stroke-linecap="round">
+    <circle cx="406" cy="56" r="10"/>
+    <path d="M399 63 L413 49"/>
+  </g>
+  <text class="h no" x="428" y="64">넣지 않아요</text>
+  <path d="M392 84 H668" stroke="#e9b8b3" stroke-width="1.5"/>
+
+  <g fill="none" stroke="#c4423b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- person -->
+    <g transform="translate(396 108)"><circle cx="13" cy="8" r="5.5"/><path d="M3 25 C3 16 23 16 23 25"/></g>
+    <!-- card -->
+    <g transform="translate(396 154)"><rect x="1" y="5" width="24" height="17" rx="3"/><path d="M1 10.5 H25 M5 17 H11"/></g>
+    <!-- lock -->
+    <g transform="translate(396 200)"><rect x="4" y="11" width="18" height="14" rx="3"/><path d="M8 11 V8 A5 5 0 0 1 18 8 V11 M13 16 V20"/></g>
+    <!-- staff id badge -->
+    <g transform="translate(396 246)"><rect x="1" y="4" width="24" height="19" rx="3"/><circle cx="8" cy="11.5" r="3"/><path d="M4 19 Q8 14.5 12 19 M15 10.5 H22 M15 15.5 H20"/></g>
+  </g>
+  <text class="r" x="436" y="128">손님 연락처 전체 목록</text>
+  <text class="r" x="436" y="174">카드·계좌 정보</text>
+  <text class="r" x="436" y="220">비밀번호·인증번호</text>
+  <text class="r" x="436" y="266">직원 개인정보</text>
+
+  <!-- reason band -->
+  <rect x="32" y="308" width="656" height="52" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="l" x="360" y="341" text-anchor="middle">프로젝트 자료는 이 프로젝트의 모든 대화가 읽어요</text>
+</svg>

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 364" width="720" height="364" role="img" aria-label="문제가 생기면 즉시 되돌리기로 바로 앞 배포로 돌아가고, 고친 뒤 올리고 되돌리기 취소를 눌러야 다시 자동으로 바뀐다는 흐름과, 평소에는 git revert로 되돌려 올리는 길을 함께 보여 주는 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .k{font-size:20px;font-weight:600;fill:#6b7078}
+    .l{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .w{font-size:18px;font-weight:600;fill:#a3720a}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#1d1d21}
+    .card{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+    .a{stroke:#6b7078;stroke-width:2;fill:none}
+  </style>
+  <rect width="720" height="364" rx="16" fill="#f5f6f6"/>
+
+  <!-- urgent lane -->
+  <text class="k" x="32" y="46">급할 때</text>
+
+  <rect x="32" y="62" width="144" height="112" rx="12" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="l" x="104" y="96" text-anchor="middle">Instant</text>
+  <text class="l" x="104" y="122" text-anchor="middle">Rollback</text>
+  <text class="s" x="104" y="152" text-anchor="middle">즉시 되돌리기</text>
+
+  <path class="a" d="M180 118 H202" marker-end="url(#arrow)"/>
+
+  <rect x="206" y="62" width="150" height="112" rx="12" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+  <text class="l" x="281" y="96" text-anchor="middle">바로 앞 배포로</text>
+  <text class="s" x="281" y="122" text-anchor="middle">(Hobby)</text>
+  <text class="w" x="281" y="152" text-anchor="middle">올려도 안 바뀌어요</text>
+
+  <path class="a" d="M360 118 H382" marker-end="url(#arrow)"/>
+
+  <rect class="card" x="386" y="62" width="124" height="112" rx="12"/>
+  <text class="l" x="448" y="112" text-anchor="middle">고쳐서</text>
+  <text class="l" x="448" y="138" text-anchor="middle">올리기</text>
+
+  <path class="a" d="M514 118 H536" marker-end="url(#arrow)"/>
+
+  <rect x="540" y="62" width="148" height="112" rx="12" fill="#e6f3e9" stroke="#1d8a38" stroke-width="2"/>
+  <text class="l" x="614" y="96" text-anchor="middle">Undo</text>
+  <text class="l" x="614" y="122" text-anchor="middle">Rollback</text>
+  <text class="s" x="614" y="152" text-anchor="middle">다시 자동 반영</text>
+
+  <!-- everyday lane -->
+  <text class="k" x="32" y="222">평소에</text>
+
+  <rect class="card" x="32" y="238" width="168" height="94" rx="12"/>
+  <text class="m" x="116" y="276" text-anchor="middle">git revert</text>
+  <text class="s" x="116" y="306" text-anchor="middle">되돌린 저장 남기기</text>
+
+  <path class="a" d="M206 285 H238" marker-end="url(#arrow)"/>
+
+  <rect class="card" x="244" y="238" width="124" height="94" rx="12"/>
+  <text class="l" x="306" y="278" text-anchor="middle">올리기</text>
+  <text class="s" x="306" y="306" text-anchor="middle">(push)</text>
+
+  <path class="a" d="M374 285 H406" marker-end="url(#arrow)"/>
+
+  <rect x="412" y="238" width="124" height="94" rx="12" fill="#e6f3e9" stroke="#1d8a38" stroke-width="2"/>
+  <text class="l" x="474" y="292" text-anchor="middle">새 배포</text>
+</svg>

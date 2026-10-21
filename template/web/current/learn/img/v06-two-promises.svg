@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 364" width="720" height="364" role="img" aria-label="insert 뒤에 select를 붙이거나 로그인 정보를 그대로 쓰면 42501로 거절되고, 검증한 코드처럼 보내기만 하고 손님으로 보내면 저장되는 것을 나란히 놓은 비교 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:22px;font-weight:600}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px}
+    .bad{font-size:20px;font-weight:600;fill:#c4423b}
+    .good{font-size:20px;font-weight:600;fill:#1d8a38}
+  </style>
+  <rect width="720" height="364" rx="16" fill="#f5f6f6"/>
+
+  <!-- left: if you change it -->
+  <rect x="32" y="32" width="312" height="244" rx="14" fill="#f8e3e1" stroke="#c4423b" stroke-width="1.5"/>
+  <circle cx="68" cy="65" r="12" fill="none" stroke="#c4423b" stroke-width="2"/>
+  <path d="M63 60 L73 70 M73 60 L63 70" stroke="#c4423b" stroke-width="2" stroke-linecap="round"/>
+  <text class="h" x="90" y="73" style="fill:#c4423b">이렇게 바꾸면</text>
+  <text class="m" x="56" y="120">.insert(…).select()</text>
+  <text class="bad" x="56" y="153">→ 42501, 저장 안 돼요</text>
+  <path d="M56 178 H320" stroke="#e7b9b5" stroke-width="1.5"/>
+  <text x="56" y="214" style="font-size:18px"><tspan class="m">persistSession</tspan> 없음</text>
+  <text class="bad" x="56" y="247">→ 사장님 로그인 중이면 42501</text>
+
+  <!-- right: verified code -->
+  <rect x="376" y="32" width="312" height="244" rx="14" fill="#ffffff" stroke="#1d8a38" stroke-width="2"/>
+  <circle cx="412" cy="65" r="12" fill="none" stroke="#1d8a38" stroke-width="2"/>
+  <path d="M406 65 L410 69 L418 60" fill="none" stroke="#1d8a38" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="h" x="434" y="73" style="fill:#1d8a38">검증한 코드</text>
+  <text class="m" x="400" y="120">.insert(…)</text>
+  <text class="good" x="400" y="153">→ 저장돼요</text>
+  <path d="M400 178 H664" stroke="#cfe6d5" stroke-width="1.5"/>
+  <text class="m" x="400" y="214">persistSession: false</text>
+  <text class="good" x="400" y="247">→ 언제나 손님으로 보내요</text>
+</svg>

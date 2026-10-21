@@ -1,0 +1,277 @@
+{
+  "id": "v06",
+  "track": "vibe",
+  "part": 2,
+  "number": 6,
+  "title": "예약 요청 보내 보기",
+  "subtitle": "검증한 코드로 보내기를 진짜로 바꾸고, 손님 눈으로 읽을 수 없는지 돌다리를 두드려요",
+  "minutes": 25,
+  "surface": "both",
+  "checked": "2026-10-21",
+  "cover": {
+    "src": "img/v06-send-only.svg",
+    "alt": "개인 창의 예약 화면에서 보낸 요청은 Supabase 예약 표에 한 줄로 들어가고, 같은 손님이 표를 읽으려 하면 42501로 거절되는 그림",
+    "caption": "보내기는 되고, 읽기는 42501. 둘 다 확인해야 이번 강이 끝나요."
+  },
+  "outcome": [
+    "Supabase에 진짜로 보내는 예약 화면 (`public/config.js`, `public/reserve.js`, 고친 `public/reserve.html`)",
+    "Table Editor에 「새 요청」으로 들어온 연습 요청 한 줄",
+    "개인 창에서 확인한 「손님은 읽을 수 없음」(42501)과 마감 저장"
+  ],
+  "prepare": [
+    "심화 5강의 「Supabase 공개 값」 메모 (프로젝트 주소와 publishable key)",
+    "작업 폴더 `~/Projects/haetsal-booking`과 심화 4강의 「마감 저장」 메모",
+    "Supabase 프로젝트 화면을 연 브라우저 창"
+  ],
+  "steps": [
+    {
+      "title": "검증한 코드로 바꾸는 계획 듣기",
+      "why": "시험을 마친 코드를 그대로 쓰면, 손님 요청이 거절되거나 엉뚱한 곳으로 가는 일을 피할 수 있어요.",
+      "body": [
+        "아래 상자에는 손님 예약 화면의 코드 세 조각이 들어 있어요. 2026-10-21에 실제 supabase-js(Supabase가 만든 브라우저용 도구)로 시험해 보내기, 거절, 오류 안내가 모두 맞게 동작했어요.",
+        "손님이 보는 파일은 모두 `public` 폴더 안에 있어요. 작업 약속(`CLAUDE.md`) 같은 파일은 바깥 맨 위 폴더에 그대로 둬요.",
+        "아래 명령으로 작업 폴더의 Claude를 열고 부탁 문장을 붙여 넣어요. 맨 아래 [검증한 코드] 줄 다음에 상자 내용을, 그다음에 메모 앱의 「Supabase 공개 값」 메모를 이어 붙여 보내요.",
+        "심화 3강에서는 인터넷에서 아무것도 불러오지 않기로 했어요. 이번에는 supabase-js 한 줄만 예외로 두고, 그 예외를 작업 약속에 적어 둬요."
+      ],
+      "command": {
+        "text": "cd ~/Projects/haetsal-booking && claude"
+      },
+      "prompt": {
+        "text": "작업 약속(CLAUDE.md)을 먼저 읽어 주세요.\npublic/reserve.html의 「예약 요청 보내기」를 Supabase에 진짜로 보내게 바꾸려고 해요. 맨 아래 [검증한 코드]는 시험을 마친 코드라 글자 그대로 써 주세요.\n- public/config.js: [검증한 코드]의 config.js 그대로 만들고, 따옴표 안의 두 값은 맨 아래에 이어 붙이는 「Supabase 공개 값」 메모에서 가져와 주세요.\n- public/reserve.html: 폼이 [검증한 코드]의 폼 부분과 같은지 보고, 다른 곳만 맞춰 주세요. 칸의 name은 바꾸지 말고, 가게 소개 글과 style.css 연결은 그대로 두세요. 폼 아래에 스크립트 세 줄을 [검증한 코드] 순서대로 넣어 주세요.\n- supabase-js 주소 끝의 @2는 @2.118.0으로 고정해 주세요.\n- public/reserve.js: [검증한 코드]의 reserve.js로 통째로 바꿔 주세요. insert 뒤에 .select()를 붙이지 말고, persistSession: false는 그대로 두세요.\n- CLAUDE.md: '인터넷에서 불러오는 것은 https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0 하나뿐'이라는 한 줄을 더해 주세요.\n- 동의 안내 글은 심화 8강에서 붙일 거라 지금은 더하지 마세요.\n- 이 작업에는 secret key가 필요 없어요. 필요해 보이면 멈추고 까닭만 알려 주세요.\n- 이 네 파일 말고는 만들거나 고치지 마세요.\n바로 고치지 말고, 파일마다 무엇을 바꿀지 계획을 말로 먼저 보여 주세요. [검증한 코드]와 다르게 해야 할 곳이 있으면 고치지 말고 [확인 필요]로 알려 주세요.\n\n[검증한 코드]",
+        "note": "긴 글은 붙여 넣으면 `[Pasted text #1 …]`처럼 줄어 보여서 중간을 고칠 수 없어요. 그래서 고칠 곳 없이 맨 아래에 차례로 이어 붙이기만 해요. 줄을 바꿀 때는 shift+return이에요."
+      },
+      "file": {
+        "src": "files/v06-reserve-code.txt",
+        "label": "손님 예약 화면 코드 (config.js · reserve.html 폼 · reserve.js)",
+        "note": "「복사」로 통째로 복사해 부탁 문장 맨 아래에 이어 붙여요. 그다음 「Supabase 공개 값」 메모를 이어 붙여요."
+      },
+      "success": "Claude가 네 파일마다 바꿀 내용을 말로 보여 주고, 아직 파일은 그대로라면 성공이에요.",
+      "caution": "프로젝트 주소와 publishable key는 공개해도 되는 값이라 대화에 붙여 넣어도 돼요. secret key와 데이터베이스 비밀번호는 절대 붙여 넣지 않아요."
+    },
+    {
+      "title": "시험 서버를 켜고 한 건 보내 보기",
+      "why": "보낸 요청이 예약 표에 실제로 들어가는 것을 봐야, 손님에게 내놓을 수 있어요.",
+      "body": [
+        "계획에 「@2.118.0」과 「.select()를 붙이지 않음」이 들어 있으면 「좋아요, 계획대로 해 주세요」라고 보내요.",
+        "다 되면 새 터미널 창(⌘+N)에 아래 명령을 넣어요. 이 Mac 안에서만 열리는 **시험 서버**가 켜지고, `public` 폴더의 파일만 보여 줘요.",
+        "이 시험 서버로 연 화면이 실제 Supabase와 주고받는 것은 2026-10-21에 실제 계정으로 확인했어요. 파일을 두 번 눌러 여는 방식은 쓰지 않아요.",
+        "Safari 주소창에 `http://127.0.0.1:8000/reserve.html`을 넣어요. 이름은 「연습 손님」, 연락처는 「연습 연락처」처럼 지어낸 글로 채우고 동의에 체크해 보내요.",
+        "그다음 Supabase의 Table Editor에서 `reservation_requests`를 열어요. 방금 보낸 요청이 한 줄 생기고, `status` 칸에 「새 요청」이 적혀 있어요."
+      ],
+      "command": {
+        "text": "cd ~/Projects/haetsal-booking && python3 -m http.server 8000 --bind 127.0.0.1 --directory public",
+        "note": "`--bind 127.0.0.1`은 「이 Mac에서만」, `--directory public`은 「손님용 폴더만 보여 주기」예요. 시험하는 동안 이 창은 켜 둬요."
+      },
+      "success": "예약 화면에 「예약 요청을 받았어요. 가게에서 확인한 뒤 연락드릴게요.」가 나오고, Table Editor에 요청 한 줄이 보이면 성공이에요.",
+      "tip": "시험 서버는 이 Mac에서만 열려서 휴대폰이나 다른 사람은 들어올 수 없어요. 다 쓰면 그 창에서 control+C를 눌러 꼭 멈춰요(4단계).",
+      "caution": "진짜 손님 이름이나 내 휴대폰 번호는 넣지 않아요. 동의 안내가 붙는 심화 8강 전까지는 지어낸 연습 값만 보내요."
+    },
+    {
+      "title": "돌다리: 개인 창에서 손님 눈으로 두드리기",
+      "why": "보내기가 된다고 끝이 아니에요. 다른 손님의 요청을 읽을 수 없는지까지 확인해야 손님 정보를 맡을 수 있어요.",
+      "body": [
+        "기본 과정 7강의 돌다리처럼, 이번에는 「읽기가 정말 막혔나」를 직접 두드려요. 공식 안내도 확인할 수 없으면 내보내지 말라고 해요.",
+        "아래 부탁으로 Claude에게 읽기 시험용 임시 파일을 만들게 해요. 작업 약속의 파일 목록에 없는 파일이라 먼저 물으면 「네, 시험이 끝나면 지울 거예요」라고 답해요.",
+        "Safari에서 shift+⌘+N으로 개인 창을 열어요. 로그인 기록이 하나도 없는, 처음 온 손님의 브라우저와 같아요.",
+        "개인 창 주소창에 `http://127.0.0.1:8000/read-test.html`을 넣어요. 시험 서버는 2단계에서 켠 그대로 두면 돼요."
+      ],
+      "prompt": {
+        "text": "읽기 시험을 하려고 해요. public 폴더에 임시 파일 read-test.html을 하나만 만들어 주세요.\n- reserve.html처럼 @2.118.0으로 고정한 supabase-js와 config.js를 불러와 주세요.\n- reserve.js와 똑같이 persistSession: false로 손님용 연결을 만들고, 열자마자 reservation_requests 표를 select('*')로 읽어 보게 해 주세요.\n- 결과는 textContent로만 큰 글씨로 보여 주세요. 오류면 오류 번호(code)와 메시지를, 읽혔으면 몇 건인지를요.\n- 이 파일은 시험이 끝나면 지울 거라 저장(commit)하지 말아 주세요. 다른 파일은 고치지 마세요.\n만들기 전에 계획을 짧게 말해 주세요.",
+        "note": "이 시험 파일은 손님 예약 화면과 똑같은 공개 값만 써요. 손님이 할 수 있는 일을 그대로 해 보는 거예요."
+      },
+      "figure": {
+        "src": "img/v06-private-window.svg",
+        "alt": "개인 창에서 읽기 시험 화면이 42501과 permission denied를 보여 주고, 그 결과가 손님은 읽을 수 없다는 뜻이라는 설명과 0건이나 목록이 보이면 멈추라는 경고가 붙은 화면 스케치",
+        "caption": "개인 창에서 42501이 보이면 돌다리를 건너도 돼요. 실제 화면은 조금 다를 수 있어요."
+      },
+      "success": "개인 창의 시험 화면에 `42501`과 「permission denied for table reservation_requests」(이 표에 대한 권한 없음)가 보이면 성공이에요. 손님은 읽을 수 없다는 뜻이에요.",
+      "tip": "같은 개인 창에서 `http://127.0.0.1:8000/reserve.html`도 열어 연습 요청을 한 건 보내 보세요. 처음 온 손님도 보낼 수는 있는지 함께 확인돼요.",
+      "caution": "「0건」이나 요청 목록이 보이면 여기서 멈춰요. 읽기 권한이 열려 있다는 뜻이라 심화 9강의 공개로 넘어가지 않고, 아래 「잘 안 될 때」를 봐요. `PGRST205`나 `42P01`처럼 다른 번호가 보이면 표 이름(`reservation_requests`)부터 확인해요."
+    },
+    {
+      "title": "시험 파일 지우고, 서버 멈추고, 마감 저장하기",
+      "why": "시험 파일을 남겨 두면 나중에 공개 페이지에 섞여 올라갈 수 있어요. 켜 둔 서버도 쓸 때만 켜요.",
+      "body": [
+        "아래 부탁을 보내면 Claude가 지우기 전에 허락을 물어요. 질문 속 파일 이름이 `public/read-test.html`인지 읽고 허락해요.",
+        "시험 서버 창으로 가서 control+C를 눌러요. `%` 줄이 다시 보이면 멈춘 거예요.",
+        "그다음 메모 앱의 「마감 저장」을 복사해 보내요(심화 4강). 바뀐 파일 목록에 `CLAUDE.md`, `public/config.js`, `public/reserve.html`, `public/reserve.js`만 있는지 봐요.",
+        "`config.js`는 공개해도 되는 두 값만 담고 있어서 비공개 저장소에 올려도 돼요."
+      ],
+      "prompt": {
+        "text": "읽기 시험이 끝났어요. public/read-test.html만 지워 주세요. 지우기 전에 무엇을 지우는지 말하고 허락을 받아 주세요.\n그 밖의 파일은 그대로 두세요."
+      },
+      "success": "시험 서버를 멈췄고, 마감 저장이 끝나 저장 메시지와 올린 결과가 보이면 이번 강은 끝이에요.",
+      "tip": "Claude가 `config.js`의 publishable key를 비밀값으로 보고 멈추면 「publishable key는 공개해도 되는 값이에요. 저장해 주세요」라고 답해요. `sb_secret_`로 시작하는 값이 보였다면 멈춘 게 맞으니 저장하지 않아요."
+    }
+  ],
+  "explain": [
+    {
+      "heading": "손님 화면 코드가 지키는 두 가지",
+      "body": [
+        "`.select()`를 붙이지 않아요. Supabase는 보낸 줄을 돌려받으려면 `.select()`를 이어 붙이라고 안내하지만, 손님에게는 읽기 권한이 없어서 붙이면 보내기까지 실패하고 아무것도 저장되지 않아요.",
+        "`persistSession: false`로 로그인 정보를 쓰지 않아요. 이 줄이 없으면 같은 브라우저에서 사장님이 로그인해 있을 때 손님 요청이 사장님 이름으로 가서 `42501`로 거절되는 것을 시험에서 봤어요.",
+        "supabase-js 주소의 `@2`는 늘 가장 새 2.x 판을 불러와요. `@2.118.0`처럼 고정하면 다 만든 페이지가 어느 날 저절로 바뀌지 않아요."
+      ],
+      "figure": {
+        "src": "img/v06-two-promises.svg",
+        "alt": "insert 뒤에 select를 붙이거나 로그인 정보를 그대로 쓰면 42501로 거절되고, 검증한 코드처럼 보내기만 하고 손님으로 보내면 저장되는 것을 나란히 놓은 비교 그림",
+        "caption": "보내기만, 손님으로. 두 줄 중 하나라도 빠지면 요청이 거절될 수 있어요."
+      }
+    },
+    {
+      "heading": "손님에게는 쉬운 말로",
+      "body": [
+        "손님 화면은 오류 번호 대신 쉬운 말을 보여 줘요. 원인은 브라우저의 개발자 도구에만 남아요."
+      ],
+      "table": {
+        "head": [
+          "손님이 보는 말",
+          "흔한 까닭"
+        ],
+        "rows": [
+          [
+            "빈칸이나 너무 긴 글이 있어요…",
+            "이름·연락처가 비었거나 글자 수 제한을 넘었어요 (23502, 23514)"
+          ],
+          [
+            "날짜를 다시 골라 주세요.",
+            "날짜 모양이 틀렸어요 (22007, 22008)"
+          ],
+          [
+            "지금은 보내지 못했어요… 가게로 전화 주세요.",
+            "주소·열쇠가 틀렸거나, 연결이 끊겼거나, 권한 문제예요 (42501 등)"
+          ]
+        ]
+      }
+    },
+    {
+      "heading": "이번 강에서 본 말",
+      "table": {
+        "head": [
+          "화면 글자",
+          "뜻"
+        ],
+        "rows": [
+          [
+            "supabase-js",
+            "Supabase에 보내고 받는 일을 맡는 브라우저용 도구"
+          ],
+          [
+            "CDN",
+            "여러 사이트가 함께 쓰는 도구 파일을 인터넷에서 내려 주는 곳"
+          ],
+          [
+            "`public` 폴더",
+            "손님이 보는 파일만 모아 두는 폴더 (심화 9강에서 이 폴더만 공개해요)"
+          ],
+          [
+            "시험 서버 `127.0.0.1:8000`",
+            "이 Mac 안에서만 열리는 시험용 주소. 다 쓰면 control+C로 멈춰요"
+          ],
+          [
+            "`insert` / `select`",
+            "표에 새 줄 넣기(보내기) / 표에서 줄 읽기"
+          ],
+          [
+            "`42501`",
+            "권한이 없어 거절됨"
+          ],
+          [
+            "개인 창",
+            "로그인 기록과 방문 기록을 남기지 않는 브라우저 창"
+          ]
+        ]
+      }
+    }
+  ],
+  "trouble": [
+    {
+      "symptom": "보내면 「지금은 보내지 못했어요」가 나와요",
+      "fix": "주소창이 `http://127.0.0.1:8000/`으로 시작하는지, 시험 서버 창이 켜져 있는지, Supabase 프로젝트가 멈추지 않았는지(심화 10강) 먼저 봐요. 그다음 아래 문장 뒤에 「Supabase 공개 값」 메모를 이어 붙여 보내요. 그래도 안 되면 이 Mac에서의 시험은 멈추고, 심화 9강에서 Vercel 주소가 생긴 뒤 그 주소로 2·3단계를 해요.",
+      "prompt": "public/reserve.html을 시험 서버(http://127.0.0.1:8000)로 열어 보내면 '지금은 보내지 못했어요'가 나와요.\n- public/config.js의 두 값이 맨 아래에 이어 붙이는 「Supabase 공개 값」 메모와 글자 하나까지 같은지 확인해 주세요.\n- supabase-js 주소가 @2.118.0인지, supabase-js → config.js → reserve.js 순서로 불러오는지 봐 주세요.\n검증한 reserve.js의 내용은 바꾸지 말고, 원인 후보를 쉬운 말로 먼저 알려 주세요."
+    },
+    {
+      "symptom": "읽기 시험에 「0건」이나 요청 목록이 나와요",
+      "fix": "읽기 권한이 열려 있다는 뜻이에요. 지금 표는 손대지 말고, Supabase에 새 프로젝트를 만들어 심화 5강을 처음부터 다시 해요. 무료로 켜 둘 수 있는 프로젝트는 두 개라 자리는 있어요. 옛 프로젝트에는 진짜 손님 정보를 넣지 않고, 일주일 넘게 쓰지 않으면 저절로 멈춰요. 새 메모가 생기면 아래 문장 뒤에 이어 붙여 보내요.",
+      "prompt": "Supabase 프로젝트를 새로 만들었어요. public/config.js의 두 값만, 맨 아래에 이어 붙이는 새 「Supabase 공개 값」 메모의 값으로 바꿔 주세요.\npublic/config.js 말고는 고치지 마세요. 바꾼 뒤 public/read-test.html로 읽기 시험을 다시 할 수 있게 알려 주세요."
+    },
+    {
+      "symptom": "Claude가 `.select()`를 붙이거나 `persistSession: false`를 빼자고 해요",
+      "fix": "검증한 코드는 바로 그 두 가지 덕분에 맞게 동작해요. 아래 문장으로 되돌리게 해요.",
+      "prompt": "public/reserve.js는 [검증한 코드] 그대로 두고 싶어요.\ninsert 뒤의 .select()는 빼고, createClient의 persistSession: false는 그대로 두세요.\n지금 reserve.js가 검증한 코드와 다른 곳만 먼저 보여 주세요. 제가 좋다고 하면 되돌려 주세요."
+    }
+  ],
+  "checklist": [
+    "검증한 코드로 `public` 폴더의 세 파일을 바꾸고 supabase-js를 `@2.118.0`으로 고정했어요",
+    "시험 서버로 보낸 연습 요청이 Table Editor에 「새 요청」으로 들어온 것을 봤어요",
+    "개인 창의 읽기 시험에서 `42501`을 봤어요",
+    "시험 파일을 지우고 시험 서버를 멈춘 뒤 마감 저장을 했어요"
+  ],
+  "keep": [
+    "손님 화면은 보내기만, 로그인 정보 없이.",
+    "보내기가 되면 읽기가 막혔는지까지 두드려요.",
+    "시험 서버는 쓸 때만 켜고, 다 쓰면 control+C."
+  ],
+  "links": [
+    {
+      "label": "supabase-js 불러오기 (영어)",
+      "url": "https://supabase.com/docs/reference/javascript/installing"
+    },
+    {
+      "label": "supabase-js insert 안내 (영어)",
+      "url": "https://supabase.com/docs/reference/javascript/insert"
+    },
+    {
+      "label": "Supabase API 열쇠 안내 (영어)",
+      "url": "https://supabase.com/docs/guides/api/api-keys"
+    }
+  ],
+  "sources": [
+    {
+      "label": "Installing: CDN 한 줄로 supabase-js 불러오기, 표가 열려 있어야 동작",
+      "url": "https://supabase.com/docs/reference/javascript/installing"
+    },
+    {
+      "label": "Initializing: 브라우저용 연결과 publishable key",
+      "url": "https://supabase.com/docs/reference/javascript/initializing"
+    },
+    {
+      "label": "Insert: 넣은 줄은 돌려주지 않고, 돌려받으려면 .select()",
+      "url": "https://supabase.com/docs/reference/javascript/insert"
+    },
+    {
+      "label": "API keys: publishable key는 웹 페이지에 넣어도 됨",
+      "url": "https://supabase.com/docs/guides/api/api-keys"
+    },
+    {
+      "label": "Row Level Security: anon은 로그인하지 않은 요청",
+      "url": "https://supabase.com/docs/guides/database/postgres/row-level-security"
+    },
+    {
+      "label": "Changelog: 권한이 없으면 42501 permission denied",
+      "url": "https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically"
+    },
+    {
+      "label": "Billing FAQ: 무료 프로젝트 두 개",
+      "url": "https://supabase.com/docs/guides/platform/billing-faq"
+    },
+    {
+      "label": "Free project pausing: 일주일 동안 쓰임이 적으면 멈춤",
+      "url": "https://supabase.com/docs/guides/platform/free-project-pausing"
+    },
+    {
+      "label": "Best practices: 확인할 수 없으면 내보내지 않기",
+      "url": "https://code.claude.com/docs/en/best-practices.md"
+    },
+    {
+      "label": "Memory: 작업 약속(CLAUDE.md)은 저장소로 함께 공유",
+      "url": "https://code.claude.com/docs/en/memory.md"
+    }
+  ],
+  "history": [
+    {
+      "date": "2026-10-21",
+      "note": "처음 작성"
+    }
+  ]
+}

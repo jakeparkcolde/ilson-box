@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 440" width="720" height="440" role="img" aria-label="두꺼운 꽃꽂이 교본의 차례에 스킬 이름과 설명이 한 줄씩 실려 있고, 맞는 부탁이 오면 그 장이 펼쳐져 일 순서·실행할 명령·필요한 파일이 보이는 개념도">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5e6ad2" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#5e6ad2" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#5e6ad2" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .hb{font-size:22px;font-weight:700}
+    .l{font-size:20px;font-weight:600}
+    .r{font-size:20px}
+    .s{font-size:18px;fill:#6b7078}
+    .mn{font-family:'SF Mono',Menlo,monospace;font-size:20px;font-weight:600}
+    .ms{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#6b7078}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+    .ln{fill:none;stroke:#6b7078;stroke-width:2}
+    .dots{fill:none;stroke:#b8bcc2;stroke-width:2.5;stroke-linecap:round;stroke-dasharray:0 6}
+  </style>
+  <rect width="720" height="440" rx="16" fill="#f5f6f6"/>
+
+  <!-- request -->
+  <path d="M46 24 H270 Q284 24 284 38 V62 Q284 76 270 76 H74 L60 88 L62 76 H46 Q32 76 32 62 V38 Q32 24 46 24 Z" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5" stroke-linejoin="round"/>
+  <text class="r" x="52" y="57">꽃집 업계 최근 소식 찾아 줘</text>
+
+  <!-- contents page of a thick handbook -->
+  <path d="M40 104 H238 Q250 104 250 116 V332 Q250 344 238 344 H40 Z" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="32" y="104" width="13" height="240" rx="4" fill="#c9ccd1"/>
+  <path d="M48 106 V342" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="hb" x="60" y="140">차례</text>
+  <text class="ms" x="60" y="166">.claude/skills</text>
+  <path d="M60 180 H236" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <rect x="52" y="190" width="190" height="68" rx="10" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="mn" x="64" y="218">ilson-search</text>
+  <path class="dots" d="M66 241 H86"/>
+  <text class="s" x="232" y="246" text-anchor="end">웹 검색 · 최신 소식</text>
+
+  <text class="mn" x="64" y="296">ilson-motion</text>
+  <path class="dots" d="M66 319 H96"/>
+  <text class="s" x="232" y="324" text-anchor="end">모션그래픽 · 영상</text>
+
+  <path class="ln" d="M228 80 V182" marker-end="url(#arrow)"/>
+  <text class="l" x="141" y="378" text-anchor="middle" style="fill:#6b7078">평소엔 차례만</text>
+
+  <path class="ln" d="M242 224 H268" marker-end="url(#arrow)"/>
+
+  <!-- the chapter, opened as a two-page spread -->
+  <rect x="276" y="120" width="412" height="208" rx="14" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <rect x="462" y="121" width="24" height="206" fill="url(#fold)"/>
+  <path d="M474 124 V324" stroke="#5e6ad2" stroke-opacity="0.35" stroke-width="1.5"/>
+  <path d="M648 120 V150 L657 143 L666 150 V120" fill="#5e6ad2"/>
+
+  <text class="mn" x="296" y="164">ilson-search</text>
+  <rect x="296" y="186" width="160" height="12" rx="6" fill="#ffffff"/>
+  <rect x="296" y="210" width="138" height="12" rx="6" fill="#ffffff"/>
+  <rect x="296" y="234" width="154" height="12" rx="6" fill="#ffffff"/>
+  <rect x="296" y="258" width="112" height="12" rx="6" fill="#ffffff"/>
+  <rect x="296" y="282" width="146" height="12" rx="6" fill="#ffffff"/>
+
+  <circle cx="496" cy="176" r="12" fill="#5e6ad2"/><text class="n" x="496" y="182" text-anchor="middle">1</text>
+  <text class="r" x="516" y="183">SKILL.md · 일 순서</text>
+  <circle cx="496" cy="224" r="12" fill="#5e6ad2"/><text class="n" x="496" y="230" text-anchor="middle">2</text>
+  <text class="r" x="516" y="231">실행할 명령</text>
+  <circle cx="496" cy="272" r="12" fill="#5e6ad2"/><text class="n" x="496" y="278" text-anchor="middle">3</text>
+  <text class="r" x="516" y="279">필요한 파일</text>
+
+  <text class="l" x="462" y="378" text-anchor="middle">맞는 일이 오면 그 장을 펼쳐 읽어요</text>
+</svg>

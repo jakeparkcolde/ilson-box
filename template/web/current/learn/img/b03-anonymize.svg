@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" width="720" height="400" role="img" aria-label="손님 이름, 전화번호, 주소가 그대로 있는 메시지와, 손님 A, 별표 번호, ○○동으로 바꾼 메시지를 나란히 비교한 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:20px;font-weight:700}
+    .r{font-size:20px}
+    .d{font-size:20px;font-weight:600;fill:#c4423b}
+    .g{font-size:20px;font-weight:600;fill:#1d8a38}
+    .a{font-size:20px;font-weight:700}
+  </style>
+  <rect width="720" height="400" rx="16" fill="#f5f6f6"/>
+
+  <!-- before -->
+  <rect x="32" y="32" width="284" height="336" rx="14" fill="#ffffff" stroke="#c4423b" stroke-width="1.5"/>
+  <text class="h" x="54" y="70" style="fill:#c4423b">보내기 전 (그대로)</text>
+  <path d="M52 90 H 296" stroke="#e4e4e8" stroke-width="1.5"/>
+  <g fill="#c4423b" fill-opacity="0.12">
+    <rect x="50" y="110" width="78" height="34" rx="8"/>
+    <rect x="50" y="158" width="160" height="34" rx="8"/>
+    <rect x="50" y="206" width="136" height="34" rx="8"/>
+  </g>
+  <text class="d" x="89" y="134" text-anchor="middle">홍길동</text>
+  <text class="r" x="134" y="134">손님</text>
+  <text class="d" x="130" y="182" text-anchor="middle">010-1234-5678</text>
+  <text class="d" x="118" y="230" text-anchor="middle">햇살로 12, 3층</text>
+  <text class="r" x="192" y="230">으로 배달</text>
+  <path d="M52 262 H 296" stroke="#e4e4e8" stroke-width="1.5" stroke-dasharray="5 5"/>
+  <text class="r" x="54" y="300">어제 받은 꽃다발이</text>
+  <text class="r" x="54" y="330">설명과 달라요</text>
+
+  <!-- action -->
+  <text class="a" x="360" y="178" text-anchor="middle">가리기</text>
+  <path d="M326 192 H 368 V 180 L 394 200 L 368 220 V 208 H 326 Z" fill="#6b7078" stroke="#6b7078" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- after -->
+  <rect x="404" y="32" width="284" height="336" rx="14" fill="#ffffff" stroke="#1d8a38" stroke-width="1.5"/>
+  <text class="h" x="426" y="70" style="fill:#1d8a38">보낼 때 (가려서)</text>
+  <path d="M424 90 H 668" stroke="#e4e4e8" stroke-width="1.5"/>
+  <g fill="#1d8a38" fill-opacity="0.12">
+    <rect x="422" y="110" width="80" height="34" rx="8"/>
+    <rect x="422" y="158" width="134" height="34" rx="8"/>
+    <rect x="422" y="206" width="78" height="34" rx="8"/>
+  </g>
+  <text class="g" x="462" y="134" text-anchor="middle">손님 A</text>
+  <text class="g" x="489" y="182" text-anchor="middle">010-****-****</text>
+  <text class="g" x="461" y="230" text-anchor="middle">○○동</text>
+  <text class="r" x="506" y="230">으로 배달</text>
+  <path d="M424 262 H 668" stroke="#e4e4e8" stroke-width="1.5" stroke-dasharray="5 5"/>
+  <text class="r" x="426" y="300">어제 받은 꽃다발이</text>
+  <text class="r" x="426" y="330">설명과 달라요</text>
+</svg>

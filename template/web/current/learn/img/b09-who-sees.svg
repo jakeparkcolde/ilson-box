@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" width="720" height="420" role="img" aria-label="나만, 링크를 받은 Claude 계정 사용자, 링크만 있으면 누구나로 갈수록 보는 사람이 넓어지는 단계와, 손님 정보가 있으면 공유하지 않는다는 경고를 보여 주는 그림">
+  <defs>
+    <linearGradient id="wide" gradientUnits="userSpaceOnUse" x1="140" y1="0" x2="676" y2="0">
+      <stop offset="0" stop-color="#1d8a38"/>
+      <stop offset="0.5" stop-color="#a3720a"/>
+      <stop offset="1" stop-color="#c4423b"/>
+    </linearGradient>
+    <marker id="arrowR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#c4423b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:20px;font-weight:600}
+    .k{font-size:18px}
+    .s{font-size:18px;fill:#6b7078}
+  </style>
+  <rect width="720" height="420" rx="16" fill="#f5f6f6"/>
+
+  <!-- axis: who can see -->
+  <text class="l" x="32" y="51">보는 사람</text>
+  <path d="M140 44 H674" stroke="url(#wide)" stroke-width="4" stroke-linecap="round" fill="none" marker-end="url(#arrowR)"/>
+  <text class="s" x="140" y="78">좁게</text>
+  <text class="s" x="684" y="78" text-anchor="end">넓게</text>
+
+  <!-- card 1: Only you -->
+  <rect x="32" y="100" width="176" height="160" rx="14" fill="#ffffff" stroke="#1d8a38" stroke-width="2"/>
+  <circle cx="60" cy="132" r="8" fill="#1d8a38"/>
+  <text class="l" x="52" y="176">Only you</text>
+  <text class="k" x="52" y="208">나만</text>
+
+  <!-- card 2: Anyone with the link -->
+  <rect x="224" y="100" width="224" height="160" rx="14" fill="#f8efdc" stroke="#a3720a" stroke-width="2"/>
+  <circle cx="252" cy="132" r="8" fill="#a3720a"/>
+  <text class="l" x="244" y="176">Anyone with the link</text>
+  <text class="k" x="244" y="208">링크를 받은 사람</text>
+  <text class="s" x="244" y="236">보통 Claude 계정 필요</text>
+
+  <!-- card 3: Publish / shared chat -->
+  <rect x="464" y="100" width="224" height="160" rx="14" fill="#f8e3e1" stroke="#c4423b" stroke-width="2"/>
+  <circle cx="492" cy="132" r="8" fill="#c4423b"/>
+  <text class="l" x="484" y="176">Publish · 대화 Share</text>
+  <text class="k" x="484" y="208">링크만 있으면 누구나</text>
+  <text class="s" x="484" y="236">계정 없이도 열려요</text>
+
+  <!-- warning band -->
+  <rect x="32" y="284" width="656" height="76" rx="12" fill="#f8e3e1" stroke="#c4423b" stroke-width="1.5"/>
+  <g fill="none" stroke="#c4423b" stroke-width="2.6" stroke-linecap="round">
+    <circle cx="66" cy="322" r="14"/>
+    <path d="M56 332 L76 312"/>
+  </g>
+  <text class="l" x="96" y="314">손님 정보가 있으면 공유하지 않아요</text>
+  <text class="s" x="96" y="342">대화 공유 링크는 꺼도 복사본이 남을 수 있어요</text>
+</svg>

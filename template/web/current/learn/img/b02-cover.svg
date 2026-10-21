@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" width="720" height="300" role="img" aria-label="가입, 휴대폰 인증, 한국어로 바꾸기, 요금제 고르기 네 단계가 차례로 이어지는 흐름 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:21px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="300" rx="16" fill="#f5f6f6"/>
+
+  <!-- tiles -->
+  <g fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5">
+    <rect x="32" y="32" width="143" height="236" rx="14"/>
+    <rect x="203" y="32" width="143" height="236" rx="14"/>
+    <rect x="374" y="32" width="143" height="236" rx="14"/>
+    <rect x="545" y="32" width="143" height="236" rx="14"/>
+  </g>
+  <g fill="#5e6ad2">
+    <circle cx="58" cy="58" r="14"/>
+    <circle cx="229" cy="58" r="14"/>
+    <circle cx="400" cy="58" r="14"/>
+    <circle cx="571" cy="58" r="14"/>
+  </g>
+  <text class="n" x="58" y="64" text-anchor="middle">1</text>
+  <text class="n" x="229" y="64" text-anchor="middle">2</text>
+  <text class="n" x="400" y="64" text-anchor="middle">3</text>
+  <text class="n" x="571" y="64" text-anchor="middle">4</text>
+
+  <!-- arrows -->
+  <g stroke="#6b7078" stroke-width="2" fill="none">
+    <path d="M180 124 H 197" marker-end="url(#arrow)"/>
+    <path d="M351 124 H 368" marker-end="url(#arrow)"/>
+    <path d="M522 124 H 539" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- 1 envelope -->
+  <rect x="71" y="100" width="66" height="46" rx="6" fill="#ffffff" stroke="#6b7078" stroke-width="2"/>
+  <path d="M73 103 L 104 126 L 135 103" fill="none" stroke="#6b7078" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+
+  <!-- 2 phone with six dots (no real digits) -->
+  <rect x="251" y="84" width="48" height="80" rx="9" fill="#ffffff" stroke="#6b7078" stroke-width="2"/>
+  <path d="M268 93 H 282" stroke="#6b7078" stroke-width="2" stroke-linecap="round"/>
+  <rect x="256" y="114" width="38" height="20" rx="5" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <g fill="#5e6ad2">
+    <circle cx="260.5" cy="124" r="2.4"/><circle cx="266.3" cy="124" r="2.4"/><circle cx="272.1" cy="124" r="2.4"/>
+    <circle cx="277.9" cy="124" r="2.4"/><circle cx="283.7" cy="124" r="2.4"/><circle cx="289.5" cy="124" r="2.4"/>
+  </g>
+
+  <!-- 3 globe with Hangul -->
+  <circle cx="440" cy="120" r="32" fill="#ffffff" stroke="#6b7078" stroke-width="2"/>
+  <ellipse cx="440" cy="120" rx="13" ry="32" fill="none" stroke="#6b7078" stroke-width="2"/>
+  <path d="M408 120 H 472 M413 104 H 467 M413 136 H 467" stroke="#6b7078" stroke-width="2" fill="none"/>
+  <circle cx="470" cy="146" r="16" fill="#5e6ad2" stroke="#ffffff" stroke-width="3"/>
+  <text class="n" x="470" y="152" text-anchor="middle">가</text>
+
+  <!-- 4 three stacked plan cards -->
+  <rect x="586" y="88" width="50" height="58" rx="7" fill="#ffffff" stroke="#6b7078" stroke-width="2"/>
+  <rect x="597" y="98" width="50" height="58" rx="7" fill="#ffffff" stroke="#6b7078" stroke-width="2"/>
+  <rect x="608" y="108" width="50" height="58" rx="7" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <rect x="617" y="120" width="24" height="7" rx="3.5" fill="#5e6ad2"/>
+  <rect x="617" y="134" width="32" height="7" rx="3.5" fill="#e4e4e8"/>
+  <rect x="617" y="148" width="20" height="7" rx="3.5" fill="#e4e4e8"/>
+
+  <!-- labels -->
+  <text class="l" x="103.5" y="208" text-anchor="middle">가입</text>
+  <text class="s" x="103.5" y="238" text-anchor="middle">구글 또는 이메일</text>
+  <text class="l" x="274.5" y="208" text-anchor="middle">휴대폰 인증</text>
+  <text class="s" x="274.5" y="238" text-anchor="middle">문자 여섯 자리</text>
+  <text class="l" x="445.5" y="208" text-anchor="middle">한국어로</text>
+  <text class="s" x="445.5" y="238" text-anchor="middle">Language</text>
+  <text class="l" x="616.5" y="208" text-anchor="middle">요금제 고르기</text>
+  <text class="s" x="616.5" y="238" text-anchor="middle">무료로 시작</text>
+</svg>

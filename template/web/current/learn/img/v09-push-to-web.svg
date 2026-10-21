@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 352" width="720" height="352" role="img" aria-label="작업 폴더에서 올린 내용이 GitHub 비공개 저장소를 거쳐 Vercel로 가서 손님이 보는 인터넷 주소가 바뀌는 흐름과, 연습 가게는 Hobby, 실제 가게는 Pro라는 표시가 있는 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrowP" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#5e6ad2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .p{font-size:20px;font-weight:600;fill:#5e6ad2}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#1d1d21}
+    .ok{fill:#1d8a38}
+    .wa{fill:#a3720a}
+    .card{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+    .a{stroke:#6b7078;stroke-width:2;fill:none}
+  </style>
+  <rect width="720" height="352" rx="16" fill="#f5f6f6"/>
+
+  <!-- work folder -->
+  <rect class="card" x="32" y="48" width="136" height="92" rx="12"/>
+  <text class="l" x="100" y="88" text-anchor="middle">작업 폴더</text>
+  <text class="s" x="100" y="116" text-anchor="middle">이 Mac</text>
+
+  <!-- push -->
+  <text class="p" x="236" y="80" text-anchor="middle">올리기 (push)</text>
+  <path d="M174 94 H298" stroke="#5e6ad2" stroke-width="2.5" fill="none" marker-end="url(#arrowP)"/>
+
+  <!-- private GitHub repository -->
+  <rect class="card" x="304" y="48" width="200" height="92" rx="12"/>
+  <text class="l" x="404" y="88" text-anchor="middle">GitHub 비공개</text>
+  <text class="m" x="404" y="116" text-anchor="middle">haetsal-booking</text>
+
+  <path class="a" d="M510 94 H546" marker-end="url(#arrow)"/>
+
+  <!-- Vercel -->
+  <rect class="card" x="552" y="48" width="136" height="92" rx="12"/>
+  <text class="l" x="620" y="88" text-anchor="middle">Vercel</text>
+  <text class="s" x="620" y="116" text-anchor="middle">새 배포</text>
+
+  <path class="a" d="M620 146 H620 V182" marker-end="url(#arrow)"/>
+
+  <!-- customer address -->
+  <rect x="512" y="188" width="176" height="92" rx="12" fill="#e6f3e9" stroke="#1d8a38" stroke-width="2"/>
+  <text class="l" x="600" y="228" text-anchor="middle">손님이 보는 주소</text>
+  <text class="m" x="600" y="256" text-anchor="middle">…vercel.app</text>
+
+  <!-- plan note -->
+  <rect x="32" y="188" width="296" height="44" rx="22" fill="#ffffff" stroke="#1d8a38" stroke-width="2"/>
+  <text class="l" x="56" y="217">연습 가게 → <tspan class="ok">Hobby $0</tspan></text>
+  <rect x="32" y="244" width="296" height="72" rx="16" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+  <text class="l" x="56" y="274">실제 가게 → <tspan class="wa">Pro 월 $20</tspan></text>
+  <text class="s" x="56" y="302">부가세 별도 · 2026-10-21 기준</text>
+</svg>

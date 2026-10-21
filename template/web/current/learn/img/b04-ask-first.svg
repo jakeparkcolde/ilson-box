@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 376" width="720" height="376" role="img" aria-label="부탁을 보내면 Claude가 먼저 질문하고, 내가 답한 뒤 초안을 받고, 한마디씩 고쳐 완성하는 흐름 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:21px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="376" rx="16" fill="#f5f6f6"/>
+
+  <!-- legend -->
+  <rect x="473" y="24" width="20" height="20" rx="5" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="s" x="501" y="40">내 차례</text>
+  <rect x="573" y="24" width="20" height="20" rx="5" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="s" x="601" y="40">Claude 차례</text>
+
+  <!-- row 1 -->
+  <rect x="32" y="64" width="192" height="92" rx="14" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <circle cx="56" cy="88" r="14" fill="#5e6ad2"/><text class="n" x="56" y="94" text-anchor="middle">1</text>
+  <text class="l" x="128" y="130" text-anchor="middle">부탁 보내기</text>
+
+  <path d="M230 110 H256" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <rect x="264" y="64" width="192" height="92" rx="14" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <circle cx="288" cy="88" r="14" fill="#5e6ad2"/><text class="n" x="288" y="94" text-anchor="middle">2</text>
+  <text class="l" x="360" y="130" text-anchor="middle">Claude가 먼저 질문</text>
+
+  <path d="M462 110 H488" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <rect x="496" y="64" width="192" height="92" rx="14" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <circle cx="520" cy="88" r="14" fill="#5e6ad2"/><text class="n" x="520" y="94" text-anchor="middle">3</text>
+  <text class="l" x="592" y="130" text-anchor="middle">내가 짧게 답하기</text>
+
+  <!-- connector from 3 down to 4 -->
+  <path d="M592 160 V180 H244 V196" stroke="#6b7078" stroke-width="2" fill="none" stroke-linejoin="round" marker-end="url(#arrow)"/>
+
+  <!-- row 2 -->
+  <rect x="148" y="204" width="192" height="92" rx="14" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <circle cx="172" cy="228" r="14" fill="#5e6ad2"/><text class="n" x="172" y="234" text-anchor="middle">4</text>
+  <text class="l" x="244" y="270" text-anchor="middle">초안 받기</text>
+
+  <path d="M346 250 H372" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <rect x="380" y="204" width="192" height="92" rx="14" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <circle cx="404" cy="228" r="14" fill="#5e6ad2"/><text class="n" x="404" y="234" text-anchor="middle">5</text>
+  <text class="l" x="476" y="270" text-anchor="middle">한마디씩 고치기</text>
+
+  <!-- loop 5 back to 4 -->
+  <path d="M476 300 C476 366 244 366 244 304" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text class="s" x="360" y="328" text-anchor="middle">마음에 들 때까지</text>
+</svg>

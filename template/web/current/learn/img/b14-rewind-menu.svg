@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 476" width="720" height="476" role="img" aria-label="esc 두 번으로 연 되돌리기 메뉴에서 부탁을 고르고 Restore code and conversation을 고르는 터미널 스케치">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .s{font-size:18px;fill:#6b7078}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#f7f8f8}
+    .g{font-size:18px;fill:#9aa0a8}
+    .w{font-size:18px;fill:#f7f8f8}
+    .pt{font-size:20px;font-weight:600;fill:#f7f8f8}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="476" rx="16" fill="#f5f6f6"/>
+
+  <!-- how to open -->
+  <rect x="32" y="35" width="56" height="32" rx="7" fill="#d4d8f4"/>
+  <rect x="32" y="32" width="56" height="32" rx="7" fill="#ffffff" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text x="60" y="54" text-anchor="middle" style="font-size:18px;font-weight:600;fill:#5e6ad2">esc</text>
+  <text x="98" y="55" style="font-size:18px;font-weight:600;fill:#5e6ad2">두 번</text>
+  <text class="s" x="150" y="55">또는</text>
+  <rect x="194" y="32" width="100" height="32" rx="8" fill="#e8eafb"/>
+  <text x="244" y="54" text-anchor="middle" style="font-family:'SF Mono',Menlo,monospace;font-size:18px;font-weight:600;fill:#5e6ad2">/rewind</text>
+  <text class="s" x="688" y="55" text-anchor="end">실제 화면은 조금 다를 수 있어요</text>
+
+  <!-- panel 1: pick the request -->
+  <rect x="32" y="80" width="656" height="124" rx="12" fill="#1d1d21"/>
+  <circle cx="56" cy="101" r="13" fill="#5e6ad2"/><text class="n" x="56" y="107" text-anchor="middle">1</text>
+  <text class="pt" x="78" y="108">되돌릴 부탁 고르기</text>
+  <text class="g" x="668" y="108" text-anchor="end">↑↓ 화살표 · return</text>
+  <path d="M32 120 H688" stroke="#2c2e34" stroke-width="1.5"/>
+  <text x="72" y="152" style="font-size:18px;fill:#c9ccd1">가격표 맨 아래에 '주문 방법' 칸을…</text>
+  <rect x="44" y="164" width="632" height="32" rx="8" fill="#5e6ad2" fill-opacity="0.3" stroke="#a7b0ff" stroke-width="1.5"/>
+  <text x="54" y="186" style="font-size:18px;fill:#a7b0ff">▸</text>
+  <text class="w" x="72" y="186">좋아요. 방금 계획대로 가격표에…</text>
+
+  <path d="M360 208 V230" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- panel 2: pick how to restore -->
+  <rect x="32" y="236" width="656" height="216" rx="12" fill="#1d1d21"/>
+  <circle cx="56" cy="257" r="13" fill="#5e6ad2"/><text class="n" x="56" y="263" text-anchor="middle">2</text>
+  <text class="pt" x="78" y="264">되돌리는 방법 고르기</text>
+  <path d="M32 276 H688" stroke="#2c2e34" stroke-width="1.5"/>
+
+  <rect x="44" y="282" width="632" height="30" rx="7" fill="none" stroke="#6cd38a" stroke-width="2"/>
+  <text x="54" y="303" style="font-size:18px;fill:#6cd38a">▸</text>
+  <text class="m" x="72" y="303">Restore code and conversation</text>
+  <text class="w" x="440" y="303">파일과 대화 모두</text>
+
+  <text class="m" x="72" y="337">Restore conversation</text>
+  <text class="g" x="440" y="337">대화만</text>
+  <text class="m" x="72" y="371">Restore code</text>
+  <text class="g" x="440" y="371">파일만</text>
+  <text class="m" x="72" y="405">Summarize from here / up to here</text>
+  <text class="g" x="440" y="405">요약 (되돌리기 아님)</text>
+  <text class="m" x="72" y="439">Never mind</text>
+  <text class="g" x="440" y="439">그만두기</text>
+</svg>

@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 456" width="720" height="456" role="img" aria-label="예약 화면의 동의 체크 칸 위에 받는 목적, 받는 항목, 보관 기간, 동의하지 않을 권리와 그 결과 네 가지 안내가 붙고, 자세히 링크가 개인정보 처리방침 페이지로 이어지는 그림">
+  <defs>
+    <marker id="arrowP" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#5e6ad2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:22px;font-weight:600}
+    .l{font-size:20px;font-weight:600}
+    .r{font-size:20px}
+    .c{font-size:18px}
+    .p{fill:#5e6ad2;font-weight:600}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#1d1d21}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+    .btn{font-size:18px;font-weight:600;fill:#ffffff}
+    .win{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+    .in{fill:#ffffff;stroke:#c9ccd1;stroke-width:1.5}
+    .bar{fill:#e4e4e8}
+    .b{fill:#5e6ad2}
+  </style>
+  <rect width="720" height="456" rx="16" fill="#f5f6f6"/>
+
+  <!-- reserve page -->
+  <rect class="win" x="32" y="24" width="388" height="408" rx="12"/>
+  <path d="M32 56 V36 Q32 24 44 24 H408 Q420 24 420 36 V56 Z" fill="#eceef0"/>
+  <circle cx="52" cy="40" r="5" fill="#c9ccd1"/><circle cx="70" cy="40" r="5" fill="#c9ccd1"/><circle cx="88" cy="40" r="5" fill="#c9ccd1"/>
+  <text class="h" x="56" y="92">햇살꽃집 예약 요청</text>
+  <rect class="in" x="56" y="108" width="164" height="28" rx="6"/>
+  <rect class="in" x="232" y="108" width="164" height="28" rx="6"/>
+
+  <!-- consent notice: four items -->
+  <rect x="48" y="152" width="356" height="182" rx="12" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="l" x="68" y="184">개인정보 수집·이용 안내</text>
+  <circle class="b" cx="82" cy="213" r="14"/><text class="n" x="82" y="219" text-anchor="middle">1</text>
+  <text class="r" x="106" y="220">받는 목적</text>
+  <circle class="b" cx="82" cy="245" r="14"/><text class="n" x="82" y="251" text-anchor="middle">2</text>
+  <text class="r" x="106" y="252">받는 항목</text>
+  <circle class="b" cx="82" cy="277" r="14"/><text class="n" x="82" y="283" text-anchor="middle">3</text>
+  <text class="r" x="106" y="284">보관 기간: <tspan class="p">내가 정한 기간</tspan></text>
+  <circle class="b" cx="82" cy="309" r="14"/><text class="n" x="82" y="315" text-anchor="middle">4</text>
+  <text class="r" x="106" y="316">동의하지 않을 권리와 그 결과</text>
+
+  <!-- checkbox line with the 자세히 link -->
+  <rect x="56" y="350" width="20" height="20" rx="4" fill="#ffffff" stroke="#6b7078" stroke-width="1.5"/>
+  <text class="c" x="86" y="366">개인정보 수집·이용에 동의합니다 (<tspan class="p">자세히</tspan>)</text>
+  <path d="M330 371 H378" stroke="#5e6ad2" stroke-width="1.5"/>
+
+  <rect x="56" y="386" width="168" height="34" rx="10" fill="#1d1d21"/>
+  <text class="btn" x="140" y="409" text-anchor="middle">예약 요청 보내기</text>
+
+  <!-- link to the privacy page -->
+  <path d="M392 360 H572 V216" stroke="#5e6ad2" stroke-width="2" fill="none" marker-end="url(#arrowP)"/>
+
+  <!-- privacy.html -->
+  <rect class="win" x="456" y="48" width="232" height="164" rx="12"/>
+  <path d="M456 82 V60 Q456 48 468 48 H676 Q688 48 688 60 V82 Z" fill="#eceef0"/>
+  <text class="m" x="472" y="72">privacy.html</text>
+  <text class="l" x="472" y="118">개인정보 처리방침</text>
+  <rect class="bar" x="472" y="136" width="184" height="12" rx="6"/>
+  <rect class="bar" x="472" y="158" width="140" height="12" rx="6"/>
+  <rect class="bar" x="472" y="180" width="162" height="12" rx="6"/>
+</svg>

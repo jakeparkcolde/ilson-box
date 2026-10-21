@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 448" width="720" height="448" role="img" aria-label="브라우저 창 주소 칸이 file로 시작하고, 가게 안내 제목 아래 영업시간·오시는 길·대표 상품·문의 방법 칸 가운데 두 칸에 노란 확인 필요 표시가 있는 화면 스케치">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .t{font-size:26px;font-weight:700}
+    .l{font-size:20px;font-weight:600}
+    .r{font-size:20px}
+    .s{font-size:18px;fill:#6b7078}
+    .chip{font-size:18px;font-weight:600;fill:#a3720a}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#1d1d21}
+    .k{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="448" rx="16" fill="#f5f6f6"/>
+
+  <!-- generic window -->
+  <rect x="32" y="24" width="656" height="348" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <path d="M33 87 V38 Q33 25 46 25 H674 Q687 25 687 38 V87 Z" fill="#eceef0"/>
+  <path d="M32 88 H688" stroke="#e4e4e8" stroke-width="1.5"/>
+  <circle cx="58" cy="56" r="6" fill="#c9ccd1"/><circle cx="78" cy="56" r="6" fill="#c9ccd1"/><circle cx="98" cy="56" r="6" fill="#c9ccd1"/>
+
+  <!-- address pill -->
+  <circle cx="134" cy="56" r="14" fill="#5e6ad2"/><text class="n" x="134" y="62" text-anchor="middle">1</text>
+  <rect x="156" y="36" width="512" height="40" rx="20" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="m" x="176" y="62">file:///Users/…/ilson/projects/<tspan class="k">가게-안내</tspan>.html</text>
+
+  <!-- page body -->
+  <text class="t" x="72" y="140">햇살꽃집 안내</text>
+  <path d="M72 160 H648" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <text class="l" x="72" y="207">영업시간</text>
+  <rect x="200" y="183" width="116" height="34" rx="8" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+  <text class="chip" x="258" y="206" text-anchor="middle">[확인 필요]</text>
+  <circle cx="340" cy="200" r="14" fill="#5e6ad2"/><text class="n" x="340" y="206" text-anchor="middle">2</text>
+
+  <text class="l" x="72" y="253">오시는 길</text>
+  <rect x="200" y="229" width="116" height="34" rx="8" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+  <text class="chip" x="258" y="252" text-anchor="middle">[확인 필요]</text>
+
+  <text class="l" x="72" y="299">대표 상품</text>
+  <text class="r" x="200" y="299">계절 꽃다발</text>
+
+  <text class="l" x="72" y="345">문의 방법</text>
+  <rect x="200" y="331" width="160" height="14" rx="7" fill="#e4e4e8"/>
+
+  <text class="s" x="32" y="412">실제 화면은 조금 다를 수 있어요</text>
+</svg>

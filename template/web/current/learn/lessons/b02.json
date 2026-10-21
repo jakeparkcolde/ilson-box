@@ -1,0 +1,206 @@
+{
+  "id": "b02",
+  "track": "basic",
+  "part": 1,
+  "number": 2,
+  "title": "가입하고 요금제 고르기",
+  "subtitle": "무료로 시작하고, 필요할 때 한 칸씩 올려요",
+  "minutes": 7,
+  "surface": "web",
+  "checked": "2026-10-20",
+  "cover": {
+    "src": "img/b02-cover.svg",
+    "alt": "가입, 휴대폰 인증, 한국어로 바꾸기, 요금제 고르기 네 단계가 차례로 이어지는 흐름 그림",
+    "caption": "네 단계면 Claude를 쓸 준비가 끝나요."
+  },
+  "outcome": [
+    "로그인되는 내 Claude 계정 (메뉴는 한국어로)",
+    "내 가게에 맞는 요금제와 고른 이유 한 줄 (메모 앱에 저장)"
+  ],
+  "prepare": [
+    "구글 계정이나 자주 확인하는 이메일 주소",
+    "문자를 받을 수 있는 휴대폰",
+    "만 18세 이상일 것 (사는 곳의 법이 더 높은 나이를 정했다면 그 나이 이상)"
+  ],
+  "steps": [
+    {
+      "title": "가입 방법 고르기",
+      "why": "구글과 이메일, 둘 중 편한 쪽 하나면 돼요.",
+      "body": [
+        "claude.ai에 들어가면 「Continue with Google」(구글로 계속)과 「Continue with email」(이메일로 계속) 버튼이 보여요. 데스크톱 앱과 휴대폰 앱도 같아요.",
+        "구글을 고르면 구글 계정으로 바로 이어져요.",
+        "이메일을 고르면 주소를 적은 뒤, 메일로 온 로그인 링크를 눌러요. 메일 제목은 「Secure link to log in to Claude.ai」(Claude 로그인용 보안 링크)예요."
+      ],
+      "figure": {
+        "src": "img/b02-signup-screen.svg",
+        "alt": "로그인 화면을 단순하게 그린 스케치로, 구글로 계속과 이메일로 계속 버튼 두 개가 보이는 그림",
+        "caption": "둘 중 편한 버튼 하나를 눌러요. 실제 화면은 조금 다를 수 있어요."
+      },
+      "tip": "메일 속 링크를 다른 기기에서 열면 인증 코드가 보여요. 그 코드를 처음 쓰던 기기 화면에 입력하면 돼요.",
+      "caution": "직장 이메일로 가입하면 그 회사의 Claude 계정에 연결될 수 있고, 그러면 회사 관리자가 볼 수도 있어요. 가게용으로는 개인 이메일을 쓰세요."
+    },
+    {
+      "title": "휴대폰 번호 인증하기",
+      "why": "처음 가입하는 사람은 누구나 해야 하고, 건너뛸 수 없어요.",
+      "body": [
+        "휴대폰 번호를 넣으면 문자로 여섯 자리 숫자가 와요. 그 숫자를 화면에 입력해요.",
+        "인터넷 전화(VoIP), 구글 보이스, 앱으로 만든 번호, 유선전화는 받지 않아요.",
+        "번호 하나로 계정을 세 개까지 만들 수 있고, 인증한 번호는 나중에 바꿀 수 없어요. 오래 쓸 내 번호로 해 주세요."
+      ],
+      "self": "문자로 온 인증번호는 직접 입력해 주세요. 전화나 메시지로 이 번호를 묻는 사람에게는 절대 알려 주지 마세요.",
+      "success": "글을 쓰는 입력창이 있는 첫 화면이 열리면 가입이 끝난 거예요."
+    },
+    {
+      "title": "메뉴를 한국어로 바꾸기",
+      "why": "메뉴 이름이 한국어로 보이면 훨씬 덜 헷갈려요.",
+      "body": [
+        "왼쪽 아래 프로필 아이콘을 누르고 「Language」(언어)에서 「Korean」(한국어)을 골라요.",
+        "그러면 메뉴 이름도 한국어로 보여요. 이 안내서는 영어 이름 뒤 괄호에 뜻을 적어 두었으니, 그 뜻과 같은 한국어 메뉴를 찾으면 돼요.",
+        "메뉴 언어와 상관없이, Claude는 내가 쓴 말로 대답해요. 한국어로 물으면 한국어로 답해요."
+      ],
+      "success": "메뉴 글자가 한국어로 바뀌면 성공이에요.",
+      "tip": "2026년 9월부터 「새 Claude 화면」이 차례로 들어오고 있어서, 버튼 위치가 이 안내서의 그림과 조금씩 다를 수 있어요."
+    },
+    {
+      "title": "요금제 고르고 이유 적어 두기",
+      "why": "처음부터 비싼 요금제가 필요하지 않아요. 쓰임에 맞춰 고르면 돼요.",
+      "body": [
+        "**Free(무료)**로 시작해 보세요. 1부와 2부 연습은 대부분 무료로 할 수 있어요.",
+        "다만 10강에서 다루는 리서치(Research, 여러 번 찾아보는 조사)는 유료 요금제에서만 돼요.",
+        "**일손박스를 쓸 거라면 Pro 이상**이 필요해요. 일손박스 안에서 일하는 Claude Code가 무료 요금제에는 없거든요.",
+        "Pro로 쓰는데 한도에 자주 걸린다면 그때 **Max**를 생각해요.",
+        "올리려면 claude.ai/upgrade 에 들어가요. 실제로 내는 금액은 결제 화면에서 확인해요.",
+        "사는 곳에 따라 표시된 금액에 세금이 들어 있기도 하고, 결제할 때 세금이 더해지기도 해요.",
+        "고른 요금제와 이유는 아래 틀에 채워 메모 앱에 저장해 두세요."
+      ],
+      "figure": {
+        "src": "img/b02-plan-chooser.svg",
+        "alt": "처음 써 보는지, 일손박스를 쓸지, 한도에 자주 걸리는지에 따라 Free, Pro, Max로 갈리는 선택 그림",
+        "caption": "무료로 시작하고, 일손박스를 쓰면 Pro 이상, 한도에 자주 걸리면 Max예요."
+      },
+      "memo": {
+        "text": "내 Claude 요금제: (Free / Pro / Max 중 하나)\n고른 이유: \n다시 살펴볼 날: (예: 한 달 뒤)",
+        "note": "메모 앱에 붙여 넣고 괄호 칸을 채워요."
+      },
+      "self": "결제 정보는 결제 화면에만 직접 입력해 주세요. Claude와 나누는 대화창에는 카드 번호를 절대 적지 않아요.",
+      "tip": "요금제를 올리면 바로 적용되고, 남은 기간 요금은 계산해 줘요. 내리면 이번 결제 기간이 끝난 뒤에 바뀌어요."
+    },
+    {
+      "title": "사용량과 해지 메뉴 미리 찾아 두기",
+      "why": "한도에 걸리거나 그만두고 싶을 때 당황하지 않으려면 미리 봐 두는 게 좋아요.",
+      "body": [
+        "모든 요금제에는 사용량 한도가 있어요. 한도는 5시간 단위로 다시 채워지고, 유료 요금제는 주간 한도가 더 있어요.",
+        "claude.ai, 데스크톱 앱, Claude Code(일손박스)는 **같은 한도를 나눠 써요**.",
+        "얼마나 썼는지는 「Settings」(설정) → 「Usage」(사용량)에서 봐요.",
+        "유료로 바꿨다면 해지 메뉴도 봐 두세요. 왼쪽 아래 내 이름 → 「Settings」 → 「Billing」(결제) → 「Cancel」(취소)이에요.",
+        "휴대폰 앱에서는 오른쪽 위 내 이름 머리글자 → 「Billing」 → 「Manage subscription」(구독 관리)이에요."
+      ],
+      "success": "「Settings」 안에서 「Usage」와 「Billing」을 찾았다면 다 됐어요.",
+      "caution": "유료 요금제는 해지할 때까지 자동으로 갱신돼요. 다음 결제일보다 최소 24시간 먼저 해지해야 다음 결제가 되지 않아요. 해지해도 이미 낸 기간이 끝날 때까지는 쓸 수 있어요.",
+      "tip": "휴대폰 앱 스토어에서 결제했는데 앱을 지웠다면, 애플이나 구글의 구독 설정에서 해지해요."
+    }
+  ],
+  "explain": [
+    {
+      "heading": "요금제 한눈에 보기 (2026-10-20 확인)",
+      "body": [
+        "claude.com 요금 안내에 나온 미국 달러 금액이에요. 표시된 금액에는 세금이 빠져 있어요.",
+        "원화로 얼마인지, 부가세가 포함되는지는 확인하지 못했어요. 결제 화면에 보이는 금액을 기준으로 하세요.",
+        "휴대폰 앱 스토어에서 결제하면 금액이 다를 수 있고, 요금과 구성은 Anthropic 사정에 따라 바뀔 수 있어요."
+      ],
+      "table": {
+        "head": ["", "Free (무료)", "Pro", "Max"],
+        "rows": [
+          ["한 달 요금 (미국 달러)", "0달러", "20달러 (1년 결제면 월 17달러, 200달러를 한 번에)", "5배: 100달러 · 20배: 200달러 (월 결제만)"],
+          ["웹·데스크톱·휴대폰 대화", "돼요", "돼요", "돼요"],
+          ["Claude Code (일손박스)", "안 돼요", "돼요", "돼요"],
+          ["리서치 (여러 번 찾아보는 조사)", "안 돼요", "돼요", "돼요"],
+          ["프로젝트", "5개까지", "돼요", "돼요"],
+          ["5시간당 사용량", "기본", "무료의 5배 이상", "Pro의 5배 또는 20배"],
+          ["사용 크레딧 (추가 결제)", "안 돼요", "돼요", "돼요"]
+        ]
+      }
+    },
+    {
+      "heading": "사용량 한도는 이렇게 움직여요",
+      "body": [
+        "한도는 5시간 단위로 다시 채워져요. 유료 요금제는 여기에 주간 한도가 더 있어요.",
+        "몇 번까지 보낼 수 있는지는 정해진 숫자가 없어요. 대화 길이, 쓰는 기능, 모델에 따라 달라져요.",
+        "긴 대화, 큰 첨부 파일, 리서치와 웹 검색은 한도를 더 빨리 써요.",
+        "한도에 걸리면 셋 중 하나를 골라요. 다시 채워질 때까지 기다리기, 더 높은 요금제로 바꾸기, 유료 요금제라면 「Usage credits」(사용 크레딧) 켜기예요.",
+        "사용 크레딧은 한도를 넘겨 쓸 돈을 미리 충전해 두는 방식이에요. 「Settings」 → 「Usage」의 「Usage credits」에서 「Enable」(켜기)을 눌러 시작해요.",
+        "켤 때는 「Adjust limit」(한도 조정)으로 한 달에 쓸 금액을 작게 정해 두세요. 「Set to unlimited」(무제한)와 자동 충전(auto-reload)은 고르지 않는 게 안전해요.",
+        "충전은 「Add funds」(금액 추가) → 「Purchase」(구매) 순서예요. 크레딧을 켜도 한도가 다시 채워지는 시간은 그대로예요.",
+        "아끼는 요령은 비슷한 부탁을 한 번에 모아 보내고, 대화가 아주 길어지면 새 대화로 시작하는 거예요. 20강에서 더 자세히 다뤄요."
+      ],
+      "figure": {
+        "src": "img/b02-usage-window.svg",
+        "alt": "claude.ai, 데스크톱 앱, Claude Code가 한 사용량 한도를 함께 쓰고, 5시간 단위로 다시 채워지며 유료 요금제는 주간 한도가 더 있다는 개념 그림",
+        "caption": "세 곳이 한도 하나를 나눠 쓰고, 5시간 단위로 다시 채워져요."
+      }
+    },
+    {
+      "heading": "해지와 환불, 미리 알아 두기",
+      "body": [
+        "결제한 돈은 원칙적으로 돌려받지 못하지만, 이용약관에 정한 예외가 있어요.",
+        "한국에 사는 사람은 구독 계약일로부터 7일 안에 이유를 말하지 않고 철회할 수 있어요.",
+        "약관은 고객 포털에서 구독을 해지하는 방법이 가장 쉽다고 안내해요. support@anthropic.com 으로 직접 연락해도 돼요.",
+        "환불은 철회를 알린 날부터 늦어도 14일 안에, 처음 결제한 수단으로 돌아와요. 환불 수수료는 없어요.",
+        "다만 철회를 알리기 전까지 쓴 만큼은 빠질 수 있어요.",
+        "앱 스토어(애플 앱스토어·구글 플레이)에서 결제했다면 결제와 환불은 그 앱 스토어의 약관을 따라요."
+      ]
+    }
+  ],
+  "trouble": [
+    {
+      "symptom": "인증 문자가 오지 않아요",
+      "fix": "번호를 다시 확인하고, 인터넷 전화나 유선전화 번호가 아닌지 봐 주세요. 같은 번호로 이미 계정을 세 개 만들었다면 더 만들 수 없어요."
+    },
+    {
+      "symptom": "로그인 메일이 안 와요",
+      "fix": "스팸함을 보고, 메일함에서 「Secure link to log in to Claude.ai」로 검색해 보세요. 주소를 잘못 적었다면 처음부터 다시 해요."
+    },
+    {
+      "symptom": "결제 화면 금액이 이 안내서와 달라요",
+      "fix": "이 안내서는 세금을 뺀 미국 달러 금액이에요. 세금과 지역 통화가 반영된 결제 화면 금액이 실제로 내는 금액이에요."
+    }
+  ],
+  "checklist": [
+    "claude.ai에 로그인했어요",
+    "메뉴를 한국어로 바꿨어요",
+    "내 요금제와 고른 이유를 메모 앱에 적었어요",
+    "「Usage」와 「Billing」 메뉴 위치를 알아 뒀어요"
+  ],
+  "keep": [
+    "무료로 시작하고, 일손박스를 쓸 때 Pro 이상으로 올려요.",
+    "claude.ai·데스크톱 앱·일손박스는 한도를 함께 써요.",
+    "해지는 다음 결제일 24시간 전까지 해요."
+  ],
+  "links": [
+    {"label": "Claude 요금 안내", "url": "https://claude.com/pricing"},
+    {"label": "사용량 한도 안내 (영어)", "url": "https://support.claude.com/en/articles/11647753-how-do-usage-and-length-limits-work"},
+    {"label": "Pro·Max 구독 해지 방법 (영어)", "url": "https://support.claude.com/en/articles/8325617-cancel-your-pro-or-max-subscription"},
+    {"label": "휴대폰 번호 인증 (영어)", "url": "https://support.claude.com/en/articles/8287232-verifying-your-phone-number"}
+  ],
+  "sources": [
+    {"label": "로그인 방법", "url": "https://support.claude.com/en/articles/13189465-log-in-to-your-claude-account"},
+    {"label": "휴대폰 번호 인증", "url": "https://support.claude.com/en/articles/8287232-verifying-your-phone-number"},
+    {"label": "가입 나이 조건", "url": "https://support.claude.com/en/articles/13117299-minimum-age-requirement-access-restriction"},
+    {"label": "Claude를 쓸 수 있는 나라", "url": "https://support.claude.com/en/articles/8461763-supported-countries"},
+    {"label": "메뉴 언어 바꾸기", "url": "https://support.claude.com/en/articles/10769299-how-to-use-claude-in-your-preferred-language"},
+    {"label": "요금제와 가격", "url": "https://claude.com/pricing"},
+    {"label": "Max 요금제", "url": "https://claude.com/pricing/max"},
+    {"label": "Max 요금제 도움말", "url": "https://support.claude.com/en/articles/11049741"},
+    {"label": "Pro 요금제 도움말 (지역 통화·세금)", "url": "https://support.claude.com/en/articles/8325606-what-is-the-pro-plan"},
+    {"label": "리서치 (유료 요금제)", "url": "https://support.claude.com/en/articles/11088861-use-research-on-claude"},
+    {"label": "사용량 한도", "url": "https://support.claude.com/en/articles/11647753-how-do-usage-and-length-limits-work"},
+    {"label": "사용량 확인과 아끼는 요령", "url": "https://support.claude.com/en/articles/9797557"},
+    {"label": "사용 크레딧 (선결제, 한 달 한도, 자동 충전)", "url": "https://support.claude.com/en/articles/12429409-manage-usage-credits-for-paid-claude-plans"},
+    {"label": "구독 해지", "url": "https://support.claude.com/en/articles/8325617-cancel-your-pro-or-max-subscription"},
+    {"label": "이용약관 (나이 조건, 자동 갱신, 한국 철회권과 환불 방법, 앱 스토어 결제)", "url": "https://www.anthropic.com/legal/consumer-terms"},
+    {"label": "Claude Code 시작하기 (필요한 요금제)", "url": "https://code.claude.com/docs/en/quickstart"}
+  ],
+  "history": [
+    {"date": "2026-10-20", "note": "처음 작성"}
+  ]
+}

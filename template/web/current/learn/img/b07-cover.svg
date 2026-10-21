@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 272" width="720" height="272" role="img" aria-label="개울 위 돌 세 개에 근거 묻기, 확인·추측 가르기, 숫자 다시 계산이라고 적혀 있는 그림">
+  <defs>
+    <marker id="arrowA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#5e6ad2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:21px;font-weight:600}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="272" rx="16" fill="#f5f6f6"/>
+
+  <!-- stream -->
+  <rect x="120" y="108" width="480" height="72" fill="#e8eafb"/>
+  <g fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round">
+    <path d="M252 122 q6 -5 12 0 t12 0 t12 0"/>
+    <path d="M416 122 q6 -5 12 0 t12 0 t12 0"/>
+    <path d="M576 122 q5 -4 10 0 t10 0"/>
+  </g>
+  <path d="M120 150 H596" stroke="#5e6ad2" stroke-width="2.5" stroke-dasharray="6 6" fill="none" marker-end="url(#arrowA)"/>
+
+  <!-- banks -->
+  <text class="l" x="32" y="68">Claude의 답</text>
+  <rect x="32" y="88" width="88" height="112" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <path d="M60 130 H92 A6 6 0 0 1 98 136 V150 A6 6 0 0 1 92 156 H74 L66 163 L67 156 H60 A6 6 0 0 1 54 150 V136 A6 6 0 0 1 60 130 Z" fill="none" stroke="#6b7078" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M62 139 H90 M62 147 H82" stroke="#6b7078" stroke-width="2" stroke-linecap="round"/>
+
+  <text class="l" x="688" y="68" text-anchor="end" style="fill:#1d8a38">믿고 쓰기</text>
+  <rect x="600" y="88" width="88" height="112" rx="12" fill="#e6f3e9" stroke="#1d8a38" stroke-width="2"/>
+  <circle cx="644" cy="144" r="18" fill="#1d8a38"/>
+  <path d="M635 144 L641 150 L653 137" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- stones (rocks in the water) with tap marks -->
+  <g fill="none" stroke="#6b7078" stroke-width="2.5" stroke-linecap="round">
+    <path d="M164 98 Q156 107 164 116 M154 92 Q143 105 154 118 M228 98 Q236 107 228 116 M238 92 Q249 105 238 118"/>
+    <path d="M328 98 Q320 107 328 116 M318 92 Q307 105 318 118 M392 98 Q400 107 392 116 M402 92 Q413 105 402 118"/>
+    <path d="M492 98 Q484 107 492 116 M482 92 Q471 105 482 118 M556 98 Q564 107 556 116 M566 92 Q577 105 566 118"/>
+  </g>
+  <g fill="#f5f6f6" stroke="#b9bdc3" stroke-width="1.5" stroke-linejoin="round">
+    <path d="M148 162 C150 132 172 118 196 118 C220 118 242 132 244 162 Z"/>
+    <path d="M312 162 C314 132 336 118 360 118 C384 118 406 132 408 162 Z"/>
+    <path d="M476 162 C478 132 500 118 524 118 C548 118 570 132 572 162 Z"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round">
+    <path d="M140 168 q7 -5 14 0 t14 0 M224 168 q7 -5 14 0 t14 0"/>
+    <path d="M304 168 q7 -5 14 0 t14 0 M388 168 q7 -5 14 0 t14 0"/>
+    <path d="M468 168 q7 -5 14 0 t14 0 M552 168 q7 -5 14 0 t14 0"/>
+  </g>
+  <circle cx="196" cy="144" r="14" fill="#5e6ad2"/><text class="n" x="196" y="150" text-anchor="middle">1</text>
+  <circle cx="360" cy="144" r="14" fill="#5e6ad2"/><text class="n" x="360" y="150" text-anchor="middle">2</text>
+  <circle cx="524" cy="144" r="14" fill="#5e6ad2"/><text class="n" x="524" y="150" text-anchor="middle">3</text>
+
+  <text class="l" x="196" y="226" text-anchor="middle">근거 묻기</text>
+  <text class="l" x="360" y="226" text-anchor="middle">확인·추측 가르기</text>
+  <text class="l" x="524" y="226" text-anchor="middle">숫자 다시 계산</text>
+</svg>

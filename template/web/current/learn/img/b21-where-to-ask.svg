@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 376" width="720" height="376" role="img" aria-label="문구 뜻은 Claude에게, 서비스 장애는 상태 페이지에서, 계정·결제·로그인은 도움 받기로, 일손박스 문제는 설치해 준 분에게 묻는 갈림길 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px}
+  </style>
+  <rect width="720" height="376" rx="16" fill="#f5f6f6"/>
+
+  <!-- question -->
+  <rect x="261" y="24" width="198" height="40" rx="20" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="l" x="360" y="51" text-anchor="middle">무엇이 문제인가요?</text>
+
+  <g fill="none" stroke="#6b7078" stroke-width="2" stroke-linecap="round">
+    <path d="M360 64 V 84"/>
+    <path d="M108 102 V 94 Q 108 84 118 84 H 602 Q 612 84 612 94 V 102" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <path d="M276 84 V 102" marker-end="url(#arrow)"/>
+    <path d="M444 84 V 102" marker-end="url(#arrow)"/>
+    <path d="M108 190 V 210" marker-end="url(#arrow)"/>
+    <path d="M276 190 V 210" marker-end="url(#arrow)"/>
+    <path d="M444 190 V 210" marker-end="url(#arrow)"/>
+    <path d="M612 190 V 210" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- kinds of problem -->
+  <g fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5">
+    <rect x="32" y="108" width="152" height="82" rx="12"/>
+    <rect x="200" y="108" width="152" height="82" rx="12"/>
+    <rect x="368" y="108" width="152" height="82" rx="12"/>
+    <rect x="536" y="108" width="152" height="82" rx="12"/>
+  </g>
+  <text class="l" x="108" y="142" text-anchor="middle">문구 뜻을</text>
+  <text class="l" x="108" y="170" text-anchor="middle">모르겠어요</text>
+  <text class="l" x="276" y="142" text-anchor="middle">서비스 전체가</text>
+  <text class="l" x="276" y="170" text-anchor="middle">안 돼요</text>
+  <text class="l" x="444" y="156" text-anchor="middle">계정·결제·로그인</text>
+  <text class="l" x="612" y="142" text-anchor="middle">일손박스</text>
+  <text class="l" x="612" y="170" text-anchor="middle">설치·설정</text>
+
+  <!-- where to ask -->
+  <g fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5">
+    <rect x="32" y="216" width="152" height="86" rx="12"/>
+    <rect x="200" y="216" width="152" height="86" rx="12"/>
+    <rect x="368" y="216" width="152" height="86" rx="12"/>
+    <rect x="536" y="216" width="152" height="86" rx="12"/>
+  </g>
+  <text class="l" x="108" y="252" text-anchor="middle">Claude에게</text>
+  <text class="s" x="108" y="280" text-anchor="middle">고장 안 난 쪽</text>
+  <text class="m" x="276" y="252" text-anchor="middle">status.</text>
+  <text class="m" x="276" y="279" text-anchor="middle">claude.com</text>
+  <text class="s" x="444" y="252" text-anchor="middle">내 이름 →</text>
+  <text class="l" x="444" y="280" text-anchor="middle">Get help</text>
+  <text class="l" x="612" y="252" text-anchor="middle">설치해 준 분</text>
+  <text class="l" x="612" y="280" text-anchor="middle">선생님</text>
+
+  <text class="s" x="32" y="344">「오류 신고 메모」를 함께 보내요</text>
+</svg>

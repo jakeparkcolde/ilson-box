@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" width="720" height="420" role="img" aria-label="계절 상품 보고서의 문장 세 곳에 근거 묻기, 확인·추측 가르기, 숫자 다시 계산이라는 돌이 하나씩 이어져 있고, 각각 출처 원문과 같아요, 추측은 확인 필요, 출처 숫자로 다시 계산이라는 결과가 붙은 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:22px;font-weight:700}
+    .l{font-size:20px;font-weight:600}
+    .c{font-size:18px}
+    .r1{font-size:18px;font-weight:500;fill:#1d8a38}
+    .r2{font-size:18px;font-weight:500;fill:#a3720a}
+    .r3{font-size:18px;font-weight:500;fill:#5e6ad2}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="420" rx="16" fill="#f5f6f6"/>
+
+  <!-- report -->
+  <rect x="32" y="28" width="320" height="356" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="h" x="52" y="68">계절 상품 보고서</text>
+  <path d="M52 88 H332" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <text class="l" x="52" y="132">봄</text>
+  <text class="l" x="52" y="208">여름</text>
+  <text class="l" x="52" y="284">가을</text>
+  <text class="l" x="52" y="360">겨울</text>
+  <g fill="#e4e4e8">
+    <rect x="104" y="119" width="150" height="12" rx="6"/>
+    <rect x="104" y="147" width="110" height="12" rx="6"/>
+    <rect x="104" y="195" width="140" height="12" rx="6"/>
+    <rect x="104" y="223" width="124" height="12" rx="6"/>
+    <rect x="104" y="271" width="154" height="12" rx="6"/>
+    <rect x="104" y="299" width="92" height="12" rx="6"/>
+    <rect x="104" y="347" width="146" height="12" rx="6"/>
+  </g>
+
+  <!-- source chips -->
+  <g fill="#f5f6f6" stroke="#c9ccd2" stroke-width="1.5">
+    <rect x="264" y="111" width="72" height="28" rx="10"/>
+    <rect x="264" y="187" width="72" height="28" rx="10"/>
+    <rect x="264" y="263" width="72" height="28" rx="10"/>
+  </g>
+  <g fill="none" stroke="#6b7078" stroke-width="1.8">
+    <g transform="translate(281 125) rotate(-45)"><rect x="-10" y="-3.5" width="11" height="7" rx="3.5"/><rect x="-1" y="-3.5" width="11" height="7" rx="3.5"/></g>
+    <g transform="translate(281 201) rotate(-45)"><rect x="-10" y="-3.5" width="11" height="7" rx="3.5"/><rect x="-1" y="-3.5" width="11" height="7" rx="3.5"/></g>
+    <g transform="translate(281 277) rotate(-45)"><rect x="-10" y="-3.5" width="11" height="7" rx="3.5"/><rect x="-1" y="-3.5" width="11" height="7" rx="3.5"/></g>
+  </g>
+  <text class="c" x="294" y="131">출처</text>
+  <text class="c" x="294" y="207">출처</text>
+  <text class="c" x="294" y="283">출처</text>
+
+  <!-- stream with three stones, as in lesson 7 -->
+  <rect x="396" y="40" width="88" height="344" rx="14" fill="#e8eafb"/>
+  <g fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round">
+    <path d="M412 72 q6 -5 12 0 t12 0"/>
+    <path d="M446 170 q6 -5 12 0 t12 0"/>
+    <path d="M412 266 q6 -5 12 0 t12 0"/>
+    <path d="M444 362 q6 -5 12 0 t12 0"/>
+  </g>
+  <g fill="#f5f6f6" stroke="#b9bdc3" stroke-width="1.5" stroke-linejoin="round">
+    <path d="M400 140 C402 112 420 100 440 100 C460 100 478 112 480 140 Z"/>
+    <path d="M400 236 C402 208 420 196 440 196 C460 196 478 208 480 236 Z"/>
+    <path d="M400 332 C402 304 420 292 440 292 C460 292 478 304 480 332 Z"/>
+  </g>
+  <circle cx="440" cy="122" r="14" fill="#5e6ad2"/><text class="n" x="440" y="128" text-anchor="middle">1</text>
+  <circle cx="440" cy="218" r="14" fill="#5e6ad2"/><text class="n" x="440" y="224" text-anchor="middle">2</text>
+  <circle cx="440" cy="314" r="14" fill="#5e6ad2"/><text class="n" x="440" y="320" text-anchor="middle">3</text>
+
+  <!-- connectors: each stone taps one line of the report -->
+  <g fill="none" stroke="#6b7078" stroke-width="2" stroke-linecap="round">
+    <path d="M338 125 C368 125 372 126 400 126"/>
+    <path d="M338 201 C368 201 372 222 400 222"/>
+    <path d="M338 277 C368 277 372 318 400 318"/>
+  </g>
+  <g fill="#6b7078">
+    <circle cx="338" cy="125" r="3.5"/><circle cx="338" cy="201" r="3.5"/><circle cx="338" cy="277" r="3.5"/>
+  </g>
+
+  <!-- habit names and what each check found -->
+  <text class="l" x="500" y="118">근거 묻기</text>
+  <text class="r1" x="500" y="146">출처 원문과 같아요</text>
+  <text class="l" x="500" y="214">확인·추측 가르기</text>
+  <text class="r2" x="500" y="242">추측은 [확인 필요]</text>
+  <text class="l" x="500" y="310">숫자 다시 계산</text>
+  <text class="r3" x="500" y="338">출처 숫자로 다시 계산</text>
+</svg>

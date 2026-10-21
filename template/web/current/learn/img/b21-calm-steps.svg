@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 466" width="720" height="466" role="img" aria-label="오류가 났을 때의 다섯 걸음, 「끝까지 읽기」「글자 그대로 옮기기」「Claude에게 묻기」「안전한 방법 두 번까지」「되돌리기 또는 사람에게」를 차례로 잇는 흐름도">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .t{font-size:26px;font-weight:700}
+    .l{font-size:21px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="466" rx="16" fill="#f5f6f6"/>
+
+  <text class="t" x="32" y="50">차분한 다섯 걸음</text>
+
+  <!-- timeline line behind the badges -->
+  <path d="M48 102 V 387" fill="none" stroke="#6b7078" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <!-- step cards -->
+  <g fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5">
+    <rect x="88" y="70" width="480" height="64" rx="12"/>
+    <rect x="88" y="146" width="480" height="64" rx="12"/>
+    <rect x="88" y="222" width="480" height="64" rx="12"/>
+    <rect x="88" y="374" width="480" height="64" rx="12"/>
+  </g>
+  <rect x="88" y="298" width="480" height="64" rx="12" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+
+  <!-- numbered badges on the line -->
+  <g fill="#5e6ad2" stroke="#f5f6f6" stroke-width="3">
+    <circle cx="48" cy="102" r="14"/>
+    <circle cx="48" cy="178" r="14"/>
+    <circle cx="48" cy="254" r="14"/>
+    <circle cx="48" cy="330" r="14"/>
+    <circle cx="48" cy="406" r="14"/>
+  </g>
+  <text class="n" x="48" y="108" text-anchor="middle">1</text>
+  <text class="n" x="48" y="184" text-anchor="middle">2</text>
+  <text class="n" x="48" y="260" text-anchor="middle">3</text>
+  <text class="n" x="48" y="336" text-anchor="middle">4</text>
+  <text class="n" x="48" y="412" text-anchor="middle">5</text>
+
+  <!-- step name (line 1) and hint (line 2) -->
+  <text class="l" x="112" y="98">끝까지 읽기</text>
+  <text class="s" x="112" y="122">기다릴 일 · 고칠 일 · 물을 일</text>
+
+  <text class="l" x="112" y="174">글자 그대로 옮기기</text>
+  <text class="s" x="112" y="198">복사하거나 ⌘+Shift+4 캡처</text>
+
+  <text class="l" x="112" y="250">Claude에게 묻기</text>
+  <text class="s" x="112" y="274">고장 나지 않은 쪽에서</text>
+
+  <text class="l" x="112" y="326">안전한 방법 두 번까지</text>
+  <text class="s" x="112" y="350">아무것도 지우지 않는 방법만</text>
+
+  <text class="l" x="112" y="402">되돌리기 또는 사람에게</text>
+  <text class="s" x="112" y="426">esc 두 번 · 오류 신고 메모</text>
+</svg>

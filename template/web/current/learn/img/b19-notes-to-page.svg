@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 404" width="720" height="404" role="img" aria-label="회사 메모와 회사 소개·도구와 채널·가격표 노트가 Claude를 거쳐 영업시간·오시는 길·대표 상품·문의 방법 네 칸짜리 안내 페이지가 되고, 노트에 없는 칸은 확인 필요로 남는 흐름도">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .hb{font-size:22px;font-weight:700}
+    .h{font-size:22px;font-weight:600}
+    .l{font-size:20px;font-weight:600}
+    .r{font-size:20px}
+    .r8{font-size:18px}
+    .s{font-size:18px;fill:#6b7078}
+    .chip{font-size:18px;font-weight:600;fill:#a3720a}
+    .mp{font-family:'SF Mono',Menlo,'Apple SD Gothic Neo',monospace;font-size:18px;fill:#6b7078}
+    .note{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5;stroke-linejoin:round}
+    .fold{fill:#eceef0;stroke:#e4e4e8;stroke-width:1.5;stroke-linejoin:round}
+    .ln{fill:none;stroke:#6b7078;stroke-width:2}
+  </style>
+  <rect width="720" height="404" rx="16" fill="#f5f6f6"/>
+
+  <!-- notes in the vault -->
+  <path class="note" d="M42 32 H202 L216 46 V94 Q216 104 206 104 H42 Q32 104 32 94 V42 Q32 32 42 32 Z"/>
+  <path class="fold" d="M202 32 V46 H216 Z"/>
+  <text class="l" x="50" y="63">회사 메모</text>
+  <text class="mp" x="50" y="91">CONTEXT.md</text>
+
+  <path class="note" d="M42 116 H202 L216 130 V158 Q216 168 206 168 H42 Q32 168 32 158 V126 Q32 116 42 116 Z"/>
+  <path class="fold" d="M202 116 V130 H216 Z"/>
+  <text class="l" x="50" y="149">회사-소개.md</text>
+
+  <path class="note" d="M42 180 H202 L216 194 V222 Q216 232 206 232 H42 Q32 232 32 222 V190 Q32 180 42 180 Z"/>
+  <path class="fold" d="M202 180 V194 H216 Z"/>
+  <text class="l" x="50" y="213">도구와-채널.md</text>
+
+  <path class="note" d="M42 244 H202 L216 258 V286 Q216 296 206 296 H42 Q32 296 32 286 V254 Q32 244 42 244 Z"/>
+  <path class="fold" d="M202 244 V258 H216 Z"/>
+  <text class="l" x="50" y="277">가격표.md</text>
+  <text class="s" x="140" y="277">(있으면)</text>
+
+  <text class="s" x="124" y="330" text-anchor="middle">서류함 vault</text>
+
+  <!-- all notes feed Claude -->
+  <path fill="none" stroke="#b8bcc2" stroke-width="1.5" d="M222 68 H230 V270 H222 M222 142 H230 M222 206 H230"/>
+  <path class="ln" d="M230 164 H254" marker-end="url(#arrow)"/>
+
+  <rect x="262" y="114" width="128" height="100" rx="12" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="h" x="326" y="152" text-anchor="middle">Claude</text>
+  <text class="r8" x="326" y="180" text-anchor="middle">노트에 있는</text>
+  <text class="r8" x="326" y="202" text-anchor="middle">것만</text>
+
+  <path class="ln" d="M390 164 H420" marker-end="url(#arrow)"/>
+
+  <!-- the page -->
+  <rect x="428" y="32" width="260" height="264" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="hb" x="448" y="70">햇살꽃집 안내</text>
+  <path d="M448 88 H668" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <text class="l" x="448" y="133">영업시간</text>
+  <rect x="548" y="110" width="112" height="32" rx="8" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+  <text class="chip" x="604" y="132" text-anchor="middle">[확인 필요]</text>
+
+  <text class="l" x="448" y="181">오시는 길</text>
+  <rect x="548" y="158" width="112" height="32" rx="8" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5"/>
+  <text class="chip" x="604" y="180" text-anchor="middle">[확인 필요]</text>
+
+  <text class="l" x="448" y="229">대표 상품</text>
+  <text class="r" x="548" y="229">계절 꽃다발</text>
+
+  <text class="l" x="448" y="277">문의 방법</text>
+  <rect x="548" y="263" width="104" height="14" rx="7" fill="#e4e4e8"/>
+
+  <text class="mp" x="428" y="324">projects/<tspan style="font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif">가게-안내</tspan>.html</text>
+</svg>

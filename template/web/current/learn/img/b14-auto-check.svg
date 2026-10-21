@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480" width="720" height="480" role="img" aria-label="자동 심사 모드에서 폴더 안 작업은 바로 진행, 물어보기로 정한 일은 질문, 그 밖의 일은 검사 뒤 진행 또는 차단되는 흐름도">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:21px;font-weight:600}
+    .b{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .card{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+    .ln{stroke:#6b7078;stroke-width:2;fill:none}
+  </style>
+  <rect width="720" height="480" rx="16" fill="#f5f6f6"/>
+
+  <rect x="240" y="32" width="240" height="52" rx="12" class="card"/>
+  <text class="l" x="360" y="65" text-anchor="middle">Claude가 하려는 일</text>
+
+  <path class="ln" d="M360 84 V100 M132 100 H588"/>
+  <path class="ln" d="M132 100 V118" marker-end="url(#arrow)"/>
+  <path class="ln" d="M360 100 V118" marker-end="url(#arrow)"/>
+  <path class="ln" d="M588 100 V118" marker-end="url(#arrow)"/>
+
+  <!-- three branches -->
+  <rect x="32" y="124" width="200" height="88" rx="12" class="card"/>
+  <text class="b" x="132" y="161" text-anchor="middle">일손 폴더 안에서</text>
+  <text class="b" x="132" y="189" text-anchor="middle">읽기·고치기</text>
+
+  <rect x="260" y="124" width="200" height="88" rx="12" class="card"/>
+  <text class="b" x="360" y="158" text-anchor="middle">「물어보기」로 정한 일</text>
+  <text class="s" x="360" y="189" text-anchor="middle">(예: <tspan style="font-family:'SF Mono',Menlo,monospace">rm</tspan> 지우기)</text>
+
+  <rect x="488" y="124" width="200" height="88" rx="12" class="card"/>
+  <text class="b" x="588" y="175" text-anchor="middle">그 밖의 일</text>
+
+  <path class="ln" d="M132 212 V228" marker-end="url(#arrow)"/>
+  <path class="ln" d="M360 212 V228" marker-end="url(#arrow)"/>
+  <path class="ln" d="M588 212 V228" marker-end="url(#arrow)"/>
+
+  <!-- results -->
+  <rect x="52" y="234" width="160" height="38" rx="19" fill="#e6f3e9" stroke="#1d8a38" stroke-width="1.5"/>
+  <circle cx="92" cy="253" r="9" fill="#1d8a38"/>
+  <path d="M88 253 L91 256 L96 250" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="b" x="108" y="260" style="fill:#1d8a38">바로 진행</text>
+
+  <rect x="280" y="234" width="160" height="38" rx="19" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <circle cx="311" cy="253" r="9" fill="#5e6ad2"/>
+  <path d="M308 250.5 Q308 247 311 247 Q314.2 247 314.2 250 Q314.2 252.2 311 253.2 V254.6" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="311" cy="258" r="1.3" fill="#ffffff"/>
+  <text class="b" x="327" y="260" style="fill:#5e6ad2">나에게 질문</text>
+
+  <rect x="496" y="234" width="184" height="38" rx="19" fill="#ffffff" stroke="#c9ccd1" stroke-width="1.5"/>
+  <text x="588" y="259" text-anchor="middle" style="font-size:18px;font-weight:600">검사 모델이 살펴봐요</text>
+
+  <path class="ln" d="M588 272 V288" marker-end="url(#arrow)"/>
+  <path d="M498 294 H678 Q688 294 688 304 V332 H488 V304 Q488 294 498 294 Z" fill="#e6f3e9"/>
+  <path d="M488 332 H688 V360 Q688 370 678 370 H498 Q488 370 488 360 Z" fill="#f8e3e1"/>
+  <rect x="488" y="294" width="200" height="76" rx="10" fill="none" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text x="588" y="319" text-anchor="middle" style="font-size:18px;font-weight:600;fill:#1d8a38">부탁 범위 안 → 진행</text>
+  <text x="588" y="357" text-anchor="middle" style="font-size:18px;font-weight:600;fill:#c4423b">위험해 보임 → 막고 알림</text>
+
+  <!-- footer -->
+  <rect x="32" y="388" width="656" height="68" rx="12" fill="#f8efdc"/>
+  <text x="360" y="414" text-anchor="middle" style="font-size:18px">3번 연달아 또는 모두 20번 막히면 → 하나하나 묻는 방식으로</text>
+  <text x="360" y="442" text-anchor="middle" style="font-size:20px;font-weight:700;fill:#a3720a">자동 심사는 안전을 보장하지 않아요</text>
+</svg>

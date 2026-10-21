@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 440" width="720" height="440" role="img" aria-label="그림 스타일 견본">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .t{font-size:26px;font-weight:700}
+    .l{font-size:21px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#f7f8f8}
+    .n{font-size:17px;font-weight:700;fill:#ffffff}
+  </style>
+  <!-- plate -->
+  <rect width="720" height="440" rx="16" fill="#f5f6f6"/>
+  <text class="t" x="32" y="52">그림 제목은 여기 한 줄</text>
+  <text class="s" x="32" y="82">작은 설명은 회색 18px</text>
+
+  <!-- step cards with numbered badges and arrows -->
+  <rect x="32" y="110" width="196" height="112" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <circle cx="58" cy="136" r="14" fill="#5e6ad2"/><text class="n" x="58" y="142" text-anchor="middle">1</text>
+  <text class="l" x="130" y="182" text-anchor="middle">기본 카드</text>
+
+  <path d="M236 166 H 276" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <rect x="284" y="110" width="196" height="112" rx="12" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <circle cx="310" cy="136" r="14" fill="#5e6ad2"/><text class="n" x="310" y="142" text-anchor="middle">2</text>
+  <text class="l" x="382" y="182" text-anchor="middle">강조 카드</text>
+
+  <path d="M488 166 H 528" stroke="#6b7078" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <rect x="536" y="110" width="152" height="112" rx="12" fill="#ffffff" stroke="#1d8a38" stroke-width="2"/>
+  <text class="l" x="612" y="172" text-anchor="middle" style="fill:#1d8a38">완성</text>
+  <text class="s" x="612" y="198" text-anchor="middle">성공은 초록</text>
+
+  <!-- status pills -->
+  <rect x="32" y="248" width="120" height="36" rx="18" fill="#e6f3e9"/><text class="s" x="92" y="272" text-anchor="middle" style="fill:#1d8a38">좋아요</text>
+  <rect x="164" y="248" width="120" height="36" rx="18" fill="#f8efdc"/><text class="s" x="224" y="272" text-anchor="middle" style="fill:#a3720a">조심</text>
+  <rect x="296" y="248" width="120" height="36" rx="18" fill="#f8e3e1"/><text class="s" x="356" y="272" text-anchor="middle" style="fill:#c4423b">안 돼요</text>
+
+  <!-- terminal sketch -->
+  <rect x="32" y="304" width="384" height="112" rx="12" fill="#1d1d21"/>
+  <circle cx="54" cy="324" r="5" fill="#62666d"/><circle cx="72" cy="324" r="5" fill="#62666d"/><circle cx="90" cy="324" r="5" fill="#62666d"/>
+  <text class="m" x="52" y="362">$ ilson chat</text>
+  <text class="m" x="52" y="392" style="fill:#a7b0ff">터미널 글자는 고정폭</text>
+
+  <!-- screen sketch -->
+  <rect x="440" y="248" width="248" height="168" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <rect x="440" y="248" width="248" height="34" rx="12" fill="#eceef0"/>
+  <rect x="440" y="270" width="248" height="12" fill="#eceef0"/>
+  <rect x="460" y="300" width="208" height="14" rx="7" fill="#e4e4e8"/>
+  <rect x="460" y="324" width="150" height="14" rx="7" fill="#e4e4e8"/>
+  <rect x="460" y="366" width="208" height="34" rx="10" fill="#ffffff" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="s" x="474" y="389">화면 약도: 회색 막대</text>
+</svg>

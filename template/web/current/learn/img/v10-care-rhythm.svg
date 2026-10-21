@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 328" width="720" height="328" role="img" aria-label="며칠마다 예약함 열기, 매주 5분 점검, 한 달에 한 번 CSV 백업 뒤 오래된 요청 지우기라는 세 가지 운영 주기를 보여 주는 그림">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .k{font-size:22px;font-weight:600}
+    .r{font-size:20px}
+    .s{font-size:18px;fill:#6b7078}
+    .tp{stroke:#5e6ad2;stroke-width:3;stroke-linecap:round}
+    .ta{stroke:#a3720a;stroke-width:3;stroke-linecap:round}
+    .lp{stroke:#a7b0ff;stroke-width:2}
+    .la{stroke:#d9b878;stroke-width:2}
+  </style>
+  <rect width="720" height="328" rx="16" fill="#f5f6f6"/>
+
+  <!-- every few days -->
+  <text class="k" x="32" y="72">며칠마다</text>
+  <rect x="136" y="32" width="280" height="64" rx="12" fill="#e8eafb"/>
+  <path class="lp" d="M152 64 H400"/>
+  <path class="tp" d="M152 46 V82 M183 46 V82 M214 46 V82 M245 46 V82 M276 46 V82 M307 46 V82 M338 46 V82 M369 46 V82 M400 46 V82"/>
+  <text class="r" x="440" y="57">예약함 열고 로그인</text>
+  <text class="s" x="440" y="83">(멈춤을 줄여요)</text>
+
+  <!-- weekly -->
+  <text class="k" x="32" y="172">매주</text>
+  <rect x="136" y="132" width="280" height="64" rx="12" fill="#e8eafb"/>
+  <path class="lp" d="M152 164 H400"/>
+  <path class="tp" d="M152 146 V182 M214 146 V182 M276 146 V182 M338 146 V182 M400 146 V182"/>
+  <text class="r" x="440" y="171">주간 5분 점검</text>
+
+  <!-- monthly -->
+  <text class="k" x="32" y="272">매달</text>
+  <rect x="136" y="232" width="280" height="64" rx="12" fill="#f8efdc"/>
+  <path class="la" d="M152 264 H400"/>
+  <path class="ta" d="M152 246 V282 M400 246 V282"/>
+  <text class="r" x="440" y="257">CSV 백업 →</text>
+  <text class="r" x="440" y="283">오래된 요청 지우기</text>
+</svg>

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" width="720" height="420" role="img" aria-label="Claude가 잘하는 일 네 가지와 조심할 일 네 가지를 두 칸으로 나눈 카드">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:23px;font-weight:700}
+    .r{font-size:21px}
+  </style>
+  <rect width="720" height="420" rx="16" fill="#f5f6f6"/>
+
+  <!-- card -->
+  <rect x="32" y="32" width="656" height="356" rx="14" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <!-- header bands (rounded top corners only) -->
+  <path d="M33 46 A13 13 0 0 1 46 33 H 359 V 96 H 33 Z" fill="#e6f3e9"/>
+  <path d="M361 33 H 674 A13 13 0 0 1 687 46 V 96 H 361 Z" fill="#f8efdc"/>
+  <path d="M360 33 V 387" stroke="#e4e4e8" stroke-width="1.5"/>
+  <path d="M33 96 H 687" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <circle cx="64" cy="64" r="8" fill="#1d8a38"/>
+  <text class="h" x="82" y="72" style="fill:#1d8a38">잘하는 일</text>
+  <circle cx="392" cy="64" r="8" fill="#a3720a"/>
+  <text class="h" x="410" y="72" style="fill:#a3720a">조심할 일</text>
+
+  <!-- row separators -->
+  <g stroke="#e4e4e8" stroke-width="1.5">
+    <path d="M56 169 H 336 M56 242 H 336 M56 315 H 336"/>
+    <path d="M384 169 H 664 M384 242 H 664 M384 315 H 664"/>
+  </g>
+
+  <!-- left: good at (vector check marks) -->
+  <g fill="#1d8a38">
+    <circle cx="68" cy="133" r="13"/>
+    <circle cx="68" cy="206" r="13"/>
+    <circle cx="68" cy="279" r="13"/>
+    <circle cx="68" cy="352" r="13"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M62 133 L 66.5 137.5 L 74.5 128.5"/>
+    <path d="M62 206 L 66.5 210.5 L 74.5 201.5"/>
+    <path d="M62 279 L 66.5 283.5 L 74.5 274.5"/>
+    <path d="M62 352 L 66.5 356.5 L 74.5 347.5"/>
+  </g>
+  <text class="r" x="94" y="140">가게 소개·안내문 초안</text>
+  <text class="r" x="94" y="213">손글씨 메모를 표로</text>
+  <text class="r" x="94" y="286">긴 글 요약</text>
+  <text class="r" x="94" y="359">아이디어 여러 개</text>
+
+  <!-- right: watch out (vector exclamation marks) -->
+  <g fill="#a3720a">
+    <circle cx="396" cy="133" r="13"/>
+    <circle cx="396" cy="206" r="13"/>
+    <circle cx="396" cy="279" r="13"/>
+    <circle cx="396" cy="352" r="13"/>
+  </g>
+  <g stroke="#ffffff" stroke-width="2.8" stroke-linecap="round">
+    <path d="M396 126 V 135"/>
+    <path d="M396 199 V 208"/>
+    <path d="M396 272 V 281"/>
+    <path d="M396 345 V 354"/>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="396" cy="140.5" r="1.8"/>
+    <circle cx="396" cy="213.5" r="1.8"/>
+    <circle cx="396" cy="286.5" r="1.8"/>
+    <circle cx="396" cy="359.5" r="1.8"/>
+  </g>
+  <text class="r" x="422" y="140">그럴듯하게 틀릴 때가 있어요</text>
+  <text class="r" x="422" y="200">새 대화는 앞 대화를</text>
+  <text class="r" x="422" y="227">그대로 이어받지 않아요</text>
+  <text class="r" x="422" y="286">최신 소식은 검색해야 알아요</text>
+  <text class="r" x="422" y="359">돈·법·건강은 내가 판단해요</text>
+</svg>

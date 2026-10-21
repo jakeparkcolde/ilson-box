@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" width="720" height="300" role="img" aria-label="한 달 정리 SQL을 【1】 개수 보기, 【2】 지울 수 미리 세기, CSV 백업 확인, 【3】 지우기 순서로 한 칸씩 실행하고, 【3】은 되돌릴 수 없다는 표시가 있는 흐름도">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .k{font-size:22px;font-weight:700}
+    .l{font-size:20px;font-weight:600}
+    .c{font-size:18px}
+    .ok{font-size:18px;font-weight:600;fill:#1d8a38}
+    .no{font-size:18px;font-weight:600;fill:#c4423b}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:18px;fill:#1d1d21}
+    .rd{fill:#ffffff;stroke:#1d8a38;stroke-width:2}
+    .chip{fill:#e6f3e9}
+    .a{stroke:#6b7078;stroke-width:2;fill:none}
+  </style>
+  <rect width="720" height="300" rx="16" fill="#f5f6f6"/>
+
+  <!-- block 1: count by status (read only) -->
+  <rect class="rd" x="32" y="32" width="128" height="168" rx="12"/>
+  <text class="k" x="96" y="72" text-anchor="middle">【1】</text>
+  <text class="l" x="96" y="108" text-anchor="middle">상태별 개수</text>
+  <rect class="chip" x="60" y="144" width="72" height="32" rx="16"/>
+  <text class="ok" x="96" y="166" text-anchor="middle">읽기만</text>
+
+  <path class="a" d="M164 116 H190" marker-end="url(#arrow)"/>
+
+  <!-- block 2: preview count (read only) -->
+  <rect class="rd" x="194" y="32" width="128" height="168" rx="12"/>
+  <text class="k" x="258" y="72" text-anchor="middle">【2】</text>
+  <text class="l" x="258" y="104" text-anchor="middle">지울 수</text>
+  <text class="l" x="258" y="130" text-anchor="middle">미리 세기</text>
+  <rect class="chip" x="222" y="144" width="72" height="32" rx="16"/>
+  <text class="ok" x="258" y="166" text-anchor="middle">읽기만</text>
+
+  <path class="a" d="M326 116 H352" marker-end="url(#arrow)"/>
+
+  <!-- backup check -->
+  <rect x="356" y="32" width="128" height="168" rx="12" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="l" x="420" y="108" text-anchor="middle">CSV 백업</text>
+  <text class="l" x="420" y="136" text-anchor="middle">받아 뒀나요?</text>
+
+  <path class="a" d="M488 116 H516" marker-end="url(#arrow)"/>
+
+  <!-- block 3: delete (cannot be undone) -->
+  <rect x="520" y="32" width="168" height="168" rx="12" fill="#f8e3e1" stroke="#c4423b" stroke-width="2"/>
+  <text class="k" x="604" y="72" text-anchor="middle">【3】</text>
+  <text class="l" x="604" y="108" text-anchor="middle">지우기</text>
+  <path d="M543 146 L553 164 H533 Z" fill="#c4423b" stroke="#c4423b" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M543 152 V157" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="543" cy="160.5" r="1.2" fill="#ffffff"/>
+  <text class="no" x="559" y="166">되돌릴 수 없어요</text>
+
+  <!-- the period lives in two places -->
+  <rect x="32" y="224" width="456" height="44" rx="10" fill="#f8efdc" stroke="#a3720a" stroke-width="1.2"/>
+  <text class="c" x="52" y="252">기간 두 곳: 【2】【3】의 <tspan class="m">'6 months'</tspan> 자리 = 내가 정한 기간</text>
+</svg>

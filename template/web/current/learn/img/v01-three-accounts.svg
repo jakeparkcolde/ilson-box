@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 394" width="720" height="394" role="img" aria-label="예약 페이지를 가운데 두고 GitHub는 작업 파일 보관, Supabase는 예약 보관과 로그인, Vercel은 인터넷 공개를 맡으며 각각 몇 강에서 만드는지 보여 주는 개념도">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:22px;font-weight:600}
+    .r{font-size:20px}
+    .s{font-size:18px;fill:#6b7078}
+    .card{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+    .ln{stroke:#b8bcc2;stroke-width:2;fill:none}
+  </style>
+  <rect width="720" height="394" rx="16" fill="#f5f6f6"/>
+
+  <!-- connectors -->
+  <path class="ln" d="M363 128 V176"/>
+  <path class="ln" d="M264 216 H288"/>
+  <path class="ln" d="M438 216 H462"/>
+
+  <!-- GitHub -->
+  <rect class="card" x="239" y="24" width="248" height="104" rx="14"/>
+  <text class="h" x="363" y="58" text-anchor="middle">GitHub</text>
+  <text class="r" x="363" y="88" text-anchor="middle">작업 파일 비공개 보관</text>
+  <text class="s" x="363" y="114" text-anchor="middle">심화 2·4강</text>
+
+  <!-- centre -->
+  <rect x="288" y="176" width="150" height="80" rx="14" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="h" x="363" y="210" text-anchor="middle">햇살꽃집</text>
+  <text class="h" x="363" y="238" text-anchor="middle">예약 페이지</text>
+
+  <!-- Supabase -->
+  <rect class="card" x="32" y="164" width="232" height="104" rx="14"/>
+  <text class="h" x="148" y="198" text-anchor="middle">Supabase</text>
+  <text class="r" x="148" y="228" text-anchor="middle">예약 보관·사장님 로그인</text>
+  <text class="s" x="148" y="254" text-anchor="middle">심화 5–7강</text>
+
+  <!-- Vercel -->
+  <rect class="card" x="462" y="140" width="226" height="174" rx="14"/>
+  <text class="h" x="575" y="174" text-anchor="middle">Vercel</text>
+  <text class="r" x="575" y="204" text-anchor="middle">인터넷 주소로 공개</text>
+  <text class="s" x="575" y="232" text-anchor="middle">심화 9강</text>
+  <path d="M484 246 H666" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text x="575" y="272" text-anchor="middle" style="font-size:18px">연습: Hobby (무료)</text>
+  <text x="575" y="298" text-anchor="middle" style="font-size:18px;font-weight:600;fill:#a3720a">내 가게: Pro</text>
+</svg>

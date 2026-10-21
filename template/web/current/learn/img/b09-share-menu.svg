@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 440" width="720" height="440" role="img" aria-label="아티팩트 창의 공유 단추를 누르면 접근 권한에서 나만과 링크가 있는 모든 사람 중에 고르는 메뉴가 열리고, 나만이 골라져 있는 화면 스케치">
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .l{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .c{font-size:18px;fill:#a3720a}
+    .ok{font-size:18px;font-weight:600;fill:#1d8a38}
+    .n{font-size:18px;font-weight:700;fill:#ffffff}
+  </style>
+  <rect width="720" height="440" rx="16" fill="#f5f6f6"/>
+
+  <!-- artifact window (schematic) -->
+  <rect x="32" y="24" width="656" height="352" rx="12" fill="#ffffff"/>
+  <path d="M44 24 H676 A12 12 0 0 1 688 36 V72 H32 V36 A12 12 0 0 1 44 24 Z" fill="#eceef0"/>
+  <g fill="#6b7078" opacity="0.45">
+    <circle cx="52" cy="48" r="5"/><circle cx="68" cy="48" r="5"/><circle cx="84" cy="48" r="5"/>
+  </g>
+  <rect x="32" y="24" width="656" height="352" rx="12" fill="none" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <!-- document: grey bars only -->
+  <rect x="56" y="98" width="200" height="18" rx="9" fill="#c9ccd2"/>
+  <g fill="#e4e4e8">
+    <rect x="56" y="136" width="250" height="12" rx="6"/>
+    <rect x="56" y="160" width="220" height="12" rx="6"/>
+    <rect x="56" y="184" width="240" height="12" rx="6"/>
+    <rect x="56" y="208" width="170" height="12" rx="6"/>
+    <rect x="56" y="248" width="236" height="12" rx="6"/>
+    <rect x="56" y="272" width="196" height="12" rx="6"/>
+    <rect x="56" y="296" width="226" height="12" rx="6"/>
+    <rect x="56" y="320" width="150" height="12" rx="6"/>
+  </g>
+
+  <!-- Share button -->
+  <circle cx="534" cy="48" r="14" fill="#5e6ad2"/>
+  <text class="n" x="534" y="54" text-anchor="middle">1</text>
+  <rect x="558" y="32" width="88" height="32" rx="10" fill="#e8eafb" stroke="#5e6ad2" stroke-width="2"/>
+  <text class="l" x="602" y="55" text-anchor="middle">Share</text>
+
+  <!-- popup -->
+  <rect x="349" y="95" width="320" height="270" rx="12" fill="#e4e4e8"/>
+  <rect x="344" y="90" width="320" height="270" rx="12" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5"/>
+  <path d="M592 91 L602 79 L612 91" fill="#ffffff" stroke="#e4e4e8" stroke-width="1.5" stroke-linejoin="round"/>
+  <text class="l" x="364" y="124">Who has access</text>
+  <text class="s" x="364" y="150">(접근 권한)</text>
+  <path d="M344 166 H664" stroke="#e4e4e8" stroke-width="1.5"/>
+
+  <!-- row A: Only you (selected) -->
+  <rect x="356" y="178" width="296" height="70" rx="10" fill="#e6f3e9" stroke="#1d8a38" stroke-width="1.5"/>
+  <circle cx="380" cy="204" r="10" fill="#ffffff" stroke="#1d8a38" stroke-width="2"/>
+  <circle cx="380" cy="204" r="5" fill="#1d8a38"/>
+  <text class="l" x="402" y="210">Only you</text>
+  <text class="s" x="402" y="236">(나만)</text>
+  <rect x="516" y="199" width="78" height="30" rx="15" fill="#ffffff" stroke="#1d8a38" stroke-width="1.5"/>
+  <path d="M530 214 L535 219 L544 209" fill="none" stroke="#1d8a38" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="ok" x="550" y="220">권장</text>
+  <circle cx="624" cy="214" r="14" fill="#5e6ad2"/>
+  <text class="n" x="624" y="220" text-anchor="middle">2</text>
+
+  <!-- row B: Anyone with the link -->
+  <rect x="356" y="258" width="296" height="90" rx="10" fill="#ffffff" stroke="#a3720a" stroke-width="1.5"/>
+  <circle cx="380" cy="284" r="10" fill="#ffffff" stroke="#6b7078" stroke-width="2"/>
+  <text class="l" x="402" y="290">Anyone with the link</text>
+  <text class="s" x="402" y="314">(링크가 있는 모든 사람)</text>
+  <text class="c" x="402" y="338">링크를 받은 사람이 열어요</text>
+
+  <text class="s" x="32" y="410">실제 화면은 조금 다를 수 있어요</text>
+</svg>

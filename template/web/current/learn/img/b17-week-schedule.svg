@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" width="720" height="400" role="img" aria-label="아침 브리핑은 매일 8시, 주간 보고는 금요일 17시에 돌아 보고서와 텔레그램으로 가고, 매일 23시 30분 자료 정리는 이상할 때만 텔레그램으로 알리는 한 주 일정 그림">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#6b7078" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <clipPath id="repClip"><rect x="460" y="88" width="228" height="112" rx="12"/></clipPath>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .t{font-size:26px;font-weight:700}
+    .h{font-size:22px;font-weight:600}
+    .l{font-size:20px;font-weight:600}
+    .s{font-size:18px;fill:#6b7078}
+    .ss{font-size:18px;font-weight:600}
+    .ln{fill:none;stroke:#6b7078;stroke-width:2;stroke-linejoin:round}
+    .pill{fill:#e8eafb;stroke:#5e6ad2;stroke-width:1.5}
+    .card{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+  </style>
+  <rect width="720" height="400" rx="16" fill="#f5f6f6"/>
+
+  <!-- heading with a small week-calendar glyph -->
+  <rect x="33" y="31" width="27" height="25" rx="5" fill="#ffffff" stroke="#6b7078" stroke-width="2"/>
+  <path d="M33 39.5 H60" stroke="#6b7078" stroke-width="2"/>
+  <path d="M40 27 V34 M53 27 V34" stroke="#6b7078" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="40" cy="47" r="2" fill="#6b7078"/><circle cx="46.5" cy="47" r="2" fill="#6b7078"/><circle cx="53" cy="47" r="2" fill="#5e6ad2"/>
+  <text class="t" x="72" y="53">일손의 한 주</text>
+
+  <!-- row 1 -->
+  <rect class="pill" x="32" y="96" width="148" height="48" rx="24"/>
+  <text class="l" x="106" y="127" text-anchor="middle">매일 08:00</text>
+  <rect class="card" x="192" y="92" width="172" height="56" rx="12"/>
+  <text class="h" x="278" y="128" text-anchor="middle">아침 브리핑</text>
+
+  <!-- row 2 -->
+  <rect class="pill" x="32" y="176" width="148" height="48" rx="24"/>
+  <text class="l" x="106" y="207" text-anchor="middle">매주 금 17:00</text>
+  <rect class="card" x="192" y="172" width="172" height="56" rx="12"/>
+  <text class="h" x="278" y="208" text-anchor="middle">주간 보고</text>
+
+  <!-- row 3 -->
+  <rect class="pill" x="32" y="256" width="148" height="48" rx="24"/>
+  <text class="l" x="106" y="287" text-anchor="middle">매일 23:30</text>
+  <rect class="card" x="192" y="252" width="172" height="56" rx="12"/>
+  <text class="h" x="278" y="288" text-anchor="middle">자료 정리</text>
+
+  <!-- connectors: briefing + weekly share one line to both places -->
+  <path class="ln" d="M364 120 H404 V248 H452" marker-end="url(#arrow)"/>
+  <path class="ln" d="M364 200 H404"/>
+  <path class="ln" d="M404 144 H452" marker-end="url(#arrow)"/>
+  <circle cx="404" cy="144" r="4" fill="#6b7078"/>
+  <circle cx="404" cy="200" r="4" fill="#6b7078"/>
+  <!-- tidy: telegram only when something is unusual, dashed -->
+  <path class="ln" d="M364 280 H452" stroke-dasharray="6 5" marker-end="url(#arrow)"/>
+  <text class="s" x="410" y="306" text-anchor="middle">이상할 때만</text>
+
+  <!-- destination: report (always) -->
+  <rect class="card" x="460" y="88" width="228" height="112" rx="12"/>
+  <rect x="460" y="88" width="6" height="112" fill="#1d8a38" clip-path="url(#repClip)"/>
+  <path d="M486 128 H500 L508 136 V158 Q508 160 506 160 H486 Q484 160 484 158 V130 Q484 128 486 128 Z" fill="#ffffff" stroke="#1d8a38" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M500 128 V136 H508" fill="none" stroke="#1d8a38" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M490 144 H502 M490 151 H502" stroke="#1d8a38" stroke-width="2" stroke-linecap="round"/>
+  <text class="h" x="524" y="138">보고서</text>
+  <text class="s" x="524" y="168">이 Mac에 저장</text>
+
+  <!-- destination: telegram (optional) — generic bubble, no logo -->
+  <rect x="460" y="220" width="228" height="104" rx="12" fill="#f8efdc" stroke="#a3720a" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <path d="M488 248 H504 Q512 248 512 256 V264 Q512 272 504 272 H495 L486 280 L488 272 Q480 272 480 264 V256 Q480 248 488 248 Z" fill="#ffffff" stroke="#a3720a" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="489" cy="260" r="2" fill="#a3720a"/><circle cx="496" cy="260" r="2" fill="#a3720a"/><circle cx="503" cy="260" r="2" fill="#a3720a"/>
+  <text class="h" x="524" y="265">텔레그램</text>
+  <rect x="610" y="245" width="50" height="27" rx="13.5" fill="#ffffff" stroke="#a3720a" stroke-width="1.5"/>
+  <text class="ss" x="635" y="265" text-anchor="middle" style="fill:#a3720a">선택</text>
+  <text class="s" x="524" y="298">휴대폰으로 알림</text>
+
+  <!-- jobs that do not use Claude -->
+  <text class="s" x="32" y="364">10분마다 점검·기록 · 매일 09:30 업데이트 — Claude 안 씀</text>
+</svg>

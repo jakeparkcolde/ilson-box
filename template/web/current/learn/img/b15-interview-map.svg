@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 460" width="720" height="460" role="img" aria-label="회사 인터뷰에서 Claude가 열 가지 주제를 하나씩 묻고, 답이 서류함의 회사 노트와 회사 메모로 저장되는 흐름을 그린 개념도">
+  <defs>
+    <marker id="arrowA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#5e6ad2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <path id="fd" d="M0 2.5 q0-2.5 2.5-2.5 h5 l2.5 2.5 h6.5 q2.5 0 2.5 2.5 v8 q0 2.5-2.5 2.5 h-14 q-2.5 0-2.5-2.5 z"/>
+  </defs>
+  <style>
+    text{font-family:'Apple SD Gothic Neo',Pretendard,'Noto Sans KR',sans-serif;fill:#1d1d21}
+    .h{font-size:22px;font-weight:700}
+    .l{font-size:20px;font-weight:600}
+    .c{font-size:19px}
+    .c tspan{fill:#6b7078}
+    .s{font-size:18px;fill:#6b7078}
+    .m{font-family:'SF Mono',Menlo,monospace;font-size:20px}
+    .card{fill:#ffffff;stroke:#e4e4e8;stroke-width:1.5}
+  </style>
+  <rect width="720" height="460" rx="16" fill="#f5f6f6"/>
+
+  <!-- left: the interview -->
+  <rect x="32" y="32" width="184" height="368" rx="14" class="card"/>
+  <text class="h" x="124" y="72" text-anchor="middle">회사 인터뷰</text>
+  <rect x="62" y="88" width="124" height="34" rx="17" fill="#f5f6f6" stroke="#e4e4e8" stroke-width="1.5"/>
+  <text class="m" x="124" y="112" text-anchor="middle">/onboard</text>
+
+  <path d="M60 144 H160 Q174 144 174 158 V192 Q174 206 160 206 H70 L52 216 L55 202 Q46 199 46 190 V158 Q46 144 60 144 Z" class="card" stroke-linejoin="round"/>
+  <text class="s" x="62" y="168">Claude</text>
+  <text class="l" x="62" y="194">질문 하나</text>
+
+  <path d="M88 226 H188 Q202 226 202 240 V270 Q202 281 193 284 L196 298 L178 288 H88 Q74 288 74 274 V240 Q74 226 88 226 Z" fill="#e8eafb"/>
+  <text x="90" y="250" style="font-size:18px;fill:#5e6ad2">나</text>
+  <text class="l" x="90" y="276">답 하나</text>
+
+  <path d="M60 308 H160 Q174 308 174 322 V356 Q174 370 160 370 H70 L52 380 L55 366 Q46 363 46 354 V322 Q46 308 60 308 Z" class="card" stroke-linejoin="round"/>
+  <text class="s" x="62" y="332">Claude</text>
+  <text class="l" x="62" y="358">되짚어 확인</text>
+
+  <path d="M222 216 H250" stroke="#5e6ad2" stroke-width="2.5" fill="none" marker-end="url(#arrowA)"/>
+
+  <!-- right: the company drawer -->
+  <rect x="258" y="32" width="430" height="368" rx="14" class="card"/>
+  <use href="#fd" x="278" y="52" fill="none" stroke="#1d8a38" stroke-width="1.5"/>
+  <text class="l" x="304" y="66">서류함 「회사 자료」</text>
+
+  <rect x="274" y="84" width="193" height="42" rx="10" class="card"/>
+  <text class="c" x="288" y="112"><tspan>①</tspan> 회사 소개</text>
+  <rect x="479" y="84" width="193" height="42" rx="10" class="card"/>
+  <text class="c" x="493" y="112"><tspan>②</tspan> 사장님</text>
+
+  <rect x="274" y="136" width="193" height="42" rx="10" class="card"/>
+  <text class="c" x="288" y="164"><tspan>③</tspan> 함께 일하는 사람</text>
+  <rect x="479" y="136" width="193" height="42" rx="10" class="card"/>
+  <text class="c" x="493" y="164"><tspan>④</tspan> 손님</text>
+
+  <rect x="274" y="188" width="193" height="42" rx="10" class="card"/>
+  <text class="c" x="288" y="216"><tspan>⑤</tspan> 거래처</text>
+  <rect x="479" y="188" width="193" height="42" rx="10" class="card"/>
+  <text class="c" x="493" y="216"><tspan>⑥</tspan> 반복하는 일</text>
+
+  <rect x="274" y="240" width="193" height="42" rx="10" class="card"/>
+  <text class="c" x="288" y="268"><tspan>⑦</tspan> 도구와 채널</text>
+  <rect x="479" y="240" width="193" height="42" rx="10" class="card"/>
+  <text class="c" x="493" y="268"><tspan>⑧</tspan> 하면 안 되는 것</text>
+
+  <rect x="274" y="292" width="193" height="42" rx="10" class="card"/>
+  <text class="c" x="288" y="320"><tspan>⑨</tspan> 이번 달 목표</text>
+  <rect x="479" y="292" width="193" height="42" rx="10" fill="#e8eafb" stroke="#5e6ad2" stroke-width="1.5"/>
+  <text class="c" x="493" y="320"><tspan style="fill:#5e6ad2">⑩</tspan> 아침 보고에 넣을 것</text>
+
+  <rect x="274" y="348" width="398" height="36" rx="10" fill="#e8eafb"/>
+  <text x="473" y="373" text-anchor="middle" style="font-size:20px;font-weight:600;fill:#5e6ad2">맨 끝: 회사 메모에 회사 이름</text>
+
+  <text class="s" x="360" y="436" text-anchor="middle">주제가 끝날 때마다 바로 저장 · 모르면 「몰라요」 → 초안</text>
+</svg>
