@@ -409,3 +409,37 @@ Setting: private personal GitHub repo, dashboard import, **Framework Preset** **
 - Blocker 5: built-in auth email sends 2 per hour and only to project team members — fine for one owner, but lessons must not promise customer emails from Supabase.
 - Watch: Claude Code auto mode won't add or repoint a git remote unless the reader names it, and may treat a deploy as production; the lesson prompt should name the GitHub URL and the reader should approve pushes knowingly.
 - Owner account (V8.17): use **Add user** → **Create new user** with email + password and **Auto confirm user?** left on; it works with sign-ups off and needs no email or Site URL. Avoid **Send invitation** (no password the owner set; the link lands on the Site URL). Forgotten password: **Delete user**, **Create new user** again, re-run owner-policy.sql with the new **User UID**.
+
+## V9. Live check 2026-10-21
+
+The whole 심화 flow was run once on real accounts (a free Supabase organization in Seoul, a private GitHub repository, a Vercel project on a Pro team) with the fictional 햇살꽃집 practice site built from the verified files; every test resource was deleted afterwards. Same line format. Tag [tested-live] = seen on the real dashboard or site during that run; the labels below may be quoted verbatim in lessons. Screens change, so lessons still say "화면 모양은 바뀔 수 있어요".
+
+### V9.1 Supabase
+- New organization form: **Name**, **Type** (Personal), **Plan** (**Free - $0/month**), **Create organization**. [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- New project form: Organization, GitHub (optional), **Project name**, **Database password** with **Generate a password**, **Region**, Security checkboxes (**Enable Data API** on; **Automatically expose new tables** on, with "We recommend disabling this…"; **Enable automatic RLS** off), **Create new project**. The project was ready within seconds. [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- Region: the default is the general region **Asia-Pacific**; Seoul is under "Specific regions" as **Northeast Asia (Seoul)** `ap-northeast-2`; Tokyo is marked "Recommended". [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- Project home shows the project URL and a **Copy project URL and API keys** button. The left sidebar shows icons only; names appear on hover. What that copy button puts on the clipboard was not recorded. [tested-live; clipboard content unverified] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- SQL Editor: the first visit shows **Snippets no longer save automatically** → **Understood**. schema.sql pasted and **Run** → **Success. No rows returned**, with the default Security checkboxes. [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- Settings → **API Keys**: **Publishable key** ("This key is safe to use in a browser if you have enabled Row Level Security (RLS)…", **Copy API key**); **Secret keys** hidden behind **Reveal API key**. [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- Sign-ups off: Authentication → **Sign In / Providers** → **User Signups** → switch **Allow new users to sign up** → **Save changes** (required) → toast **Successfully updated settings**. [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- Owner account: Authentication → **Users** → **Add user** menu (**Send invitation** / **Create new user**) → dialog **Create a new user** (**Email address**, **User Password**, **Auto confirm user?** checked, note "A confirmation email will not be sent…") → **Create user** → toast **Successfully created user: …**. The user panel shows **User UID** and "Confirmed at". [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- owner-policy.sql: **Run** opens **Potential issue detected** ("This query includes destructive operations…") because of `drop policy if exists`; **Run query** continues; the result shows 3 rows (규칙 이름 / 종류 / 누구에게). [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- cleanup.sql: blocks 【1】 and 【3】 ran without a warning dialog (【3】 deletes inside a CTE). [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+
+### V9.2 Local test server and client code
+- `python3 -m http.server 8000 --bind 127.0.0.1 --directory public`: pages opened from `http://127.0.0.1:8000` reached hosted Supabase (Data API and Auth; CORS OK). [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- Bug found: reserve.js used `form.elements[name]`; in real browsers `form.elements['item']` returns the collection's built-in `item()` method instead of the field named `item`, so sending stopped with `TypeError … reading 'trim'`. jsdom did not show it. Fixed to `form.elements.namedItem(name)` in client-snippets.md and files/v06-reserve-code.txt and re-tested live. [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- Customer and owner flow on the real project: send → "예약 요청을 받았어요…"; consent unchecked → the browser blocks sending; anonymous read → 42501; owner sign-in → list; status change → "'확인함'(으)로 바꿨어요."; CSV `예약요청-YYYY-MM-DD.csv` with BOM and the formula guard (`'- …`). [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+
+### V9.3 Vercel
+- Import: **New Project** → **Import Git Repository** list shows the new private repository → **Import**. [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- Configure page: **Vercel Team**, **Project Name**, **Root Directory** `./`, **Application Preset** (picked **Other** automatically; the name "Framework Preset" is no longer shown), **Build and Output Settings** (Build Command, **Output Directory** with placeholder "`public` if it exists, or `.`", Install Command; each locked until its **Override** toggle at the right end of the field is turned on), **Environment Variables**, **Deploy**. [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- After deploying: **Congratulations!**, **Visit Deployment**, **Continue to Project**. [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- Live site: `https://<project>.vercel.app/` → 200; `/CLAUDE.md` → 404; `/.gitignore` → 404; the per-deployment URL redirects to the Vercel login (302). The full customer/owner flow passed on the live address. [tested-live] — docs/claude-learn/vibe/live-check-2026-10-21.md
+- The run used a Pro team, so Hobby-only screens were not seen. [tested-live, scope note] — docs/claude-learn/vibe/live-check-2026-10-21.md
+
+### Implications for the lessons (V9)
+- Quote the live labels above verbatim (v05 forms and success line, v07 sign-ups path, **Save changes**, the owner-policy warning, v09 **Application Preset** and **Build and Output Settings**). Older names in V8 ("Framework Preset", "Build Output Settings") stay only in source labels that quote the docs.
+- The owner-policy warning is expected for that file only; other track SQL showed no warning.
+- Lessons may say the local test server works with hosted Supabase; keep the Vercel-address fallback.
+- Client code must be checked in a real browser as well as jsdom.

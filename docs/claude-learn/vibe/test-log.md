@@ -247,6 +247,23 @@ Findings (round 2):
 17. CSV paging must stop on an empty page, not on a short one: with "Max rows" at 300 a "short page = done" rule would have stopped after the first 300 rows; the §9 code fetched all 2,347 (9 requests, X5).
 18. The formula guard changed exactly the 7 cells that start with `=`, `+`, `-`, `@`, tab or CR, including a harmless `- 포장은 간단히` and a phone number `+82 …`, which now begin with `'` (X3).
 
+## Live check on real accounts (2026-10-21)
+
+Details: `live-check-2026-10-21.md` (this folder). The 심화 flow ran once end to end on a real Supabase free organization (Seoul), a private GitHub repository and a Vercel project, with the fictional 햇살꽃집 practice site built from the files above. All test resources were deleted afterwards.
+
+| ID | Case | Result |
+|---|---|---|
+| L1 | schema.sql in the real SQL Editor, default Security checkboxes | PASS: **Success. No rows returned** |
+| L2 | owner-policy.sql in the real SQL Editor | PASS after the expected **Potential issue detected** dialog (`drop policy if exists`) → **Run query**; 3 rows |
+| L3 | cleanup.sql 【1】 and 【3】 | PASS, no warning dialog |
+| L4 | sign-ups off, **Create new user** with **Auto confirm user?** | PASS (**Save changes** is required for the switch) |
+| L5 | pages from `python3 -m http.server 8000 --bind 127.0.0.1 --directory public` to hosted Supabase | PASS (CORS OK) |
+| L6 | customer send / consent unchecked / anonymous read / owner list / status change / CSV | PASS (after the L7 fix) |
+| L7 | reserve.js in a real browser | FAIL then fixed: `form.elements['item']` returned the built-in `item()` method → `TypeError … reading 'trim'`; now `form.elements.namedItem(name)` |
+| L8 | Vercel import with Output Directory `public`; `/`, `/CLAUDE.md`, `/.gitignore`, per-deployment URL | PASS: 200, 404, 404, 302 to the Vercel login |
+
+Finding 19 (jsdom vs real browser): jsdom 30.1.3 resolved `form.elements['item']` to the input named `item`, so J1–J5 passed; real browsers resolve it to `HTMLFormControlsCollection.prototype.item`, because a built-in method wins over a field name for bracket access. Look fields up with `namedItem(name)` (or avoid field names that match collection methods such as `item` and `namedItem`), and run client code at least once in a real browser before it is published.
+
 ## Cleanup
 
 Round 1 (2026-10-21): stopped the gateway process (checked first by PID, start time, working folder and port 56321); `docker rm -f claude-learn-sqltest-rest claude-learn-sqltest-auth claude-learn-sqltest-db`; `docker network rm claude-learn-sqltest-net`.

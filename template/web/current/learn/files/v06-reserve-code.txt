@@ -51,7 +51,7 @@ const result = document.getElementById('reserve-result');
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   const button = form.querySelector('button[type="submit"]');
-  const value = (name) => form.elements[name].value.trim();
+  const value = (name) => form.elements.namedItem(name).value.trim(); // elements['item'] 은 내장 함수라 namedItem 으로 찾아요
   const optional = (name) => value(name) || null; // 빈칸은 null 로 보내요
 
   if (!form.elements.consent.checked) {

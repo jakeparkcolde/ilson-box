@@ -48,27 +48,28 @@
       "body": [
         "vercel.com/signup에서 **Continue with GitHub**(GitHub로 계속하기)를 눌러요. GitHub 화면에서 Vercel이 내 계정에 접근하도록 허락하면, 이 연결이 Vercel의 기본 로그인이 돼요.",
         "실제 가게라면 저장소를 가져오기 전에 팀의 **Settings**(설정) → **Billing**(결제) → **Upgrade**(업그레이드)로 Pro를 켜요. 카드 정보를 넣고 **Confirm and Upgrade**(확인 후 업그레이드)를 눌러요.",
-        "**New Project**(새 프로젝트) 화면의 저장소 목록에서 `haetsal-booking`을 골라요. 다음 화면의 프로젝트 이름은 Vercel 화면과 주소에 보일 수 있으니, 실제 가게라면 알아보기 쉬운 영어 이름으로 지어요.",
-        "**Framework Preset**(프레임워크 프리셋)은 **Other**(기타)로 두고 빌드 명령은 비워요. 우리 페이지는 HTML·CSS·JS뿐이라 따로 만드는 단계가 필요 없어요.",
-        "**Build Output Settings**를 펼쳐 **Output Directory**(내보낼 폴더) 옆 **Override**(직접 지정)를 켜고 `public`을 적어요. 이렇게 하면 `public` 폴더만 공개되고, 그 폴더가 없을 때는 배포가 멈춰요.",
-        "Environment Variables(환경 변수)에는 아무것도 넣지 않아요. 이 과정에는 숨길 값이 없으니, 그대로 **Deploy**(배포)를 눌러요."
+        "**New Project**(새 프로젝트) → **Import Git Repository**(Git 저장소 가져오기) 목록에서 `haetsal-booking` 옆 **Import**(가져오기)를 눌러요. 다음 설정 화면의 **Project Name**(프로젝트 이름)은 Vercel 화면과 주소에 보일 수 있으니, 실제 가게라면 알아보기 쉬운 영어 이름으로 지어요.",
+        "**Root Directory**(맨 위 폴더)는 `./` 그대로 두고, **Application Preset**(앱 종류)이 **Other**(기타)인지 봐요. 대개 이미 골라져 있고, 우리 페이지는 HTML·CSS·JS뿐이라 따로 만드는 단계가 필요 없어요.",
+        "**Build and Output Settings**(만들기와 내보내기 설정)를 펼치고, 빌드 명령(Build Command)은 비워 둬요. **Output Directory**(내보낼 폴더) 칸은 잠겨 있으니, 칸 오른쪽 끝의 **Override**(직접 지정) 스위치를 켜고 `public`을 적어요.",
+        "이렇게 하면 `public` 폴더만 공개되고, 그 폴더가 없을 때는 배포가 멈춰요.",
+        "**Environment Variables**(환경 변수)에는 아무것도 넣지 않아요. 이 과정에는 숨길 값이 없으니, 그대로 **Deploy**(배포)를 눌러요."
       ],
       "self": "Vercel 가입, GitHub 허락, 실제 가게라면 Pro 결제까지 브라우저에서 직접 해 주세요. 화면 모양은 바뀔 수 있어요.",
       "figure": {
         "src": "img/v09-import-screen.svg",
-        "alt": "Vercel 새 프로젝트 화면에서 haetsal-booking 저장소를 고르고, Framework Preset을 Other로, Output Directory를 Override로 public으로 둔 뒤 Deploy를 누르는 순서를 번호로 보여 주는 화면 스케치",
+        "alt": "Vercel 새 프로젝트 화면에서 haetsal-booking 저장소를 가져오고, Application Preset이 Other인지 본 뒤, Output Directory의 Override를 켜고 public을 적어 Deploy를 누르는 순서를 번호로 보여 주는 화면 스케치",
         "caption": "저장소 고르기 → Other → Output Directory public → Deploy. 실제 화면은 조금 다를 수 있어요."
       },
-      "success": "배포가 끝났다는 화면과 함께 `…vercel.app`으로 끝나는 주소가 보이면 성공이에요.",
+      "success": "「Congratulations!」(축하해요) 화면이 나오면 성공이에요. **Continue to Project**(프로젝트로 가기)를 눌러 프로젝트 화면으로 가요.",
       "caution": "내 GitHub 개인 계정의 비공개 저장소는 Hobby에서도 가져올 수 있어요. GitHub 조직(organization)이 가진 비공개 저장소라면 Pro가 필요해요."
     },
     {
       "title": "휴대폰으로 열고, 작업 약속이 숨었는지 보기",
       "why": "심화 3강에서 미뤄 둔 진짜 휴대폰 확인을 이제 해요. 보이면 안 되는 파일이 숨었는지도 같이 봐요.",
       "body": [
-        "새 프로젝트의 첫 배포는 언제나 **Production**(손님이 보는 페이지)이에요. 프로젝트 화면의 `…vercel.app` 주소가 손님에게 알려 줄 주소예요.",
+        "새 프로젝트의 첫 배포는 언제나 **Production**(손님이 보는 페이지)이에요. 프로젝트 화면의 `프로젝트 이름.vercel.app` 주소가 손님에게 알려 줄 주소예요.",
         "휴대폰 브라우저로 그 주소를 열고 예약 화면에서 연습 요청을 한 건 보내요. Mac에서는 같은 주소 끝에 `/admin.html`을 붙여 열고, 로그인해 그 요청이 왔는지 봐요.",
-        "이번에는 주소 끝에 `/CLAUDE.md`를 붙여 열어요. 404(찾을 수 없음)가 나와야 해요.",
+        "이번에는 주소 끝에 `/CLAUDE.md`를 붙여 열어요. 404(찾을 수 없음)가 나와야 하고, 2026-10-21 실제 확인에서도 그랬어요.",
         "작업 약속은 `public` 밖 맨 위 폴더에 있어서, `public`만 내보내면 공개되지 않아요.",
         "프로젝트의 Settings → **Deployment Protection**(배포 보호)도 열어 봐요. 손님이 보는 주소까지 막는 **All Deployments**가 아니라, 공식 안내가 대부분에게 권하는 **Standard Protection**이면 돼요."
       ],
@@ -107,7 +108,7 @@
     {
       "heading": "문제가 생기면 되돌리는 두 길",
       "body": [
-        "급할 때는 Vercel의 **Instant Rollback**(즉시 되돌리기)이에요. Production 배포 칸에서 **Instant Rollback**을 누르고 돌아갈 배포를 고른 뒤 Continue → Confirm Rollback 순서이고, Hobby는 바로 앞 배포로만 돌아가요.",
+        "급할 때는 Vercel의 **Instant Rollback**(즉시 되돌리기)이에요. Production 배포 칸에서 누르고 배포를 고른 뒤 Continue → Confirm Rollback 순서이고, Hobby는 바로 앞 배포로만 돌아가요.",
         "되돌린 뒤에는 새로 올려도 손님 페이지가 바뀌지 않아요. 고친 것을 올린 다음 **Undo Rollback**(되돌리기 취소)에서 배포를 골라 Confirm을 눌러야 다시 올리는 대로 바뀌어요.",
         "평소의 되돌리기는 심화 4강의 `git revert`예요. 되돌린 내용을 새 저장으로 남겨 올리면, Vercel도 그 모습으로 새로 배포해요."
       ],
@@ -121,7 +122,7 @@
       "heading": "주소 두 종류: 손님용과 시험용",
       "body": [
         "Vercel에는 **Production**(손님이 보는 페이지)과 **Preview**(미리보기)가 있어요. `main`이 아닌 다른 줄에 올리면 미리보기가 생겨요.",
-        "배포 보호를 켜 두면 미리보기 주소는 Vercel 로그인을 요구해요. 그래서 손님에게는 Production 주소만 알려요.",
+        "배포마다 따로 생기는 긴 주소는 Vercel 로그인을 요구하고, `프로젝트 이름.vercel.app`은 누구나 열 수 있었어요(2026-10-21 확인). 그래서 손님에게는 이 짧은 Production 주소만 알려요.",
         "예약함 주소를 아는 누구나 로그인 화면은 열 수 있어요. 요청을 지키는 건 Vercel이 아니라 심화 7강의 Supabase 로그인과 규칙이에요."
       ],
       "table": {
@@ -203,7 +204,7 @@
     },
     {
       "symptom": "배포가 오류로 멈추거나, 주소를 열면 404가 나와요",
-      "fix": "Output Directory를 `public`으로 직접 지정했는데 그 폴더가 없거나 비어 있으면 배포가 멈춰요. `public` 폴더 안에 `index.html`이 있는지, 마지막 저장이 GitHub에 올라갔는지 아래 문장으로 확인해요.",
+      "fix": "Output Directory를 Override로 `public`이라고 정했는데 그 폴더가 없거나 비어 있으면 배포가 멈춰요. `public` 폴더 안에 `index.html`이 있는지, 마지막 저장이 GitHub에 올라갔는지 아래 문장으로 확인해요.",
       "prompt": "Vercel 배포가 멈추거나 주소를 열면 404가 나와요.\n이 저장소에 public 폴더가 있고 그 안에 index.html, reserve.html, admin.html, privacy.html, style.css, config.js, reserve.js, admin.js가 있는지 확인해 주세요.\n마지막 저장이 GitHub의 haetsal-booking 저장소 main에 올라갔는지도 봐 주세요.\n파일은 고치지 말고 확인한 결과만 알려 주세요."
     },
     {
@@ -214,7 +215,7 @@
   ],
   "checklist": [
     "연습인지 실제 가게인지 정했고, 실제 가게라면 Pro로 올렸어요",
-    "Framework Preset은 Other, Output Directory는 `public`으로 두고 배포했어요",
+    "Application Preset은 Other, Output Directory는 Override를 켜고 `public`으로 두고 배포했어요",
     "휴대폰에서 보낸 연습 요청을 예약함에서 봤고, `/CLAUDE.md`는 404였어요",
     "올리면 바뀌는 것과 즉시 되돌리기·되돌리기 취소·git revert를 알아요"
   ],
