@@ -25,6 +25,10 @@ import threading
 import time
 from urllib.parse import unquote, urlsplit
 
+LIBRARY = str(Path(__file__).resolve().parent)
+if LIBRARY not in sys.path:
+    sys.path.insert(0, LIBRARY)
+
 SERVICE = "ilson-box-admin"
 SESSION_SECONDS = 8 * 3600
 REPORT_LIMIT = 100
@@ -40,7 +44,10 @@ LABELS = {
 }
 # ilson pause 가 거절하는 기본 관리 업무.
 BASE_JOBS = {"watchdog", "snapshot", "update"}
-STATIC = {"/": ("web/index.html", "text/html; charset=utf-8"),
+STATIC = {"/dashboard": ("web/dashboard.html", "text/html; charset=utf-8"),
+          "/dashboard.js": ("web/dashboard.js", "application/javascript; charset=utf-8"),
+          "/dashboard.css": ("web/dashboard.css", "text/css; charset=utf-8"),
+          "/": ("web/index.html", "text/html; charset=utf-8"),
           "/index.html": ("web/index.html", "text/html; charset=utf-8"),
           "/styles.css": ("web/styles.css", "text/css; charset=utf-8"),
           "/fonts.css": ("web/fonts.css", "text/css; charset=utf-8"),
@@ -450,6 +457,8 @@ class Box:
         self.user_files = Files(user_home or Path.home())
         self.clock = clock
         self.probe = probe or Probe(self.home)
+        from resource_dashboard import Collector
+        self.resource_collector = Collector(self.home)
         try:
             token, _ = self.files.text("state/web-admin/token", 200, private=True)
             instance, _ = self.files.text("state/web-admin/instance", 200, private=True)
@@ -971,6 +980,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(200, {"authenticated": True})
         if path.startswith("/api/workspace/"):
             return self.workspace_request("GET", path)
+        if path == "/api/dashboard":
+            from resource_dashboard import dashboard
+            return self.reply(200, dashboard(self.server.box, self.server.box.resource_collector))
         if path == "/api/overview":
             return self.reply(200, self.server.box.overview())
         if path == "/api/reports":
