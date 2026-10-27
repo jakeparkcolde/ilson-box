@@ -78,6 +78,54 @@ class CollectorTests(unittest.TestCase):
         with self.assertRaises(ValueError):rd.cpu('CPU usage: 100% idle')
         with self.assertRaises(ValueError):rd.memory('missing', '1000')
 
+    def test_launchd_labels_preserve_text_and_exclude_system_apps(self):
+        labels = ['org.example.worker:daily', 'org.example.백업',
+                  'org.example.daily backup', 'org.example.$(never-execute); worker',
+                  'x' * 200]
+        raw = 'PID\tStatus\tLabel\n42\t0\tcom.ilson.briefing\n'
+        raw += ''.join('-\t0\t' + label + '\n' for label in labels)
+        raw += '-\t0\tcom.apple.백업:daily task\n-\t0\tapplication.Example App:daily\n'
+        observed = self.collector.observe('launchd', lambda: rd.launchd(raw))
+        self.assertEqual(observed['state'], 'ok')
+        rows = {row['id']: row for row in observed['value']}
+        self.assertEqual(set(rows), set(labels) | {'com.ilson.briefing'})
+        self.assertEqual(rows['com.ilson.briefing']['pid'], 42)
+        box = Mock()
+        box.files.marker.return_value = False
+        box.jobs.return_value = ([{'id': 'briefing', 'label': 'Briefing',
+            'schedule': 'daily', 'registration': 'loaded',
+            'last_success_at': None, 'last_success_state': 'unavailable'}], [])
+        collector = Mock()
+        collector.snapshot.return_value = {'launchd': observed, 'sandbox': False}
+        result = rd.dashboard(box, collector)['automations']
+        self.assertEqual(result['state'], 'ok')
+        self.assertEqual(result['items'][0]['source'], 'box')
+        self.assertEqual(result['items'][0]['state'], 'running')
+        self.assertEqual(len(result['items']), len(labels) + 1)
+
+    def test_launchd_rejects_malformed_controls_and_oversized_labels(self):
+        bad_labels = ['', ' ', 'x' * 201]
+        bad_labels += ['org.example.bad' + chr(code) + 'suffix'
+                       for code in [0, 9, 10, 11, 12, 13, 27, 31, 127, 128, 133, 159]]
+        for label in bad_labels:
+            for prefix in ['', 'com.apple.', 'application.']:
+                # Empty labels cease to be empty when prefixed.
+                if not label.strip() and prefix:
+                    continue
+                with self.subTest(label=repr(label), prefix=prefix):
+                    raw = 'PID\tStatus\tLabel\n42\t0\tcom.ilson.briefing\n-\t0\t' + prefix + label
+                    collector = rd.Collector('/synthetic')
+                    self.assertEqual(collector.observe('launchd', lambda: rd.launchd(raw))['state'], 'failure')
+                    collector.observe('launchd', lambda: rd.launchd(LAUNCH))
+                    stale = collector.observe('launchd', lambda: rd.launchd(raw))
+                    self.assertEqual(stale['state'], 'stale')
+                    self.assertEqual(stale['value'], rd.launchd(LAUNCH))
+        for row in ['x\t0\torg.example.job', '-\tx\torg.example.job', '-\t0']:
+            with self.subTest(row=row), self.assertRaises(ValueError):
+                rd.launchd('PID\tStatus\tLabel\n' + row)
+        with self.assertRaises(ValueError):
+            rd.launchd('PID\tStatus\tLabel\n' + '-\t0\torg.example.job\n' * 2001)
+
 
 class DashboardHTTPTests(wa.BoxFixture):
     def setUp(self):

@@ -7,6 +7,7 @@ import re
 import subprocess
 import threading
 import time
+import unicodedata
 
 
 def iso(value):
@@ -48,17 +49,19 @@ def memory(text, total):
 
 
 def launchd(text):
-    lines = text.splitlines()
+    # Split only record delimiters so controls inside labels cannot disappear.
+    lines = text.split('\n')
     if not lines or lines[0].split() != ['PID', 'Status', 'Label']:
         raise ValueError('invalid launchd response')
     rows = []
     for line in lines[1:]:
-        if not line.strip():
+        if not line:
             continue
-        parts = line.split()
+        parts = re.split(r'[ \t]+', line, maxsplit=2)
         if (len(parts) != 3 or not re.fullmatch(r'-|[0-9]+', parts[0])
                 or not re.fullmatch(r'-?[0-9]+', parts[1])
-                or not re.fullmatch(r'[A-Za-z0-9_.-]{1,200}', parts[2])):
+                or not 1 <= len(parts[2]) <= 200 or not parts[2].strip()
+                or any(unicodedata.category(char) == 'Cc' for char in parts[2])):
             raise ValueError('invalid launchd row')
         if parts[2].startswith(('com.apple.', 'application.')):
             continue
