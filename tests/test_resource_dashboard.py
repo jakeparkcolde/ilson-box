@@ -16,7 +16,7 @@ import test_web_admin as wa
 
 TOP = 'CPU usage: 10.0% user, 10.0% sys, 80.0% idle\nCPU usage: 20.0% user, 10.0% sys, 70.0% idle\n'
 VM = 'Mach Virtual Memory Statistics: (page size of 4096 bytes)\nAnonymous pages: 100.\nPages purgeable: 10.\nPages wired down: 20.\nPages occupied by compressor: 5.\n'
-LAUNCH = 'PID Status Label\n42 0 org.example.worker\n- 7 org.example.failed\n- 0 com.ilson.briefing\n- 0 com.apple.system\n'
+LAUNCH = 'PID\tStatus\tLabel\n42\t0\torg.example.worker\n-\t7\torg.example.failed\n-\t0\tcom.ilson.briefing\n-\t0\tcom.apple.system\n'
 
 
 class CollectorTests(unittest.TestCase):
@@ -81,9 +81,9 @@ class CollectorTests(unittest.TestCase):
     def test_launchd_labels_preserve_text_and_exclude_system_apps(self):
         labels = ['org.example.worker:daily', 'org.example.백업',
                   'org.example.daily backup', 'org.example.$(never-execute); worker',
-                  'x' * 200]
+                  'x' * 200, ' ' * 199 + 'x', ' com.ilson.briefing']
         raw = 'PID\tStatus\tLabel\n42\t0\tcom.ilson.briefing\n'
-        raw += ''.join('-\t0\t' + label + '\n' for label in labels)
+        raw += ''.join('99\t7\t' + label + '\n' for label in labels)
         raw += '-\t0\tcom.apple.백업:daily task\n-\t0\tapplication.Example App:daily\n'
         observed = self.collector.observe('launchd', lambda: rd.launchd(raw))
         self.assertEqual(observed['state'], 'ok')
@@ -101,10 +101,17 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(result['state'], 'ok')
         self.assertEqual(result['items'][0]['source'], 'box')
         self.assertEqual(result['items'][0]['state'], 'running')
+        self.assertEqual(result['items'][0]['process']['pid'], 42)
+        self.assertEqual(result['items'][0]['process']['exit_code'], 0)
+        other = next(row for row in result['items'] if row['id'] == ' com.ilson.briefing')
+        self.assertEqual(other['source'], 'launchd')
+        self.assertEqual(other['process']['pid'], 99)
+        self.assertEqual(other['process']['exit_code'], 7)
         self.assertEqual(len(result['items']), len(labels) + 1)
 
     def test_launchd_rejects_malformed_controls_and_oversized_labels(self):
-        bad_labels = ['', ' ', 'x' * 201]
+        bad_labels = ['', ' ', 'x' * 201, ' ' * 201 + 'org.example.job',
+                      ' ' * 200 + 'x', '\torg.example.job']
         bad_labels += ['org.example.bad' + chr(code) + 'suffix'
                        for code in [0, 9, 10, 11, 12, 13, 27, 31, 127, 128, 133, 159]]
         for label in bad_labels:
@@ -120,7 +127,8 @@ class CollectorTests(unittest.TestCase):
                     stale = collector.observe('launchd', lambda: rd.launchd(raw))
                     self.assertEqual(stale['state'], 'stale')
                     self.assertEqual(stale['value'], rd.launchd(LAUNCH))
-        for row in ['x\t0\torg.example.job', '-\tx\torg.example.job', '-\t0']:
+        for row in ['x\t0\torg.example.job', '-\tx\torg.example.job', '-\t0', '- 0 org.example.job',
+                    '- 0\torg.example.job']:
             with self.subTest(row=row), self.assertRaises(ValueError):
                 rd.launchd('PID\tStatus\tLabel\n' + row)
         with self.assertRaises(ValueError):

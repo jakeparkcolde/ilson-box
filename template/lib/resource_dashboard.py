@@ -57,7 +57,9 @@ def launchd(text):
     for line in lines[1:]:
         if not line:
             continue
-        parts = re.split(r'[ \t]+', line, maxsplit=2)
+        # Native launchctl columns use TABs. Preserve the entire raw label,
+        # including leading whitespace, for identity and bounds validation.
+        parts = line.split('\t', 2)
         if (len(parts) != 3 or not re.fullmatch(r'-|[0-9]+', parts[0])
                 or not re.fullmatch(r'-?[0-9]+', parts[1])
                 or not 1 <= len(parts[2]) <= 200 or not parts[2].strip()
