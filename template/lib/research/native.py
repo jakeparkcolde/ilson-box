@@ -255,10 +255,39 @@ def stop_process_group(proc):
 
 
 def access_failure(text):
-    # Only explicit auth failures, never generic nonzero exits/network errors.
+    # Only error-envelope/stderr text, never tool results or whole serialized events.
+    # Permission wording must begin the message; a webpage's 403 is recoverable.
+    if re.match(r'\s*(?:(?:claude|codex)(?: CLI)?:\s*)?(?:error:\s*)?'
+                r'(?:permission[_ ]denied|not[_ ]authori[sz]ed|unauthori[sz]ed)'
+                r'(?=$|\s*[.:\n])', text, re.I):
+        return True
     return bool(re.search(r'not logged in|please (?:run /login|log in|login)|authentication[_ ](?:required|failed|error)|'
                           r'(?:invalid|missing)[_ ]api[_ ]key|invalid authentication|401\s*unauthorized|'
                           r'(?:expired|invalid|revoked) (?:oauth |access |authentication )?token', text, re.I))
+
+
+def access_error_event(event):
+    """Classify only top-level CLI/provider failures, with shallow structured fields."""
+    kind = event.get('type')
+    if kind == 'result' and event.get('permission_denials'): return True
+    if kind not in ('error', 'turn.failed') and not (kind == 'result' and event.get('is_error')):
+        return False
+    codes = {'permission_denied', 'permission_error', 'not_authorized', 'unauthorized',
+             'authorization_error', 'authorization_failed', 'authentication_required',
+             'authentication_failed', 'authentication_error', 'invalid_api_key', 'missing_api_key'}
+    def failure(value):
+        if isinstance(value, str): return access_failure(value)
+        if not isinstance(value, dict): return False
+        # Tool failures sometimes appear inside an error summary; they are not CLI authorization.
+        if value.get('type') in ('tool_result', 'tool_use', 'web_search') or any(
+                key in value for key in ('tool_name', 'tool_use_id')):
+            return False
+        if any(isinstance(value.get(key), str) and value[key].lower() in codes for key in ('code', 'type')):
+            return True
+        return any(isinstance(value.get(key), str) and access_failure(value[key]) for key in ('message', 'result'))
+    if failure(event) or failure(event.get('error')): return True
+    errors = event.get('errors')
+    return any(failure(error) for error in errors) if isinstance(errors, list) else failure(errors)
 
 
 def execute(provider, model, prompt, schema, image=None, timeout=300, *, progress=None, metrics=None, allow_web=True):
@@ -352,13 +381,10 @@ def execute(provider, model, prompt, schema, image=None, timeout=300, *, progres
                 try: proc.wait(timeout=remaining)
                 except subprocess.TimeoutExpired:
                     raise ResearchError(provider + ' 검색 시간이 초과되었습니다') from None
+                if any(access_error_event(event) for event in events) or (proc.returncode and access_failure(
+                        stderr_tail.decode('utf-8', errors='replace'))):
+                    raise NativeAccessError(provider + ' 로그인·검색 권한을 확인하세요')
                 if proc.returncode:
-                    error_text = stderr_tail.decode('utf-8', errors='replace')
-                    error_event = next((e for e in reversed(events) if e.get('type') in ('error', 'turn.failed')
-                                        or e.get('type') == 'result' and (e.get('is_error') or e.get('permission_denials'))), {})
-                    if error_event.get('permission_denials'): raise NativeAccessError(provider + ' 검색 권한을 확인하세요')
-                    error_text += json.dumps(error_event)[:8192]
-                    if access_failure(error_text): raise NativeAccessError(provider + ' 로그인을 확인하세요')
                     raise ResearchError(provider + ' 검색 실행 실패: 로그인·한도를 확인하세요')
                 succeeded = True
             finally:
@@ -369,9 +395,6 @@ def execute(provider, model, prompt, schema, image=None, timeout=300, *, progres
                     stats['subprocess_seconds'] = round(time.monotonic() - started, 4)
         if provider == 'claude':
             envelope = next((e for e in reversed(events) if e.get('type') == 'result'), {})
-            if envelope.get('permission_denials') or (envelope.get('is_error') and access_failure(
-                    str(envelope.get('result', '')) + json.dumps(envelope.get('errors', []))[:8192])):
-                raise NativeAccessError('Claude 로그인·검색 권한을 확인하세요')
             if envelope.get('is_error'):
                 raise ResearchError('Claude 검색 권한 또는 응답을 확인하세요')
             result = envelope.get('structured_output')
@@ -509,9 +532,9 @@ def research(question, period, home, progress=lambda **_: None, options=None):
         if not shutil.which(provider): raise
         # Validation exceptions contain fixed messages only; execution data is never retained here.
         failures.append('기본 검색 또는 출처 검사 미완료: '+str(error)[:200])
-        report_progress(progress, stage='retrying')
         correction = repair_prompt(request, initial['candidate'], initial['events'], provider) if isinstance(error, SourceURLValidationError) else None
         if correction:
+            report_progress(progress, stage='answering')
             repair_count = 1
             attempts.append(provider+'-answer-repair')
             repair_started = time.monotonic()
@@ -538,6 +561,7 @@ def research(question, period, home, progress=lambda **_: None, options=None):
             finally:
                 repair_seconds = time.monotonic() - repair_started
         if not repair_succeeded:
+            report_progress(progress, stage='retrying')
             # The correction consumes the old 180s model-recovery allowance; Tavily stays capped at 60s.
             # Never recursively repair a repair or a fallback investigation.
             try:

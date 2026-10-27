@@ -203,6 +203,39 @@ class RepairTests(unittest.TestCase):
         with self.assertRaises(native.ProgressError):
             self.run_research([(bad_candidate(), body_events()), native.ProgressError('callback failed')])
 
+    def test_repair_and_fallback_report_only_the_stage_actually_started(self):
+        cases = [
+            ([(bad_candidate(), body_events()), (candidate(), [])],
+             ['running', 'answering', 'answering']),
+            ([(bad_candidate(), body_events()), (bad_candidate(), []), (candidate(), events())],
+             ['running', 'answering', 'retrying', 'answering']),
+            ([(bad_candidate(), []), (candidate(), events())],
+             ['running', 'retrying', 'answering']),
+        ]
+        for responses, expected in cases:
+            with self.subTest(expected=expected):
+                stages = []
+                self.run_research(responses, progress=lambda **row: stages.append(row['stage']))
+                self.assertEqual(stages, expected)
+
+    def test_callback_failure_before_repair_or_retrieval_prevents_next_request(self):
+        for web, stage in [(body_events(), 'answering'), ([], 'retrying')]:
+            calls = []
+            def execute(*args, **kwargs):
+                calls.append(args)
+                return bad_candidate(), web
+            def progress(**row):
+                if row['stage'] == stage: raise ValueError('private-callback-error')
+            with self.subTest(stage=stage), patch.object(native, 'load', return_value={'provider': 'codex', 'model': 'chosen'}), \
+                 patch.object(native.shutil, 'which', return_value='fake-cli'), \
+                 patch.object(native, 'execute', side_effect=execute), \
+                 patch('research.multi_source.tavily') as tavily:
+                with self.assertRaises(native.ProgressError) as error:
+                    native.research('q', 'all', '.', progress=progress)
+                self.assertNotIn('private', str(error.exception))
+                self.assertEqual(len(calls), 1)
+                tavily.assert_not_called()
+
     def test_typed_access_failure_stops_before_tavily(self):
         for responses in [[native.NativeAccessError('auth')],
                           [(bad_candidate(), body_events()), native.NativeAccessError('auth')]]:
@@ -301,6 +334,54 @@ class RepairCLITests(unittest.TestCase):
                 native.execute(provider, '', 'q', {})
         with patch.object(native.shutil, 'which', return_value=None), self.assertRaises(native.NativeAccessError):
             native.execute('codex', '', 'q', {})
+
+    def test_explicit_cli_permission_failures_skip_paid_recovery(self):
+        cases = [
+            ('claude', 'os.write(2,b"Permission denied: private-token");sys.exit(1)'),
+            ('codex', 'os.write(2,b"Error: Not authorized: private-token");sys.exit(1)'),
+            ('codex', 'emit({"type":"turn.failed","error":{"code":"permission_denied","message":"private-token"}});sys.exit(1)'),
+            ('codex', 'emit({"type":"turn.failed","error":{"code":"permission_denied","message":"private-token"}})'),
+            ('codex', 'emit({"type":"error","code":"not_authorized","message":"private-token"});sys.exit(1)'),
+            ('claude', 'emit({"type":"result","is_error":True,"result":"Permission denied: private-token"})'),
+            ('claude', 'emit({"type":"result","is_error":True,"errors":[{"type":"permission_error","message":"private-token"}]})'),
+            ('claude', 'emit({"type":"result","is_error":True,"errors":["Not authorized: private-token"]})'),
+        ]
+        for provider, script in cases:
+            with self.subTest(provider=provider, script=script), self.cli(script, provider) as (calls, _), \
+                 patch.object(native, 'load', return_value={'provider': provider, 'model': 'chosen'}), \
+                 patch('research.multi_source.tavily', return_value=supplemental()) as tavily:
+                with self.assertRaises(native.NativeAccessError) as error:
+                    native.research('q', 'all', '.')
+                self.assertNotIn('private-token', str(error.exception))
+                tavily.assert_not_called()
+                self.assertEqual(len(calls), 1)
+
+    def test_webpage_tool_and_transient_failures_preserve_full_evidence_recovery(self):
+        cases = [
+            ('claude', 'os.write(2,b"temporary network failure");sys.exit(1)'),
+            ('claude', 'os.write(2,b"WebFetch failed: 403 Forbidden (Permission denied)");sys.exit(1)'),
+            ('claude', 'emit({"type":"result","is_error":True,"result":"WebFetch failed: 403 Forbidden; permission denied"})'),
+            ('claude', 'emit({"type":"result","is_error":True,"errors":[{"type":"tool_result","code":"permission_denied","message":"Permission denied"}]})'),
+            ('codex', 'emit({"type":"turn.failed","error":{"code":"network_error","message":"Temporary network failure: permission denied"}});sys.exit(1)'),
+            ('codex', 'emit({"type":"turn.failed","error":{"code":"403","message":"403 Forbidden: access denied"}});sys.exit(1)'),
+            ('codex', 'emit({"type":"item.completed","item":{"type":"web_search","error":{"code":"permission_denied","message":"Permission denied"}}});sys.exit(1)'),
+            ('claude', 'emit('+repr(tool('WebFetch'))+');emit({"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tool-1","is_error":True,"content":"Permission denied"}]}});finish()'),
+        ]
+        for provider, failure in cases:
+            # First child fails; the same actual CLI harness succeeds using supplemental evidence.
+            script = ('request=sys.stdin.read()\n'
+                      'if "첫 실행에서 검색 또는 출처 검사가 완료되지 않았다" in request:\n'
+                      ' finish()\nelse:\n' + '\n'.join(' '+line for line in failure.splitlines()))
+            with self.subTest(provider=provider, failure=failure), self.cli(script, provider) as (calls, children), \
+                 patch.object(native, 'load', return_value={'provider': provider, 'model': 'chosen'}), \
+                 patch('research.multi_source.tavily', return_value=supplemental()) as tavily:
+                result = native.research('q', 'all', '.')
+                tavily.assert_called_once()
+                self.assertEqual(len(calls), 2)
+                self.assertTrue(all(child.poll() is not None for child in children))
+                self.assertEqual(result['coverage']['attempts'], [provider+'-native', 'tavily-supplement'])
+                self.assertEqual(result['sources'][0]['url'], URL)
+                self.assertEqual(result['metrics']['retry_count'], 1)
 
     def test_generic_nonzero_network_failure_still_has_full_recovery(self):
         with self.cli('os.write(2,b"temporary network failure");sys.exit(1)'), \
