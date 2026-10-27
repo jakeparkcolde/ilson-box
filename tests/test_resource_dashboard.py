@@ -1,6 +1,7 @@
 """Isolated observations, HTTP privacy and shipped installation/update coverage."""
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -10,6 +11,8 @@ import unittest
 from unittest.mock import Mock
 
 ROOT = Path(__file__).resolve().parents[1]
+DASHBOARD_ASSETS = ['lib/resource_dashboard.py', 'web/dashboard.html', 'web/dashboard.js',
+                    'web/dashboard.css', 'web/current/index.html', 'web/current/shell.js']
 sys.path.insert(0, str(ROOT / 'template/lib'))
 import resource_dashboard as rd
 import test_web_admin as wa
@@ -147,6 +150,26 @@ class DashboardHTTPTests(wa.BoxFixture):
     request = wa.HTTP시험.request
     login = wa.HTTP시험.login
 
+    def test_native_shell_and_legacy_entry_serve_only_static_assets(self):
+        shutil.copytree(ROOT/'template/web', self.home/'web', dirs_exist_ok=True)
+        self.box.resource_collector = Mock()
+        for path, marker in [('/current/index.html?tab=dashboard', b'/dashboard.js'),
+                             ('/dashboard', b"location.replace('/current/index.html?tab=dashboard')"),
+                             ('/dashboard.js', b'window.IlsonDashboard = {mount, leave}'),
+                             ('/dashboard.css', b'.ilson-dashboard'),
+                             ('/current/shell.js', b"id:'dashboard'")]:
+            with self.subTest(path=path):
+                status, headers, body = self.request('GET', path)
+                self.assertEqual(status, 200)
+                self.assertIn(marker, body)
+                self.assertEqual(headers['Cache-Control'], 'no-store')
+                self.assertEqual(headers['X-Frame-Options'], 'DENY')
+                self.assertIn("frame-ancestors 'none'", headers['Content-Security-Policy'])
+        self.box.resource_collector.snapshot.assert_not_called()
+        self.assertEqual(self.request('GET', '/api/dashboard')[0], 401)
+        cookie, _ = self.login()
+        self.assertEqual(self.request('GET', '/current/../../state/web-admin/token', headers={'Cookie': cookie})[0], 404)
+
     def test_auth_read_only_and_private_fields(self):
         self.box.resource_collector = Mock()
         result = self.request('GET', '/api/dashboard')
@@ -194,7 +217,7 @@ class DashboardInstallTests(unittest.TestCase):
                 result = subprocess.run(['sh',str(ROOT/'install.sh'),'--sandbox'],cwd=ROOT,
                                         env=env,capture_output=True,text=True,timeout=30)
                 self.assertEqual(result.returncode,0,result.stdout+result.stderr)
-                for name in ['lib/resource_dashboard.py','web/dashboard.html','web/dashboard.js','web/dashboard.css']:
+                for name in DASHBOARD_ASSETS:
                     self.assertEqual((box/name).read_bytes(),(ROOT/'template'/name).read_bytes())
                     self.assertEqual((home/'.ilson-cli/template'/name).read_bytes(),(ROOT/'template'/name).read_bytes())
                 if cycle == 0:
@@ -224,7 +247,7 @@ class DashboardInstallTests(unittest.TestCase):
                 target = roots[area]/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(content)
                 previous[target] = content
             u.apply(roots,release,archive)
-            for name in ['lib/resource_dashboard.py','web/dashboard.html','web/dashboard.js','web/dashboard.css']:
+            for name in DASHBOARD_ASSETS:
                 self.assertEqual((roots['box']/name).read_bytes(),(ROOT/'template'/name).read_bytes())
                 self.assertEqual((roots['cli']/'template'/name).read_bytes(),(ROOT/'template'/name).read_bytes())
             self.assertEqual(config.read_text(),'# private schedule');self.assertEqual(token.read_text(),'synthetic-secret')
