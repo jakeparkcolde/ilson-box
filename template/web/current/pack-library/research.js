@@ -199,7 +199,7 @@ $("mobileNewResearch").addEventListener("click",()=>$("newResearch").click());
 $("threadDrawer").addEventListener("keydown",event=>{
  if(event.key==="Escape"){closeThreads();$("toggleThreads").focus?.({preventScroll:true});return;}
  if(event.key!=="Tab"||!document.body.classList.contains("threads-open"))return;
- const items=Array.from($("threadDrawer").querySelectorAll("a[href],button:not([disabled])"));
+ const items=Array.from($("threadDrawer").querySelectorAll("a[href],button:not([disabled])")).filter(item=>item.getClientRects().length);
  const first=items[0],last=items.at(-1);
  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
