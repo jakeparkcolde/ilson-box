@@ -13,7 +13,7 @@ async function connectBox(){boxToken=null;asyncResearch=false;streamResearch=fal
 function beginResearch(question){
  currentResult=null;liveAnswerShown=false;document.body.classList.remove("has-live-answer");
  document.body.classList.add("has-result","is-researching");
- $("sourceRail").hidden=true;$("answerQuestion").textContent=question;$("checkedAt").textContent="";$("answerPanel").classList.add("no-answer");$("limitations").textContent="";
+ $("sourceRail").hidden=true;$("sourceRailItems").replaceChildren();$("answerQuestion").textContent=question;$("checkedAt").textContent="";$("answerPanel").classList.add("no-answer");$("limitations").textContent="";
  for(const id of ["claims","sources","images","relatedQuestions"])$(id).replaceChildren();
  $("answerPanel").hidden=false;$("answerPanel").setAttribute("aria-busy","true");showAnswerTab(false);
  $("answerQuestion").after($("researchProgress"));
@@ -92,8 +92,7 @@ async function submitResearch(question,period,attachment){
  return submit();
 }
 function restorePending(ref){
- currentThread=ref.thread;try{localStorage.setItem("ilson-research-current-thread",currentThread);}catch{}
- renderThread(currentThread,undefined,{scroll:false,includeLast:true});
+ renderThread(ref.thread,undefined,{scroll:false,includeLast:true});
  $("question").value=ref.question;$("period").value=ref.period;$("researchMode").value=ref.mode;$("includeVideos").checked=ref.videos;
  beginResearch(ref.question);
 }
@@ -265,9 +264,26 @@ $("newResearch").addEventListener("click",()=>{if(researching)return;try{const r
 
 for(const id of ["answerTab","sourcesTab","imagesTab"]){$(id).addEventListener("keydown",e=>{if(["ArrowLeft","ArrowRight","Home","End"].includes(e.key)){e.preventDefault();const tabs=["answerTab","sourcesTab","imagesTab"];const index=e.key==="Home"?0:e.key==="End"?2:(tabs.indexOf(id)+(e.key==="ArrowRight"?1:2))%3;showResearchTab(["claims","sources","images"][index]);$(tabs[index]).focus();}});}
 
-function saveThreadResult(result,ref){try{const event=ResearchThreads.append(ref?ref.thread:currentThread,result,ref?.id);currentThread=event.thread;localStorage.setItem("ilson-research-current-thread",currentThread);renderThreadRooms();return true;}catch{return false;}}
+// 현재 조사방 포인터는 편의 설정이다. 결과 저장·실행 복구의 성공 여부와 분리한다.
+function rememberCurrentThread(){try{localStorage.setItem("ilson-research-current-thread",currentThread);}catch{}}
+function saveThreadResult(result,ref){
+ let event;try{event=ResearchThreads.append(ref?ref.thread:currentThread,result,ref?.id);}catch{return false;}
+ currentThread=event.thread;rememberCurrentThread();renderThreadRooms();return true;
+}
 function renderThreadRooms(){const root=$("threadRooms");root.replaceChildren();try{const rooms=ResearchThreads.rooms();if(!rooms.length){root.textContent="아직 조사한 내역이 없습니다.";return;}for(const room of rooms){const b=document.createElement("button");b.className="thread-room";const title=document.createElement("b");title.textContent=room.title;const small=document.createElement("small");small.textContent=room.events.length+"개 답변 · "+new Date(room.events.at(-1).saved_at).toLocaleDateString("ko-KR");b.append(title,small);b.addEventListener("click",()=>{if(researching)return;renderThread(room.id);closeThreads();});root.append(b);}}catch{root.textContent="조사방을 읽지 못했습니다. 기존 조사 기록 또는 JSON을 확인하세요.";}}
-function renderThread(id,fallback,{scroll=true,includeLast=false}={}){if(id!==currentThread)ResearchImage.clear();let events=[];try{events=ResearchThreads.read().filter(e=>e.thread===id);}catch{}if(!events.length){if(fallback)renderResult(fallback,{scroll});return;}currentThread=id;localStorage.setItem("ilson-research-current-thread",id);const earlier=$("earlierAnswers");earlier.replaceChildren();for(const event of events.slice(0,includeLast?events.length:-1)){try{const r=validateResult(event.result);const section=document.createElement("article");section.className="thread-answer";const h=document.createElement("h2");h.textContent=r.question;section.append(h);const content=document.createElement("div");content.className="answer-content";renderAnswerContent(content,r);section.append(content);earlier.append(section);}catch{}}earlier.hidden=!earlier.children.length;renderResult(validateResult(events.at(-1).result),{scroll});}
+function renderThread(id,fallback,{scroll=true,includeLast=false}={}){
+ if(id!==currentThread)ResearchImage.clear();
+ currentThread=id;rememberCurrentThread();
+ const earlier=$("earlierAnswers");earlier.replaceChildren();earlier.hidden=true;
+ let events=[];try{events=ResearchThreads.read().filter(e=>e.thread===id);}catch{}
+ if(!events.length){
+  currentResult=null;$("answerPanel").hidden=true;$("sourceRail").hidden=true;
+  for(const name of ["claims","sources","images","relatedQuestions","sourceRailItems","answerQuestion","checkedAt","limitations"])$(name).replaceChildren();
+  if(fallback)renderResult(fallback,{scroll});return;
+ }
+ for(const event of events.slice(0,includeLast?events.length:-1)){try{const r=validateResult(event.result);const section=document.createElement("article");section.className="thread-answer";const h=document.createElement("h2");h.textContent=r.question;section.append(h);const content=document.createElement("div");content.className="answer-content";renderAnswerContent(content,r);section.append(content);earlier.append(section);}catch{}}
+ earlier.hidden=!earlier.children.length;renderResult(validateResult(events.at(-1).result),{scroll});
+}
 function closeThreads(){$("threadDrawer").hidden=false;document.body.classList.remove("threads-open");$("threadBackdrop").hidden=true;$("toggleThreads").setAttribute("aria-expanded","false");}
 $("toggleThreads").addEventListener("click",()=>{const open=!document.body.classList.contains("threads-open");document.body.classList.toggle("threads-open",open);$("toggleThreads").setAttribute("aria-expanded",String(open));$("threadBackdrop").hidden=!open;renderThreadRooms();if(open)$("closeThreads").focus?.({preventScroll:true});});
 $("closeThreads").addEventListener("click",()=>{closeThreads();$("toggleThreads").focus?.({preventScroll:true});});

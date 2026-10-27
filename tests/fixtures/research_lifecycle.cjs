@@ -34,10 +34,11 @@ function setup(store=new Map(),config={}){
  get('period').value='all';get('period').selectedOptions=[new Element('option')];get('period').option=new Element('option');get('researchMode').value='quick';
  const heading=new Element();body.append(heading);
  const document={body,documentElement:new Element('html'),getElementById:get,querySelector:s=>s==='.research-heading'?heading:null,querySelectorAll:()=>[],createElement:t=>new Element(t),createTextNode:t=>{const n=new Element('#text');n.textContent=t;return n;}};
- const calls=[],state={stage:'reading',...config},storage=storageFor(store);
+ const calls=[],exports=[],state={stage:'reading',...config},storage=storageFor(store);
  const image={busy:false,attachment:null,isLoading:()=>false,isBlocked:()=>false,get(){return this.attachment;},setBusy(v){this.busy=v;},setReady(){},clear(){this.attachment=null;}};
  const response=(data,status=200)=>({ok:status>=200&&status<300,status,json:async()=>data,headers:{get:()=>''}});
- const ctx={document,localStorage:storage,crypto:webcrypto,navigator:{locks:config.locks||locks(),clipboard:{writeText:async()=>{}}},console,URL,URLSearchParams,AbortController,AbortSignal,TextDecoder,Uint8Array,Date,ResearchImage:image,
+ class ExportURL extends URL {static createObjectURL(blob){exports.push(blob);return 'blob:fixture';}static revokeObjectURL(){}}
+ const ctx={document,localStorage:storage,crypto:webcrypto,navigator:{locks:config.locks||locks(),clipboard:{writeText:async()=>{}}},console,URL:ExportURL,Blob,URLSearchParams,AbortController,AbortSignal,TextDecoder,Uint8Array,Date,ResearchImage:image,
   requestAnimationFrame:fn=>fn(),setTimeout:(fn,ms)=>{timers.set(++serial,{fn,ms});return serial;},clearTimeout:id=>timers.delete(id),
   addEventListener:(...args)=>events.addEventListener(...args),
   fetch:async(url,options={})=>{
@@ -66,7 +67,7 @@ function setup(store=new Map(),config={}){
   }};
  ctx.window=ctx;vm.createContext(ctx);const run=src=>vm.runInContext(src,ctx);
  for(const name of ['research-threads.js','research.js'])run(fs.readFileSync(path.join(web,name),'utf8'));
- return {ctx,run,get,events,timers,calls,state,store,storage,image,postCount:()=>calls.filter(c=>c.options.method==='POST').length,
+ return {ctx,run,get,events,timers,calls,exports,state,store,storage,image,postCount:()=>calls.filter(c=>c.options.method==='POST').length,
   async flush(){for(let i=0;i<25;i++)await Promise.resolve();},
   async tick(){const entry=[...timers].find(([,t])=>t.ms===500);assert.ok(entry,'poll timer expected');timers.delete(entry[0]);entry[1].fn();await this.flush();},
   leave(){events.dispatch('pagehide');},
@@ -74,7 +75,7 @@ function setup(store=new Map(),config={}){
 }
 function pending(store,overrides={}){store.set('ilson-research-pending-v1',JSON.stringify({version:1,ref:'ref-1',id:job,thread:'original-room',question:'Original follow-up',period:'month',mode:'deep',videos:true,started:Date.now()-150000,...overrides}));}
 function saved(store){return [...store].filter(([key])=>key.startsWith('ilson-research-result-v1:')).map(([,value])=>JSON.parse(value));}
-async function test(name,fn){await fn();console.log('PASS '+name);}
+async function test(name,fn){if(process.argv[2]&&!name.includes(process.argv[2]))return;await fn();console.log('PASS '+name);}
 (async()=>{
  await test('navigate while running, revisit while running, reload after server completes',async()=>{
   const store=new Map(),first=setup(store);await first.flush();
@@ -150,6 +151,32 @@ async function test(name,fn){await fn();console.log('PASS '+name);}
  });
  await test('result save failure keeps a downloadable result and retryable job reference',async()=>{
   const store=new Map();pending(store);const view=setup(store,{stage:'done'}),write=view.storage.setItem;view.storage.setItem=(key,value)=>{if(key.startsWith('ilson-research-result-v1:'))throw Error('quota');write(key,value);};await view.flush();assert.match(view.get('claims').textContent,/Verified content/);assert.match(view.get('researchStatus').textContent,/자동 저장 실패/);assert.ok(store.has('ilson-research-pending-v1'));view.storage.setItem=write;view.submit();await view.flush();assert.equal(saved(store).length,1);assert.equal(view.postCount(),0);
+ });
+ await test('existing thread recovers and exports completion when every storage write fails',async()=>{
+  const store=new Map(),seed=setup(store);await seed.flush();seed.ctx.ResearchThreads.append('original-room',result('Prior answer'));seed.leave();pending(store);
+  const view=setup(store,{stage:'done'}),write=view.storage.setItem;view.storage.setItem=()=>{throw Error('quota');};await view.flush();
+  assert.ok(view.calls.some(c=>c.url==='/api/research/jobs/'+job),'recovery GET must survive pointer write failure');
+  assert.equal(view.get('earlierAnswers').children.length,1);assert.match(view.get('claims').textContent,/Verified content/);assert.equal(view.get('answerQuestion').textContent,'Original follow-up');
+  assert.match(view.get('researchStatus').textContent,/자동 저장 실패/);assert.doesNotMatch(view.get('researchStatus').textContent,/연결이 끊겨/);assert.ok(store.has('ilson-research-pending-v1'));assert.equal(saved(store).length,0);assert.equal(view.postCount(),0);
+  view.get('downloadResearch').click();assert.equal(view.exports.length,1);assert.deepEqual(JSON.parse(await view.exports[0].text()),result('Original follow-up'));
+  view.storage.setItem=write;view.submit();await view.flush();assert.equal(saved(store).length,1);assert.equal(view.postCount(),0);assert.equal(store.has('ilson-research-pending-v1'),false);
+ });
+ await test('optional thread pointer failure does not misreport a durable result save',async()=>{
+  const store=new Map(),seed=setup(store);await seed.flush();seed.ctx.ResearchThreads.append('original-room',result('Prior answer'));seed.leave();pending(store);
+  const view=setup(store,{stage:'done'}),write=view.storage.setItem;view.storage.setItem=(key,value)=>{if(key==='ilson-research-current-thread')throw Error('pointer unavailable');write(key,value);};await view.flush();
+  assert.equal(saved(store).length,1);assert.equal(store.has('ilson-research-pending-v1'),false);assert.match(view.get('claims').textContent,/Verified content/);assert.match(view.get('researchStatus').textContent,/조사방 자동 저장/);assert.doesNotMatch(view.get('researchStatus').textContent,/실패|연결이 끊겨/);assert.equal(view.postCount(),0);
+ });
+ await test('storage event for an empty different thread clears unrelated answers and sources',async()=>{
+  const store=new Map(),view=setup(store);await view.flush();view.ctx.ResearchThreads.append('old-room',result('Old first'));view.ctx.ResearchThreads.append('old-room',result('Old second'));view.run('renderThread("old-room")');assert.equal(view.get('earlierAnswers').children.length,1);assert.equal(view.get('sourceRail').hidden,false);
+  view.image.attachment={data:'PRIVATE-OLD-IMAGE'};pending(store,{thread:'new-room',question:'New question'});view.events.dispatch('storage',{key:view.ctx.ResearchThreads.pendingKey});await view.flush();
+  assert.equal(view.get('earlierAnswers').children.length,0);assert.equal(view.get('earlierAnswers').hidden,true);assert.equal(view.run('currentResult'),null);assert.equal(view.run('currentThread'),'new-room');assert.equal(view.image.attachment,null);
+  for(const id of ['claims','sources','images','sourceRailItems'])assert.equal(view.get(id).children.length,0,id+' must clear');assert.equal(view.get('sourceRail').hidden,true);assert.equal(view.get('answerQuestion').textContent,'New question');assert.equal(view.postCount(),0);
+  view.state.stage='done';view.state.question='New question';await view.tick();assert.equal(view.get('earlierAnswers').children.length,0);assert.equal(view.get('answerQuestion').textContent,'New question');assert.equal(saved(store)[0].thread,'new-room');assert.equal(view.ctx.ResearchThreads.read().filter(e=>e.thread==='old-room').length,2);
+ });
+ await test('storage event for the same thread preserves its prior answers',async()=>{
+  const store=new Map(),view=setup(store);await view.flush();view.ctx.ResearchThreads.append('original-room',result('Same first'));view.ctx.ResearchThreads.append('original-room',result('Same second'));view.run('renderThread("original-room")');
+  pending(store);view.events.dispatch('storage',{key:view.ctx.ResearchThreads.pendingKey});await view.flush();assert.equal(view.get('earlierAnswers').children.length,2);assert.match(view.get('earlierAnswers').textContent,/Same first/);assert.match(view.get('earlierAnswers').textContent,/Same second/);assert.equal(view.run('currentResult'),null);assert.equal(view.postCount(),0);
+  view.state.stage='done';await view.tick();assert.equal(view.get('earlierAnswers').children.length,2);assert.equal(view.ctx.ResearchThreads.read().length,3);
  });
  await test('leaving before POST response preserves uncertainty without cancelling server job',async()=>{
   const store=new Map();let rejectPost;const view=setup(store,{submitDeferred:new Promise((_,reject)=>rejectPost=reject)});await view.flush();view.submit();await view.flush();assert.equal(view.postCount(),1);view.leave();rejectPost(Error('document left'));await view.flush();const reload=setup(store);await reload.flush();assert.equal(reload.postCount(),0);assert.match(reload.get('researchStatus').textContent,/실행 번호를 알 수 없습니다/);

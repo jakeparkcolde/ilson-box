@@ -14,6 +14,14 @@ class ResearchFrontendTests(unittest.TestCase):
                                 capture_output=True, text=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('research lifecycle PASS', result.stdout)
+        for regression in (
+            'existing thread recovers and exports completion when every storage write fails',
+            'optional thread pointer failure does not misreport a durable result save',
+            'storage event for an empty different thread clears unrelated answers and sources',
+            'storage event for the same thread preserves its prior answers',
+        ):
+            with self.subTest(regression=regression):
+                self.assertIn('PASS ' + regression, result.stdout)
 
 
 if __name__ == '__main__':
