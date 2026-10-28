@@ -707,6 +707,7 @@ usage() {
   pause <업무명>                               예약 업무 멈춤 (워치독·스냅샷·업데이트는 제외)
   resume <업무명>                              멈춘 예약 업무를 현재 설정으로 다시 등록
   chat                                        설치·관리까지 가능한 대화 (auto 자동 심사)
+  people add | list | get                    직원 등록·목록·ID 확인 (people add --help)
   open                                        이 맥의 웹 관리자 열기
   admin start | status | stop                 웹 관리자 시작·상태·중지 (예약 업무와 별개)
   pair --code <코드> [--pairing-file <json>]     페어링 파일 (다시) 쓰기
@@ -720,6 +721,10 @@ EOF
 }
 
 cmd="${1:-}"; shift || true
+if [ "$cmd" = people ]; then
+    [ -f "$ILSON_HOME/lib/people-cli.py" ] || die "직원 등록 도우미가 없습니다. ilson update 후 다시 시도하세요."
+    exec python3 "$ILSON_HOME/lib/people-cli.py" --home "$ILSON_HOME" "$@"
+fi
 if [ "$cmd" = open ]; then
     web_admin open "$@"; exit $?
 fi

@@ -38,7 +38,7 @@ const nodes={};
 const node=id=>nodes[id]||(nodes[id]={innerHTML:'',textContent:'',replaceChildren(){},append(){}});
 const bad='<img src=x onerror=alert(1)>"&';
 const data={departments:[{id:'a'.repeat(32),name:bad,parent_id:''}],employees:[{id:'b'.repeat(32),name:bad,role:bad,active:1,department_id:'a'.repeat(32)}],skills:[{id:'c'.repeat(32),name:bad,description:bad,body:bad,active:1}],assignments:[],catalog:[]};
-const context={document:{getElementById:node,querySelectorAll:()=>[],addEventListener(){}},fetch:async path=>({ok:true,json:async()=>path.endsWith('/jobs')?{jobs:[{id:'d'.repeat(32),kind:'employee',title:bad,status:'done'}]}:data}),location:{assign(){}},console};
+const context={setTimeout:()=>0,clearTimeout(){},AbortController,document:{getElementById:node,querySelectorAll:()=>[],addEventListener(){}},fetch:async path=>({ok:true,json:async()=>path.endsWith('/jobs')?{jobs:[{id:'d'.repeat(32),kind:'employee',title:bad,status:'done'}]}:data}),location:{assign(){}},console};
 vm.createContext(context);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),context);
 (async()=>{for(const tab of ['employees','departments','skills','jobs']){
  await vm.runInContext(`state=${JSON.stringify(data)};tab='${tab}';render()`,context);
@@ -221,7 +221,7 @@ class PeopleInstallTests(unittest.TestCase):
         script = 'TEMPLATE="' + str(fixtures.ROOT / 'template') + '"; SANDBOX=1; init_step_box'
         first = fixture.shell(script, timeout=30)
         self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
-        for name in ('lib/people_skills.py', 'web/people.html', 'web/people.js', 'web/people.css'):
+        for name in ('lib/people_skills.py', 'lib/people-cli.py', 'CLAUDE.md', '.claude/commands/employee.md', 'web/people.html', 'web/people.js', 'web/people.css'):
             self.assertTrue((fixture.box / name).is_file(), name)
         work = Workspace(fixture.box, fixtures.admin.Files(fixture.box))
         work.people.save('employees', {'name': '설치 시험 담당', 'role': '문서 작성'})
@@ -248,7 +248,8 @@ class PeopleInstallTests(unittest.TestCase):
         db = home / '.workspace/work.sqlite3'
         raw = db.read_bytes()
         rows = [('box', name, (fixtures.ROOT/'template'/name).read_bytes(), None)
-                for name in ('lib/people_skills.py','web/people.html','web/people.js','web/people.css')]
+                for name in ('lib/people_skills.py','lib/people-cli.py','CLAUDE.md','web/people.html','web/people.js','web/people.css')]
+        rows += [('box', '.claude/commands/employee.md', (fixtures.ROOT/'template/claude/commands/employee.md').read_bytes(), None), ('cli', 'ilson', (fixtures.ROOT/'ilson').read_bytes(), None)]
         manifest, archive = fixture.bundle(rows)
         test_update.u.apply(fixture.roots, manifest, archive)
         self.assertEqual(db.read_bytes(), raw)

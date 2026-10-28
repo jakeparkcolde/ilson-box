@@ -39,6 +39,7 @@ class People:
             CREATE TABLE IF NOT EXISTS people_employees(id TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL, department_id TEXT NOT NULL, active INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS people_skills(id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, description TEXT NOT NULL, body TEXT NOT NULL, active INTEGER NOT NULL, source TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS people_assignments(employee_id TEXT NOT NULL, skill_id TEXT NOT NULL, PRIMARY KEY(employee_id,skill_id));
+            CREATE TABLE IF NOT EXISTS people_requests(request_id TEXT PRIMARY KEY, payload TEXT NOT NULL, employee_id TEXT NOT NULL);
             ''')
 
     def row(self, table, key):
@@ -60,9 +61,23 @@ class People:
         if kind not in ('departments', 'employees', 'skills'):
             raise WorkspaceError('항목 종류를 확인하세요.')
         with self.work.transaction():
+            request_id = data.get('request_id')
+            payload = None
+            if request_id is not None:
+                if kind != 'employees' or data.get('id') or not isinstance(request_id, str) or not re.fullmatch('[a-zA-Z0-9_-]{16,100}', request_id):
+                    raise WorkspaceError('직원 등록 요청 식별자를 확인하세요.')
+                payload = json.dumps({k: v for k, v in data.items() if k != 'request_id'}, sort_keys=True, ensure_ascii=False)
+                previous = self.db.execute('SELECT * FROM people_requests WHERE request_id=?', (request_id,)).fetchone()
+                if previous:
+                    if previous['payload'] != payload:
+                        raise WorkspaceError('같은 요청 식별자에 다른 등록 내용이 있습니다.', 409)
+                    self.row('employees', previous['employee_id'])
+                    return {'id': previous['employee_id'], 'replayed': True}
             key = data.get('id') or identity()
             if data.get('id'):
-                self.row(kind, key)
+                current = self.row(kind, key)
+                if 'expected' in data and data['expected'] != current:
+                    raise WorkspaceError('다른 곳에서 수정된 항목입니다. 입력은 보존했습니다. 최신 목록을 확인하고 편집을 다시 열어주세요.', 409)
             name = text(data.get('name'), 80, '이름')
             if kind in ('departments', 'skills') and self.db.execute(
                     'SELECT id FROM people_' + kind + ' WHERE name=? AND id!=?', (name, key)).fetchone():
@@ -98,6 +113,8 @@ class People:
             self.db.execute('INSERT INTO people_' + kind + ' VALUES(' + ','.join('?' for _ in values) +
                             ') ON CONFLICT(id) DO UPDATE SET ' + ','.join(c + '=excluded.' + c for c in columns), values)
             self.work.record('people_saved', key)
+            if request_id is not None:
+                self.db.execute('INSERT INTO people_requests VALUES(?,?,?)', (request_id, payload, key))
         return {'id': key}
 
     def delete(self, kind, key):
