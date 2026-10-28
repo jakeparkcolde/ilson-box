@@ -1,0 +1,23 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync(process.argv[2]||'template/web/current/people.js','utf8').replace('function form(','function unusedForm(').replace('async function request(','async function unusedRequest(').replace('return {mount,leave,canLeave};','return {test:{P,editAvatar}};');
+let save,requests=[],reads=[];
+const submit={},photo={value:'',files:[]},preview={},radios=['face-1','face-2'].map(value=>({value}));
+const editor={querySelector:s=>s==='[type=submit]'?submit:preview,querySelectorAll:()=>radios};
+const context={window:{addEventListener(){}},form:(_title,_fields,fn)=>save=fn,request:async(path,body)=>requests.push(body),FileReader:class{readAsDataURL(file){reads.push(()=>{this.result='data:image/jpeg;base64,VALID';file.fail?this.onerror():this.onload();});}},console};
+vm.createContext(context);vm.runInContext(source,context);const {P,editAvatar}=context.window.IlsonPeople.test;
+P.data={employees:[{id:'aa',name:'시험'}],avatars:[{employee_id:'aa',choice:'face-1',has_image:1,revision:'old'}]};P.root={querySelector:id=>({'#p-photo':photo,'#p-editor':editor,'#p-message':{}}[id])};
+const form={elements:{choice:{value:'face-1'}}};
+const open=()=>{requests=[];reads=[];editAvatar('aa');};
+const choose=file=>photo.onchange({target:{files:[file],value:'selected'}});
+(async()=>{
+ open();await choose({size:2097153,type:'image/jpeg'});try{await save(form);}catch{}assert.equal(requests.length,0,'failed oversized upload must never send image:null and delete the saved photo');
+ open();await save(form);assert.equal(requests.length,0,'unchanged save preserves photo');
+ open();let pending=choose({size:32,type:'image/jpeg'});await assert.rejects(()=>save(form));reads.shift()();await pending;await save(form);assert.equal(requests[0].image.data,'VALID');
+ open();pending=choose({size:32,type:'image/jpeg'});reads.shift()();await pending;await choose({size:2097153,type:'image/jpeg'});await assert.rejects(()=>save(form));assert.equal(requests.length,0,'later failure cannot submit an earlier upload or remove photo');
+ radios[1].onchange();form.elements.choice.value='face-2';await save(form);assert.equal(requests[0].image,null,'explicit face selection removes photo');assert.equal(requests[0].choice,'face-2');
+ open();pending=choose({size:32,type:'image/jpeg',fail:true});reads.shift()();await pending;await assert.rejects(()=>save(form));assert.equal(requests.length,0);
+ pending=choose({size:32,type:'image/jpeg'});reads.shift()();await pending;await save(form);assert.equal(requests[0].image.data,'VALID','new valid upload recovers failure');
+ open();pending=choose({size:32,type:'image/jpeg'});radios[0].onchange();reads.shift()();await pending;form.elements.choice.value='face-1';await save(form);assert.equal(requests[0].image,null,'late read cannot overwrite explicit face intent');
+ open();assert.equal(requests.length,0,'opening/cancelling does not write');console.log('PASS avatar editor keep/upload/face/error/loading, failure recovery and stale reader protection');
+})().catch(e=>{console.error(e);process.exitCode=1;});

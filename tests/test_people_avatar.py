@@ -64,6 +64,10 @@ class AvatarTests(unittest.TestCase):
         try:self.assertEqual(work.people.avatar_image(e+'/'+a['revision']),image)
         finally:work.close()
 
+    def test_avatar_editor_preserves_photo_on_failed_or_unchanged_upload(self):
+        result=subprocess.run(['node',str(fixtures.ROOT/'tests/people_avatar_editor_check.js')],cwd=fixtures.ROOT,capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+
     def test_layout_controls_templates_preserve_draft(self):
         result=subprocess.run(['node',str(fixtures.ROOT/'tests/people_layout_check.js')],cwd=fixtures.ROOT,capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
