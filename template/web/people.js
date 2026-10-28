@@ -1,12 +1,12 @@
 /* 고객 입력은 textContent 또는 HTML 이스케이프만 사용한다. 인라인 이벤트는 만들지 않는다. */
 'use strict';
 let state, tab='employees', busy=false;
-let loading=null, generation=0, timer=null, authExpired=false;
+let loading=null, generation=0, timer=null, authExpired=false, jobsLoading=null, jobsNeedsRefresh=false;
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const button=(label,action,id='')=>`<button data-action="${action}" data-id="${esc(id)}">${esc(label)}</button>`;
 function message(value,error=false){$('message').textContent=value;$('message').className=error?'error':'';}
-function invalidate(){generation++;if(loading){loading.controller.abort();loading=null;}}
+function invalidate(){generation++;if(loading){loading.controller.abort();loading=null;}if(jobsLoading){jobsLoading.abort();jobsLoading=null;}}
 async function api(path,body,signal){
   const response=await fetch('/api/workspace'+path,{signal,...(body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})});
   if(response.status===401){authExpired=true;throw Error('관리자 연결이 만료되었습니다. 입력은 보존했습니다. ilson open으로 다시 연결한 뒤 이 창으로 돌아오세요.');}
@@ -25,7 +25,7 @@ async function refresh(){
   loading={ticket,controller,promise:run};return run;
 }
 function schedule(){clearTimeout(timer);if(!document.hidden&&!authExpired)timer=setTimeout(poll,2000);}
-async function poll(){try{if(!document.hidden&&!busy&&tab!=='jobs')await refresh();}catch(error){if($('sync-status'))$('sync-status').textContent=authExpired?error.message:'목록을 갱신하지 못했습니다. 입력을 보존하고 다시 연결합니다.';}finally{schedule();}}
+async function poll(){try{if(!document.hidden&&!busy&&(!state||tab!=='jobs'||jobsNeedsRefresh))await refresh();}catch(error){if($('sync-status'))$('sync-status').textContent=authExpired?error.message:'목록을 갱신하지 못했습니다. 입력을 보존하고 다시 연결합니다.';}finally{schedule();}}
 document.addEventListener('visibilitychange',()=>{invalidate();clearTimeout(timer);if(!document.hidden){authExpired=false;poll();}});
 function options(items,selected,empty){return `<option value="">${empty}</option>`+items.map(item=>`<option value="${esc(item.id)}"${item.id===selected?' selected':''}>${esc(item.name)}</option>`).join('');}
 function employeeCard(e){const dept=state.departments.find(d=>d.id===e.department_id);const skills=state.assignments.filter(a=>a.employee_id===e.id).map(a=>state.skills.find(s=>s.id===a.skill_id)).filter(Boolean);return `<article class="card"><h3>${esc(e.name)} ${e.active?'':'<small>비활성</small>'}</h3><span class="badge">${esc(dept?.name||'미배치')}</span><p>${esc(e.role)}</p><p>${skills.length?skills.map(s=>`<span class="badge">${esc(s.name)}${s.active?'':' · 비활성'}</span>`).join(''):'할당된 스킬 없음'}</p><div class="actions">${button('편집','edit',e.id)}${button('스킬 할당','assign',e.id)}${button('업무 요청','run',e.id)}${button('삭제','delete',e.id)}</div></article>`;}
@@ -43,7 +43,16 @@ async function render(preserveEditor=false){
   }
   if(tab==='skills')$('view').innerHTML=`${button('직접 추가 / SKILL.md 가져오기','add')}<p class="notice">텍스트 지침만 설치합니다. 프로그램·지원 파일·설치 후크·원격 URL은 가져오거나 실행하지 않습니다. 신뢰하는 지침인지 본문을 확인하세요. 비활성화·해제는 다음 실행부터 반영하며 이미 실행 중인 업무는 시작 시 지침을 사용합니다.</p><h2>설치된 스킬</h2><div class="grid">${state.skills.map(s=>`<article class="card"><h3>${esc(s.name)}</h3><span class="badge">${s.active?'활성':'비활성'}</span><p>${esc(s.description)}</p><details><summary>지침 본문</summary><pre>${esc(s.body)}</pre></details><div class="actions">${button('편집','edit',s.id)}${button(s.active?'비활성화':'활성화','toggle',s.id)}${button('제거','delete',s.id)}</div></article>`).join('')||'<p class="empty">설치된 스킬이 없습니다.</p>'}</div><h2>제공 스킬</h2><div class="grid">${state.catalog.map(s=>`<article class="card"><h3>${esc(s.name)}</h3><p>${esc(s.description)}</p><details><summary>설치할 지침 확인</summary><pre>${esc(s.body)}</pre></details>${button('설치','install',s.id)}</article>`).join('')}</div>`;
   if(tab==='jobs'){
-    $('view').textContent='업무 기록을 불러오는 중…';const jobs=(await api('/jobs')).jobs.filter(j=>j.kind==='employee');if(tab!=='jobs'||renderTicket!==generation)return;
+    $('view').textContent='업무 기록을 불러오는 중…';
+    jobsNeedsRefresh=true;
+    const controller=new AbortController();jobsLoading=controller;
+    const timeout=setTimeout(()=>controller.abort(),8000);
+    let jobs;
+    try{jobs=(await api('/jobs',undefined,controller.signal)).jobs.filter(j=>j.kind==='employee');}
+    catch(error){if(renderTicket!==generation)return;throw error;}
+    finally{clearTimeout(timeout);if(jobsLoading===controller)jobsLoading=null;}
+    if(tab!=='jobs'||renderTicket!==generation||document.hidden)return;
+    jobsNeedsRefresh=false;
     const labels={queued:'대기',running:'진행 중',done:'완료',failed:'실패'};
     $('view').innerHTML=`${button('새로 고침','refresh')}<div class="grid">${jobs.map(j=>`<article class="card"><h3>${esc(j.title)}</h3><p>${labels[j.status]||esc(j.status)}</p>${j.error?`<p class="error">${esc(j.error)}</p>`:''}${button('결과·적용 스킬 보기','result',j.id)}</article>`).join('')||'<p class="empty">아직 요청한 직원 업무가 없습니다.</p>'}</div>`;
   }
@@ -73,5 +82,5 @@ async function action(name,id){
   if(name==='install')await api('/people/install',{catalog_id:id});
   message('처리했습니다.');await refresh();
 }
-document.addEventListener('click',async event=>{const target=event.target.closest('button');if(!target||busy||(!target.dataset.tab&&!target.dataset.action))return;invalidate();busy=true;try{if(target.dataset.tab){tab=target.dataset.tab;message('');if(state)await render();}else if(state)await action(target.dataset.action,target.dataset.id);}catch(error){message(error.message,true);}finally{busy=false;schedule();}});
+document.addEventListener('click',async event=>{const target=event.target.closest('button');if(!target||busy||(!target.dataset.tab&&!target.dataset.action))return;invalidate();busy=true;try{if(target.dataset.tab){tab=target.dataset.tab;message('');if(state)await render();else await refresh();}else if(state)await action(target.dataset.action,target.dataset.id);}catch(error){message(error.message,true);}finally{busy=false;schedule();}});
 poll();

@@ -19,6 +19,10 @@ cli = importlib.util.module_from_spec(spec);spec.loader.exec_module(cli)
 
 
 class PollingTests(unittest.TestCase):
+    def test_jobs_initial_and_visible_loading_recovery(self):
+        result = subprocess.run(['node', str(ROOT/'tests/people_jobs_loading_check.js'), str(ROOT/'template/web/people.js')], capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_polling_lifecycle(self):
         result = subprocess.run(['node', str(ROOT/'tests/people_poll_check.js'), str(ROOT/'template/web/people.js')], capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
