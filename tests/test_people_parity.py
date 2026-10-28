@@ -15,6 +15,10 @@ class ParityTests(unittest.TestCase):
     setUp=baseline.PeopleTests.setUp
     employee=baseline.PeopleTests.employee
     skill=baseline.PeopleTests.skill
+    def test_mixed_hierarchy_browser_sibling_order(self):
+        result=subprocess.run(['node',str(fixtures.ROOT/'tests/people_org_order_check.js'),str(fixtures.ROOT/'template/web/current/people.js')],capture_output=True,text=True)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+
     def test_org_atomic_conflict_cycle_missing_reorder(self):
         a=self.people.save('departments',{'name':'기획'})['id']
         b=self.people.save('departments',{'name':'운영'})['id']
