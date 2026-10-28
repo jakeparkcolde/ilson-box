@@ -60,6 +60,10 @@ STATIC = {"/dashboard": ("web/dashboard.html", "text/html; charset=utf-8"),
           "/favicon.svg": ("web/favicon.svg", "image/svg+xml")}
 
 
+STATIC['/people'] = ('web/people.html', 'text/html; charset=utf-8')
+STATIC['/people.js'] = ('web/people.js', 'application/javascript; charset=utf-8')
+STATIC['/people.css'] = ('web/people.css', 'text/css; charset=utf-8')
+
 # 기존 일손 화면 자산도 명시한 경로만 제공한다.
 STATIC['/current/assets/sns/facebook.svg'] = ('web/current/assets/sns/facebook.svg', 'image/svg+xml')
 STATIC['/current/assets/sns/instagram.svg'] = ('web/current/assets/sns/instagram.svg', 'image/svg+xml')
