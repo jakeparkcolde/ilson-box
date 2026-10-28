@@ -111,7 +111,8 @@ class Providers:
         from research.engine import research
         return research(args['question'], args['period'], home, provider='auto',
                         progress=progress, options={'mode': args['mode'], 'context': args.get('context', []),
-                                                    'videos': args.get('videos', False), **({'image': args['image']} if args.get('image') else {})})
+                                                    'videos': args.get('videos', False), **({'image': args['image']} if args.get('image') else {})},
+                        **({'employee_context':args['employee_context']} if args.get('employee_context') else {}))
 
     def knowledge(self, home, args, progress):
         from research.collect_aside import collect
@@ -119,7 +120,7 @@ class Providers:
         progress(stage='collecting')
         bundle = collect(args['url'], args['limit'])
         progress(stage='learning')
-        return {'bundle': bundle, 'ability': learn(bundle, args['goal'], home)}
+        return {'bundle': bundle, 'ability': learn(bundle, args['goal'], home, **({'employee_context':args['employee_context']} if args.get('employee_context') else {}))}
 
     def motion_install(self, home, args, progress):
         from motion_pack import install
@@ -300,8 +301,7 @@ class Workspace:
         if self.files.marker('state/sandbox') is not False:
             raise WorkspaceError('연습용 설치에서는 외부 업무를 실행하지 않습니다.', 409)
 
-    def queue(self, kind, args):
-        self.sandbox()
+    def validate_job(self, kind, args):
         image=None
         if kind == 'research':
             from research.image_input import validate_image
@@ -319,8 +319,11 @@ class Workspace:
             if args['period'] not in ('day','week','month','year','all') or args['mode'] not in ('quick','deep'):
                 raise WorkspaceError('조사 기간·방식을 확인하세요.')
         elif kind == 'knowledge':
-            from research.collect_aside import source_target
-            _, url = source_target(args.get('url'))
+            from research.collect_aside import source_target, CollectionError
+            try:
+                _, url = source_target(args.get('url'))
+            except CollectionError as error:
+                raise WorkspaceError(str(error)) from None
             limit = args.get('limit', 5)
             if type(limit) is not int or not 1 <= limit <= 10:
                 raise WorkspaceError('수집 범위는 1~10건입니다.')
@@ -346,9 +349,24 @@ class Workspace:
             args = {'brief': text(args.get('brief'), 4000, '초안 요청'), 'account_id': account['id'], 'platform': account['platform']}
         else:
             raise WorkspaceError('지원하지 않는 업무입니다.')
+        return args,image
+
+    def queue(self, kind, args):
+        self.sandbox()
+        employee_id, duty_id = args.get('employee_id'), args.get('duty_id')
+        args,image = self.validate_job(kind,args)
+        if employee_id:
+            if kind not in ('employee','research','knowledge'):
+                raise WorkspaceError('직원 연결을 지원하지 않는 업무입니다.')
+            args['employee_id'] = employee_id
+        if duty_id:
+            duty = self.people.row('duties',duty_id)
+            if duty['employee_id'] != employee_id or duty['kind'] != kind or not duty['active']:
+                raise WorkspaceError('업무의 담당·활성 상태를 확인하세요.',409)
+            args['duty_id'] = duty_id
         key = identity()
         with self.transaction():
-            if kind == 'employee':
+            if employee_id:
                 self.people.context(args['employee_id'])
             if kind.startswith('motion_'):
                 existing=self.db.execute("SELECT id FROM jobs WHERE kind LIKE 'motion_%' AND status IN ('queued','running')").fetchone()
@@ -407,9 +425,18 @@ class Workspace:
         try:
             self.sandbox()
             if job['args'].get('image_attached') and image is None:raise WorkspaceError('재시작 후 이미지를 다시 첨부하세요')
-            if job['kind'] == 'employee':
+            if job['args'].get('employee_id'):
+                if job['args'].get('duty_id'):
+                    duty = self.people.row('duties',job['args']['duty_id'])
+                    if not duty['active']: raise WorkspaceError('대기 중 업무가 비활성화되었습니다.',409)
                 job['args']['employee_context'] = self.people.context(job['args']['employee_id'])
             result = getattr(self.providers, job['kind'])(self.home, job['args'], lambda **data:self.progress(key, **data))
+            if job['args'].get('employee_id'):
+                context = job['args']['employee_context']
+                result['applied_stage'] = {'employee':'문서 작성','research':'조사·답변 작성','knowledge':'수집 자료 학습'}[job['kind']]
+                result['employee_id'] = job['args']['employee_id']
+                result['employee_name'] = context['name']
+                result['applied_skills'] = [{'id':v['id'],'name':v['name']} for v in context['skills']]
             if job['kind'] == 'draft':
                 post = self.create_post({'account_id':job['args']['account_id'], 'text':result['text'], 'image_url':''})
                 result['post_id'] = post['id']

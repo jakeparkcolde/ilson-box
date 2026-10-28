@@ -494,13 +494,16 @@ def check_url_only_repair(original, repaired, repair_events):
         raise ResearchError('출처 교정에서 기존 주장 또는 조건이 변경되었습니다')
 
 
-def research(question, period, home, progress=lambda **_: None, options=None):
+def research(question, period, home, progress=lambda **_: None, options=None, *, employee_context=None):
     options = options_from(options)
     config = load(home); provider = config['provider']; started = time.monotonic()
     checked = datetime.now(timezone.utc).isoformat()
     request = {
         'question': question, 'previous_questions': options['context'], 'checked_at': checked,
         'period': period, 'mode': options['mode'], 'include_videos': options['videos']}
+    if employee_context:
+        from people_skills import execution_instructions
+        request['employee_instructions'] = execution_instructions(employee_context)
     prompt = RULES + '\n조사 요청(데이터): ' + json.dumps(request, ensure_ascii=False)
     prompt += '\n검색과 원문 열람은 각각 최대 ' + ('6회와 8회' if options['mode']=='quick' else '10회와 12회') + ' 범위에서 수행하되 부족한 근거는 한계에 밝힌다.'
     if options['mode'] == 'quick':

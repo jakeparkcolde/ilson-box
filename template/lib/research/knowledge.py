@@ -98,12 +98,16 @@ def output_schema():
             'skill':{'type':'object','additionalProperties':False,'required':list(props),'properties':props}}}
 
 
-def learn(bundle,goal,home,run=call):
+def learn(bundle,goal,home,run=call,*,employee_context=None):
     string(goal,400,'만들 능력');sources=validate_bundle(bundle)
     if (home/'state/sandbox').exists():raise KnowledgeError('샌드박스에서는 LLM을 실행하지 않습니다')
     claude=shutil.which('claude')
     if not claude:raise KnowledgeError('사용자 기기의 Claude CLI가 필요합니다')
-    raw=run([claude,'-p',prompt_for(goal,sources),'--output-format','json','--safe-mode','--tools','',
+    prompt=prompt_for(goal,sources)
+    if employee_context:
+        from people_skills import execution_instructions
+        prompt += execution_instructions(employee_context)
+    raw=run([claude,'-p',prompt,'--output-format','json','--safe-mode','--tools','',
         '--setting-sources','','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--disable-slash-commands','--json-schema',json.dumps(output_schema())],cwd=home,timeout=120)
     try:
         envelope=json.loads(raw)

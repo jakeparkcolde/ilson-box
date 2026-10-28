@@ -75,6 +75,8 @@ STATIC['/current/assets/sns/x.svg'] = ('web/current/assets/sns/x.svg', 'image/sv
 STATIC['/current/assets/sns/zenn.svg'] = ('web/current/assets/sns/zenn.svg', 'image/svg+xml')
 STATIC['/current/composer.js'] = ('web/current/composer.js', 'application/javascript; charset=utf-8')
 STATIC["/current/"] = ("web/current/index.html", "text/html; charset=utf-8")
+STATIC['/current/people.js'] = ('web/current/people.js', 'application/javascript; charset=utf-8')
+STATIC['/current/people.css'] = ('web/current/people.css', 'text/css; charset=utf-8')
 STATIC['/current/base.css'] = ('web/current/base.css', 'text/css; charset=utf-8')
 STATIC['/current/icons.js'] = ('web/current/icons.js', 'application/javascript; charset=utf-8')
 STATIC['/current/index.html'] = ('web/current/index.html', 'text/html; charset=utf-8')
@@ -1003,6 +1005,19 @@ class Handler(BaseHTTPRequestHandler):
         from mini_workspace import WorkspaceError
         try:
             data = self.body(limit=400000) if method == "POST" else None
+            if path == '/api/workspace/people/registry' and method == 'GET':
+                rows, notices = self.server.box.jobs(self.server.box.files.marker('state/sandbox') is not False)
+                reports, limited = self.server.box.report_index()
+                for row in rows:
+                    # run-job.sh의 고정 출력 계약만 연결한다. 이름 유사도로 다른 업무 서류를 연결하지 않는다.
+                    row['reports'] = [meta for meta,relative in reports if row['id'] in ('briefing','weekly') and relative.startswith('vault/reports/'+row['id']+'/')]
+                if limited: notices.append('일부 정기 업무 결과 서류를 읽지 못했거나 조회 한도를 넘었습니다.')
+                return self.reply(200, self.server.box.redact({'jobs':rows,'notices':notices}))
+            if path == '/api/workspace/people/schedules' and method == 'POST':
+                rows, _ = self.server.box.jobs(self.server.box.files.marker('state/sandbox') is not False)
+                ids = data.get('schedule_ids') if isinstance(data,dict) else None
+                if not isinstance(ids,list) or any(not isinstance(v,str) or v not in {r['id'] for r in rows} for v in ids):
+                    raise WorkspaceError('현재 설치에 등록된 정기업무만 연결하세요.')
             result = work.handle(method, path.removeprefix("/api/workspace"), data)
             return self.reply(200, result)
         except AdminError:

@@ -152,6 +152,14 @@ def package(manifest,archive):
     return result
 
 def rollback(roots,storage,journal,force_recovery=False):
+    if force_recovery:
+        return restore_previous(roots,storage,journal,True)
+    # 이전 실행기는 새 직원 배정 맥락을 이해하지 못할 수 있다. 대기/실행을 모두 마친 뒤 코드만 복구한다.
+    with runtime_lock(roots['box']):
+        ensure_idle(roots['box'])
+        return restore_previous(roots,storage,journal,False)
+
+def restore_previous(roots,storage,journal,force_recovery=False):
     changes=journal['changes']
     # 새 버전을 사용한 뒤 사람이 수정한 파일은 롤백도 덮어쓰지 않는다.
     for item in changes:
