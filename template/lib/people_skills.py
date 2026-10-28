@@ -1,4 +1,8 @@
 """직원·조직·명시적으로 설치한 텍스트 스킬. 기존 업무 장부의 트랜잭션을 공유한다."""
+import base64
+import io
+import warnings
+import binascii
 import hashlib
 import json
 import re
@@ -47,6 +51,7 @@ class People:
             CREATE TABLE IF NOT EXISTS people_employees(id TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL, department_id TEXT NOT NULL, active INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS people_skills(id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, description TEXT NOT NULL, body TEXT NOT NULL, active INTEGER NOT NULL, source TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS people_assignments(employee_id TEXT NOT NULL, skill_id TEXT NOT NULL, PRIMARY KEY(employee_id,skill_id));
+            CREATE TABLE IF NOT EXISTS people_avatars(employee_id TEXT PRIMARY KEY, choice TEXT NOT NULL, image BLOB, revision TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS people_profiles(employee_id TEXT PRIMARY KEY, bio TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS people_order(department_id TEXT PRIMARY KEY, position INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS people_duties(id TEXT PRIMARY KEY, employee_id TEXT NOT NULL, title TEXT NOT NULL, kind TEXT NOT NULL, args TEXT NOT NULL, active INTEGER NOT NULL);
@@ -66,6 +71,7 @@ class People:
         with self.work.lock:
             result = {name: [dict(r) for r in self.db.execute('SELECT * FROM people_' + name + ' ORDER BY rowid')]
                       for name in ('departments', 'employees', 'skills', 'assignments')}
+            result['avatars'] = [dict(r) for r in self.db.execute('SELECT employee_id,choice,revision,image IS NOT NULL AS has_image FROM people_avatars JOIN people_employees ON employee_id=people_employees.id')]
             result['profiles'] = [dict(r) for r in self.db.execute('SELECT * FROM people_profiles')]
             result['duties'] = [dict(r) for r in self.db.execute('SELECT * FROM people_duties')]
             for duty in result['duties']:
@@ -177,7 +183,7 @@ class People:
                     if json.loads(row['args']).get('employee_id') == key:
                         raise WorkspaceError('직원의 진행 중 업무가 끝난 뒤 삭제하세요.', 409)
                 self.db.execute('DELETE FROM people_assignments WHERE employee_id=?', (key,))
-                for table in ('profiles','duties','schedules'):
+                for table in ('profiles','duties','schedules','avatars'):
                     self.db.execute('DELETE FROM people_' + table + ' WHERE employee_id=?', (key,))
             if kind == 'skills':
                 self.db.execute('DELETE FROM people_assignments WHERE skill_id=?', (key,))
@@ -308,11 +314,68 @@ class People:
             self.db.executemany('INSERT INTO people_schedules VALUES(?,?)',[(employee['id'],v) for v in set(ids)])
         return {'ok':True}
 
+    def avatar(self, data):
+        if set(data) - {'employee_id','expected','choice','image'}:
+            raise WorkspaceError('사진 요청 형식을 확인하세요.')
+        choice = data.get('choice', 'face-1')
+        if choice not in ('face-1','face-2','face-3','face-4','face-5','face-6'):
+            raise WorkspaceError('제공된 얼굴을 선택하세요.')
+        raw = None
+        if data.get('image') is not None:
+            value = data['image']
+            if not isinstance(value,dict) or set(value) != {'media_type','data'}:
+                raise WorkspaceError('사진 형식을 확인하세요.')
+            mime, encoded = value['media_type'], value['data']
+            if mime not in ('image/jpeg','image/png') or not isinstance(encoded,str) or not 1 <= len(encoded) <= 2796204:
+                raise WorkspaceError('사진은 JPEG·PNG 2MB 이하로 선택하세요.')
+            try:
+                from PIL import Image, ImageOps
+            except ImportError:
+                raise WorkspaceError('사진 처리 준비가 필요합니다. 설치를 갱신하거나 기본 얼굴을 선택하세요.') from None
+            try:
+                upload = base64.b64decode(encoded,validate=True)
+                if not upload or len(upload)>2*1024*1024: raise ValueError()
+                with warnings.catch_warnings():
+                    warnings.simplefilter('error',Image.DecompressionBombWarning)
+                    with Image.open(io.BytesIO(upload)) as source:
+                        if source.format != {'image/jpeg':'JPEG','image/png':'PNG'}[mime] or source.width*source.height>4000000 or max(source.size)>4096: raise ValueError()
+                        source.verify()
+                    with Image.open(io.BytesIO(upload)) as source:
+                        source.load()
+                        rgb=ImageOps.exif_transpose(source).convert('RGB')
+                        rgb.thumbnail((512,512))
+                        pixels=Image.new('RGB',rgb.size);pixels.paste(rgb)
+                        output=io.BytesIO();pixels.save(output,format='JPEG',quality=85)
+                        raw=output.getvalue()
+            except (ValueError,OSError,SyntaxError,binascii.Error,Warning,Image.DecompressionBombError):
+                raise WorkspaceError('사진을 읽지 못했습니다. 손상되지 않은 JPEG·PNG를 선택하세요.') from None
+        with self.work.transaction():
+            employee=self.row('employees',data.get('employee_id'))
+            previous=self.db.execute('SELECT revision FROM people_avatars WHERE employee_id=?',(employee['id'],)).fetchone()
+            if data.get('expected') != (previous['revision'] if previous else ''):
+                raise WorkspaceError('다른 화면에서 얼굴이 변경되었습니다. 새로 고친 뒤 다시 선택하세요.',409)
+            revision=identity()
+            self.db.execute('INSERT INTO people_avatars VALUES(?,?,?,?) ON CONFLICT(employee_id) DO UPDATE SET choice=excluded.choice,image=excluded.image,revision=excluded.revision',(employee['id'],choice,raw,revision))
+            self.work.record('avatar_saved',employee['id'])
+        return {'revision':revision}
+
+    def avatar_image(self, path):
+        if not isinstance(path,str) or not re.fullmatch(r'[a-f0-9]{32}/[a-f0-9]{32}',path):
+            raise WorkspaceError('사진 경로를 확인하세요.',404)
+        key,revision=path.split('/')
+        with self.work.lock:
+            self.row('employees',key)
+            row=self.db.execute('SELECT image FROM people_avatars WHERE employee_id=? AND revision=?',(key,revision)).fetchone()
+            if row is None or row['image'] is None: raise WorkspaceError('등록한 사진이 없습니다.',404)
+            return bytes(row['image'])
+
     def handle(self, method, path, data):
         if method == 'GET' and path == '/people':
             return self.state()
         if method != 'POST' or not isinstance(data, dict):
             raise WorkspaceError('지원하지 않는 직원 요청입니다.', 404)
+        if path == '/people/avatar':
+            return self.avatar(data)
         if path == '/people/organization':
             return self.organization(data)
         if path in ('/people/duties/save','/people/duties/delete'):

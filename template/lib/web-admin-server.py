@@ -1004,7 +1004,9 @@ class Handler(BaseHTTPRequestHandler):
         work = self.server.box.workspace()
         from mini_workspace import WorkspaceError
         try:
-            data = self.body(limit=400000) if method == "POST" else None
+            data = self.body(limit=2900000 if path == '/api/workspace/people/avatar' else 400000) if method == "POST" else None
+            if method == 'GET' and path.startswith('/api/workspace/people/avatar/'):
+                return self.reply(200,work.people.avatar_image(path.removeprefix('/api/workspace/people/avatar/')),'image/jpeg')
             if path == '/api/workspace/people/registry' and method == 'GET':
                 rows, notices = self.server.box.jobs(self.server.box.files.marker('state/sandbox') is not False)
                 reports, limited = self.server.box.report_index()
