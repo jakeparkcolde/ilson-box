@@ -1,4 +1,5 @@
 """공개 게시 전 검사 시험. 임시 git 저장소와 임시 ZIP만 쓰고 네트워크를 쓰지 않는다."""
+import gzip
 import importlib.util
 import io
 import json
@@ -240,12 +241,53 @@ class CheckPublicTests(unittest.TestCase):
 
     def test_민감한_경로와_이름을_막는다(self):
         for name in ('box/.env', 'box/.env.local', 'box/state/x.txt', 'box/vault/a.md', 'box/logs/a.txt', 'box/credentials.json',
-                     'box/token.json', 'box/work.sqlite3', 'box/x.db', 'box/id.pem', 'box/server.key'):
+                     'box/token.json', 'box/work.sqlite3', 'box/x.db', 'box/id.pem', 'box/server.key', 'box/web/.ssh/config.txt',
+                     'box/web/id_rsa', 'box/web/id_rsa.pub', 'box/web/auth.json', 'box/web/cookies.txt', 'box/web/.netrc',
+                     'box/web/.npmrc', 'box/web/.git/config.txt', 'box/web/pairing.json', 'box/web/jobs.conf',
+                     'box/web/job-settings.json', 'box/web/settings.local.json', 'box/web/cert.p12'):
             with self.subTest(name):
-                self.assertIn((name, 'sensitive-path'), self.patterns(self.check(*self.stage({name: b'public text\n'})).blocks))
+                self.assertIn('sensitive-path', {p for _, p, _ in self.check(*self.stage({name: b'public text\n'})).blocks})
+        self.assertFalse(self.check(*self.stage({'box/web/.gitignore.txt': b'public text\n'})).blocked)
         self.assertFalse(self.check(*self.stage({'box/lib/state.py': b'public text\n'})).blocked)
-        named = self.check(*self.stage({'box/' + CLIENT + '.txt': b'public text\n'}))
-        self.assertIn(('box/' + CLIENT + '.txt', 'denylist-line-3'), self.patterns(named.blocks))
+        for name in ('box/web/' + CLIENT + '.txt', 'box/web/' + PRIVATE_HOST + '.txt'):
+            self.assertTrue(self.check(*self.stage({name: b'public text\n'})).blocked)
+
+    def test_업데이트가_받지_않는_경로는_막는다(self):
+        for name in ('box/notes/a.md', 'cli/README.md', 'other/x.txt', 'plain.txt'):
+            with self.subTest(name):
+                archive, manifest = self.stage({name: b'public text\n'}, drop=(name,))
+                self.assertIn('path-not-allowed', {p for _, p, _ in self.check(archive, manifest).blocks})
+        report = self.check(*self.stage({'cli/README.md': b'public text\n'}))
+        self.assertEqual(sorted(p for w, p, _ in report.blocks if w == 'release-9.9.json'), ['path-not-allowed'])
+
+    def test_이름에서_찾은_값은_이름_대신_번호로_알린다(self):
+        names = {'box/web/' + CLIENT + '/a.txt': 'denylist-line-3', 'box/web/' + PRIVATE_HOST + '.txt': 'ts-net-host',
+                 'box/web/' + MAIL + '.txt': 'email', 'box/web/x' + PERSON + '/a.txt': 'personal-home'}
+        rows = dict({'cli/template/web/plain.txt': b'public text\n'}, **{name: b'new body ' + str(i).encode() for i, name in enumerate(names)})
+        printed = '\n'.join(self.check(*self.stage(rows, {'files': []}), use_denylist=True).lines())
+        for name, pattern in names.items():
+            self.assertRegex(printed, r'\[차단\] member#\d+ sha:[0-9a-f]{8} · ' + pattern)
+            self.assertRegex(printed, r'\[새 파일\] member#\d+ sha:[0-9a-f]{8}')
+            self.assertNotIn(name, printed)
+        for value in (CLIENT, PRIVATE_HOST, MAIL, PERSON):
+            self.assertNotIn(value, printed)
+
+    def test_압축_파일을_품은_묶음을_막는다(self):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w') as z:
+            z.writestr('secret.txt', 'hidden')
+        cases = {'gzip': gzip.compress(b'hidden'), 'zip': buf.getvalue(), 'empty zip': b'PK\x05\x06' + b'\0' * 18}
+        for name, data in cases.items():
+            with self.subTest(name):
+                self.assertIn('nested-archive', {p for _, p, _ in self.check(*self.stage({'cli/template/web/new.txt': data})).blocks})
+
+    def test_UTF16_파일도_읽어서_찾는다(self):
+        for encoding in ('utf-16', 'utf-16-be'):
+            body = (TOKEN + ' ' + MAIL + ' ' + CLIENT).encode(encoding)
+            data = body if encoding == 'utf-16' else b'\xfe\xff' + body
+            with self.subTest(encoding):
+                found = {p for _, p, _ in self.check(*self.stage({'cli/template/web/new.txt': data})).blocks}
+                self.assertTrue({'github-token', 'email', 'denylist-line-3'} <= found, found)
 
     def test_manifest도_검사한다(self):
         rows = {'cli/template/web/plain.txt': b'public text\n'}
@@ -286,6 +328,18 @@ class CheckPublicTests(unittest.TestCase):
         report = self.check(*rows, denylist=self.tmp / 'absent.txt', use_denylist=False)
         self.assertFalse(report.blocked)
         self.assertIn('거래처 이름은 확인하지 않았습니다', '\n'.join(report.lines()))
+        # The hint belongs to the command line: publish_release has no way around the list.
+        for name in ('absent.txt', 'empty.txt'):
+            with self.assertRaises(c.DenylistError) as refused:
+                c.load_denylist(self.tmp / name)
+            self.assertNotIn('--no-denylist', str(refused.exception))
+
+    def test_BOM이_있어도_첫_줄_이름을_읽는다(self):
+        self.denylist.write_bytes(b'\xef\xbb\xbf' + CLIENT.encode() + b'\n')
+        self.assertIn('denylist-line-1', {p for _, p, _ in self.check(*self.stage({'cli/template/web/new.txt': CLIENT.encode()})).blocks})
+        self.denylist.write_bytes(b'\xef\xbb\xbf# only a comment\n')
+        with self.assertRaises(c.DenylistError):
+            c.load_denylist(self.denylist)
 
     def test_명령행_종료코드(self):
         archive, manifest = self.stage({'cli/template/web/plain.txt': b'public text\n'})
@@ -300,6 +354,7 @@ class CheckPublicTests(unittest.TestCase):
         with self.assertRaises(SystemExit) as stop:
             c.main([str(archive), str(manifest), '--denylist', str(self.tmp / 'absent.txt')])
         self.assertIn('확인하지 않았습니다', str(stop.exception.code))
+        self.assertIn('--no-denylist', str(stop.exception.code))
         with patch('sys.stderr', io.StringIO()), self.assertRaises(SystemExit):
             c.main([str(archive), str(manifest), '--denylist', 'x', '--no-denylist'])
 

@@ -24,8 +24,12 @@ spec.loader.exec_module(updater)
 DEFAULT_DENYLIST = Path.home() / '.config/ilson/public-denylist.txt'
 # The pack's own files, kept from the previous pack rather than the repository (tools/refresh_pack.py).
 PACK_ONLY = ('README.txt', 'manifest.json', 'serve.py', 'start.sh')
-SENSITIVE_PATH = re.compile(r'(?i)(^|/)(\.env[^/]*|state|vault|logs|credentials[^/]*|tokens?\.json'
-                            r'|[^/]*\.sqlite3?|[^/]*\.db|[^/]*\.pem|[^/]*\.key)(/|$)')
+SENSITIVE_PATH = re.compile(r'(?i)(^|/)(\.env[^/]*|state|vault|logs|credentials[^/]*|tokens?\.json|\.ssh|\.git|id_rsa[^/]*'
+                            r'|auth\.json|cookies\.txt|\.netrc|\.npmrc|pairing\.json|jobs\.conf|job-settings\.json|settings\.local\.json'
+                            r'|[^/]*\.sqlite3?|[^/]*\.db|[^/]*\.pem|[^/]*\.key|[^/]*\.p12)(/|$)')
+GZIP_MAGIC = b'\x1f\x8b'
+ZIP_MAGICS = (b'PK\x03\x04', b'PK\x05\x06', b'PK\x07\x08')
+UTF16_BOMS = (b'\xff\xfe', b'\xfe\xff')
 # Blocks on every member and the manifest.
 HARD = [(name, re.compile(pattern)) for name, pattern in (
     ('ts-net-host', rb'(?i)\.ts\.net\b'),
@@ -54,6 +58,10 @@ SOFT = [(name, re.compile(pattern)) for name, pattern in (
 )]
 
 
+class DenylistError(ValueError):
+    pass
+
+
 class Report:
     def __init__(self, commit, denylist_checked):
         self.commit, self.denylist_checked = commit, denylist_checked
@@ -78,9 +86,10 @@ class Report:
 def load_denylist(path):
     # Returns [(name, pattern)]. The name is the line number: the term itself must not reach any output.
     try:
-        text = Path(path).read_text(encoding='utf-8')
+        # utf-8-sig: a BOM must not hide the term on the first line.
+        text = Path(path).read_text(encoding='utf-8-sig')
     except FileNotFoundError:
-        raise ValueError('거래처 이름 목록이 없어 확인하지 않았습니다: ' + str(path) + ' (목록 없이 검사하려면 --no-denylist)') from None
+        raise DenylistError('거래처 이름 목록이 없어 확인하지 않았습니다: ' + str(path)) from None
     terms = []
     for number, line in enumerate(text.splitlines(), 1):
         term = line.strip()
@@ -88,7 +97,7 @@ def load_denylist(path):
             forms = {unicodedata.normalize(form, term).encode() for form in ('NFC', 'NFD')}
             terms.append(('denylist-line-' + str(number), re.compile(b'|'.join(map(re.escape, sorted(forms))), re.I)))
     if not terms:
-        raise ValueError('거래처 이름 목록이 비어 있어 확인하지 않았습니다: ' + str(path) + ' (목록 없이 검사하려면 --no-denylist)')
+        raise DenylistError('거래처 이름 목록이 비어 있어 확인하지 않았습니다: ' + str(path))
     return terms
 
 
@@ -118,6 +127,21 @@ def hits(patterns, data):
     return [(name, count) for name, count in ((name, len(rx.findall(data))) for name, rx in patterns) if count]
 
 
+def readable(data):
+    # The bytes to scan. A UTF-16 file hides every pattern unless a decoded copy is scanned too.
+    return data + b'\n' + data.decode('utf-16', 'ignore').encode() if data[:2] in UTF16_BOMS else data
+
+
+def path_allowed(name):
+    area, _, path = name.partition('/')
+    return updater.allowed(area, path)
+
+
+def member_label(index, name):
+    # What the report prints when the finding is in the name: the name itself could be the value.
+    return 'member#' + str(index) + ' sha:' + hashlib.sha256(name.encode('utf-8', 'surrogateescape')).hexdigest()[:8]
+
+
 def pack_only_members(release):
     version = release.get('research_version') if isinstance(release, dict) else None
     return {'box/packs/research/' + version + '/' + name for name in PACK_ONLY} if isinstance(version, str) and version else set()
@@ -131,7 +155,7 @@ def check(archive, manifest, commit='HEAD', denylist=DEFAULT_DENYLIST, use_denyl
     blobs = set(tree.values())
     report = Report(sha, use_denylist)
     bundle, raw = Path(archive).read_bytes(), Path(manifest).read_bytes()
-    label = Path(manifest).name
+    listing = Path(manifest).name
 
     def block(where, found):
         report.blocks += [(where, name, count) for name, count in found]
@@ -149,31 +173,37 @@ def check(archive, manifest, commit='HEAD', denylist=DEFAULT_DENYLIST, use_denyl
             name, data = info.filename, z.read(info)
             names.append(name)
             report.members += 1
+            view = readable(data)
+            found = hits(HARD + SOFT + terms, name.encode('utf-8', 'surrogateescape'))
+            if SENSITIVE_PATH.search(name):
+                found.append(('sensitive-path', 1))
+            if not path_allowed(name):
+                found.append(('path-not-allowed', 1))
+            label = member_label(report.members, name) if found else name
+            block(label, found)
+            if data[:2] == GZIP_MAGIC or data[:4] in ZIP_MAGICS:
+                block(label, [('nested-archive', 1)])
             # The stamped updater is public once its FEED line is cleared; the stamped address is checked on its own.
             body = updater.unstamp(data) if name == updater.UPDATER_KEY else data
             shipped[name] = blob_id(body)
             public = shipped[name] in blobs
-            if SENSITIVE_PATH.search(name):
-                block(name, [('sensitive-path', 1)])
-            block(name, hits(HARD + terms, name.encode() + b'\n' + data))
-            # A blob match says the bytes are public, not the name this member carries.
-            block(name, hits(SOFT, name.encode()))
+            block(label, hits(HARD + terms, view))
             if public:
-                report.notes += [(name, pattern, count) for pattern, count in hits(SOFT, data)]
+                report.notes += [(label, pattern, count) for pattern, count in hits(SOFT, view)]
             else:
-                report.new.append(name)
-                block(name, hits(SOFT, data))
+                report.new.append(label)
+                block(label, hits(SOFT, view))
                 if exact_commit and name not in pack_only:
-                    block(name, [('not-in-commit', 1)])
+                    block(label, [('not-in-commit', 1)])
             if name == updater.UPDATER_KEY:
                 try:
                     feed = updater.feed_of(data).encode()
                 except ValueError:
-                    block(name, [('updater-feed-line', 1)])
+                    block(label, [('updater-feed-line', 1)])
                 else:
                     if feed not in body:
-                        block(name + ' FEED', hits(SOFT, feed))
-    block(label, hits(HARD + SOFT + terms, raw))
+                        block(label + ' FEED', hits(SOFT, feed))
+    block(listing, hits(HARD + SOFT + terms, readable(raw)))
     if exact_commit:
         # A cli member is its tracked file, so a file added after the build shows up here.
         missing = [path for path, blob in tree.items() if updater.allowed('cli', path) and shipped.get('cli/' + path) != blob]
@@ -182,15 +212,17 @@ def check(archive, manifest, commit='HEAD', denylist=DEFAULT_DENYLIST, use_denyl
     try:
         listed = [item['area'] + '/' + item['path'] for item in release['files']]
     except (KeyError, TypeError):
-        block(label, [('manifest-format', 1)])
+        block(listing, [('manifest-format', 1)])
         return report
     if updater.digest(bundle) != release.get('archive_sha256'):
-        block(label, [('archive-hash-mismatch', 1)])
+        block(listing, [('archive-hash-mismatch', 1)])
     if sorted(listed) != sorted(names):
-        block(label, [('file-list-mismatch', len(set(listed) ^ set(names)) or 1)])
+        block(listing, [('file-list-mismatch', len(set(listed) ^ set(names)) or 1)])
     for path in listed:
         if SENSITIVE_PATH.search(path):
-            block(label, [('sensitive-path', 1)])
+            block(listing, [('sensitive-path', 1)])
+        if not path_allowed(path):
+            block(listing, [('path-not-allowed', 1)])
     return report
 
 
@@ -206,6 +238,8 @@ def main(argv=None):
     a = p.parse_args(argv)
     try:
         report = check(a.archive, a.manifest, a.commit, a.denylist, not a.no_denylist, exact_commit=a.exact_commit)
+    except DenylistError as exc:
+        raise SystemExit('공개 검사를 하지 못했습니다: ' + str(exc) + ' (목록 없이 검사하려면 --no-denylist)')
     except (ValueError, OSError, zipfile.BadZipFile) as exc:
         raise SystemExit('공개 검사를 하지 못했습니다: ' + str(exc))
     print('\n'.join(report.lines()))
