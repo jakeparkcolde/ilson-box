@@ -8,7 +8,34 @@
 - build_release.py는 팩의 엔진/웹이 template과 바이트 단위로 같은지 양방향으로 확인한다(다르거나, 팩에만 있거나, 팩에 빠진 파일이 있으면 거부). 같은 바이트를 CLI template, 관리자 lib/research 및 web/current/pack-library, 독립 packs/research에 넣는다.
 - 기존 mini-workspace 코드 64개를 실제 Jake 설치 파일과 대조하여 승격. tools/manager-baseline.json은 검토한 이전 코드 해시만 담는다. 새 고객 수정 해시를 자동 수용하지 않는다.
 
-다음 배포 순서:
+현재 경로: Mac Studio + GitHub Releases (2026-11-02 개정):
+- 배포는 Mac Studio에서 만들고 공개 저장소의 GitHub Release로 낸다. 기기는 tools/update.py 의 DEFAULT_FEED(https://github.com/jakeparkcolde/ilson-box/releases/latest/download/latest-v2.json)를 읽으므로 주소를 따로 받지 않는다. --feed 는 별도 주소를 쓰거나 박스를 옮길 때만 쓴다.
+- 맥미니는 고치지 않는다. 옛 주소에 브리지 배포를 게시하는 단계는 건너뛴다. 옛 주소를 쓰는 기기를 옮기는 일은 ilson update --feed <기본 주소> 로 기기별로 한다.
+- 릴리스 동결: 1번에서 5번까지 배포 브랜치에 새 커밋을 넣지 않고, 올린 Release는 고치지 않는다(--clobber 금지). 동결 중 고칠 것이 나오면 더 높은 버전으로 처음부터 다시 한다.
+- 첫 Latest가 생기기 전에는 기본 주소가 404다. 기본 주소가 든 코드를 main에 병합하기 전에 5번까지 끝낸다. main에 올리면 설치 명령이 바로 그 코드를 받는다.
+
+1. 입력 준비. 이전 Release에서 받는다. latest-v2.json 은 --preserve-from 에, 묶음 ZIP은 refresh_pack --from 에 쓴다. 배포 폴더가 없어도 된다.
+   curl -fsSLo <입력 폴더>/latest-v2.json https://github.com/jakeparkcolde/ilson-box/releases/download/v<이전 버전>/latest-v2.json
+   curl -fsSLo <입력 폴더>/ilson-box-<이전 버전>.zip https://github.com/jakeparkcolde/ilson-box/releases/download/v<이전 버전>/ilson-box-<이전 버전>.zip
+2. 변경을 모두 커밋하고 빌드한다. 주소를 주지 않으면 DEFAULT_FEED 가 기록된다.
+   python3 tools/refresh_pack.py --from <입력 폴더>/ilson-box-<이전 버전>.zip --version <새 팩 버전> --output <새 팩.zip>
+   python3 tools/build_release.py --output <빈 스테이징 폴더> --version <증가한 Box 버전> --pack <새 팩.zip> --preserve-from <입력 폴더>/latest-v2.json
+   - 배포 ZIP에는 팩의 install.sh 가 없다. build_release 가 빼기 때문이고, 새 팩에 없어도 정상이다.
+3. 공개 검사. 차단이 하나라도 있으면 게시하지 않는다. 값은 출력하지 않고 파일·패턴·횟수만 알린다.
+   python3 tools/check_public.py <스테이징 폴더>/ilson-box-<버전>.zip <스테이징 폴더>/release-<버전>.json
+   - 거래처 이름 목록은 저장소 밖 ~/.config/ilson/public-denylist.txt 에 둔다(UTF-8, 한 줄에 하나, # 주석). 공개 저장소이므로 저장소에 쓰지 않는다. 없으면 검사를 거부하고, --no-denylist 는 시험 빌드에만 쓴다.
+4. 사전 공개. 커밋을 push한 뒤 올린다. Latest는 움직이지 않으므로 기기는 아직 받지 않는다.
+   python3 tools/publish_release.py --stage <스테이징 폴더> --github jakeparkcolde/ilson-box
+   - 스테이징·공개 검사·미커밋 변경·원격 커밋·버전 증가를 확인한 뒤 ZIP과 latest-v2.json 두 파일만 올리고, 익명 다운로드로 바이트를 대조한다. 같은 버전이 이미 있으면 덮어쓰지 않고 바이트만 대조한다. updater-*.py, install-updater.sh 는 올리지 않는다.
+   - 시험: 임시 HOME 설치에서 ILSON_UPDATE_FEED=https://github.com/jakeparkcolde/ilson-box/releases/download/v<버전>/latest-v2.json ilson update 로 적용/데이터 보존/복구를 확인한다. 실제 기기는 같은 값으로 --check 만 한다(--check 는 주소를 기억하지 않는다).
+5. Latest로 올린다.
+   python3 tools/publish_release.py --stage <스테이징 폴더> --github jakeparkcolde/ilson-box --promote
+   - 익명 바이트를 다시 대조한 뒤 Latest로 옮기고, 기기가 읽는 주소 두 개를 짧게 재시도하며 확인한다. 이미 Latest이고 바이트가 같으면 고치지 않고 성공한다. 확인이 실패하면 기기가 받기 전에 원인을 본다.
+6. ilson update를 실행한 설치본에서 /api/health.release 및 적용 완료 확인.
+
+되돌리기: update.py 는 낮은 버전을 거부하므로 Latest를 예전 버전으로 돌려도 기기는 내려가지 않는다. publish_release도 Latest를 낮추지 않는다. 고친 코드 또는 되돌린 코드를 더 높은 버전으로 다시 낸다. 기기 한 대의 코드 복구는 ilson update --rollback 이다.
+
+옛 경로 — 폴더 게시 (기록으로 남긴다. Studio 경로에서는 쓰지 않는다):
 1. 관련 수정과 실패 재현·회귀 시험 완료. 운영 데이터와 설정은 소스에 포함하지 않는다.
 2. 배포마다 python3 tools/refresh_pack.py 로 새 팩 버전 ZIP을 만들고 검증한다. 기존 발행 버전은 덮어쓰지 않는다.
 3. 변경을 모두 커밋한 뒤 python3 tools/build_release.py --output <빈 스테이징 폴더> --version <증가한 Box 버전> --pack <새 팩.zip> --feed "$ILSON_RELEASE_FEED" --preserve-from <배포 폴더>/release-<이전 버전>.json
@@ -16,18 +43,18 @@
    - 리서치 팩은 매 배포 전에 현재 template/web/current/pack-library 와 template/lib/research 로 다시 만든다. 저장소와 다른 팩은 build_release가 거부한다.
    - 커밋하지 않은 변경이나 추적하지 않는 파일이 있으면 빌드하지 않는다. 현재 updater의 원본이 git 기록에 없으면 아직 소유 기록이 없는 기기가 충돌로 멈추기 때문이다. --allow-dirty 는 게시하지 않는 시험 빌드에만 쓴다.
    - ILSON_RELEASE_BASE 는 배포 폴더의 HTTPS 주소, ILSON_RELEASE_FEED 는 "$ILSON_RELEASE_BASE/latest-v2.json". 두 값은 운영 맥에서만 설정하고 저장소에 쓰지 않는다.
-   - 빌드는 이 주소를 배포 묶음의 tools/update.py 에 기록한다(소스의 FEED는 비어 있음). 주소 없이는 빌드하지 않는다. 주소가 빠진 배포는 모든 기기의 업데이트를 끊는다.
+   - 빌드는 이 주소를 배포 묶음의 tools/update.py 에 기록한다(소스의 FEED는 비어 있음). 주소를 주지 않으면 공개 기본 주소(DEFAULT_FEED)가 기록된다.
 4. 임시 설치의 적용/충돌/데이터 보존/복구, 관리자 API와 엔진·웹 파일 일치 확인. 실제 기기는 --check로 충돌 확인.
 5. python3 tools/publish_release.py --stage <스테이징 폴더> --server <배포 폴더> --base "$ILSON_RELEASE_BASE"
    - updater의 기록 주소가 --base/latest-v2.json(도메인 이전 때는 --stamped-feed 값)과 다르거나, 주소 외 내용이 저장소 소스와 다르면 게시하지 않는다. install-updater.sh 에는 주소가 기록된 updater의 SHA256을 고정한다.
 6. ilson update를 실행한 설치본에서 /api/health.release 및 적용 완료 확인. 운영 데이터 보존과 실제 기능을 별도 검증한다.
 
-병합 후 첫 배포(브리지) — 반드시 지킨다:
+옛 경로 — 병합 후 첫 배포(브리지). 2026-11-02 Studio 경로에서는 건너뛴다:
 - 지금 설치된 기기의 updater는 주소가 코드에 고정된 구버전이다. 첫 배포는 그 기기들이 지금 읽는 주소에서 받아야 한다.
 - ILSON_RELEASE_BASE 는 오늘의 배포 주소 그대로, ILSON_RELEASE_FEED 는 "$ILSON_RELEASE_BASE/latest-v2.json". 같은 주소로 기록(build --feed)하고 같은 주소에 게시(publish --base)한다. --stamped-feed 는 쓰지 않는다.
 - 게시 후 기기에서 ilson update 를 한 번 실행하면 구버전 updater가 브리지 배포를 적용해 주소가 기록된 updater를 설치한다. 구버전 updater는 ~/ilson/.updates/feed 를 쓰지 않는다. 그동안은 새 updater에 기록된 주소를 쓰고, 새 updater가 다음 실행(수동 또는 예약)에 성공하면 그때 .updates/feed 를 쓴다.
 
-배포 도메인 이전(예: 중립 도메인으로):
+옛 경로 — 배포 도메인 이전(예: 중립 도메인으로):
 1. 새 호스트에 배포 폴더를 준비하고 같은 파일(latest-v2.json, release/zip/updater, install-updater.sh)을 둔다. 복사한 install-updater.sh 에는 옛 주소의 base= 값이 그대로 있으므로 새 주소로 고친다(publish_release는 updater 파일 이름과 SHA256만 바꾼다). 새 주소가 HTTPS로 열리는지 확인한다.
 2. 이전용 배포 하나를 새 주소로 기록해 빌드한다(build --feed "<새 주소>/latest-v2.json"). 먼저 새 주소에 게시하고(publish --base "<새 주소>"), 그다음 같은 스테이징을 옛 주소에 게시한다(publish --base "<옛 주소>" --stamped-feed "<새 주소>/latest-v2.json").
 3. 기기는 옛 주소에서 이 배포를 받으며 새 주소가 기록된 updater로 바뀌고, 다음 실행부터 새 주소를 쓰고 기억한다.

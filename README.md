@@ -8,7 +8,7 @@
 curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/install.sh | sh
 ```
 
-업데이트 주소를 받았다면 설치할 때 함께 넣습니다. 주소는 박스를 설치해 준 담당자에게 받습니다. 나중에 `ilson update --feed <주소>`를 한 번 실행해도 됩니다.
+업데이트는 주소를 정하지 않아도 공개 배포(GitHub Releases)에서 받습니다. 별도 주소를 쓰거나 박스를 다른 배포로 옮길 때만 설치할 때 함께 넣거나, 나중에 `ilson update --feed <주소>`를 한 번 실행합니다.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/install.sh | sh -s -- --feed <주소>
@@ -104,7 +104,7 @@ tvly login                  # 예약 검색용 인증은 새 맥의 일반 터�
 - `sh install.sh --cli-only`: CLI만 설치 (이전 기본 동작).
 - `ILSON_SRC=/경로 sh install.sh`: 로컬 소스 또는 tar.gz 설치.
 - `ILSON_SOURCE_REF=<커밋> sh install.sh`: GitHub 소스 리비전 지정.
-- `sh install.sh --feed <주소>`: 업데이트 주소를 `~/ilson/.updates/feed`에 저장. `ILSON_UPDATE_FEED`로도 줄 수 있습니다. 이미 저장된 주소는 `--feed`를 줄 때만 바꿉니다.
+- `sh install.sh --feed <주소>`: 별도 업데이트 주소를 `~/ilson/.updates/feed`에 저장. `ILSON_UPDATE_FEED`로도 줄 수 있습니다. 이미 저장된 주소는 `--feed`를 줄 때만 바꿉니다. 주소가 없으면 공개 기본 주소를 씁니다.
 - `ilson setup --sandbox`: `$ILSON_HOME` 안에만 박스 구성. 도구 설치·로그인·sudo·launchctl·알림 발송 없음. 샌드박스에서는 `start`도 거부합니다.
 - `ilson pair --code <코드> --pairing-file <로컬파일>`: 별도 준비한 연결 정보를 로컬에 저장. 서버 등록 명령이 아닙니다.
 - `ilson update`는 배포에 포함된 CLI 파일(`ilson`, `template/`, `tools/update.py`)과 박스 코드를 함께 갱신합니다. 도구 설치나 텔레그램 연결 같은 기본 구성 단계는 다시 하지 않으므로, 그런 단계가 필요한 기능은 맨 위 설치 명령을 다시 실행합니다. 이미 설치된 관리자는 코드·화면 갱신 후 서비스를 갱신합니다.
@@ -126,11 +126,11 @@ sh -n install.sh
 
 `ilson update`로 관리자·공용 도구·리서치의 배포 코드를 갱신합니다. `ilson update --check`는 확인만 하고, `ilson update --rollback`은 직전 코드를 복구합니다. 운영 데이터·로그인 정보·설정·예약 파일은 그대로 두며, 수정된 관리 파일이 있으면 덮어쓰지 않고 중단합니다.
 
-새로 설치한 맥은 업데이트 주소를 한 번 정해야 업데이트를 받습니다. 설치할 때 `--feed <주소>`를 넣거나, 설치 후 `ilson update --feed <주소>`를 한 번 실행하세요. 주소는 박스를 설치해 준 담당자에게 받습니다. `ILSON_UPDATE_FEED=<주소> ilson update`처럼 환경 변수로 줘도 됩니다. 한 번 성공하면 주소를 `~/ilson/.updates/feed`에 기억하므로 다음부터는 `ilson update`만 실행하고, CLI를 다시 설치해도 유지됩니다. 주소가 없으면 매일 09:30 자동 업데이트는 건너뜁니다.
+새로 설치한 맥은 주소를 정하지 않아도 공개 배포(GitHub Releases)에서 `ilson update`와 매일 09:30 자동 업데이트를 받습니다. 별도 주소를 쓰거나 박스를 다른 배포로 옮길 때만 설치할 때 `--feed <주소>`를 넣거나, 설치 후 `ilson update --feed <주소>`를 한 번 실행하세요. `ILSON_UPDATE_FEED=<주소> ilson update`처럼 환경 변수로 줘도 됩니다. 실제 실행이 한 번 성공하면 쓴 주소를 `~/ilson/.updates/feed`에 기억하므로 CLI를 다시 설치해도 유지됩니다.
 
 배포 절차는 [통합 업데이트 운영 기준](docs/integrated-update/OPERATIONS-2026-10-13.txt), 지난 적용 기록은 [안전 업데이트 기록](docs/safe-update/HANDOFF-2026-10-13.md)을 참고하세요.
 
-실행 중인 작업은 자동 재시작하지 않습니다. 관리자는 `ilson open`, 리서치는 `ilson research`로 다시 열면 설치한 코드를 사용합니다. 배포 주소가 Tailscale 안에 있으면 Tailscale 연결이 필요합니다.
+실행 중인 작업은 자동 재시작하지 않습니다. 관리자는 `ilson open`, 리서치는 `ilson research`로 다시 열면 설치한 코드를 사용합니다. 공개 배포는 Tailscale 연결이 필요 없습니다. 별도 주소가 Tailscale 안에 있을 때만 필요합니다.
 
 ## 직원·조직도·업무 스킬
 
