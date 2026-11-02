@@ -157,6 +157,83 @@ class CheckPublicTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '커밋'):
             self.check(*self.stage(rows), commit='no-such-commit')
 
+    def commit(self, message='next'):
+        self.git('add', '.')
+        self.git('-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit', '-qm', message)
+
+    def exact(self, archive, manifest, **options):
+        return self.check(archive, manifest, exact_commit=True, **options)
+
+    def not_in_commit(self, report):
+        return {where for where, pattern, _ in report.blocks if pattern == 'not-in-commit'}
+
+    def committed_rows(self):
+        return {'cli/tools/update.py': self.stamped(), 'cli/template/web/plain.txt': b'tracked web file\n'}
+
+    def track_web_file(self):
+        (self.repo / 'template/web').mkdir(parents=True, exist_ok=True)
+        (self.repo / 'template/web/plain.txt').write_text('tracked web file\n')
+        self.commit()
+
+    def test_커밋과_같은_묶음은_통과한다(self):
+        self.track_web_file()
+        report = self.exact(*self.stage(self.committed_rows()))
+        self.assertFalse(report.blocked, report.blocks)
+
+    def test_한_커밋_전에_만든_묶음은_막는다(self):
+        self.track_web_file()
+        rows = self.committed_rows()
+        (self.repo / 'template/web/plain.txt').write_text('changed after the build\n')
+        self.commit('later change')
+        stage = self.stage(rows)
+        self.assertFalse(self.check(*stage).blocked)
+        self.assertEqual(self.not_in_commit(self.exact(*stage)), {'cli/template/web/plain.txt'})
+
+    def test_옛_내용이_다른_경로에_있어도_낡은_묶음을_막는다(self):
+        self.track_web_file()
+        rows = dict(self.committed_rows(), **{'cli/template/web/plain.txt': b'public text\n'})
+        report = self.exact(*self.stage(rows))
+        self.assertEqual(self.not_in_commit(report), set())
+        self.assertIn('commit-file-not-in-stage', {p for _, p, _ in report.blocks})
+
+    def test_빌드뒤_추가한_파일이_묶음에_없으면_막는다(self):
+        self.track_web_file()
+        rows = self.committed_rows()
+        (self.repo / 'template/web/added.txt').write_text('added after the build\n')
+        self.commit('later file')
+        report = self.exact(*self.stage(rows))
+        self.assertEqual([(p, n) for _, p, n in report.blocks], [('commit-file-not-in-stage', 1)])
+
+    def test_커밋되지_않은_내용을_담은_allow_dirty_묶음은_막는다(self):
+        self.track_web_file()
+        rows = dict(self.committed_rows(), **{'cli/template/web/plain.txt': b'tracked web file\nuncommitted line\n'})
+        self.assertEqual(self.not_in_commit(self.exact(*self.stage(rows))), {'cli/template/web/plain.txt'})
+
+    def test_무시된_파일을_담은_깨끗한_빌드도_막는다(self):
+        self.track_web_file()
+        ignored = {'cli/template/lib/__pycache__/helper.py': b'# ignored note\n', 'cli/template/web/current/.orca/notes.json': b'{"n":1}'}
+        report = self.exact(*self.stage(dict(self.committed_rows(), **ignored)))
+        self.assertEqual(self.not_in_commit(report), set(ignored))
+
+    def test_팩_전용_파일은_이번_팩_버전에서만_예외다(self):
+        self.track_web_file()
+        pack = 'box/packs/research/0.16.9/'
+        rows = dict(self.committed_rows(), **{pack + name: b'pack file ' + name.encode() for name in ('README.txt', 'manifest.json', 'serve.py', 'start.sh')})
+        extra = {'research_version': '0.16.9'}
+        self.assertFalse(self.exact(*self.stage(rows, extra)).blocked)
+        self.assertEqual(len(self.not_in_commit(self.exact(*self.stage(rows)))), 4)
+        self.assertEqual(len(self.not_in_commit(self.exact(*self.stage(rows, {'research_version': '0.16.8'})))), 4)
+        other = dict(rows, **{pack + 'engine.py': b'X=1\n', 'box/packs/research/0.16.8/serve.py': b'old pack\n'})
+        self.assertEqual(self.not_in_commit(self.exact(*self.stage(other, extra))), {pack + 'engine.py', 'box/packs/research/0.16.8/serve.py'})
+
+    def test_명령행에서_커밋_고정을_켠다(self):
+        archive, manifest = self.stage({'cli/template/web/new.txt': b'not in this repository\n'})
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(c.main([str(archive), str(manifest), '--no-denylist']), 0)
+        with redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(c.main([str(archive), str(manifest), '--no-denylist', '--exact-commit']), 1)
+        self.assertIn('not-in-commit', out.getvalue())
+
     def test_심볼릭_링크_내용은_공개로_치지않는다(self):
         report = self.check(*self.stage({'cli/template/web/fresh.txt': b'plain.txt'}))
         self.assertEqual(report.new, ['cli/template/web/fresh.txt'])
