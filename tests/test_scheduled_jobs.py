@@ -662,7 +662,33 @@ class DoctorUpdateFeedTests(unittest.TestCase):
         elsewhere.mkdir()
         (self.s.box / ".updates").rmdir()
         (self.s.box / ".updates").symlink_to(elsewhere)
+        for lines in (self.DEFAULT_LINE, f"FEED='{self.ADDRESS}'\n"):
+            (self.cli / "tools/update.py").write_text(lines)
+            out = self.check()
+            self.assertIn("W=1 F=0 P=0", out)
+            self.assertIn("실제 폴더로 되돌린 뒤", out)
+            self.assertNotIn("지운 뒤", out)
+
+    def test_주소파일_크기_경계는_4096바이트다(self):
+        (self.cli / "tools/update.py").write_text(self.DEFAULT_LINE)
+        feed = self.s.box / ".updates/feed"
+        start = "https://updates.example.invalid/"
+        feed.write_text(start + "a" * (4096 - len(start)))
+        self.assertEqual(feed.stat().st_size, 4096)
+        self.assertIn("W=0 F=0 P=1", self.check())
+        feed.write_text(start + "a" * (4097 - len(start)))
+        self.assertEqual(feed.stat().st_size, 4097)
         self.assertIn("W=1 F=0 P=0", self.check())
+
+    def test_NUL이_든_주소파일은_언어설정과_상관없이_쓸수없다(self):
+        (self.cli / "tools/update.py").write_text(self.DEFAULT_LINE)
+        feed = self.s.box / ".updates/feed"
+        feed.write_bytes(b"https://updates.example.invalid/a\0b\n")
+        for locale in ("C", "ko_KR.UTF-8", "en_US.UTF-8"):
+            with self.subTest(locale=locale):
+                self.s.env["LC_ALL"] = locale
+                self.assertIn("W=1 F=0 P=0", self.check())
+        del self.s.env["LC_ALL"]
 
     def test_올바르거나_비어있는_주소파일은_기본주소와_함께_괜찮다(self):
         (self.cli / "tools/update.py").write_text(self.DEFAULT_LINE)
@@ -672,21 +698,42 @@ class DoctorUpdateFeedTests(unittest.TestCase):
                 feed.write_text(body)
                 self.assertIn("W=0 F=0 P=1", self.check())
 
-    def test_찍힌_주소나_환경변수가_있으면_주소파일을_읽지_않는다(self):
-        # update.py never reaches the saved file in these cases, so a broken one stops nothing.
-        cases = self.broken_cases()
-        for source, prepare_source in {
+    def stamped_sources(self):
+        return {
             "stamped": lambda: (self.cli / "tools/update.py").write_text(f"FEED='{self.ADDRESS}'\nDEFAULT_FEED='https://feed.example/x'\n"),
             "env": lambda: self.s.env.update(ILSON_UPDATE_FEED=self.ADDRESS),
-        }.items():
-            with self.subTest(source=source):
-                self.clear_feed()
-                prepare_source()
-                cases["folder"]()
-                self.assertIn("W=0 F=0 P=1", self.check())
-                self.clear_feed()
-                self.s.env["ILSON_UPDATE_FEED"] = ""
-                (self.cli / "tools/update.py").write_text("FEED=''\n")
+        }
+
+    def reset_source(self):
+        self.clear_feed()
+        self.s.env["ILSON_UPDATE_FEED"] = ""
+        (self.cli / "tools/update.py").write_text("FEED=''\n")
+
+    def test_링크나_폴더인_주소파일은_찍힌_주소가_있어도_경고한다(self):
+        # update.py walks .updates for links on every run, and saves the address into this path after applying.
+        cases = self.broken_cases()
+        for source, prepare_source in self.stamped_sources().items():
+            for name in ("link", "dangling link", "folder"):
+                with self.subTest(source=source, case=name):
+                    self.reset_source()
+                    prepare_source()
+                    cases[name]()
+                    out = self.check()
+                    self.assertIn("W=1 F=0 P=0", out)
+                    self.assertIn("업데이트 주소 파일을 쓸 수 없음", out)
+        self.reset_source()
+
+    def test_찍힌_주소가_있으면_잘못된_주소_글자는_다음_성공때_새로_쓰인다(self):
+        # The stamped address outranks the saved text, and a successful run rewrites it.
+        cases = self.broken_cases()
+        for source, prepare_source in self.stamped_sources().items():
+            for name in ("http", "two lines", "quote", "too long", "not text"):
+                with self.subTest(source=source, case=name):
+                    self.reset_source()
+                    prepare_source()
+                    cases[name]()
+                    self.assertIn("W=0 F=0 P=1", self.check())
+        self.reset_source()
 
     def test_세가지_출처_중_하나만_있어도_설정됨으로_본다(self):
         feed = self.s.box / ".updates/feed"
