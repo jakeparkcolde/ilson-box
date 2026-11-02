@@ -10,6 +10,7 @@ import tempfile
 import unicodedata
 import unittest
 from unittest.mock import patch
+import warnings
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -339,6 +340,48 @@ class CheckPublicTests(unittest.TestCase):
                 self.assertEqual(self.pack_findings(rows), {('manifest.json', 'pack-manifest')})
         for data in (b'not json', b'[]'):
             self.assertEqual(self.pack_findings(self.pack_rows(manifest_json=data)), {('manifest.json', 'pack-manifest')})
+
+    def with_copies(self, rows, name, *copies, research_version=None):
+        # A ZIP holding several members with one name, listed once per copy in the manifest.
+        archive, manifest = self.stage(rows, {'research_version': research_version} if research_version else None)
+        with zipfile.ZipFile(archive, 'w') as z, warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            for member, data in rows.items():
+                if member != name:
+                    z.writestr(member, data)
+            for data in copies:
+                z.writestr(name, data)
+        release = json.loads(manifest.read_text())
+        entry = next(item for item in release['files'] if item['area'] + '/' + item['path'] == name)
+        release['files'] += [entry] * (len(copies) - 1)
+        release['archive_sha256'] = u.digest(archive.read_bytes())
+        manifest.write_text(json.dumps(release, ensure_ascii=False))
+        return archive, manifest
+
+    def test_같은_이름의_파일이_둘이면_막는다(self):
+        # A bad copy first and the pinned copy last used to pass: only the last copy was compared.
+        self.pin_pack()
+        name = self.PACK + 'serve.py'
+        stage = self.with_copies(self.pack_rows(), name, b'unreviewed first copy\n', self.PACK_FILES['serve.py'], research_version='0.16.9')
+        report = self.exact(*stage)
+        found = {p for _, p, _ in report.blocks}
+        self.assertTrue({'duplicate-member', 'duplicate-manifest-entry'} <= found, found)
+        self.assertEqual(found & {'file-list-mismatch', 'pack-file-not-pinned'}, set())
+        self.assertRegex('\n'.join(report.lines()), r'member#\d+ sha:[0-9a-f]{8} · duplicate-member')
+
+    def test_형식만_다른_같은_이름도_중복이다(self):
+        composed, decomposed = (unicodedata.normalize(form, 'cli/template/web/한글자료.txt') for form in ('NFC', 'NFD'))
+        report = self.check(*self.stage({composed: b'first copy\n', decomposed: b'second copy\n'}))
+        found = {p for _, p, _ in report.blocks}
+        self.assertTrue({'duplicate-member', 'duplicate-manifest-entry'} <= found, found)
+
+    def test_manifest의_중복_항목은_따로_막는다(self):
+        archive, manifest = self.stage({'cli/template/web/plain.txt': b'public text\n'})
+        release = json.loads(manifest.read_text())
+        release['files'] *= 3
+        manifest.write_text(json.dumps(release))
+        report = self.check(archive, manifest)
+        self.assertIn(('release-9.9.json', 'duplicate-manifest-entry', 2), report.blocks)
 
     def test_저장소의_고정_해시_파일(self):
         pins = json.loads((ROOT / 'tools/pack-only-pins.json').read_text())

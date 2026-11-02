@@ -250,6 +250,9 @@ def check(archive, manifest, commit='HEAD', denylist=DEFAULT_DENYLIST, use_denyl
             found = name_findings(name, HARD + SOFT + terms)
             if not path_allowed(name):
                 found.append(('path-not-allowed', 1))
+            # Later checks keep one copy per name, so a second copy would go unjudged.
+            if same_form(name) in shipped:
+                found.append(('duplicate-member', 1))
             label = member_label(report.members, name) if found else name
             labels[name] = label
             if name in pack_only:
@@ -297,6 +300,9 @@ def check(archive, manifest, commit='HEAD', denylist=DEFAULT_DENYLIST, use_denyl
         return report
     if updater.digest(bundle) != release.get('archive_sha256'):
         block(listing, [('archive-hash-mismatch', 1)])
+    repeated = len(listed) - len(set(map(same_form, listed)))
+    if repeated:
+        block(listing, [('duplicate-manifest-entry', repeated)])
     if sorted(listed) != sorted(names):
         block(listing, [('file-list-mismatch', len(set(listed) ^ set(names)) or 1)])
     for path in listed:
