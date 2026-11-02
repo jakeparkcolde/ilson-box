@@ -67,6 +67,8 @@ def release_prefix(names):
     versions = sorted({found.group(1) for found in map(RELEASE_MANIFEST.match, names) if found})
     if len(versions) > 1:
         raise ValueError('배포 묶음에 리서치 팩 버전이 여럿 있습니다: ' + ', '.join(versions))
+    if versions and not re.fullmatch('[0-9.]+', versions[0]):
+        raise ValueError('배포 묶음의 팩 폴더 이름이 버전 형식이 아닙니다: ' + versions[0])
     return 'box/packs/research/' + versions[0] + '/' if versions else ''
 
 
@@ -98,6 +100,11 @@ def read_previous(pack):
     missing = [name for name in REQUIRED if name not in files]
     if missing:
         raise ValueError('팩 필수 파일이 없습니다: ' + ', '.join(missing))
+    if prefix:
+        manifest = json.loads(files['manifest.json'][0])
+        folder = prefix.split('/')[3]
+        if not isinstance(manifest, dict) or manifest.get('version') != folder:
+            raise ValueError('배포 묶음의 팩 폴더와 manifest 버전이 다릅니다: ' + folder)
     return files
 
 

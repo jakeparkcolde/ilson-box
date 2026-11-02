@@ -166,6 +166,26 @@ class RefreshPackTests(unittest.TestCase):
             self.r.refresh(self.release_zip(['0.15.3', '0.15.4']), '0.16.2', out)
         self.assertFalse(out.exists())
 
+    def test_배포묶음의_폴더이름은_버전이어야_한다(self):
+        rows = {'box/packs/research/latest/manifest.json': json.dumps(dict(MANIFEST, version='0.15.3')).encode(), 'box/packs/research/latest/serve.py': b'x'}
+        path = self.tmp / 'odd.zip'
+        with zipfile.ZipFile(path, 'w') as z:
+            for key, data in rows.items():
+                z.writestr(key, data)
+        with self.assertRaisesRegex(ValueError, '버전 형식'):
+            self.r.refresh(path, '0.16.2', self.tmp / 'odd-out.zip')
+        self.assertFalse((self.tmp / 'odd-out.zip').exists())
+
+    def test_배포묶음의_폴더와_manifest_버전이_같아야_한다(self):
+        rows = {'box/packs/research/0.15.3/manifest.json': json.dumps(dict(MANIFEST, version='0.15.2')).encode(), 'box/packs/research/0.15.3/serve.py': b'x'}
+        path = self.tmp / 'mismatch.zip'
+        with zipfile.ZipFile(path, 'w') as z:
+            for key, data in rows.items():
+                z.writestr(key, data)
+        with self.assertRaisesRegex(ValueError, '0.15.3'):
+            self.r.refresh(path, '0.16.2', self.tmp / 'mismatch-out.zip')
+        self.assertFalse((self.tmp / 'mismatch-out.zip').exists())
+
     def test_팩이_없는_배포묶음과_팩폴더가_섞인_팩은_거부한다(self):
         with self.assertRaises(ValueError):
             self.r.refresh(self.release_zip([]), '0.16.2', self.tmp / 'none.zip')
