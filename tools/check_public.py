@@ -33,9 +33,10 @@ UTF16_BOMS = (b'\xff\xfe', b'\xfe\xff')
 # Blocks on every member and the manifest.
 HARD = [(name, re.compile(pattern)) for name, pattern in (
     ('ts-net-host', rb'(?i)\.ts\.net\b'),
-    ('tailnet-label', rb'\btail(?=[0-9a-f]*[0-9])[0-9a-f]{4,}\b'),
+    ('tailnet-label', rb'(?i)\btail(?=[0-9a-f]*[0-9])[0-9a-f]{4,}\b'),
     ('machine-host', rb'(?i)mac-?(?:mini|studio)'),
     ('tailnet-ip', rb'(?<![0-9.])100\.(?:6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}(?!\.?[0-9])'),
+    ('tailnet-ipv6', rb'(?i)(?<![0-9a-f:])fd7a:115c:a1e0:'),
     ('supabase-host', rb'[a-z0-9]{20}\.supabase\.co'),
     ('github-token', rb'\bgh[pousr]_[A-Za-z0-9]{20,}\b|github_pat_[A-Za-z0-9_]{20,}'),
     ('anthropic-openai-key', rb'\bsk-(?:ant-)?[A-Za-z0-9_-]{20,}\b'),
@@ -45,7 +46,22 @@ HARD = [(name, re.compile(pattern)) for name, pattern in (
     ('telegram-bot', rb'\b[0-9]{8,10}:AA[A-Za-z0-9_-]{30,}\b'),
     ('jwt', rb'\beyJ[A-Za-z0-9_-]{15,}\.eyJ[A-Za-z0-9_-]{15,}\.'),
     ('private-key', rb'-----BEGIN [A-Z ]*PRIVATE KEY-----'),
+    ('stripe-live-key', rb'\b[sr]k_live_[A-Za-z0-9]{16,}'),
+    ('webhook-secret', rb'\bwhsec_[A-Za-z0-9+/=_-]{16,}'),
+    ('google-oauth-secret', rb'\bGOCSPX-[A-Za-z0-9_-]{16,}'),
+    ('google-oauth-token', rb'\bya29\.[A-Za-z0-9_.-]{20,}'),
+    ('huggingface-token', rb'\bhf_[A-Za-z0-9]{20,}'),
+    ('npm-token', rb'\bnpm_[A-Za-z0-9]{20,}'),
+    ('supabase-token', rb'\bsbp_[A-Za-z0-9]{20,}|\bsb_secret_[A-Za-z0-9_-]{16,}'),
+    ('notion-token', rb'\bntn_[A-Za-z0-9]{20,}'),
+    ('vercel-token', rb'\bvercel_[A-Za-z0-9]{20,}'),
+    ('paddle-live-key', rb'\bpdl_live_[A-Za-z0-9_]{16,}'),
+    ('sendgrid-key', rb'\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}'),
+    ('aws-secret-key', rb'(?i)aws_secret_access_key["\']?\s*[:=]\s*["\']?[A-Za-z0-9/+=]{20,}'),
+    ('bearer-token', rb'(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{20,}'),
     ('assigned-secret', rb'(?i)(?:api[_-]?key|secret|token|password|passwd)["\']?\s*[:=]\s*["\'][A-Za-z0-9_\-/+=]{16,}["\']'),
+    ('assigned-password', rb'(?i)(?:password|passwd)["\']?\s*[:=]\s*["\'][A-Za-z0-9_\-/+=.]{12,}["\']'),
+    ('unquoted-secret', rb'\b[A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASSWD)\s*=\s*[A-Za-z0-9_\-/+=.]{16,}'),
 )]
 # Blocks on anything not already public; reported only on members that are.
 SOFT = [(name, re.compile(pattern)) for name, pattern in (

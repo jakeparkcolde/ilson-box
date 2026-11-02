@@ -113,10 +113,38 @@ class CheckPublicTests(unittest.TestCase):
             'jwt': 'ey' + 'J' + 'a' * 20 + '.ey' + 'J' + 'b' * 20 + '.c',
             'private-key': '-----BEGIN ' + 'RSA PRIVATE KEY-----',
             'assigned-secret': 'api_key = "' + 'a1b2c3d4' * 3 + '"',
+            'stripe-live-key': 'sk_' + 'live_' + 'a1b2c3d4' * 3,
+            'webhook-secret': 'wh' + 'sec_' + 'a1b2c3d4' * 3,
+            'google-oauth-secret': 'GOC' + 'SPX-' + 'a1b2c3d4' * 3,
+            'google-oauth-token': 'ya' + '29.' + 'a1b2c3d4' * 3,
+            'huggingface-token': 'hf' + '_' + 'a1b2c3d4' * 4,
+            'npm-token': 'npm' + '_' + 'a1b2c3d4' * 4,
+            'supabase-token': 'sb' + 'p_' + 'a1b2c3d4' * 4,
+            'notion-token': 'nt' + 'n_' + 'a1b2c3d4' * 4,
+            'vercel-token': 'vercel' + '_' + 'a1b2c3d4' * 4,
+            'paddle-live-key': 'pdl' + '_live_' + 'apikey_' + 'a1b2c3d4' * 3,
+            'sendgrid-key': 'SG' + '.' + 'a1b2c3d4' * 3 + '.' + 'e5f6g7h8' * 3,
+            'aws-secret-key': 'aws_secret_' + 'access_key = ' + 'a1b2c3d4' * 3,
+            'bearer-token': 'Authorization: Bearer ' + 'a1b2c3d4' * 3,
+            'assigned-password': 'password: "' + 'my.dotted.pass.1' + '"',
+            'unquoted-secret': 'BOT_TO' + 'KEN=' + 'a1b2c3d4' * 3,
         }
+        samples['stripe-live-key '] = 'rk_' + 'live_' + 'a1b2c3d4' * 3
+        samples['supabase-token '] = 'sb_secret_' + 'a1b2c3d4' * 3
+        samples['unquoted-secret '] = 'PASS' + 'WORD=' + 'a1b2.c3d4' * 3
+        samples['unquoted-secret  '] = 'CLIENT_SEC' + 'RET = ' + 'a1b2c3d4' * 3
+        samples['tailnet-ipv6'] = 'addr ' + 'fd7a:115c' + ':a1e0::1234'
+        samples['tailnet-ipv6 '] = 'addr ' + 'FD7A:115C' + ':A1E0:ab::1'
+        samples['tailnet-label '] = 'node ' + 'TAIL' + '0A1B2C'
         for name, sample in samples.items():
             with self.subTest(name):
-                self.assertIn(name, dict(c.hits(c.HARD, sample.encode())))
+                self.assertIn(name.strip(), dict(c.hits(c.HARD, sample.encode())))
+
+    def test_자리표시자와_변수_참조는_비밀이_아니다(self):
+        for text in ('`sb_secret_`', '`sb_secret_...`', 'secret key `sb_secret_…`', 'Bearer ${token}', 'Bearer <token>',
+                     'TOKEN=$(cat file)', 'const token=value', 'TOKEN=short', 'tail -5 file', 'tailored'):
+            with self.subTest(text):
+                self.assertEqual(c.hits(c.HARD, text.encode()), [])
 
     def test_버전번호와_일반단어는_내부주소가_아니다(self):
         text = b'2026.10.13.5.1 tailwind tailfade 1.100.100.1.2 100.63.1.1 172.32.0.1 10.0.0.1.5'
