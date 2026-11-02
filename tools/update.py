@@ -2,6 +2,7 @@
 import argparse
 import fcntl
 import hashlib
+import http.client
 import io
 import json
 import os
@@ -25,6 +26,9 @@ DEFAULT_FEED='https://github.com/jakeparkcolde/ilson-box/releases/latest/downloa
 LIMIT=80*1024*1024
 FEED_LINE=re.compile(rb"^FEED='([^'\\\r\n]*)'[ \t]*$",re.M)
 UPDATER_KEY='cli/tools/update.py'
+NOT_REACHED='업데이트 서버에 연결하지 못했습니다. 일손 박스는 그대로입니다. 인터넷 연결을 확인하고 나중에 다시 실행하세요.'
+NOT_READABLE='업데이트 정보를 읽지 못했습니다. 일손 박스는 그대로입니다. 나중에 다시 실행하세요.'
+BUSY='다른 업데이트가 실행 중입니다. 끝난 뒤 다시 실행하세요.'
 
 def digest(data):return hashlib.sha256(data).hexdigest()
 def read(path):return json.loads(path.read_text())
@@ -299,6 +303,20 @@ def activate_command(home,command):
     if result.returncode:raise ValueError('관리자 '+command+' 미완료. ilson admin status로 상태를 확인하세요')
 
 
+def check_manifest(manifest):
+    # Everything apply reads without a default. Past this point a broken manifest is no longer a read failure.
+    if not isinstance(manifest['version'],str) or not isinstance(manifest['archive_sha256'],str):raise TypeError('manifest')
+    for item in manifest['files']:item['area'],item['path'],item['sha256']
+
+def read_release(feed):
+    # Nothing on the box has been touched yet, which is the only reason these messages can promise that.
+    try:
+        manifest=json.loads(fetch(feed));url=urllib.parse.urljoin(feed,manifest['archive']);check_manifest(manifest)
+        if urllib.parse.urlsplit(url).netloc!=urllib.parse.urlsplit(feed).netloc:raise ValueError('배포 서버가 다른 묶음입니다')
+        return manifest,fetch(url)
+    except (OSError,http.client.HTTPException) as exc:raise ValueError(NOT_REACHED) from exc
+    except (json.JSONDecodeError,UnicodeDecodeError,KeyError,TypeError) as exc:raise ValueError(NOT_READABLE) from exc
+
 def apply_running(roots,manifest,archive,check=False):
     # 먼저 파일 충돌·묶음 검증을 마친다. 충돌만으로 실행 중인 관리자를 중지하지 않는다.
     apply(roots,manifest,archive,check=True)
@@ -355,15 +373,21 @@ def main():
         manifest=read(args.manifest);archive=args.archive.read_bytes()
     else:
         feed=resolve_feed(roots['box'],args.feed)
-        manifest=json.loads(fetch(feed));url=urllib.parse.urljoin(feed,manifest['archive'])
-        if urllib.parse.urlsplit(url).netloc!=urllib.parse.urlsplit(feed).netloc:raise ValueError('배포 서버가 다른 묶음입니다')
-        archive=fetch(url)
+        manifest,archive=read_release(feed)
     apply_running(roots,manifest,archive,args.check)
     # Remember the feed only after a real run finished (applied or already latest), so a CLI reinstalled with FEED='' keeps updating.
     if not args.manifest and not args.check:remember_feed(roots['box'],feed)
 
-if __name__=='__main__':
+def failure_text(exc):
+    if isinstance(exc,BlockingIOError):return BUSY
+    if isinstance(exc,ValueError):return str(exc)
+    # Anything else can come from the apply phase, so this one must not say the box is unchanged.
+    return '예상하지 못한 오류가 났습니다('+type(exc).__name__+'). ilson update --check 로 상태를 확인하세요.'
+
+def run():
     try:main()
     except Exception as exc:
-        print('업데이트하지 못했습니다:',str(exc) if isinstance(exc,ValueError) else type(exc).__name__)
+        print('업데이트하지 못했습니다:',failure_text(exc))
         raise SystemExit(1)
+
+if __name__=='__main__':run()

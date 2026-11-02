@@ -316,6 +316,10 @@ class GitHubPublishTests(unittest.TestCase):
         self.assertIn('--github owner/ilson-box --promote', printed)
         self.assertEqual(self.hub.of('release', 'edit'), [])
 
+    def test_기본주소는_게시_주소와_같다(self):
+        self.assertEqual(u.DEFAULT_FEED, self.publisher.github_feed('jakeparkcolde/ilson-box'))
+        self.assertEqual(u.DEFAULT_FEED, 'https://github.com/jakeparkcolde/ilson-box/releases/latest/download/latest-v2.json')
+
     def test_clobber와_updater_파일은_어디에도_쓰지_않는다(self):
         self.create()
         self.create()

@@ -1,10 +1,13 @@
+import http.client
 import importlib.util
 import io
 import json
 from pathlib import Path
 import shutil
+import socket
 import tempfile
 import unittest
+import urllib.error
 from unittest.mock import patch
 import zipfile
 ROOT=Path(__file__).resolve().parents[1]
@@ -219,6 +222,55 @@ class FeedTests(unittest.TestCase):
         with patch.object(u,'fetch',side_effect=lambda url:served[url]),patch.object(u.sys,'argv',['update.py','--home',str(self.box),'--cli',str(self.cli),'--feed',self.FEED]):
             with self.assertRaises(ValueError):u.main()
         self.assertIsNone(self.saved())
+    def test_기본주소는_정확히_이_값이다(self):
+        self.assertEqual(u.DEFAULT_FEED,'https://github.com/jakeparkcolde/ilson-box/releases/latest/download/latest-v2.json')
+    def failing_run(self,fetch):
+        out=io.StringIO()
+        with patch.object(u,'fetch',side_effect=fetch),patch('sys.stdout',out),patch.object(u.sys,'argv',['update.py','--home',str(self.box),'--cli',str(self.cli),'--feed',self.FEED]):
+            with self.assertRaises(SystemExit) as stop:u.run()
+        self.assertEqual(stop.exception.code,1)
+        self.assertEqual((self.box/'lib/search.sh').read_bytes(),b'old');self.assertIsNone(self.saved())
+        return out.getvalue()
+    def test_서버에_닿지_못하면_박스가_그대로라고_알린다(self):
+        broken=[urllib.error.HTTPError(self.FEED,404,'Not Found',None,None),urllib.error.URLError('no route'),socket.timeout('timed out'),ConnectionResetError('reset'),OSError('down'),http.client.IncompleteRead(b'')]
+        for error in broken:
+            with self.subTest(error=type(error).__name__):
+                def fail(url):raise error
+                out=self.failing_run(fail)
+                self.assertIn('업데이트 서버에 연결하지 못했습니다',out);self.assertIn('일손 박스는 그대로입니다',out);self.assertNotIn(type(error).__name__,out)
+        m,a=self.bundle([('box','lib/search.sh',b'new',b'old')])
+        def archive_fails(url):
+            if url==self.FEED:return json.dumps(m).encode()
+            raise urllib.error.HTTPError(url,404,'Not Found',None,None)
+        self.assertIn('연결하지 못했습니다',self.failing_run(archive_fails))
+    def test_업데이트_정보를_못읽으면_박스가_그대로라고_알린다(self):
+        m,a=self.bundle([('box','lib/search.sh',b'new',b'old')])
+        def without(*keys):return json.dumps({k:v for k,v in m.items() if k not in keys}).encode()
+        cases={'not json':b'not json','bad bytes':b'\xff\xfe\xff','list':b'[]','text':b'"x"','no archive':without('archive'),'no version':without('version'),
+               'no hash':without('archive_sha256'),'no files':without('files'),'files not list':json.dumps(dict(m,files=7)).encode(),'file not dict':json.dumps(dict(m,files=[1])).encode(),
+               'file no sha':json.dumps(dict(m,files=[{'area':'box','path':'lib/x.sh'}])).encode(),'version number':json.dumps(dict(m,version=1)).encode()}
+        for name,body in cases.items():
+            with self.subTest(name):
+                out=self.failing_run(lambda url:body if url==self.FEED else a)
+                self.assertIn('업데이트 정보를 읽지 못했습니다',out);self.assertIn('일손 박스는 그대로입니다',out)
+    def test_ValueError는_그대로_알린다(self):
+        m,a=self.bundle([('box','lib/search.sh',b'new',b'old')])
+        body=json.dumps(dict(m,archive='https://other.example/box.zip')).encode()
+        out=self.failing_run(lambda url:body)
+        self.assertIn('배포 서버가 다른 묶음입니다',out);self.assertNotIn('그대로입니다',out)
+    def test_다른_업데이트가_실행중이면_알린다(self):
+        m,a=self.bundle([('box','lib/search.sh',b'new',b'old')])
+        served={self.FEED:json.dumps(m).encode(),'https://feed.example/box/box.zip':a}
+        with patch.object(u.fcntl,'flock',side_effect=BlockingIOError()):
+            out=self.failing_run(lambda url:served[url])
+        self.assertIn('다른 업데이트가 실행 중입니다',out);self.assertNotIn('BlockingIOError',out)
+    def test_적용_단계의_오류에는_그대로라고_쓰지_않는다(self):
+        m,a=self.bundle([('box','lib/search.sh',b'new',b'old')])
+        served={self.FEED:json.dumps(m).encode(),'https://feed.example/box/box.zip':a}
+        for error in (OSError('disk full'),KeyError('x'),RuntimeError('boom')):
+            with self.subTest(error=type(error).__name__),patch.object(u,'apply_running',side_effect=error):
+                out=self.failing_run(lambda url:served[url])
+                self.assertIn('예상하지 못한 오류',out);self.assertIn(type(error).__name__,out);self.assertNotIn('그대로',out)
     def test_주소없는_새설치는_수동과_예약_모두_기본주소에서_받는다(self):
         for env in ({},{'ILSON_UPDATE_SKIP_IF_NO_FEED':'1'}):
             with self.subTest(env=env),patch.dict(u.os.environ,env):
