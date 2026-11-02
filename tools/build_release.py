@@ -51,9 +51,9 @@ def carry_preserve(files,carried):
         print('보존 해시 이월:',key,'('+str(len(values))+'개)')
 
 def build(output,version,pack,feed=None,preserve_from=None):
-    # Every box updates from the feed stamped into the shipped updater. An empty feed would strand them all.
-    feed=feed or os.environ.get('ILSON_RELEASE_FEED','')
-    if not updater.valid_feed(feed):raise ValueError('릴리스 업데이트 주소가 필요합니다: --feed 또는 ILSON_RELEASE_FEED (https://.../latest-v2.json)')
+    # Every box updates from the feed stamped into the shipped updater. Without a choice that is the public default.
+    feed=feed or os.environ.get('ILSON_RELEASE_FEED') or updater.DEFAULT_FEED
+    if not updater.valid_feed(feed):raise ValueError('릴리스 업데이트 주소는 https 주소여야 합니다: --feed 또는 ILSON_RELEASE_FEED (https://.../latest-v2.json)')
     carried=load_preserve(preserve_from) if preserve_from else {}
     files=[];members={}
     accepted=json.loads((ROOT/'tools/manager-baseline.json').read_text())
@@ -134,7 +134,7 @@ def build(output,version,pack,feed=None,preserve_from=None):
     return release
 def main(argv=None):
     p=argparse.ArgumentParser();p.add_argument('--output',type=Path,required=True);p.add_argument('--version',required=True);p.add_argument('--pack',type=Path,required=True)
-    p.add_argument('--feed',help='latest-v2.json URL stamped into the shipped updater (default: ILSON_RELEASE_FEED)')
+    p.add_argument('--feed',help='latest-v2.json URL stamped into the shipped updater (default: ILSON_RELEASE_FEED, then the public GitHub feed)')
     p.add_argument('--allow-dirty',action='store_true',help='build from uncommitted changes (rehearsals only, never for a published release)')
     previous=p.add_mutually_exclusive_group()
     previous.add_argument('--preserve-from',type=Path,help='previous release manifest (release-<version>.json) whose preserve_sha256 entries are carried forward')

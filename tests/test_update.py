@@ -2,6 +2,7 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -132,7 +133,7 @@ class FeedTests(unittest.TestCase):
     FEED='https://feed.example/box/latest-v2.json'
     def setUp(self):
         env=patch.dict(u.os.environ);env.start();self.addCleanup(env.stop)
-        for name in ('ILSON_UPDATE_FEED','ILSON_UPDATE_SKIP_IF_NO_FEED'):u.os.environ.pop(name,None)
+        u.os.environ.pop('ILSON_UPDATE_FEED',None)
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.root=Path(self.tmp.name);self.box=self.root/'box';self.cli=self.root/'cli';self.roots={'box':self.box,'cli':self.cli}
         (self.box/'lib').mkdir(parents=True);(self.box/'lib/common.sh').write_text('#');(self.box/'lib/search.sh').write_bytes(b'old')
@@ -154,28 +155,42 @@ class FeedTests(unittest.TestCase):
         with patch.object(u,'fetch',side_effect=lambda url:served[url]) as fetch,patch.object(u.sys,'argv',argv):u.main()
         return fetch
 
-    def test_주소_우선순위는_인자_환경_내장_저장파일(self):
+    def test_주소_우선순위는_인자_환경_내장_저장파일_기본주소(self):
         (self.box/'.updates').mkdir();(self.box/'.updates/feed').write_text(' https://saved.example/latest-v2.json \n')
         with patch.object(u,'FEED','https://stamped.example/latest-v2.json'),patch.dict(u.os.environ,ILSON_UPDATE_FEED='https://env.example/latest-v2.json'):
             self.assertEqual(u.resolve_feed(self.box,'https://arg.example/latest-v2.json'),'https://arg.example/latest-v2.json')
             self.assertEqual(u.resolve_feed(self.box),'https://env.example/latest-v2.json')
         with patch.object(u,'FEED','https://stamped.example/latest-v2.json'):self.assertEqual(u.resolve_feed(self.box),'https://stamped.example/latest-v2.json')
         self.assertEqual(u.resolve_feed(self.box),'https://saved.example/latest-v2.json')
-    def test_링크_http_빈주소는_거부하고_없으면_안내(self):
-        with self.assertRaises(u.MissingFeed) as missing:u.resolve_feed(self.box)
-        self.assertIn('ilson update --feed',str(missing.exception))
+        (self.box/'.updates/feed').unlink();self.assertEqual(u.resolve_feed(self.box),u.DEFAULT_FEED)
+    def test_기본주소는_FEED_줄과_별개이고_올바른_주소다(self):
+        self.assertTrue(u.valid_feed(u.DEFAULT_FEED))
+        self.assertEqual(u.FEED,'')
+        source=(Path(u.__file__)).read_bytes()
+        self.assertEqual(u.feed_of(source),'')
+        stamped=u.stamp_feed(source,self.FEED)
+        self.assertEqual(u.feed_of(stamped),self.FEED);self.assertEqual(u.unstamp(stamped),source)
+        self.assertIn(b"DEFAULT_FEED='"+u.DEFAULT_FEED.encode()+b"'",stamped)
+    def test_저장파일이_없거나_비면_기본주소(self):
+        self.assertEqual(u.resolve_feed(self.box),u.DEFAULT_FEED)
+        store=self.box/'.updates';store.mkdir()
+        self.assertEqual(u.resolve_feed(self.box),u.DEFAULT_FEED)
+        for empty in ('',' \n\n'):
+            with self.subTest(empty=empty):
+                (store/'feed').write_text(empty);self.assertEqual(u.resolve_feed(self.box),u.DEFAULT_FEED)
+    def test_링크_http_빈주소는_거부한다(self):
         for bad in ['http://feed.example/latest-v2.json','','https://','https://feed.example/a b']:
             with self.subTest(bad=bad),self.assertRaises(ValueError):u.resolve_feed(self.box,bad)
         with patch.dict(u.os.environ,ILSON_UPDATE_FEED='http://feed.example/x'),self.assertRaises(ValueError):u.resolve_feed(self.box)
         store=self.box/'.updates';store.mkdir();real=self.root/'real-feed';real.write_text(self.FEED)
         (store/'feed').symlink_to(real)
-        with self.assertRaisesRegex(ValueError,'링크') as linked:u.resolve_feed(self.box)
-        self.assertNotIsInstance(linked.exception,u.MissingFeed)
+        with self.assertRaisesRegex(ValueError,'링크'):u.resolve_feed(self.box)
         with self.assertRaisesRegex(ValueError,'링크'):u.remember_feed(self.box,self.FEED)
         self.assertEqual(real.read_text(),self.FEED)
         (store/'feed').unlink();(store/'feed').write_text('http://feed.example/latest-v2.json\n')
-        with self.assertRaises(ValueError) as plain:u.resolve_feed(self.box)
-        self.assertNotIsInstance(plain.exception,u.MissingFeed)
+        with self.assertRaisesRegex(ValueError,'ilson update --feed'):u.resolve_feed(self.box)
+        (store/'feed').unlink();(store/'feed').symlink_to(self.root/'missing')
+        with self.assertRaisesRegex(ValueError,'링크'):u.resolve_feed(self.box)
     def test_링크된_업데이트폴더의_주소는_읽지않음(self):
         elsewhere=self.root/'elsewhere';elsewhere.mkdir();(elsewhere/'feed').write_text(self.FEED)
         (self.box/'.updates').symlink_to(elsewhere)
@@ -204,14 +219,16 @@ class FeedTests(unittest.TestCase):
         with patch.object(u,'fetch',side_effect=lambda url:served[url]),patch.object(u.sys,'argv',['update.py','--home',str(self.box),'--cli',str(self.cli),'--feed',self.FEED]):
             with self.assertRaises(ValueError):u.main()
         self.assertIsNone(self.saved())
-    def test_주소없음_예약실행은_건너뛰고_수동실행은_안내후_실패(self):
-        out=io.StringIO();err=io.StringIO()
-        with patch.dict(u.os.environ,ILSON_UPDATE_SKIP_IF_NO_FEED='1'),patch.object(u,'fetch') as fetch,patch('sys.stdout',out):
-            with patch.object(u.sys,'argv',['update.py','--home',str(self.box),'--cli',str(self.cli)]):u.main()
-        fetch.assert_not_called();self.assertIn('건너뜁니다',out.getvalue())
-        with patch.object(u,'fetch') as fetch,patch('sys.stderr',err),patch.object(u.sys,'argv',['update.py','--home',str(self.box),'--cli',str(self.cli)]):
-            with self.assertRaises(SystemExit) as stop:u.main()
-        self.assertEqual(stop.exception.code,1);fetch.assert_not_called();self.assertIn('ilson update --feed',err.getvalue())
+    def test_주소없는_새설치는_수동과_예약_모두_기본주소에서_받는다(self):
+        for env in ({},{'ILSON_UPDATE_SKIP_IF_NO_FEED':'1'}):
+            with self.subTest(env=env),patch.dict(u.os.environ,env):
+                (self.box/'lib/search.sh').write_bytes(b'old')
+                updates=self.box/'.updates'
+                if updates.exists():shutil.rmtree(updates)
+                fetch=self.run_main(feed=u.DEFAULT_FEED)
+                self.assertEqual(fetch.call_args_list[0].args[0],u.DEFAULT_FEED)
+                self.assertEqual(fetch.call_args_list[1].args[0],u.DEFAULT_FEED.rsplit('/',1)[0]+'/box.zip')
+                self.assertEqual((self.box/'lib/search.sh').read_bytes(),b'new');self.assertEqual(self.saved(),u.DEFAULT_FEED+'\n')
 
     def owned_box(self,disk,owned,key='cli/tools/update.py'):
         target=self.roots[key.split('/',1)[0]]/key.split('/',1)[1];target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(disk)

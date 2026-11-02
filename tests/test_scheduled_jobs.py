@@ -614,6 +614,12 @@ class DoctorUpdateFeedTests(unittest.TestCase):
         self.assertIn("W=1 F=0 P=0", out)
         self.assertIn("업데이트 주소 없음 — 자동 업데이트를 건너뜁니다. 설치를 도와준 담당자에게 받은 주소로 ilson update --feed <주소> 를 한 번 실행하세요", out)
 
+    def test_기본주소_줄이_있으면_설정됨으로_본다(self):
+        (self.cli / "tools/update.py").write_text("FEED=''\nDEFAULT_FEED='https://feed.example/latest-v2.json'\n")
+        self.assertIn("W=0 F=0 P=1", self.check())
+        (self.cli / "tools/update.py").write_text("FEED=''\nDEFAULT_FEED=''\n")
+        self.assertIn("W=1 F=0 P=0", self.check())
+
     def test_세가지_출처_중_하나만_있어도_설정됨으로_본다(self):
         feed = self.s.box / ".updates/feed"
         cases = {

@@ -173,11 +173,12 @@ check_tools() {
 }
 
 # 업데이트 주소는 있는지만 확인한다. 주소 자체는 화면·로그에 쓰지 않는다.
-# 출처: 환경 변수, 배포 때 CLI 업데이트 도구에 찍힌 FEED 줄, 이 Box가 기억한 주소 파일.
+# 출처: 환경 변수, 배포 때 CLI 업데이트 도구에 찍힌 FEED 줄, 업데이트 도구의 기본 공개 주소(DEFAULT_FEED 줄), 이 Box가 기억한 주소 파일.
 check_update_feed() {
     local feed="$ILSON_HOME/.updates/feed"
     if [ -n "${ILSON_UPDATE_FEED:-}" ] ||
         grep -q "^FEED='https://" "$SELF_DIR/tools/update.py" 2>/dev/null ||
+        grep -q "^DEFAULT_FEED='https://" "$SELF_DIR/tools/update.py" 2>/dev/null ||
         { [ -f "$feed" ] && [ ! -L "$feed" ] && [ -n "$(tr -d '[:space:]' < "$feed" 2>/dev/null)" ]; }; then
         ok "업데이트 주소" "설정됨"
     else

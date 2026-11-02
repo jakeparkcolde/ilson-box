@@ -91,12 +91,15 @@ class StampedReleaseTests(unittest.TestCase):
   self.assertNotIn(u.digest(body),entry[0]['previous_sha256'])
   head=subprocess.run(['git','show','HEAD:tools/update.py'],cwd=ROOT,capture_output=True)
   if head.returncode==0:self.assertIn(u.digest(head.stdout),entry[0]['previous_sha256'])
- def test_주소없이_또는_http주소로는_빌드거부(self):
+ def test_주소없는_빌드는_기본주소를_기록하고_http주소는_거부(self):
   with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ):
    os.environ.pop('ILSON_RELEASE_FEED',None);pack=research_pack(tmp)
-   for feed in (None,'','http://feed.example/latest-v2.json'):
-    with self.subTest(feed=feed),self.assertRaises(ValueError):self.b.build(Path(tmp)/'out','9999.4',pack,feed)
+   with self.assertRaises(ValueError):self.b.build(Path(tmp)/'out','9999.4',pack,'http://feed.example/latest-v2.json')
    self.assertFalse((Path(tmp)/'out').exists())
+   for number,feed in enumerate((None,'')):
+    with self.subTest(feed=feed):
+     folder=Path(tmp)/('default'+str(number));r=self.b.build(folder,'9999.4',pack,feed)
+     with zipfile.ZipFile(folder/r['archive']) as z:self.assertEqual(u.feed_of(z.read('cli/tools/update.py')),u.DEFAULT_FEED)
    os.environ['ILSON_RELEASE_FEED']=FEED;r=self.b.build(Path(tmp)/'env','9999.4',pack)
    with zipfile.ZipFile(Path(tmp)/'env'/r['archive']) as z:self.assertEqual(u.feed_of(z.read('cli/tools/update.py')),FEED)
  def test_저장소와_다른_리서치팩은_빌드거부(self):

@@ -20,11 +20,11 @@ from datetime import datetime, timezone
 
 # Release builds stamp the feed URL into this line (tools/build_release.py). Source checkouts keep it empty.
 FEED=''
+# The public feed every box falls back to. A separate line, so the stamp above stays the only FEED line.
+DEFAULT_FEED='https://github.com/jakeparkcolde/ilson-box/releases/latest/download/latest-v2.json'
 LIMIT=80*1024*1024
 FEED_LINE=re.compile(rb"^FEED='([^'\\\r\n]*)'[ \t]*$",re.M)
 UPDATER_KEY='cli/tools/update.py'
-NO_FEED='업데이트 주소가 아직 설정되지 않았습니다. 설치를 도와드린 담당자에게 받은 주소로 `ilson update --feed <주소>`를 한 번 실행하세요.'
-class MissingFeed(ValueError):pass
 
 def digest(data):return hashlib.sha256(data).hexdigest()
 def read(path):return json.loads(path.read_text())
@@ -69,20 +69,20 @@ def stamp_feed(source,url):
 def unstamp(source):return FEED_LINE.sub(b"FEED=''",source)
 
 def resolve_feed(home,explicit=None):
-    # Order: --feed, ILSON_UPDATE_FEED, the release-stamped FEED, then the address this box remembered.
+    # Order: --feed, ILSON_UPDATE_FEED, the release-stamped FEED, the address this box remembered, then DEFAULT_FEED.
     for name,url in (('--feed',explicit),('ILSON_UPDATE_FEED',os.environ.get('ILSON_UPDATE_FEED') or None),('FEED',FEED or None)):
         if url is None:continue
         if not valid_feed(url):raise ValueError(name+' 업데이트 주소는 https 주소여야 합니다')
         return url
     path=Path(home)/'.updates/feed'
     if path.parent.is_symlink() or path.is_symlink():raise ValueError('업데이트 주소 파일의 링크는 허용하지 않습니다')
-    if not path.exists():raise MissingFeed(NO_FEED)
+    if not path.exists():return DEFAULT_FEED
     if not path.is_file():raise ValueError('업데이트 주소 파일을 확인하세요: '+str(path))
     with path.open('rb') as stream:data=stream.read(4097)
     try:url=data.decode().strip() if len(data)<=4096 else None
     except UnicodeDecodeError:url=None
-    if url=='':raise MissingFeed(NO_FEED)
-    if not valid_feed(url):raise ValueError('저장된 업데이트 주소가 올바르지 않습니다. '+NO_FEED)
+    if url=='':return DEFAULT_FEED
+    if not valid_feed(url):raise ValueError('저장된 업데이트 주소가 올바르지 않습니다. `ilson update --feed <주소>`로 다시 설정하세요.')
     return url
 
 def remember_feed(home,url):
@@ -354,11 +354,7 @@ def main():
     if args.manifest:
         manifest=read(args.manifest);archive=args.archive.read_bytes()
     else:
-        try:feed=resolve_feed(roots['box'],args.feed)
-        except MissingFeed as exc:
-            # The scheduled job (lib/update.sh) sets this so a box without an address skips quietly.
-            if os.environ.get('ILSON_UPDATE_SKIP_IF_NO_FEED')=='1':print('업데이트 주소가 없어 자동 업데이트를 건너뜁니다.');return
-            print(exc,file=sys.stderr);raise SystemExit(1)
+        feed=resolve_feed(roots['box'],args.feed)
         manifest=json.loads(fetch(feed));url=urllib.parse.urljoin(feed,manifest['archive'])
         if urllib.parse.urlsplit(url).netloc!=urllib.parse.urlsplit(feed).netloc:raise ValueError('배포 서버가 다른 묶음입니다')
         archive=fetch(url)
