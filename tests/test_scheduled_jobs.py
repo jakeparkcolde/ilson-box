@@ -620,6 +620,74 @@ class DoctorUpdateFeedTests(unittest.TestCase):
         (self.cli / "tools/update.py").write_text("FEED=''\nDEFAULT_FEED=''\n")
         self.assertIn("W=1 F=0 P=0", self.check())
 
+    DEFAULT_LINE = "FEED=''\nDEFAULT_FEED='https://feed.example/latest-v2.json'\n"
+
+    def broken_cases(self):
+        feed = self.s.box / ".updates/feed"
+        target = self.s.base / "elsewhere"
+        target.write_text(self.ADDRESS)
+        return {
+            "link": lambda: feed.symlink_to(target),
+            "dangling link": lambda: feed.symlink_to(self.s.base / "missing"),
+            "folder": lambda: feed.mkdir(),
+            "http": lambda: feed.write_text("http://updates.example.invalid/feed/secret-path\n"),
+            "two lines": lambda: feed.write_text(self.ADDRESS + "\n" + self.ADDRESS + "\n"),
+            "quote": lambda: feed.write_text("https://updates.example.invalid/secret-path'x\n"),
+            "too long": lambda: feed.write_text("https://updates.example.invalid/secret-path" + "a" * 4096),
+            "not text": lambda: feed.write_bytes(b"\xff\xfesecret-path\n"),
+        }
+
+    def clear_feed(self):
+        feed = self.s.box / ".updates/feed"
+        if feed.is_dir() and not feed.is_symlink():
+            feed.rmdir()
+        else:
+            feed.unlink(missing_ok=True)
+
+    def test_쓸수없는_주소파일은_기본주소가_있어도_경고한다(self):
+        (self.cli / "tools/update.py").write_text(self.DEFAULT_LINE)
+        for name, prepare in self.broken_cases().items():
+            with self.subTest(case=name):
+                self.clear_feed()
+                prepare()
+                out = self.check()
+                self.assertIn("W=1 F=0 P=0", out)
+                self.assertIn("업데이트 주소 파일을 쓸 수 없음", out)
+                self.assertNotIn("설정됨", out)
+        self.clear_feed()
+
+    def test_링크된_업데이트폴더도_경고한다(self):
+        (self.cli / "tools/update.py").write_text(self.DEFAULT_LINE)
+        elsewhere = self.s.base / "elsewhere-store"
+        elsewhere.mkdir()
+        (self.s.box / ".updates").rmdir()
+        (self.s.box / ".updates").symlink_to(elsewhere)
+        self.assertIn("W=1 F=0 P=0", self.check())
+
+    def test_올바르거나_비어있는_주소파일은_기본주소와_함께_괜찮다(self):
+        (self.cli / "tools/update.py").write_text(self.DEFAULT_LINE)
+        feed = self.s.box / ".updates/feed"
+        for body in (self.ADDRESS + "\n", "  " + self.ADDRESS + "  \n\n", "", " \n"):
+            with self.subTest(body=body):
+                feed.write_text(body)
+                self.assertIn("W=0 F=0 P=1", self.check())
+
+    def test_찍힌_주소나_환경변수가_있으면_주소파일을_읽지_않는다(self):
+        # update.py never reaches the saved file in these cases, so a broken one stops nothing.
+        cases = self.broken_cases()
+        for source, prepare_source in {
+            "stamped": lambda: (self.cli / "tools/update.py").write_text(f"FEED='{self.ADDRESS}'\nDEFAULT_FEED='https://feed.example/x'\n"),
+            "env": lambda: self.s.env.update(ILSON_UPDATE_FEED=self.ADDRESS),
+        }.items():
+            with self.subTest(source=source):
+                self.clear_feed()
+                prepare_source()
+                cases["folder"]()
+                self.assertIn("W=0 F=0 P=1", self.check())
+                self.clear_feed()
+                self.s.env["ILSON_UPDATE_FEED"] = ""
+                (self.cli / "tools/update.py").write_text("FEED=''\n")
+
     def test_세가지_출처_중_하나만_있어도_설정됨으로_본다(self):
         feed = self.s.box / ".updates/feed"
         cases = {

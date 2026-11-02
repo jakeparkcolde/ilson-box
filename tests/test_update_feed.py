@@ -239,6 +239,10 @@ class InstallerFeedTests(unittest.TestCase):
         self.assertIn('mktemp "$BOX_HOME/.updates/', script)
         self.assertNotIn('.tmp.$$', script)
 
+    def test_doctor의_주소검사는_설치기와_같다(self):
+        pick = lambda name: re.search(r'^valid_feed\(\) \{.*?^\}', (ROOT / name).read_text(), re.S | re.M).group(0)
+        self.assertEqual(pick('ilson'), pick('install.sh'))
+
     def test_설치기와_업데이트도구의_주소검사가_같다(self):
         function = re.search(r'^valid_feed\(\) \{.*?^\}', (ROOT / 'install.sh').read_text(), re.S | re.M).group(0)
         script = function + '\nfor u in "$@"; do if valid_feed "$u"; then echo 1; else echo 0; fi; done\n'

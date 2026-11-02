@@ -172,14 +172,39 @@ check_tools() {
     check_update_feed
 }
 
-# 업데이트 주소는 있는지만 확인한다. 주소 자체는 화면·로그에 쓰지 않는다.
-# 출처: 환경 변수, 배포 때 CLI 업데이트 도구에 찍힌 FEED 줄, 업데이트 도구의 기본 공개 주소(DEFAULT_FEED 줄), 이 Box가 기억한 주소 파일.
+# 업데이트 주소는 있는지만 확인한다. 주소 자체는 화면·로그에 쓰지 않는다. 주소에 닿는지는 확인하지 않는다.
+# 순서는 update.py와 같다: 환경 변수, 배포 때 CLI 업데이트 도구에 찍힌 FEED 줄, 이 Box가 기억한 주소 파일, 기본 공개 주소(DEFAULT_FEED 줄).
+# 앞의 둘이 있으면 주소 파일은 읽지 않는다. 그렇지 않을 때 쓸 수 없는 주소 파일은 모든 업데이트를 멈춘다.
+valid_feed() {
+    [ -n "$1" ] || return 1
+    # Anything left after deleting allowed characters (the x keeps a trailing newline visible) is refused.
+    [ "$(printf '%s' "$1" | LC_ALL=C tr -d 'A-Za-z0-9._~%/:?=&,;!*()+-'; echo x)" = x ] || return 1
+    printf '%s\n' "$1" | grep -Eq '^https://[A-Za-z0-9][A-Za-z0-9.-]*(:[0-9]{1,5})?(/.*)?$' || return 1
+    feed_authority="${1#https://}"; feed_authority="${feed_authority%%/*}"
+    case "$feed_authority" in
+        *:*) feed_port="${feed_authority##*:}"; [ "$feed_port" -ge 1 ] && [ "$feed_port" -le 65535 ] ;;
+    esac
+}
+
+saved_feed_broken() {
+    local feed="$ILSON_HOME/.updates/feed" saved
+    [ ! -L "$ILSON_HOME/.updates" ] && [ ! -L "$feed" ] || return 0
+    [ -e "$feed" ] || return 1
+    [ -f "$feed" ] || return 0
+    [ "$(( $(wc -c < "$feed") ))" -le 4096 ] || return 0
+    saved="$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d' "$feed" 2>/dev/null)" || return 0
+    [ -z "$saved" ] && return 1
+    ! valid_feed "$saved"
+}
+
 check_update_feed() {
     local feed="$ILSON_HOME/.updates/feed"
-    if [ -n "${ILSON_UPDATE_FEED:-}" ] ||
-        grep -q "^FEED='https://" "$SELF_DIR/tools/update.py" 2>/dev/null ||
-        grep -q "^DEFAULT_FEED='https://" "$SELF_DIR/tools/update.py" 2>/dev/null ||
-        { [ -f "$feed" ] && [ ! -L "$feed" ] && [ -n "$(tr -d '[:space:]' < "$feed" 2>/dev/null)" ]; }; then
+    if [ -n "${ILSON_UPDATE_FEED:-}" ] || grep -q "^FEED='https://" "$SELF_DIR/tools/update.py" 2>/dev/null; then
+        ok "업데이트 주소" "설정됨"
+    elif saved_feed_broken; then
+        warn "업데이트 주소 파일을 쓸 수 없음 — 고칠 때까지 업데이트가 멈춥니다" "$ILSON_HOME/.updates/feed 를 지운 뒤 ilson update 를 실행하세요"
+    elif grep -q "^DEFAULT_FEED='https://" "$SELF_DIR/tools/update.py" 2>/dev/null ||
+        { [ -f "$feed" ] && [ -n "$(tr -d '[:space:]' < "$feed" 2>/dev/null)" ]; }; then
         ok "업데이트 주소" "설정됨"
     else
         warn "업데이트 주소 없음 — 자동 업데이트를 건너뜁니다. 설치를 도와준 담당자에게 받은 주소로 ilson update --feed <주소> 를 한 번 실행하세요"
