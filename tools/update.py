@@ -207,7 +207,7 @@ def interrupted(storage):
 def recover_interrupted(roots):
     # A run killed mid-apply leaves the code half replaced. Put it back before anything else, the network included, so
     # that no later message can call this box unchanged. Queued work is not waited for: the crash may have left it marked
-    # running, and it must not start on half-replaced code. activation.json stays pending, so the next run restarts the admin.
+    # running, and it must not start on half-replaced code.
     home=roots['box'];storage=home/'.updates'
     if not interrupted(storage):return
     with runtime_lock(home),update_lock(storage):
@@ -217,7 +217,21 @@ def recover_interrupted(roots):
         except Exception as exc:
             detail=str(exc) if isinstance(exc,ValueError) else type(exc).__name__
             raise ValueError('중단된 업데이트를 복구하지 못했습니다. 코드 일부가 새 버전일 수 있습니다: '+detail) from exc
-    print('중단됐던 업데이트를 복구했습니다.')
+        print('중단됐던 업데이트를 복구했습니다.')
+        restart_admin_after_recovery(home)
+
+def restart_admin_after_recovery(home):
+    # Pending is the only sign left: stopping the admin removes its enabled marker. The box stays usable with the network
+    # down, and a failed restart keeps pending so the next run retries. The recovery itself has already succeeded.
+    path=home/'.updates/activation.json'
+    if not path.is_file() or read(path).get('status')!='pending':return
+    installed=home/'.updates/installed.json'
+    try:activate_command(home,'install')
+    except Exception:
+        print('코드는 복구했지만 관리자를 다시 켜지 못했습니다. 다음 ilson update 가 다시 시도합니다.')
+        return
+    save(path,dict(version=read(installed).get('version') if installed.is_file() else None,status='active'))
+    print('복구한 코드로 관리자를 다시 켰습니다.')
 
 def apply(roots,manifest,archive,check=False):
     storage=roots['box']/'.updates';storage.mkdir(parents=True,exist_ok=True)

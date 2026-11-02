@@ -385,25 +385,73 @@ class FeedTests(unittest.TestCase):
                 return real(stream,flags)
             with patch.object(u.fcntl,'flock',side_effect=refuse):out,code,called=self.rerun()
         self.assertEqual(code,1);called.assert_not_called();self.assertIn('완료 후 다시',out);self.assertEqual(self.code(),before)
-    def admin_box(self):
+    def admin_box(self,installed='1.0'):
+        # What a kill after the admin stop leaves: pending, and no enabled marker, because stop removes it.
+        if installed:u.save(self.box/'.updates/installed.json',dict(version=installed,files={}))
         m,a=self.killed_box()
-        (self.box/'state/web-admin').mkdir(parents=True);(self.box/'state/web-admin/enabled').write_text('1')
         u.save(self.box/'.updates/activation.json',dict(version='2.0',status='pending'))
+        self.assertFalse((self.box/'state/web-admin/enabled').exists())
         return m,a
-    def test_복구_뒤_관리자를_다시_켠다(self):
+    def activation(self):return u.read(self.box/'.updates/activation.json')
+    def down(self,url):raise urllib.error.URLError('down')
+    def test_네트워크가_없어도_복구한_코드로_관리자를_켠다(self):
+        self.admin_box()
+        with patch.object(u,'activate_command') as admin:out,code,_=self.rerun(fetch=self.down)
+        self.assertEqual(code,1);self.assertEqual(self.code(),(b'old',b'old2',b'old3'))
+        self.assertEqual([c.args[1] for c in admin.call_args_list],['install'])
+        self.assertEqual(self.activation(),dict(version='1.0',status='active'))
+        self.assertIn('복구한 코드로 관리자를 다시 켰습니다',out);self.assertIn('연결하지 못했습니다',out)
+    def test_첫_업데이트가_죽은_박스는_버전없이_활성으로_둔다(self):
+        self.admin_box(installed=None)
+        with patch.object(u,'activate_command'):self.rerun(fetch=self.down)
+        self.assertFalse((self.box/'.updates/installed.json').exists())
+        self.assertEqual(self.activation(),dict(version=None,status='active'))
+    def test_관리자를_못켜면_그렇게_알리고_다음_실행이_다시_시도한다(self):
         m,a=self.admin_box();served=self.served(m,a)
+        with patch.object(u,'activate_command',side_effect=ValueError('관리자 install 미완료')):out,code,_=self.rerun(fetch=self.down)
+        self.assertEqual(code,1);self.assertEqual(self.activation()['status'],'pending')
+        self.assertIn('중단됐던 업데이트를 복구했습니다',out);self.assertIn('다시 켜지 못했습니다',out);self.assertNotIn('복구한 코드로 관리자를',out)
+        self.assertEqual(self.code(),(b'old',b'old2',b'old3'));self.assertEqual(self.journal(),'recovered')
         with patch.object(u,'activate_command') as admin:out,code,_=self.rerun(fetch=lambda url:served[url])
         self.assertEqual(code,0,out);self.assertEqual([c.args[1] for c in admin.call_args_list],['stop','install'])
-        self.assertEqual(u.read(self.box/'.updates/activation.json'),dict(version='2.0',status='active'))
-    def test_네트워크가_없어도_관리자_재시도_표시는_남는다(self):
+        self.assertEqual(self.activation(),dict(version='2.0',status='active'))
+    def test_어떤_재시작_실패도_복구를_되돌리지_않는다(self):
+        for error in (subprocess.TimeoutExpired('x',35),OSError('fork')):
+            with self.subTest(error=type(error).__name__):
+                self.tearDownBox()
+                self.admin_box()
+                with patch.object(u,'activate_command',side_effect=error):out,code,_=self.rerun(fetch=self.down)
+                self.assertIn('다시 켜지 못했습니다',out);self.assertEqual(self.journal(),'recovered');self.assertEqual(self.activation()['status'],'pending')
+    def tearDownBox(self):
+        shutil.rmtree(self.box/'.updates',ignore_errors=True)
+        (self.box/'lib/search.sh').write_bytes(b'old')
+    def test_복구_뒤_관리자를_켜고_이어서_정상_업데이트한다(self):
         m,a=self.admin_box();served=self.served(m,a)
-        def down(url):raise urllib.error.URLError('down')
-        with patch.object(u,'activate_command') as admin:out,code,_=self.rerun(fetch=down)
-        self.assertEqual(code,1);admin.assert_not_called()
-        self.assertEqual(u.read(self.box/'.updates/activation.json')['status'],'pending')
-        with patch.object(u,'activate_command') as admin:out,code,_=self.rerun(fetch=lambda url:served[url])
-        self.assertEqual(code,0,out);self.assertEqual([c.args[1] for c in admin.call_args_list],['stop','install'])
-        self.assertEqual(u.read(self.box/'.updates/activation.json')['status'],'active')
+        marker=self.box/'state/web-admin/enabled';marker.parent.mkdir(parents=True)
+        def like_the_real_admin(home,command):
+            if command=='install':marker.write_text('1')
+            else:marker.unlink()
+        with patch.object(u,'activate_command',side_effect=like_the_real_admin) as admin:out,code,_=self.rerun(fetch=lambda url:served[url])
+        self.assertEqual(code,0,out);self.assertEqual([c.args[1] for c in admin.call_args_list],['install','stop','install'])
+        self.assertEqual(self.code(),(b'new1',b'new2',b'new3'));self.assertEqual(self.activation(),dict(version='2.0',status='active'))
+    def test_대기표시가_없으면_관리자를_건드리지_않는다(self):
+        for activation in (None,dict(version='1.0',status='active'),dict(version='1.0',status='installed')):
+            with self.subTest(activation=activation):
+                self.tearDownBox()
+                self.killed_box()
+                if activation:u.save(self.box/'.updates/activation.json',activation)
+                with patch.object(u,'activate_command') as admin:self.rerun(fetch=self.down)
+                admin.assert_not_called()
+    def test_실행_잠금이_잡혀있으면_관리자도_켜지_않는다(self):
+        self.admin_box();before=self.code()
+        with (self.box/'.updates/runtime.lock').open('a') as held:
+            real=u.fcntl.flock
+            def refuse(stream,flags):
+                if stream is not held and Path(stream.name).name=='runtime.lock':raise BlockingIOError()
+                return real(stream,flags)
+            with patch.object(u.fcntl,'flock',side_effect=refuse),patch.object(u,'activate_command') as admin:out,code,called=self.rerun()
+        self.assertEqual(code,1);admin.assert_not_called();called.assert_not_called()
+        self.assertEqual(self.code(),before);self.assertEqual(self.activation()['status'],'pending')
     def test_주소없는_새설치는_수동과_예약_모두_기본주소에서_받는다(self):
         for env in ({},{'ILSON_UPDATE_SKIP_IF_NO_FEED':'1'}):
             with self.subTest(env=env),patch.dict(u.os.environ,env):
