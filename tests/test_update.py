@@ -350,6 +350,55 @@ class FeedTests(unittest.TestCase):
         out,code,_=self.rerun(fetch=down)
         self.assertEqual(code,1);self.assertIn('중단됐던 업데이트를 복구했습니다',out);self.assertIn('연결하지 못했습니다',out)
         self.assertEqual(self.code(),(b'old',b'old2',b'old3'));self.assertEqual(self.journal(),'recovered')
+    def test_복구한_실행의_읽기_실패는_그대로라고_하지_않는다(self):
+        m,a=self.bundle(self.ROWS,'2.0')
+        def no_release(url):raise urllib.error.HTTPError(url,404,'Not Found',None,None)
+        def timeout(url):raise socket.timeout('timed out')
+        for name,fetch,word in (('down',self.down,'연결하지 못했습니다'),('404',no_release,'아직 배포가 없습니다'),('timeout',timeout,'연결하지 못했습니다'),('bad json',lambda url:b'not json','정보를 읽지 못했습니다')):
+            with self.subTest(name):
+                self.tearDownBox()
+                self.killed_box()
+                out,code,_=self.rerun(fetch=fetch)
+                self.assertEqual(code,1);self.assertIn(word,out);self.assertIn('중단됐던 업데이트는 되돌렸고',out);self.assertIn('나중에 다시 진행됩니다',out)
+                self.assertNotIn('그대로',out);self.assertNotIn('ilson open',out)
+        # The next plain failure changed nothing, so the promise is true again.
+        out,code,_=self.rerun(fetch=self.down)
+        self.assertIn('일손 박스는 그대로입니다',out);self.assertNotIn('되돌렸고',out)
+    def test_복구한_실행에서_관리자가_꺼져_있으면_알린다(self):
+        self.admin_box()
+        with patch.object(u,'activate_command',side_effect=ValueError('관리자 install 미완료')):out,code,_=self.rerun(fetch=self.down)
+        self.assertEqual(code,1);self.assertIn('되돌렸고',out);self.assertIn('ilson open',out);self.assertNotIn('그대로',out)
+        self.tearDownBox();self.admin_box()
+        with patch.object(u,'activate_command'):out,code,_=self.rerun(fetch=self.down)
+        self.assertIn('되돌렸고',out);self.assertNotIn('ilson open',out)
+    def test_복구한_실행의_다른_거부는_문구를_바꾸지_않는다(self):
+        m,a=self.killed_box()
+        body=json.dumps(dict(m,archive='https://other.example/box.zip')).encode()
+        out,code,_=self.rerun(fetch=lambda url:body)
+        self.assertEqual(code,1);self.assertIn('배포 서버가 다른 묶음입니다',out);self.assertNotIn('되돌렸고',out)
+    def test_임시파일_정리는_폴더를_건너뛰고_링크는_지운다(self):
+        self.killed_box()
+        folder=self.box/'lib'/(u.TEMP_PREFIX+'folder');folder.mkdir();(folder/'inside.txt').write_text('keep')
+        target=self.root/'target';target.write_text('keep');link=self.box/'lib'/(u.TEMP_PREFIX+'link');link.symlink_to(target)
+        dangling=self.box/'lib'/(u.TEMP_PREFIX+'dangling');dangling.symlink_to(self.root/'missing')
+        out,code,_=self.rerun(fetch=self.down)
+        self.assertNotIn('복구하지 못했습니다',out);self.assertIn('중단됐던 업데이트를 복구했습니다',out)
+        self.assertEqual(self.journal(),'recovered');self.assertEqual(self.code(),(b'old',b'old2',b'old3'))
+        self.assertEqual((folder/'inside.txt').read_text(),'keep');self.assertEqual(target.read_text(),'keep')
+        self.assertFalse(link.is_symlink());self.assertFalse(dangling.is_symlink())
+    def test_임시파일을_못지워도_복구는_성공이다(self):
+        self.killed_box()
+        real=Path.unlink
+        def refuse(path,*args,**kwargs):
+            if path.name.startswith(u.TEMP_PREFIX):raise PermissionError('locked')
+            return real(path,*args,**kwargs)
+        with patch.object(Path,'unlink',refuse):out,code,_=self.rerun(fetch=self.down)
+        self.assertNotIn('복구하지 못했습니다',out);self.assertNotIn('일부가 새 버전',out);self.assertIn('중단됐던 업데이트를 복구했습니다',out)
+        self.assertEqual(self.journal(),'recovered');self.assertEqual(self.code(),(b'old',b'old2',b'old3'))
+    def test_임시파일_목록을_못읽어도_복구는_성공이다(self):
+        self.killed_box()
+        with patch.object(Path,'glob',side_effect=PermissionError('locked')):out,code,_=self.rerun(fetch=self.down)
+        self.assertNotIn('복구하지 못했습니다',out);self.assertEqual(self.journal(),'recovered');self.assertEqual(self.code(),(b'old',b'old2',b'old3'))
     def test_복구는_죽은_쓰기의_임시파일만_지운다(self):
         self.killed_box()
         left=list((self.box/'lib').glob(u.TEMP_PREFIX+'*'))

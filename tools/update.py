@@ -28,9 +28,12 @@ LIMIT=80*1024*1024
 TEMP_PREFIX='.ilson-update-'
 FEED_LINE=re.compile(rb"^FEED='([^'\\\r\n]*)'[ \t]*$",re.M)
 UPDATER_KEY='cli/tools/update.py'
-NOT_REACHED='업데이트 서버에 연결하지 못했습니다. 일손 박스는 그대로입니다. 인터넷 연결을 확인하고 나중에 다시 실행하세요.'
-NOT_READABLE='업데이트 정보를 읽지 못했습니다. 일손 박스는 그대로입니다. 나중에 다시 실행하세요.'
-NO_RELEASE='업데이트 서버에 아직 배포가 없습니다. 일손 박스는 그대로입니다. 나중에 다시 실행하세요.'
+UNCHANGED='일손 박스는 그대로입니다.'
+NOT_REACHED='업데이트 서버에 연결하지 못했습니다. '+UNCHANGED+' 인터넷 연결을 확인하고 나중에 다시 실행하세요.'
+NOT_READABLE='업데이트 정보를 읽지 못했습니다. '+UNCHANGED+' 나중에 다시 실행하세요.'
+NO_RELEASE='업데이트 서버에 아직 배포가 없습니다. '+UNCHANGED+' 나중에 다시 실행하세요.'
+UNDONE='중단됐던 업데이트는 되돌렸고, 업데이트는 나중에 다시 진행됩니다.'
+ADMIN_OFF=' 관리자가 꺼져 있으니 ilson open 을 실행하거나 다음 업데이트를 기다리세요.'
 BUSY='다른 업데이트가 실행 중입니다. 끝난 뒤 다시 실행하세요.'
 INTERRUPTED='중단된 업데이트가 있습니다. ilson update 로 복구하세요'
 
@@ -182,15 +185,21 @@ def restore_previous(roots,storage,journal,force_recovery=False):
             body=(storage/item['backup']).read_bytes()
             if digest(body)!=item['old_sha256']:raise ValueError('백업 검증 실패')
             atomic(dest,body);dest.chmod(item['old_mode'])
-    if force_recovery:
-        # A killed write leaves its temp file beside the target. Only the folders this update wrote to are touched.
-        for parent in {destination(roots,item).parent for item in changes}:
-            for leftover in parent.glob(TEMP_PREFIX+'*'):leftover.unlink()
     if journal['previous'] is None:
         (storage/'installed.json').unlink(missing_ok=True)
     else:save(storage/'installed.json',journal['previous'])
     journal['status']='recovered' if force_recovery else 'rolled_back';save(storage/'journal.json',journal)
+    if force_recovery:sweep_temp_files(roots,changes)
     print('이전 코드로 복구했습니다. 운영 데이터는 변경하지 않았습니다.')
+
+def sweep_temp_files(roots,changes):
+    # A killed write leaves its temp file beside the target. Only the folders this update wrote to are touched. The code
+    # is already restored here, so a stray file that cannot be removed is not a failed recovery.
+    for parent in {destination(roots,item).parent for item in changes}:
+        try:
+            for leftover in parent.glob(TEMP_PREFIX+'*'):
+                if leftover.is_symlink() or leftover.is_file():leftover.unlink()
+        except OSError:pass
 
 @contextmanager
 def update_lock(storage):
@@ -208,30 +217,33 @@ def recover_interrupted(roots):
     # A run killed mid-apply leaves the code half replaced. Put it back before anything else, the network included, so
     # that no later message can call this box unchanged. Queued work is not waited for: the crash may have left it marked
     # running, and it must not start on half-replaced code.
+    # Returns what to say in place of UNCHANGED if this run did recover, because it then changed the box.
     home=roots['box'];storage=home/'.updates'
-    if not interrupted(storage):return
+    if not interrupted(storage):return None
     with runtime_lock(home),update_lock(storage):
         journal=read(storage/'journal.json')
-        if journal['status']!='applying':return
+        if journal['status']!='applying':return None
         try:rollback(roots,storage,journal,True)
         except Exception as exc:
             detail=str(exc) if isinstance(exc,ValueError) else type(exc).__name__
             raise ValueError('중단된 업데이트를 복구하지 못했습니다. 코드 일부가 새 버전일 수 있습니다: '+detail) from exc
         print('중단됐던 업데이트를 복구했습니다.')
-        restart_admin_after_recovery(home)
+        return UNDONE if restart_admin_after_recovery(home) else UNDONE+ADMIN_OFF
 
 def restart_admin_after_recovery(home):
     # Pending is the only sign left: stopping the admin removes its enabled marker. The box stays usable with the network
     # down, and a failed restart keeps pending so the next run retries. The recovery itself has already succeeded.
+    # Returns False only when the admin was left off.
     path=home/'.updates/activation.json'
-    if not path.is_file() or read(path).get('status')!='pending':return
+    if not path.is_file() or read(path).get('status')!='pending':return True
     installed=home/'.updates/installed.json'
     try:activate_command(home,'install')
     except Exception:
         print('코드는 복구했지만 관리자를 다시 켜지 못했습니다. 다음 ilson update 가 다시 시도합니다.')
-        return
+        return False
     save(path,dict(version=read(installed).get('version') if installed.is_file() else None,status='active'))
     print('복구한 코드로 관리자를 다시 켰습니다.')
+    return True
 
 def apply(roots,manifest,archive,check=False):
     storage=roots['box']/'.updates';storage.mkdir(parents=True,exist_ok=True)
@@ -424,13 +436,17 @@ def main():
             rollback(roots,storage,journal)
         return
     # Before any fetch: a fetch failure must not report a half-updated box as unchanged.
-    if not args.check:recover_interrupted(roots)
+    undone=None
+    if not args.check:undone=recover_interrupted(roots)
     elif interrupted(roots['box']/'.updates'):raise ValueError(INTERRUPTED)
     if args.manifest:
         manifest=read(args.manifest);archive=args.archive.read_bytes()
     else:
         feed=resolve_feed(roots['box'],args.feed)
-        manifest,archive=read_release(feed)
+        try:manifest,archive=read_release(feed)
+        except ValueError as exc:
+            if undone and UNCHANGED in str(exc):raise ValueError(str(exc).replace(UNCHANGED,undone)) from exc
+            raise
     apply_running(roots,manifest,archive,args.check)
     # Remember the feed only after a real run finished (applied or already latest), so a CLI reinstalled with FEED='' keeps updating.
     if not args.manifest and not args.check:remember_feed(roots['box'],feed)
