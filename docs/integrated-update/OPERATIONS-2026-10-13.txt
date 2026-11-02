@@ -10,7 +10,7 @@
 
 현재 경로: Mac Studio + GitHub Releases (2026-11-02 개정):
 - 배포는 Mac Studio에서 만들고 공개 저장소의 GitHub Release로 낸다. 기기는 tools/update.py 의 DEFAULT_FEED(https://github.com/jakeparkcolde/ilson-box/releases/latest/download/latest-v2.json)를 읽으므로 주소를 따로 받지 않는다. --feed 는 별도 주소를 쓰거나 박스를 옮길 때만 쓴다.
-- 맥미니는 고치지 않는다. 옛 주소에 브리지 배포를 게시하는 단계는 건너뛴다. 옛 주소를 쓰는 기기를 옮기는 일은 ilson update --feed <기본 주소> 로 기기별로 한다.
+- 맥미니는 고치지 않는다. 옛 주소에 브리지 배포를 게시하는 단계는 건너뛴다. 옛 주소를 쓰는 기기(2026.10.28.4 이하)를 옮기는 일은 ilson update --feed <기본 주소> 로 기기별로 한다. install.sh 를 다시 실행해도 옛 주소가 유지되므로 재설치는 복구 방법이 아니다.
 - 릴리스 동결: 1번에서 5번까지 배포 브랜치에 새 커밋을 넣지 않고, 올린 Release는 고치지 않는다(--clobber 금지). 동결 중 고칠 것이 나오면 더 높은 버전으로 처음부터 다시 한다.
 - 첫 Latest가 생기기 전에는 기본 주소가 404다. 기본 주소가 든 코드를 main에 병합하기 전에 5번까지 끝낸다. main에 올리면 설치 명령이 바로 그 코드를 받는다.
 
@@ -33,7 +33,7 @@
    - 익명 바이트를 다시 대조한 뒤 Latest로 옮기고, 기기가 읽는 주소 두 개를 짧게 재시도하며 확인한다. 이미 Latest이고 바이트가 같으면 고치지 않고 성공한다. 확인이 실패하면 기기가 받기 전에 원인을 본다.
 6. ilson update를 실행한 설치본에서 /api/health.release 및 적용 완료 확인.
 
-되돌리기: update.py 는 낮은 버전을 거부하므로 Latest를 예전 버전으로 돌려도 기기는 내려가지 않는다. publish_release도 Latest를 낮추지 않는다. 고친 코드 또는 되돌린 코드를 더 높은 버전으로 다시 낸다. 기기 한 대의 코드 복구는 ilson update --rollback 이다.
+되돌리기: update.py 는 낮은 버전을 거부하므로 Latest를 예전 버전으로 돌려도 기기는 내려가지 않는다. publish_release도 Latest를 낮추지 않는다. 고친 코드 또는 되돌린 코드를 더 높은 버전으로 다시 낸다. 기기 한 대의 코드 복구는 ilson update --rollback 이다. 태그를 push하는 코드나 절차는 두지 않는다. Release 태그는 gh release create 가 --target 커밋에 만들고, 로컬 백업 태그는 공개하지 않는다.
 
 옛 경로 — 폴더 게시 (기록으로 남긴다. Studio 경로에서는 쓰지 않는다):
 1. 관련 수정과 실패 재현·회귀 시험 완료. 운영 데이터와 설정은 소스에 포함하지 않는다.

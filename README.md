@@ -126,7 +126,7 @@ sh -n install.sh
 
 `ilson update`로 관리자·공용 도구·리서치의 배포 코드를 갱신합니다. `ilson update --check`는 확인만 하고, `ilson update --rollback`은 직전 코드를 복구합니다. 운영 데이터·로그인 정보·설정·예약 파일은 그대로 두며, 수정된 관리 파일이 있으면 덮어쓰지 않고 중단합니다.
 
-새로 설치한 맥은 주소를 정하지 않아도 공개 배포(GitHub Releases)에서 `ilson update`와 매일 09:30 자동 업데이트를 받습니다. 별도 주소를 쓰거나 박스를 다른 배포로 옮길 때만 설치할 때 `--feed <주소>`를 넣거나, 설치 후 `ilson update --feed <주소>`를 한 번 실행하세요. `ILSON_UPDATE_FEED=<주소> ilson update`처럼 환경 변수로 줘도 됩니다. 실제 실행이 한 번 성공하면 쓴 주소를 `~/ilson/.updates/feed`에 기억하므로 CLI를 다시 설치해도 유지됩니다.
+새로 설치한 맥은 주소를 정하지 않아도 공개 배포(GitHub Releases)에서 `ilson update`와 매일 09:30 자동 업데이트를 받습니다. 별도 주소를 쓰거나 박스를 다른 배포로 옮길 때만 설치할 때 `--feed <주소>`를 넣거나, 설치 후 `ilson update --feed <주소>`를 한 번 실행하세요. `ILSON_UPDATE_FEED=<주소> ilson update`처럼 환경 변수로 줘도 됩니다. 실제 실행이 한 번 성공하면 쓴 주소를 `~/ilson/.updates/feed`에 기억하므로 CLI를 다시 설치해도 유지됩니다. 이미 다른 주소를 쓰는 맥은 다시 설치해도 그 주소를 그대로 쓰므로, 공개 배포로 옮길 때는 `ilson update --feed https://github.com/jakeparkcolde/ilson-box/releases/latest/download/latest-v2.json`를 한 번 실행합니다.
 
 배포 절차는 [통합 업데이트 운영 기준](docs/integrated-update/OPERATIONS-2026-10-13.txt), 지난 적용 기록은 [안전 업데이트 기록](docs/safe-update/HANDOFF-2026-10-13.md)을 참고하세요.
 

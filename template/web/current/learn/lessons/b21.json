@@ -249,7 +249,7 @@
           [
             "「⚠️ 업데이트 주소 없음 — 자동 업데이트를 건너뜁니다. …」 (`ilson doctor`)",
             "일손박스가 새 버전을 받아 올 주소가 없어서 매일 업데이트를 건너뛰어요. 다른 일은 그대로 해요",
-            "오래된 일손 도구에서만 나오는 줄이에요. 일반 터미널에서 설치 명령을 한 번 다시 실행해요. 새 도구는 주소를 따로 받지 않아도 업데이트를 받고, 회사 노트와 연결 설정은 그대로예요"
+            "오래된 일손 도구에서만 나오는 줄이에요. 일반 터미널에 `ilson update --feed https://github.com/jakeparkcolde/ilson-box/releases/latest/download/latest-v2.json`을 붙여 넣고 return을 눌러요. 이때 업데이트도 한 번 바로 하고, 끝나면 주소를 기억해요"
           ],
           [
             "「✅ 멈춘 업무 … · 다시 켜기: ilson resume <업무명>」 (`ilson doctor`)",
