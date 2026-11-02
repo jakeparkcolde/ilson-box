@@ -1,8 +1,8 @@
 """공개 게시 전에 배포 ZIP과 manifest를 검사한다. 찾은 값은 출력하지 않고 파일·패턴 이름·횟수만 알린다.
 
 Each ZIP member is compared by bytes with the git tree at a commit. A member already in the public repository is
-checked for what must never ship, client names included; anything new also gets the softer checks. Client names stay outside git, in
-a denylist file, because this repository is public. Do not add a client or private term to this file.
+checked for what must never ship; anything new also gets the softer checks. Terms that must never ship stay outside git, in a
+denylist file, because this repository is public. Do not add a client or private term to this file.
 """
 import argparse
 import hashlib
@@ -98,7 +98,7 @@ class Report:
         for label, found in (('차단', self.blocks), ('참고', self.notes)):
             rows += ['[' + label + '] ' + where + ' · ' + pattern + ' · ' + str(count) + '회' for where, pattern, count in found]
         if not self.denylist_checked:
-            rows.append('[주의] 거래처 이름은 확인하지 않았습니다 (--no-denylist).')
+            rows.append('[주의] 차단 이름은 확인하지 않았습니다 (--no-denylist).')
         rows.append('결과: ' + ('차단 ' + str(len(self.blocks)) + '건' if self.blocked else '통과'))
         return rows
 
@@ -109,7 +109,7 @@ def load_denylist(path):
         # utf-8-sig: a BOM must not hide the term on the first line.
         text = Path(path).read_text(encoding='utf-8-sig')
     except FileNotFoundError:
-        raise DenylistError('거래처 이름 목록이 없어 확인하지 않았습니다: ' + str(path)) from None
+        raise DenylistError('차단 이름 목록이 없어 확인하지 않았습니다: ' + str(path)) from None
     terms = []
     for number, line in enumerate(text.splitlines(), 1):
         term = line.strip()
@@ -117,7 +117,7 @@ def load_denylist(path):
             forms = {unicodedata.normalize(form, term).encode() for form in ('NFC', 'NFD')}
             terms.append(('denylist-line-' + str(number), re.compile(b'|'.join(map(re.escape, sorted(forms))), re.I)))
     if not terms:
-        raise DenylistError('거래처 이름 목록이 비어 있어 확인하지 않았습니다: ' + str(path))
+        raise DenylistError('차단 이름 목록이 비어 있어 확인하지 않았습니다: ' + str(path))
     return terms
 
 
@@ -157,9 +157,19 @@ def path_allowed(name):
     return updater.allowed(area, path)
 
 
-def member_label(index, name):
+def member_label(index, name, kind='member'):
     # What the report prints when the finding is in the name: the name itself could be the value.
-    return 'member#' + str(index) + ' sha:' + hashlib.sha256(name.encode('utf-8', 'surrogateescape')).hexdigest()[:8]
+    return kind + '#' + str(index) + ' sha:' + hashlib.sha256(name.encode('utf-8', 'surrogateescape')).hexdigest()[:8]
+
+
+def name_findings(name, patterns):
+    found = hits(patterns, name.encode('utf-8', 'surrogateescape'))
+    return found + [('sensitive-path', 1)] if SENSITIVE_PATH.search(name) else found
+
+
+def same_form(name):
+    # git keeps a precomposed path while macOS can hand the build a decomposed one.
+    return unicodedata.normalize('NFC', name)
 
 
 def valid_pack_version(value):
@@ -228,13 +238,16 @@ def check(archive, manifest, commit='HEAD', denylist=DEFAULT_DENYLIST, use_denyl
         for info in z.infolist():
             if info.is_dir():
                 continue
-            name, data = info.filename, z.read(info)
+            name = info.filename
             names.append(name)
             report.members += 1
+            try:
+                data = z.read(info)
+            except Exception as exc:
+                # zipfile puts the member name in its messages.
+                raise ValueError('묶음 파일을 읽지 못했습니다: ' + member_label(report.members, name) + ' (' + type(exc).__name__ + ')') from None
             view = readable(data)
-            found = hits(HARD + SOFT + terms, name.encode('utf-8', 'surrogateescape'))
-            if SENSITIVE_PATH.search(name):
-                found.append(('sensitive-path', 1))
+            found = name_findings(name, HARD + SOFT + terms)
             if not path_allowed(name):
                 found.append(('path-not-allowed', 1))
             label = member_label(report.members, name) if found else name
@@ -246,8 +259,8 @@ def check(archive, manifest, commit='HEAD', denylist=DEFAULT_DENYLIST, use_denyl
                 block(label, [('nested-archive', 1)])
             # The stamped updater is public once its FEED line is cleared; the stamped address is checked on its own.
             body = updater.unstamp(data) if name == updater.UPDATER_KEY else data
-            shipped[name] = blob_id(body)
-            public = shipped[name] in blobs
+            shipped[same_form(name)] = blob_id(body)
+            public = shipped[same_form(name)] in blobs
             block(label, hits(HARD + terms, view))
             if public:
                 report.notes += [(label, pattern, count) for pattern, count in hits(SOFT, view)]
@@ -273,9 +286,10 @@ def check(archive, manifest, commit='HEAD', denylist=DEFAULT_DENYLIST, use_denyl
             block(labels.get(name, name), [(pattern, 1)])
     if exact_commit:
         # A cli member is its tracked file, so a file added after the build shows up here.
-        missing = [path for path, blob in tree.items() if updater.allowed('cli', path) and shipped.get('cli/' + path) != blob]
-        if missing:
-            block('commit ' + sha[:7], [('commit-file-not-in-stage', len(missing))])
+        for index, (path, blob) in enumerate(sorted(tree.items()), 1):
+            if updater.allowed('cli', path) and shipped.get(same_form('cli/' + path)) != blob:
+                # Tracked paths are public unless one of them holds a value.
+                block(member_label(index, path, 'commit-file') if name_findings(path, HARD + SOFT + terms) else path, [('commit-file-not-in-stage', 1)])
     try:
         listed = [item['area'] + '/' + item['path'] for item in release['files']]
     except (KeyError, TypeError):
@@ -300,8 +314,8 @@ def main(argv=None):
     p.add_argument('--commit', default='HEAD', help='commit whose tree counts as already public (default: HEAD)')
     p.add_argument('--exact-commit', action='store_true', help='block every member that is not at that commit (always on for publish_release)')
     lists = p.add_mutually_exclusive_group()
-    lists.add_argument('--denylist', type=Path, default=DEFAULT_DENYLIST, help='client names, UTF-8, one per line, # comments')
-    lists.add_argument('--no-denylist', action='store_true', help='scan without client names')
+    lists.add_argument('--denylist', type=Path, default=DEFAULT_DENYLIST, help='terms that must never ship, UTF-8, one per line, # comments')
+    lists.add_argument('--no-denylist', action='store_true', help='scan without that list (rehearsals only)')
     a = p.parse_args(argv)
     try:
         report = check(a.archive, a.manifest, a.commit, a.denylist, not a.no_denylist, exact_commit=a.exact_commit)

@@ -7,6 +7,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 import subprocess
 import tempfile
+import unicodedata
 import unittest
 from unittest.mock import patch
 import zipfile
@@ -231,7 +232,31 @@ class CheckPublicTests(unittest.TestCase):
         (self.repo / 'template/web/added.txt').write_text('added after the build\n')
         self.commit('later file')
         report = self.exact(*self.stage(rows))
-        self.assertEqual([(p, n) for _, p, n in report.blocks], [('commit-file-not-in-stage', 1)])
+        self.assertEqual(report.blocks, [('template/web/added.txt', 'commit-file-not-in-stage', 1)])
+        self.assertIn('[차단] template/web/added.txt · commit-file-not-in-stage · 1회', report.lines())
+
+    def test_빠진_추적파일의_이름에_값이_있으면_가린다(self):
+        self.track_web_file()
+        rows = self.committed_rows()
+        (self.repo / 'template/web' / (CLIENT + '.txt')).write_text('added after the build\n')
+        self.commit('later file')
+        report = self.exact(*self.stage(rows))
+        printed = '\n'.join(report.lines())
+        self.assertRegex(printed, r'\[차단\] commit-file#\d+ sha:[0-9a-f]{8} · commit-file-not-in-stage · 1회')
+        self.assertNotIn(CLIENT, printed)
+
+    def test_분해형_이름의_파일도_같은_파일로_본다(self):
+        composed, decomposed = (unicodedata.normalize(form, '한글자료.txt') for form in ('NFC', 'NFD'))
+        self.assertNotEqual(composed, decomposed)
+        self.track_web_file()
+        self.git('-c', 'core.precomposeunicode=true', 'config', 'core.precomposeunicode', 'true')
+        (self.repo / 'template/web' / composed).write_text('named in Korean\n')
+        self.commit('korean name')
+        tracked = subprocess.run(['git', 'ls-tree', '-r', '-z', '--name-only', 'HEAD'], cwd=self.repo, capture_output=True).stdout.decode().split('\0')
+        self.assertIn('template/web/' + composed, tracked)
+        rows = dict(self.committed_rows(), **{'cli/template/web/' + decomposed: b'named in Korean\n'})
+        report = self.exact(*self.stage(rows))
+        self.assertFalse(report.blocked, report.blocks)
 
     def test_커밋되지_않은_내용을_담은_allow_dirty_묶음은_막는다(self):
         self.track_web_file()
@@ -408,6 +433,23 @@ class CheckPublicTests(unittest.TestCase):
         manifest.write_text('not json')
         self.assertIn(('release-9.9.json', 'manifest-format'), self.patterns(self.check(archive, manifest).blocks))
 
+    def test_읽을_수_없는_묶음의_오류에_이름을_쓰지_않는다(self):
+        name = 'cli/template/web/' + CLIENT + '.txt'
+        archive, manifest = self.stage({name: b'stored bytes to damage'})
+        raw = bytearray(archive.read_bytes())
+        at = raw.index(b'stored bytes')
+        raw[at] ^= 0xff
+        archive.write_bytes(bytes(raw))
+        with self.assertRaises(ValueError) as refused:
+            self.check(archive, manifest)
+        self.assertRegex(str(refused.exception), r'member#1 sha:[0-9a-f]{8} \(BadZipFile\)')
+        self.assertNotIn(CLIENT, str(refused.exception))
+        self.assertIsNone(refused.exception.__cause__)
+        self.assertTrue(refused.exception.__suppress_context__)
+        with self.assertRaises(SystemExit) as stop:
+            c.main([str(archive), str(manifest), '--denylist', str(self.denylist)])
+        self.assertNotIn(CLIENT, str(stop.exception.code))
+
     def test_찾은_값은_출력하지_않는다(self):
         text = (MAIL + ' ' + PERSON + ' ' + CLIENT + ' ' + TOKEN + ' https://' + PRIVATE_HOST + '/\n').encode()
         printed = '\n'.join(self.check(*self.stage({'cli/template/web/new.txt': text})).lines())
@@ -416,7 +458,6 @@ class CheckPublicTests(unittest.TestCase):
             self.assertNotIn(secret, printed)
 
     def test_한글_이름은_정규화_형식이_달라도_찾는다(self):
-        import unicodedata
         text = unicodedata.normalize('NFD', CLIENT).encode()
         self.assertIn('denylist-line-3', {p for _, p, _ in self.check(*self.stage({'cli/template/web/new.txt': text})).blocks})
         self.denylist.write_text('AcMe\n', encoding='utf-8')
@@ -433,7 +474,7 @@ class CheckPublicTests(unittest.TestCase):
                     self.check(*rows, denylist=path)
         report = self.check(*rows, denylist=self.tmp / 'absent.txt', use_denylist=False)
         self.assertFalse(report.blocked)
-        self.assertIn('거래처 이름은 확인하지 않았습니다', '\n'.join(report.lines()))
+        self.assertIn('차단 이름은 확인하지 않았습니다', '\n'.join(report.lines()))
         # The hint belongs to the command line: publish_release has no way around the list.
         for name in ('absent.txt', 'empty.txt'):
             with self.assertRaises(c.DenylistError) as refused:
@@ -453,7 +494,7 @@ class CheckPublicTests(unittest.TestCase):
             code = c.main([str(archive), str(manifest), '--no-denylist'])
         # The repository under test here is the real checkout, where this member is new but clean.
         self.assertEqual(code, 0, out.getvalue())
-        self.assertIn('거래처 이름은 확인하지 않았습니다', out.getvalue())
+        self.assertIn('차단 이름은 확인하지 않았습니다', out.getvalue())
         archive, manifest = self.stage({'cli/template/web/new.txt': b'key ' + TOKEN.encode()})
         with redirect_stdout(io.StringIO()):
             self.assertEqual(c.main([str(archive), str(manifest), '--no-denylist']), 1)

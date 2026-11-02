@@ -427,7 +427,7 @@ class GitHubPublishTests(unittest.TestCase):
         self.assertEqual(self.hub.calls, [])
 
     def test_거래처_목록이_없으면_gh를_부르지_않는다(self):
-        self.check.side_effect = ValueError('거래처 이름 목록이 없어 확인하지 않았습니다')
+        self.check.side_effect = ValueError('차단 이름 목록이 없어 확인하지 않았습니다')
         with self.assertRaisesRegex(ValueError, '확인하지 않았습니다'):
             self.create()
         self.assertEqual(self.hub.calls, [])

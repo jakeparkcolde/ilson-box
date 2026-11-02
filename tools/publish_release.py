@@ -186,7 +186,7 @@ def main(argv=None):
     p.add_argument('--stamped-feed',help='feed URL the updater must carry (default: --base/latest-v2.json; set only for a domain move)')
     p.add_argument('--github',metavar='OWNER/REPO',help='publish as a GitHub prerelease instead of into a folder')
     p.add_argument('--promote',action='store_true',help='with --github: move Latest to the release already uploaded')
-    p.add_argument('--denylist',type=Path,help='with --github: client name list for the public check')
+    p.add_argument('--denylist',type=Path,help='with --github: list of terms that must never ship, for the public check')
     a=p.parse_args(argv)
     if a.github is None:
         if a.promote or a.denylist:p.error('--promote, --denylist 는 --github 와 함께 씁니다')
