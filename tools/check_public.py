@@ -20,10 +20,14 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('public_updater', ROOT / 'tools/update.py')
 updater = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(updater)
+spec = importlib.util.spec_from_file_location('public_refresher', ROOT / 'tools/refresh_pack.py')
+refresher = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(refresher)
 
 DEFAULT_DENYLIST = Path.home() / '.config/ilson/public-denylist.txt'
 # The pack's own files, kept from the previous pack rather than the repository (tools/refresh_pack.py).
 PACK_ONLY = ('README.txt', 'manifest.json', 'serve.py', 'start.sh')
+PACK_PINS = 'tools/pack-only-pins.json'
 SENSITIVE_PATH = re.compile(r'(?i)(^|/)(\.env[^/]*|state|vault|logs|credentials[^/]*|tokens?\.json|\.ssh|\.git|id_rsa[^/]*'
                             r'|auth\.json|cookies\.txt|\.netrc|\.npmrc|pairing\.json|jobs\.conf|job-settings\.json|settings\.local\.json'
                             r'|[^/]*\.sqlite3?|[^/]*\.db|[^/]*\.pem|[^/]*\.key|[^/]*\.p12)(/|$)')
@@ -158,9 +162,43 @@ def member_label(index, name):
     return 'member#' + str(index) + ' sha:' + hashlib.sha256(name.encode('utf-8', 'surrogateescape')).hexdigest()[:8]
 
 
-def pack_only_members(release):
-    version = release.get('research_version') if isinstance(release, dict) else None
-    return {'box/packs/research/' + version + '/' + name for name in PACK_ONLY} if isinstance(version, str) and version else set()
+def valid_pack_version(value):
+    # The rule build_release applies to a pack version.
+    return isinstance(value, str) and re.fullmatch('[0-9.]+', value) is not None
+
+
+def read_pins(root, sha):
+    # From the commit, not the working tree: a pin nobody committed proves nothing.
+    shown = subprocess.run(['git', 'show', sha + ':' + PACK_PINS], cwd=root, capture_output=True)
+    try:
+        pins = json.loads(shown.stdout) if shown.returncode == 0 else None
+    except ValueError:
+        return None
+    return pins if isinstance(pins, dict) and set(pins) == set(PACK_ONLY) - {'manifest.json'} else None
+
+
+def pack_manifest_ok(data, version):
+    # Not pinned, because its version changes with every release.
+    try:
+        manifest = json.loads(data)
+    except ValueError:
+        return False
+    return isinstance(manifest, dict) and set(manifest) == refresher.MANIFEST_KEYS and manifest['id'] == 'research' and manifest['version'] == version
+
+
+def pack_problems(prefix, version, files, pins):
+    # The pack's own files are the only release bytes outside the commit, so tie them to it another way.
+    found = []
+    for name in PACK_ONLY:
+        data = files.get(prefix + name)
+        if data is None:
+            found.append((prefix + name, 'pack-file-missing'))
+        elif name == 'manifest.json':
+            if not pack_manifest_ok(data, version):
+                found.append((prefix + name, 'pack-manifest'))
+        elif pins is None or pins[name] != updater.digest(data):
+            found.append((prefix + name, 'pack-file-not-pinned'))
+    return found
 
 
 def check(archive, manifest, commit='HEAD', denylist=DEFAULT_DENYLIST, use_denylist=True, root=ROOT, exact_commit=False):
@@ -180,8 +218,12 @@ def check(archive, manifest, commit='HEAD', denylist=DEFAULT_DENYLIST, use_denyl
         release = json.loads(raw)
     except ValueError:
         release = None
-    pack_only = pack_only_members(release)
-    names, shipped = [], {}
+    version = release.get('research_version') if isinstance(release, dict) else None
+    if version is not None and not valid_pack_version(version):
+        block(listing, [('research-version', 1)])
+    prefix = 'box/packs/research/' + version + '/' if valid_pack_version(version) else None
+    pack_only = {prefix + name for name in PACK_ONLY} if prefix else set()
+    names, shipped, pack_files, labels = [], {}, {}, {}
     with zipfile.ZipFile(io.BytesIO(bundle)) as z:
         for info in z.infolist():
             if info.is_dir():
@@ -196,6 +238,9 @@ def check(archive, manifest, commit='HEAD', denylist=DEFAULT_DENYLIST, use_denyl
             if not path_allowed(name):
                 found.append(('path-not-allowed', 1))
             label = member_label(report.members, name) if found else name
+            labels[name] = label
+            if name in pack_only:
+                pack_files[name] = data
             block(label, found)
             if data[:2] == GZIP_MAGIC or data[:4] in ZIP_MAGICS:
                 block(label, [('nested-archive', 1)])
@@ -220,6 +265,12 @@ def check(archive, manifest, commit='HEAD', denylist=DEFAULT_DENYLIST, use_denyl
                     if feed not in body:
                         block(label + ' FEED', hits(SOFT, feed))
     block(listing, hits(HARD + SOFT + terms, readable(raw)))
+    if exact_commit and prefix:
+        pins = read_pins(root, sha)
+        if pins is None:
+            block(PACK_PINS, [('pack-pins-unreadable', 1)])
+        for name, pattern in pack_problems(prefix, version, pack_files, pins):
+            block(labels.get(name, name), [(pattern, 1)])
     if exact_commit:
         # A cli member is its tracked file, so a file added after the build shows up here.
         missing = [path for path, blob in tree.items() if updater.allowed('cli', path) and shipped.get('cli/' + path) != blob]

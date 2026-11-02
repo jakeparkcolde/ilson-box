@@ -244,16 +244,94 @@ class CheckPublicTests(unittest.TestCase):
         report = self.exact(*self.stage(dict(self.committed_rows(), **ignored)))
         self.assertEqual(self.not_in_commit(report), set(ignored))
 
-    def test_팩_전용_파일은_이번_팩_버전에서만_예외다(self):
+    PACK = 'box/packs/research/0.16.9/'
+    PACK_FILES = {'README.txt': b'pack readme\n', 'serve.py': b'print("serve")\n', 'start.sh': b'#!/bin/sh\n'}
+    PACK_MANIFEST = {'id': 'research', 'version': '0.16.9', 'requires': [], 'llm_one_of': [], 'optional': []}
+
+    def pack_rows(self, **changes):
+        rows = dict(self.committed_rows(), **{self.PACK + name: data for name, data in self.PACK_FILES.items()})
+        rows[self.PACK + 'manifest.json'] = json.dumps(self.PACK_MANIFEST).encode()
+        for name, data in changes.items():
+            key = self.PACK + name.replace('_', '.')
+            if data is None:
+                del rows[key]
+            else:
+                rows[key] = data
+        return rows
+
+    def pin_pack(self, pins=None):
         self.track_web_file()
-        pack = 'box/packs/research/0.16.9/'
-        rows = dict(self.committed_rows(), **{pack + name: b'pack file ' + name.encode() for name in ('README.txt', 'manifest.json', 'serve.py', 'start.sh')})
+        (self.repo / 'tools/pack-only-pins.json').write_text(json.dumps(pins if pins is not None else {n: u.digest(d) for n, d in self.PACK_FILES.items()}))
+        self.commit('pins')
+
+    def pack_findings(self, rows):
+        return {(w.rsplit('/', 1)[-1], p) for w, p, _ in self.exact(*self.stage(rows, {'research_version': '0.16.9'})).blocks}
+
+    def test_팩_전용_파일은_이번_팩_버전에서만_예외다(self):
+        self.pin_pack()
+        pack = self.PACK
+        rows = self.pack_rows()
         extra = {'research_version': '0.16.9'}
-        self.assertFalse(self.exact(*self.stage(rows, extra)).blocked)
+        report = self.exact(*self.stage(rows, extra))
+        self.assertFalse(report.blocked, report.blocks)
         self.assertEqual(len(self.not_in_commit(self.exact(*self.stage(rows)))), 4)
         self.assertEqual(len(self.not_in_commit(self.exact(*self.stage(rows, {'research_version': '0.16.8'})))), 4)
         other = dict(rows, **{pack + 'engine.py': b'X=1\n', 'box/packs/research/0.16.8/serve.py': b'old pack\n'})
         self.assertEqual(self.not_in_commit(self.exact(*self.stage(other, extra))), {pack + 'engine.py', 'box/packs/research/0.16.8/serve.py'})
+
+    def test_팩_전용_파일은_고정한_해시와_같아야_한다(self):
+        self.pin_pack()
+        for name in ('README.txt', 'serve.py', 'start.sh'):
+            with self.subTest(name):
+                self.assertEqual(self.pack_findings(self.pack_rows(**{name.replace('.', '_'): b'changed\n'})), {(name, 'pack-file-not-pinned')})
+
+    def test_팩_파일이_빠지면_막는다(self):
+        self.pin_pack()
+        for name in ('README.txt', 'manifest.json', 'serve.py', 'start.sh'):
+            with self.subTest(name):
+                rows = self.pack_rows(**{name.replace('.', '_'): None})
+                self.assertEqual(self.pack_findings(rows), {(name, 'pack-file-missing')})
+
+    def test_고정_해시를_커밋에서_읽는다(self):
+        self.track_web_file()
+        rows = self.pack_rows()
+        # An uncommitted pin file counts for nothing.
+        (self.repo / 'tools/pack-only-pins.json').write_text(json.dumps({n: u.digest(d) for n, d in self.PACK_FILES.items()}))
+        self.assertIn(('pack-only-pins.json', 'pack-pins-unreadable'), self.pack_findings(rows))
+        for bad in ('not json', '[]', '{"README.txt": "x"}'):
+            with self.subTest(bad):
+                (self.repo / 'tools/pack-only-pins.json').write_text(bad)
+                self.commit('bad pins ' + bad)
+                self.assertIn(('pack-only-pins.json', 'pack-pins-unreadable'), self.pack_findings(rows))
+
+    def test_팩_manifest는_키와_버전을_확인한다(self):
+        self.pin_pack()
+        cases = {'extra key': dict(self.PACK_MANIFEST, sha256={}), 'missing key': {k: v for k, v in self.PACK_MANIFEST.items() if k != 'optional'},
+                 'other version': dict(self.PACK_MANIFEST, version='0.16.8'), 'other pack': dict(self.PACK_MANIFEST, id='motion')}
+        for name, manifest in cases.items():
+            with self.subTest(name):
+                rows = self.pack_rows(manifest_json=json.dumps(manifest).encode())
+                self.assertEqual(self.pack_findings(rows), {('manifest.json', 'pack-manifest')})
+        for data in (b'not json', b'[]'):
+            self.assertEqual(self.pack_findings(self.pack_rows(manifest_json=data)), {('manifest.json', 'pack-manifest')})
+
+    def test_저장소의_고정_해시_파일(self):
+        pins = json.loads((ROOT / 'tools/pack-only-pins.json').read_text())
+        self.assertEqual(set(pins), {'README.txt', 'serve.py', 'start.sh'})
+        for value in pins.values():
+            self.assertRegex(value, '^[0-9a-f]{64}$')
+        self.assertFalse(u.allowed('cli', 'tools/pack-only-pins.json'), 'the pin file does not ship')
+
+    def test_잘못된_research_version은_예외로_쓰지_않는다(self):
+        self.pin_pack()
+        for bad in ('../..', '0.16.9/../x', '0.16.x', '0.16.9\n', '', 16):
+            with self.subTest(bad=bad):
+                rows = dict(self.committed_rows(), **{'box/packs/research/0.16.9/serve.py': self.PACK_FILES['serve.py']})
+                report = self.exact(*self.stage(rows, {'research_version': bad}))
+                found = {p for _, p, _ in report.blocks}
+                self.assertIn('research-version', found)
+                self.assertIn('not-in-commit', found)
+                self.assertIn('research-version', {p for _, p, _ in self.check(*self.stage(rows, {'research_version': bad})).blocks})
 
     def test_명령행에서_커밋_고정을_켠다(self):
         archive, manifest = self.stage({'cli/template/web/new.txt': b'not in this repository\n'})
