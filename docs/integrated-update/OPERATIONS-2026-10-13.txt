@@ -26,7 +26,7 @@
    python3 tools/build_release.py --output <빈 스테이징 폴더> --version <증가한 Box 버전> --pack <새 팩.zip> --preserve-from <입력 폴더>/latest-v2.json
    - 배포 ZIP에는 팩의 install.sh 가 없다. build_release 가 빼기 때문이고, 새 팩에 없어도 정상이다.
 3. 공개 검사. 차단이 하나라도 있으면 게시하지 않는다. 값은 출력하지 않고 파일·패턴·횟수만 알린다.
-   python3 tools/check_public.py <스테이징 폴더>/ilson-box-<버전>.zip <스테이징 폴더>/release-<버전>.json
+   python3 tools/check_public.py <스테이징 폴더>/ilson-box-<버전>.zip <스테이징 폴더>/release-<버전>.json --exact-commit
    - 차단 이름 목록은 저장소 밖 ~/.config/ilson/public-denylist.txt 에 둔다(UTF-8, 한 줄에 하나, # 주석). 공개 저장소이므로 목록의 이름을 코드에 쓰지 않는다. 없거나 비어 있으면 검사를 거부한다. check_public 의 --no-denylist 는 시험 빌드에만 쓰고, publish_release 에는 이 선택지가 없다.
    - 목록에는 배포에 절대 들어가면 안 되는 이름만 쓴다. 자사 브랜드와 저장소 소유자 이름은 넣지 않는다.
    - 목록의 이름은 이미 공개된 파일에 있어도 차단한다. 배포 코드에 이미 있는 이름을 넣으면 코드에서 지울 때까지 모든 배포가 막힌다. 새 목록은 믿고 쓰기 전에 check_public 으로 먼저 시험한다.
@@ -58,7 +58,7 @@
    git push origin main
 7. ilson update를 실행한 설치본에서 /api/health.release 및 적용 완료 확인.
 
-되돌리기: update.py 는 낮은 버전을 거부하므로 Latest를 예전 버전으로 돌려도 기기는 내려가지 않는다. publish_release도 Latest를 낮추지 않는다. 고친 코드 또는 되돌린 코드를 더 높은 버전으로 다시 낸다. 기기 한 대의 코드 복구는 ilson update --rollback 이지만 유지되지 않는다. 다음 ilson update 와 09:30 자동 업데이트가 Latest를 다시 적용하므로, 나쁜 배포의 진짜 해결은 더 높은 버전이고 --rollback 은 그때까지의 짧은 임시 조치다. 옛 주소가 기록되어 있던 기기를 --feed 로 옮긴 뒤 --rollback 하면 그 기록 주소가 돌아와 저장된 주소보다 앞서므로, ilson update --feed <기본 주소> 를 다시 실행한다. 태그를 push하는 코드나 절차는 두지 않는다. Release 태그는 gh release create 가 --target 커밋에 만들고, 로컬 백업 태그는 공개하지 않는다.
+되돌리기: update.py 는 낮은 버전을 거부하므로 Latest를 예전 버전으로 돌려도 기기는 내려가지 않는다. publish_release도 Latest를 낮추지 않는다. 고친 코드 또는 되돌린 코드를 더 높은 버전으로 다시 낸다. 기기 한 대의 코드 복구는 ilson update --rollback 이지만 유지되지 않는다. 다음 ilson update 와 09:30 자동 업데이트가 Latest를 다시 적용하므로, 나쁜 배포의 진짜 해결은 더 높은 버전이고 --rollback 은 그때까지의 짧은 임시 조치다. 단, 옛 주소가 기록되어 있던 기기를 --feed 로 옮긴 뒤 첫 공개 배포를 --rollback 하면 그 기록 주소가 돌아와 저장된 주소보다 앞선다. 이 기기는 옛 주소로 돌아가고 Latest가 다시 적용되지 않으므로, ilson update --feed <기본 주소> 를 다시 실행한다. 태그를 push하는 코드나 절차는 두지 않는다. Release 태그는 gh release create 가 --target 커밋에 만들고, 로컬 백업 태그는 공개하지 않는다.
 
 옛 경로 — 폴더 게시 (기록으로 남긴다. 현재 경로에서는 쓰지 않는다):
 1. 관련 수정과 실패 재현·회귀 시험 완료. 운영 데이터와 설정은 소스에 포함하지 않는다.
@@ -89,6 +89,7 @@
 - CLI와 관리자는 배포 manifest 화이트리스트 파일만 교체한다. vault, state, credentials, 사용자 설정, 예약 설정, 업무 SQLite는 배포 파일에 포함하지 않는다.
 - .updates에는 코드 백업·배포 장부·활성화 상태, .runtime에는 전용 Python 환경만 기록한다.
 - 실행 요청과 작업 스레드는 runtime_gate 공유 잠금을 잡는다. updater는 배타 잠금과 업무 장부 유휴 확인 후 관리자만 중지/갱신/재시작한다. 진행·대기 업무가 있으면 코드 교체 전에 거부한다. 꺼진 관리자는 임의로 켜지 않는다.
+- 적용 중 죽은 업데이트는 다음 ilson update 가 네트워크보다 먼저 이전 코드로 복구하고 이어서 진행한다. ilson update --check 와 --rollback 은 복구하지 않고 ilson update 를 안내한다. 복구에 실패하면 그렇게 알리고 멈춘다.
 - 관리자 활성화 실패는 pending으로 남기고 오류를 반환한다. 같은 ilson update를 다시 실행하면 재시도한다.
 - 관리자 재시작 후 브라우저 새로고침. 세션 재연결이 필요하면 ilson open. SNS/다른 예약 서비스를 재시작하지 않는다.
 - 이미지 라이브러리는 .runtime/venv에 설치하고 시스템 Python/사용자 Python 환경은 바꾸지 않는다. requirements 변경은 지원 목록을 함께 검토한다.
