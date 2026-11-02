@@ -131,6 +131,51 @@ class RefreshPackTests(unittest.TestCase):
             self.r.refresh(self.old_pack({'README.txt': '일손 리서치 팩 0.16.2\n'.encode()}, name='q.zip'), '0.16.2', self.tmp / 'q-out.zip')
         self.assertNotIn('README.txt', quiet.getvalue())
 
+    def release_zip(self, versions, name='release.zip', extra=None):
+        # A Box release ZIP: the pack sits under box/packs/research/<version>/, without its install.sh.
+        rows = {'cli/ilson': b'#', 'box/CLAUDE.md': b'#'}
+        for version in versions:
+            with zipfile.ZipFile(self.old_pack(manifest=dict(MANIFEST, version=version), name='p' + version + '.zip')) as z:
+                rows.update({'box/packs/research/' + version + '/' + i.filename: z.read(i) for i in z.infolist()})
+        rows.update(extra or {})
+        path = self.tmp / name
+        with zipfile.ZipFile(path, 'w') as z:
+            for key, data in rows.items():
+                z.writestr(key, data)
+        return path
+
+    def test_배포묶음_ZIP에서도_팩을_읽는다(self):
+        out = self.tmp / 'new.zip'
+        with redirect_stdout(io.StringIO()):
+            self.r.refresh(self.release_zip(['0.15.3']), '0.16.2', out)
+        with zipfile.ZipFile(out) as z:
+            names = set(z.namelist())
+            self.assertEqual(json.loads(z.read('manifest.json')), dict(MANIFEST, version='0.16.2'))
+            self.assertEqual(z.read('serve.py'), b'print("serve")\n')
+            self.assertEqual(z.getinfo('start.sh').external_attr >> 16, 0o100755)
+            self.assertEqual(z.getinfo('serve.py').external_attr >> 16, 0o100644)
+            self.assertNotIn('install.sh', names)
+            self.assertNotIn('obsolete_helper.py', names)
+            self.assertFalse([n for n in names if n.startswith(('box/', 'cli/'))])
+        builder = load('refresh_release_builder', ROOT / 'tools/build_release.py')
+        self.assertEqual(builder.build(self.tmp / 'stage', '9999.8', out, FEED)['research_version'], '0.16.2')
+
+    def test_배포묶음에_팩이_여럿이면_거부한다(self):
+        out = self.tmp / 'several.zip'
+        with self.assertRaisesRegex(ValueError, '0.15.3, 0.15.4'):
+            self.r.refresh(self.release_zip(['0.15.3', '0.15.4']), '0.16.2', out)
+        self.assertFalse(out.exists())
+
+    def test_팩이_없는_배포묶음과_팩폴더가_섞인_팩은_거부한다(self):
+        with self.assertRaises(ValueError):
+            self.r.refresh(self.release_zip([]), '0.16.2', self.tmp / 'none.zip')
+        mixed = self.old_pack({'box/packs/research/0.15.3/manifest.json': json.dumps(MANIFEST).encode()}, name='mixed.zip')
+        with self.assertRaisesRegex(ValueError, '하위 폴더'):
+            self.r.refresh(mixed, '0.16.2', self.tmp / 'mixed-out.zip')
+        unsafe = self.release_zip(['0.15.3'], name='unsafe.zip', extra={'box/packs/research/0.15.3/lib/extra.py': b'X=1\n'})
+        with self.assertRaisesRegex(ValueError, '하위 폴더'):
+            self.r.refresh(unsafe, '0.16.2', self.tmp / 'unsafe-out.zip')
+
     def test_기존_출력파일은_덮어쓰지않는다(self):
         out = self.tmp / 'new.zip'
         out.write_bytes(b'keep')

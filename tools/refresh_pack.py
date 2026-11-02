@@ -3,6 +3,9 @@
 The repository template is the source of truth for the pack's code: template/lib/research/*.py ships as the
 top-level modules and template/web/current/pack-library/* as web/*. Only the pack's own files (serve.py,
 start.sh, README.txt, ...) come from the previous pack. build_release refuses any pack that differs.
+
+--from also takes a Box release ZIP, which carries the pack under box/packs/research/<version>/. Such a pack has
+no install.sh, because build_release leaves it out of releases; the new pack is then without one too.
 """
 import argparse
 import ast
@@ -21,6 +24,7 @@ spec.loader.exec_module(builder)
 # The research pack manifest as of 0.16.1. It holds no file hashes; an unknown key means an unknown format.
 MANIFEST_KEYS = {'id', 'version', 'requires', 'llm_one_of', 'optional'}
 REQUIRED = ('manifest.json', 'serve.py')
+RELEASE_MANIFEST = re.compile(r'box/packs/research/([^/]+)/manifest\.json\Z')
 DATE = (2026, 1, 1, 0, 0, 0)
 
 
@@ -56,12 +60,25 @@ def allowed_web_files(serve):
     return None
 
 
+def release_prefix(names):
+    # '' for a pack ZIP, which keeps its files at the root; the pack folder for a Box release ZIP.
+    if 'manifest.json' in names:
+        return ''
+    versions = sorted({found.group(1) for found in map(RELEASE_MANIFEST.match, names) if found})
+    if len(versions) > 1:
+        raise ValueError('배포 묶음에 리서치 팩 버전이 여럿 있습니다: ' + ', '.join(versions))
+    return 'box/packs/research/' + versions[0] + '/' if versions else ''
+
+
 def read_previous(pack):
     # Returns {name: (data, unix mode)} for the previous pack, refusing anything outside the known layout.
     files = {}
     with zipfile.ZipFile(pack) as z:
+        prefix = release_prefix(z.namelist())
         for info in z.infolist():
-            name = info.filename
+            if not info.filename.startswith(prefix):
+                continue
+            name = info.filename[len(prefix):]
             parts = name.rstrip('/').split('/')
             if name.startswith('/') or '\\' in name or any(p in ('', '.', '..') for p in parts):
                 raise ValueError('알 수 없는 팩 경로: ' + name)
@@ -76,7 +93,8 @@ def read_previous(pack):
                 raise ValueError('알 수 없는 팩 구성(web/ 밖의 하위 폴더): ' + name)
             if name in files:
                 raise ValueError('팩에 같은 파일이 두 번 있습니다: ' + name)
-            files[name] = (z.read(info), mode & 0o777 or 0o644)
+            # A release ZIP does not keep pack modes, so use the ones update.py gives these files on a box.
+            files[name] = (z.read(info), (0o755 if name.endswith('.sh') else 0o644) if prefix else mode & 0o777 or 0o644)
     missing = [name for name in REQUIRED if name not in files]
     if missing:
         raise ValueError('팩 필수 파일이 없습니다: ' + ', '.join(missing))
@@ -125,7 +143,7 @@ def refresh(previous, version, output):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description='Refresh a research pack from the current template sources.')
-    p.add_argument('--from', dest='previous', type=Path, required=True, help='previous verified pack ZIP')
+    p.add_argument('--from', dest='previous', type=Path, required=True, help='previous verified pack ZIP, or the previous Box release ZIP')
     p.add_argument('--version', required=True, help='new pack version, greater than the previous one')
     p.add_argument('--output', type=Path, required=True, help='new pack ZIP (must not exist)')
     a = p.parse_args(argv)
