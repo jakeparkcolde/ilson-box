@@ -502,6 +502,40 @@ class GitHubPublishTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, '예상과 다릅니다.*' + word):
                     self.create()
 
+    def test_거부된_릴리스는_다시_실행해도_승격해도_거부한다(self):
+        # An earlier refusal leaves the release on GitHub, so nothing may treat it as good later.
+        def elsewhere(tag):
+            self.hub.tags[tag] = 'f' * 40
+        def full(tag):
+            self.hub.prerelease[tag] = False
+        for word, damage in (('태그 커밋', elsewhere), ('사전 공개', full)):
+            with self.subTest(word=word):
+                self.hub = FakeGitHub(self.REPO)
+                self.hub.after_create = damage
+                with self.assertRaisesRegex(ValueError, word):
+                    self.create()
+                self.hub.after_create = None
+                with self.assertRaisesRegex(ValueError, word):
+                    self.create()
+                with self.assertRaisesRegex(ValueError, word):
+                    self.promote()
+                self.assertEqual(self.hub.of('release', 'edit'), [])
+                self.assertIsNone(self.hub.latest)
+
+    def test_Latest_올리기는_HEAD의_태그만_받는다(self):
+        self.create()
+        with patch.object(self.publisher, 'head_commit', return_value='e' * 40), self.assertRaisesRegex(ValueError, '태그 커밋'):
+            self.promote()
+        self.assertEqual(self.hub.of('release', 'edit'), [])
+
+    def test_이미_Latest면_HEAD가_달라도_바이트만_확인한다(self):
+        self.create()
+        self.promote()
+        self.hub.calls.clear()
+        with patch.object(self.publisher, 'head_commit', return_value='e' * 40):
+            self.assertIn('이미 Latest', self.promote())
+        self.assertEqual(self.hub.of('release'), [])
+
     def test_스테이징이_검사중에_바뀌어도_검사한_바이트를_올린다(self):
         stage = Path(self.tmp.name) / 'stage-copy'
         shutil.copytree(self.stage, stage)
@@ -534,7 +568,7 @@ class GitHubPublishTests(unittest.TestCase):
         with patch.object(self.publisher.subprocess, 'run') as run:
             self.publisher.run_gh(['api', 'x'])
         self.assertEqual(run.call_args.kwargs['timeout'], self.publisher.GH_TIMEOUT)
-        for error in (OSError('disk'), zipfile.BadZipFile('bad')):
+        for error in (OSError('disk'), zipfile.BadZipFile('bad'), KeyError('version')):
             with patch.object(self.publisher, 'create_release', side_effect=error), self.assertRaises(SystemExit) as stop:
                 self.publisher.main(['--stage', 's', '--github', self.REPO])
             self.assertIn('게시하지 않았습니다', str(stop.exception.code))

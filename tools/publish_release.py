@@ -96,17 +96,23 @@ def same_copy(paths,assets):
 def verify_names(tag,release,assets):
     if sorted(a['name'] for a in release.get('assets',[]))!=sorted(assets):raise ValueError('릴리스의 파일 구성이 다릅니다: '+tag)
 
-def confirm_created(gh,repo,tag,assets,sha,latest):
-    # gh exiting 0 is not proof. Read back what GitHub now holds before anyone can promote it.
-    release=gh_read(gh,'repos/'+repo+'/releases/tags/'+tag) or {}
+def release_problems(gh,repo,tag,release,sha):
+    # What must hold before a release can become Latest. Read back from GitHub every time: an earlier refusal leaves
+    # the release in place, so a rerun has to refuse it again.
     ref=gh_read(gh,'repos/'+repo+'/git/ref/tags/'+tag) or {}
-    current=gh_read(gh,'repos/'+repo+'/releases/latest') or {}
     wrong=[]
-    if sorted(a['name'] for a in release.get('assets',[]))!=sorted(assets):wrong.append('파일 구성')
     if release.get('prerelease') is not True:wrong.append('사전 공개 상태')
     if (ref.get('object') or {}).get('sha')!=sha:wrong.append('태그 커밋')
+    return wrong
+
+def confirm_release(gh,repo,tag,assets,sha,latest):
+    # gh exiting 0 is not proof, and neither is a release left by an earlier run.
+    release=gh_read(gh,'repos/'+repo+'/releases/tags/'+tag) or {}
+    current=gh_read(gh,'repos/'+repo+'/releases/latest') or {}
+    wrong=release_problems(gh,repo,tag,release,sha)
+    if sorted(a['name'] for a in release.get('assets',[]))!=sorted(assets):wrong.append('파일 구성')
     if current.get('tag_name')!=(latest or {}).get('tag_name'):wrong.append('Latest')
-    if wrong:raise ValueError('만든 릴리스가 예상과 다릅니다. Latest로 올리지 말고 GitHub에서 확인하세요: '+', '.join(wrong))
+    if wrong:raise ValueError('릴리스가 예상과 다릅니다. Latest로 올리지 말고 GitHub에서 확인하세요: '+', '.join(wrong))
 
 def verify_release(repo,tag,release,assets,fetch):
     # Anonymous, the way a box reads it: no gh and no token. A difference here means the release must not be used.
@@ -149,8 +155,7 @@ def upload_checked(r,assets,paths,repo,gh,denylist):
                    '--title','ilson-box '+version,'--notes','Box '+version+' · research '+str(r['research_version'])])
         same_copy(paths,assets)
         if result.returncode:raise ValueError('릴리스를 만들지 못했습니다: '+gh_error(result))
-        confirm_created(gh,repo,tag,assets,sha,latest)
-    else:verify_names(tag,release,assets)
+    confirm_release(gh,repo,tag,assets,sha,latest)
 
 def promote_release(stage,repo,gh=run_gh,fetch=tool.fetch,sleep=time.sleep,attempts=6,wait=5):
     r,assets=github_stage(stage,repo)
@@ -162,6 +167,8 @@ def promote_release(stage,repo,gh=run_gh,fetch=tool.fetch,sleep=time.sleep,attem
     if latest and latest['tag_name']==tag:print('이미 Latest입니다:',tag)
     else:
         if latest and version_of(tag)<version_of(latest['tag_name']):raise ValueError('Latest를 낮은 버전으로 옮기지 않습니다: '+latest['tag_name']+' → '+tag)
+        wrong=release_problems(gh,repo,tag,release,head_commit())
+        if wrong:raise ValueError('이 릴리스는 Latest로 올리지 않습니다: '+', '.join(wrong))
         result=gh(['release','edit',tag,'--repo',repo,'--prerelease=false','--latest'])
         if result.returncode:raise ValueError('Latest로 올리지 못했습니다: '+gh_error(result))
     # The two addresses a box reads, joined the way update.py joins them.
@@ -190,6 +197,6 @@ def main(argv=None):
     try:
         if a.promote:promote_release(a.stage,a.github)
         else:create_release(a.stage,a.github,denylist=a.denylist or checker.DEFAULT_DENYLIST)
-    except (ValueError,OSError,zipfile.BadZipFile) as exc:raise SystemExit('게시하지 않았습니다: '+str(exc))
+    except (ValueError,OSError,KeyError,zipfile.BadZipFile) as exc:raise SystemExit('게시하지 않았습니다: '+str(exc))
 
 if __name__=='__main__':main()
