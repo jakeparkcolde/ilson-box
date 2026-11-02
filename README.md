@@ -4,6 +4,8 @@
 
 ## 새 맥미니 설치
 
+애플 칩(M1 이후) 맥과 macOS 13 이상이 필요합니다. 인텔 맥은 Homebrew가 지원을 끝내 지금은 새로 설치할 수 없습니다.
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/install.sh | sh
 ```
