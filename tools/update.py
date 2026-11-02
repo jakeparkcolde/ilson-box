@@ -33,7 +33,7 @@ NOT_REACHED='업데이트 서버에 연결하지 못했습니다. '+UNCHANGED+' 
 NOT_READABLE='업데이트 정보를 읽지 못했습니다. '+UNCHANGED+' 나중에 다시 실행하세요.'
 NO_RELEASE='업데이트 서버에 아직 배포가 없습니다. '+UNCHANGED+' 나중에 다시 실행하세요.'
 UNDONE='중단됐던 업데이트는 되돌렸고, 업데이트는 나중에 다시 진행됩니다.'
-ADMIN_OFF=' 관리자가 꺼져 있으니 ilson open 을 실행하거나 다음 업데이트를 기다리세요.'
+ADMIN_OFF=' 관리자가 꺼져 있으면 ilson open 으로 켤 수 있습니다.'
 BUSY='다른 업데이트가 실행 중입니다. 끝난 뒤 다시 실행하세요.'
 INTERRUPTED='중단된 업데이트가 있습니다. ilson update 로 복구하세요'
 
@@ -230,16 +230,27 @@ def recover_interrupted(roots):
         print('중단됐던 업데이트를 복구했습니다.')
         return UNDONE if restart_admin_after_recovery(home) else UNDONE+ADMIN_OFF
 
+def read_activation(path):
+    # {} when there is none, None when it cannot be read. A corrupt file must not stop an update or recovery.
+    if not path.is_file():return {}
+    try:value=read(path)
+    except (ValueError,OSError):return None
+    return value if isinstance(value,dict) else None
+
 def restart_admin_after_recovery(home):
     # Pending is the only sign left: stopping the admin removes its enabled marker. The box stays usable with the network
     # down, and a failed restart keeps pending so the next run retries. The recovery itself has already succeeded.
     # Returns False only when the admin was left off.
     path=home/'.updates/activation.json'
-    if not path.is_file() or read(path).get('status')!='pending':return True
+    pending=read_activation(path)
+    if pending is None:
+        print('코드는 복구했지만 관리자 상태를 읽지 못했습니다. 관리자가 꺼져 있으면 지금 ilson open 으로 켤 수 있습니다.')
+        return False
+    if pending.get('status')!='pending':return True
     installed=home/'.updates/installed.json'
     try:activate_command(home,'install')
     except Exception:
-        print('코드는 복구했지만 관리자를 다시 켜지 못했습니다. 다음 ilson update 가 다시 시도합니다.')
+        print('코드는 복구했지만 관리자를 다시 켜지 못했습니다. 지금 ilson open 으로 켤 수 있고, 인터넷이 연결된 ilson update 도 다시 켭니다.')
         return False
     save(path,dict(version=read(installed).get('version') if installed.is_file() else None,status='active'))
     print('복구한 코드로 관리자를 다시 켰습니다.')
@@ -390,7 +401,7 @@ def apply_running(roots,manifest,archive,check=False):
     ensure_runtime(roots['box'],manifest)
     home=roots['box'];state=home/'.updates/installed.json';activation=home/'.updates/activation.json'
     before=read(state) if state.exists() else {}
-    pending=read(activation) if activation.exists() else {}
+    pending=read_activation(activation) or {}
     if before.get('version')==manifest['version'] and pending.get('version')==manifest['version'] and pending.get('status')=='active':
         with runtime_lock(home):
             ensure_idle(home)

@@ -460,10 +460,28 @@ class FeedTests(unittest.TestCase):
         with patch.object(u,'activate_command',side_effect=ValueError('관리자 install 미완료')):out,code,_=self.rerun(fetch=self.down)
         self.assertEqual(code,1);self.assertEqual(self.activation()['status'],'pending')
         self.assertIn('중단됐던 업데이트를 복구했습니다',out);self.assertIn('다시 켜지 못했습니다',out);self.assertNotIn('복구한 코드로 관리자를',out)
+        self.assertIn('지금 ilson open 으로 켤 수 있고',out);self.assertIn('인터넷이 연결된 ilson update 도 다시 켭니다',out);self.assertNotIn('다음 ilson update 가 다시 시도합니다',out)
         self.assertEqual(self.code(),(b'old',b'old2',b'old3'));self.assertEqual(self.journal(),'recovered')
         with patch.object(u,'activate_command') as admin:out,code,_=self.rerun(fetch=lambda url:served[url])
         self.assertEqual(code,0,out);self.assertEqual([c.args[1] for c in admin.call_args_list],['stop','install'])
         self.assertEqual(self.activation(),dict(version='2.0',status='active'))
+    def test_깨진_관리자_상태_파일도_복구를_막지_않고_사실대로_알린다(self):
+        cases={'not json':b'not json','bad bytes':b'\xff\xfe\xff','list':b'[]','text':b'"x"','number':b'7'}
+        for name,body in cases.items():
+            with self.subTest(name):
+                self.tearDownBox();self.killed_box()
+                (self.box/'.updates/activation.json').write_bytes(body)
+                with patch.object(u,'activate_command') as admin:out,code,_=self.rerun(fetch=self.down)
+                self.assertEqual(code,1);admin.assert_not_called()
+                self.assertEqual(self.journal(),'recovered');self.assertEqual(self.code(),(b'old',b'old2',b'old3'))
+                self.assertIn('중단됐던 업데이트를 복구했습니다',out);self.assertIn('관리자 상태를 읽지 못했습니다',out);self.assertIn('ilson open',out)
+                self.assertNotIn('Expecting',out);self.assertNotIn('codec',out);self.assertNotIn('예상하지 못한',out)
+    def test_깨진_관리자_상태_파일이_있어도_온라인이면_업데이트를_마친다(self):
+        m,a=self.killed_box();served=self.served(m,a)
+        (self.box/'.updates/activation.json').write_bytes(b'not json')
+        with patch.object(u,'activate_command') as admin:out,code,_=self.rerun(fetch=lambda url:served[url])
+        self.assertEqual(code,0,out);admin.assert_not_called();self.assertNotIn('Expecting',out)
+        self.assertEqual(self.code(),(b'new1',b'new2',b'new3'));self.assertEqual(u.read(self.box/'.updates/activation.json')['status'],'installed')
     def test_어떤_재시작_실패도_복구를_되돌리지_않는다(self):
         for error in (subprocess.TimeoutExpired('x',35),OSError('fork')):
             with self.subTest(error=type(error).__name__):
