@@ -350,6 +350,14 @@ class FeedTests(unittest.TestCase):
         out,code,_=self.rerun(fetch=down)
         self.assertEqual(code,1);self.assertIn('중단됐던 업데이트를 복구했습니다',out);self.assertIn('연결하지 못했습니다',out)
         self.assertEqual(self.code(),(b'old',b'old2',b'old3'));self.assertEqual(self.journal(),'recovered')
+    def test_복구는_죽은_쓰기의_임시파일만_지운다(self):
+        self.killed_box()
+        left=list((self.box/'lib').glob(u.TEMP_PREFIX+'*'))
+        self.assertEqual(len(left),1,'the kill happens between the temp file and the rename')
+        (self.box/'lib/tmpkeep').write_text('not ours');(self.box/'keep').mkdir();(self.box/'keep'/(u.TEMP_PREFIX+'x')).write_text('other folder')
+        self.rerun(fetch=lambda url:(_ for _ in ()).throw(urllib.error.URLError('down')))
+        self.assertEqual(list((self.box/'lib').glob(u.TEMP_PREFIX+'*')),[])
+        self.assertEqual((self.box/'lib/tmpkeep').read_text(),'not ours');self.assertTrue((self.box/'keep'/(u.TEMP_PREFIX+'x')).exists())
     def test_복구가_실패하면_네트워크로_가지_않고_그대로라고_하지_않는다(self):
         self.killed_box()
         (self.box/'lib/two.sh').write_bytes(b'edited by a person')

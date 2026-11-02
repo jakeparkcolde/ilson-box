@@ -25,6 +25,7 @@ FEED=''
 # The public feed every box falls back to. A separate line, so the stamp above stays the only FEED line.
 DEFAULT_FEED='https://github.com/jakeparkcolde/ilson-box/releases/latest/download/latest-v2.json'
 LIMIT=80*1024*1024
+TEMP_PREFIX='.ilson-update-'
 FEED_LINE=re.compile(rb"^FEED='([^'\\\r\n]*)'[ \t]*$",re.M)
 UPDATER_KEY='cli/tools/update.py'
 NOT_REACHED='업데이트 서버에 연결하지 못했습니다. 일손 박스는 그대로입니다. 인터넷 연결을 확인하고 나중에 다시 실행하세요.'
@@ -37,7 +38,7 @@ def digest(data):return hashlib.sha256(data).hexdigest()
 def read(path):return json.loads(path.read_text())
 def atomic(path,data):
     path.parent.mkdir(parents=True,exist_ok=True)
-    fd,name=tempfile.mkstemp(dir=path.parent)
+    fd,name=tempfile.mkstemp(dir=path.parent,prefix=TEMP_PREFIX)
     try:
         with os.fdopen(fd,'wb') as stream:stream.write(data);stream.flush();os.fsync(stream.fileno())
         os.replace(name,path)
@@ -181,6 +182,10 @@ def restore_previous(roots,storage,journal,force_recovery=False):
             body=(storage/item['backup']).read_bytes()
             if digest(body)!=item['old_sha256']:raise ValueError('백업 검증 실패')
             atomic(dest,body);dest.chmod(item['old_mode'])
+    if force_recovery:
+        # A killed write leaves its temp file beside the target. Only the folders this update wrote to are touched.
+        for parent in {destination(roots,item).parent for item in changes}:
+            for leftover in parent.glob(TEMP_PREFIX+'*'):leftover.unlink()
     if journal['previous'] is None:
         (storage/'installed.json').unlink(missing_ok=True)
     else:save(storage/'installed.json',journal['previous'])
