@@ -1,7 +1,7 @@
 """공개 게시 전에 배포 ZIP과 manifest를 검사한다. 찾은 값은 출력하지 않고 파일·패턴 이름·횟수만 알린다.
 
 Each ZIP member is compared by bytes with the git tree at a commit. A member already in the public repository is
-checked only for what must never ship; anything new also gets the softer checks. Client names stay outside git, in
+checked for what must never ship, client names included; anything new also gets the softer checks. Client names stay outside git, in
 a denylist file, because this repository is public. Do not add a client or private term to this file.
 """
 import argparse
@@ -55,7 +55,7 @@ SOFT = [(name, re.compile(pattern)) for name, pattern in (
 class Report:
     def __init__(self, commit, denylist_checked):
         self.commit, self.denylist_checked = commit, denylist_checked
-        self.blocks, self.warnings, self.notes, self.new = [], [], [], []
+        self.blocks, self.notes, self.new = [], [], []
         self.members = 0
 
     @property
@@ -65,7 +65,7 @@ class Report:
     def lines(self):
         rows = ['공개 검사 · 기준 커밋 ' + self.commit[:7] + ' · 파일 ' + str(self.members) + '개 · 저장소에 없는 파일 ' + str(len(self.new)) + '개']
         rows += ['[새 파일] ' + name for name in self.new]
-        for label, found in (('차단', self.blocks), ('경고', self.warnings), ('참고', self.notes)):
+        for label, found in (('차단', self.blocks), ('참고', self.notes)):
             rows += ['[' + label + '] ' + where + ' · ' + pattern + ' · ' + str(count) + '회' for where, pattern, count in found]
         if not self.denylist_checked:
             rows.append('[주의] 거래처 이름은 확인하지 않았습니다 (--no-denylist).')
@@ -139,15 +139,14 @@ def check(archive, manifest, commit='HEAD', denylist=DEFAULT_DENYLIST, use_denyl
             public = blob_id(body) in blobs
             if SENSITIVE_PATH.search(name):
                 block(name, [('sensitive-path', 1)])
-            block(name, hits(HARD, name.encode() + b'\n' + data))
+            block(name, hits(HARD + terms, name.encode() + b'\n' + data))
             # A blob match says the bytes are public, not the name this member carries.
-            block(name, hits(SOFT + terms, name.encode()))
+            block(name, hits(SOFT, name.encode()))
             if public:
                 report.notes += [(name, pattern, count) for pattern, count in hits(SOFT, data)]
-                report.warnings += [(name, pattern, count) for pattern, count in hits(terms, data)]
             else:
                 report.new.append(name)
-                block(name, hits(SOFT + terms, data))
+                block(name, hits(SOFT, data))
             if name == updater.UPDATER_KEY:
                 try:
                     feed = updater.feed_of(data).encode()
@@ -155,7 +154,7 @@ def check(archive, manifest, commit='HEAD', denylist=DEFAULT_DENYLIST, use_denyl
                     block(name, [('updater-feed-line', 1)])
                 else:
                     if feed not in body:
-                        block(name + ' FEED', hits(SOFT + terms, feed))
+                        block(name + ' FEED', hits(SOFT, feed))
     block(label, hits(HARD + SOFT + terms, raw))
     try:
         release = json.loads(raw)

@@ -81,7 +81,7 @@ class CheckPublicTests(unittest.TestCase):
         return {(where, pattern) for where, pattern, _ in found}
 
     def test_저장소와_같고_주소만_기록한_묶음은_통과한다(self):
-        report = self.check(*self.stage({'cli/tools/update.py': self.stamped(), 'cli/plain.txt': b'public text\n'}))
+        report = self.check(*self.stage({'cli/tools/update.py': self.stamped(), 'cli/template/web/plain.txt': b'public text\n'}))
         self.assertFalse(report.blocked, report.blocks)
         self.assertEqual((report.members, report.new), (2, []))
 
@@ -93,9 +93,9 @@ class CheckPublicTests(unittest.TestCase):
         self.assertIn(('cli/tools/update.py FEED', 'lan-ip'), self.patterns(report.blocks))
 
     def test_금지항목은_이미_공개된_파일에서도_막는다(self):
-        report = self.check(*self.stage({'cli/tokened.txt': b'key ' + TOKEN.encode() + b'\n', 'cli/hosted.txt': b'open https://' + PRIVATE_HOST.encode() + b'/\n'}))
+        report = self.check(*self.stage({'cli/template/web/tokened.txt': b'key ' + TOKEN.encode() + b'\n', 'cli/template/web/hosted.txt': b'open https://' + PRIVATE_HOST.encode() + b'/\n'}))
         self.assertEqual(report.new, [])
-        self.assertEqual({('cli/tokened.txt', 'github-token'), ('cli/hosted.txt', 'ts-net-host'), ('cli/hosted.txt', 'tailnet-label')}, self.patterns(report.blocks))
+        self.assertEqual({('cli/template/web/tokened.txt', 'github-token'), ('cli/template/web/hosted.txt', 'ts-net-host'), ('cli/template/web/hosted.txt', 'tailnet-label')}, self.patterns(report.blocks))
 
     def test_비밀과_내부주소_패턴(self):
         samples = {
@@ -125,31 +125,41 @@ class CheckPublicTests(unittest.TestCase):
 
     def test_새파일은_개인정보도_막고_공개파일은_알리기만_한다(self):
         text = ('contact ' + MAIL + ' at ' + PERSON + ' for ' + CLIENT + '\n').encode()
-        public = self.check(*self.stage({'cli/note.txt': text}))
+        public = self.check(*self.stage({'cli/template/web/note.txt': text}), use_denylist=False)
         self.assertFalse(public.blocked, public.blocks)
-        self.assertEqual(self.patterns(public.notes), {('cli/note.txt', 'email'), ('cli/note.txt', 'personal-home')})
-        self.assertEqual(self.patterns(public.warnings), {('cli/note.txt', 'denylist-line-3')})
-        fresh = self.check(*self.stage({'cli/new.txt': text + b'changed\n'}))
+        self.assertEqual(self.patterns(public.notes), {('cli/template/web/note.txt', 'email'), ('cli/template/web/note.txt', 'personal-home')})
+        fresh = self.check(*self.stage({'cli/template/web/new.txt': text + b'changed\n'}))
         self.assertTrue(fresh.blocked)
-        self.assertEqual(self.patterns(fresh.blocks), {('cli/new.txt', p) for p in ('email', 'personal-home', 'denylist-line-3')})
-        self.assertEqual(fresh.new, ['cli/new.txt'])
+        self.assertEqual(self.patterns(fresh.blocks), {('cli/template/web/new.txt', p) for p in ('email', 'personal-home', 'denylist-line-3')})
+        self.assertEqual(fresh.new, ['cli/template/web/new.txt'])
         for sample, name in ((b'/Volumes/My Disk/x', 'external-drive'), (b'192.168.1.5', 'lan-ip'), (b'010-1234-5678', 'phone-kr')):
             with self.subTest(name):
-                self.assertIn(name, {p for _, p, _ in self.check(*self.stage({'cli/new.txt': sample})).blocks})
+                self.assertIn(name, {p for _, p, _ in self.check(*self.stage({'cli/template/web/new.txt': sample})).blocks})
+
+    def test_거래처_이름은_이미_공개된_파일에서도_막는다(self):
+        # A client name committed to a tracked template must not ship with 결과: 통과.
+        text = ('contact ' + MAIL + ' at ' + PERSON + ' for ' + CLIENT + '\n').encode()
+        report = self.check(*self.stage({'cli/template/web/note.txt': text}))
+        self.assertEqual(report.new, [])
+        self.assertTrue(report.blocked)
+        self.assertEqual(self.patterns(report.blocks), {('cli/template/web/note.txt', 'denylist-line-3')})
+        self.assertEqual(self.patterns(report.notes), {('cli/template/web/note.txt', 'email'), ('cli/template/web/note.txt', 'personal-home')})
+        self.assertIn('결과: 차단 1건', report.lines())
+        self.assertFalse(hasattr(report, 'warnings'))
 
     def test_커밋을_지정해_비교한다(self):
         (self.repo / 'plain.txt').write_text('changed ' + MAIL + '\n')
         self.git('add', 'plain.txt')
         self.git('-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit', '-qm', 'second')
-        rows = {'cli/plain.txt': ('changed ' + MAIL + '\n').encode()}
+        rows = {'cli/template/web/plain.txt': ('changed ' + MAIL + '\n').encode()}
         self.assertFalse(self.check(*self.stage(rows)).blocked)
         self.assertTrue(self.check(*self.stage(rows), commit='HEAD~1').blocked)
         with self.assertRaisesRegex(ValueError, '커밋'):
             self.check(*self.stage(rows), commit='no-such-commit')
 
     def test_심볼릭_링크_내용은_공개로_치지않는다(self):
-        report = self.check(*self.stage({'cli/fresh.txt': b'plain.txt'}))
-        self.assertEqual(report.new, ['cli/fresh.txt'])
+        report = self.check(*self.stage({'cli/template/web/fresh.txt': b'plain.txt'}))
+        self.assertEqual(report.new, ['cli/template/web/fresh.txt'])
 
     def test_민감한_경로와_이름을_막는다(self):
         for name in ('box/.env', 'box/.env.local', 'box/state/x.txt', 'box/vault/a.md', 'box/logs/a.txt', 'box/credentials.json',
@@ -161,12 +171,12 @@ class CheckPublicTests(unittest.TestCase):
         self.assertIn(('box/' + CLIENT + '.txt', 'denylist-line-3'), self.patterns(named.blocks))
 
     def test_manifest도_검사한다(self):
-        rows = {'cli/plain.txt': b'public text\n'}
+        rows = {'cli/template/web/plain.txt': b'public text\n'}
         hard = self.check(*self.stage(rows, {'note': 'see https://' + PRIVATE_HOST + '/'}))
         self.assertIn(('release-9.9.json', 'ts-net-host'), self.patterns(hard.blocks))
         soft = self.check(*self.stage(rows, {'note': CLIENT + ' ' + MAIL}))
         self.assertEqual({'denylist-line-3', 'email'}, {p for _, p, _ in soft.blocks})
-        archive, manifest = self.stage(dict(rows, **{'cli/extra.txt': b'public text\n'}), drop=('cli/extra.txt',))
+        archive, manifest = self.stage(dict(rows, **{'cli/template/web/extra.txt': b'public text\n'}), drop=('cli/template/web/extra.txt',))
         self.assertIn(('release-9.9.json', 'file-list-mismatch'), self.patterns(self.check(archive, manifest).blocks))
         archive, manifest = self.stage(rows, {'archive_sha256': '0' * 64})
         self.assertIn(('release-9.9.json', 'archive-hash-mismatch'), self.patterns(self.check(archive, manifest).blocks))
@@ -175,20 +185,20 @@ class CheckPublicTests(unittest.TestCase):
 
     def test_찾은_값은_출력하지_않는다(self):
         text = (MAIL + ' ' + PERSON + ' ' + CLIENT + ' ' + TOKEN + ' https://' + PRIVATE_HOST + '/\n').encode()
-        printed = '\n'.join(self.check(*self.stage({'cli/new.txt': text})).lines())
-        self.assertIn('[차단] cli/new.txt · github-token · 1회', printed)
+        printed = '\n'.join(self.check(*self.stage({'cli/template/web/new.txt': text})).lines())
+        self.assertIn('[차단] cli/template/web/new.txt · github-token · 1회', printed)
         for secret in (MAIL, PERSON, CLIENT, TOKEN, PRIVATE_HOST):
             self.assertNotIn(secret, printed)
 
     def test_한글_이름은_정규화_형식이_달라도_찾는다(self):
         import unicodedata
         text = unicodedata.normalize('NFD', CLIENT).encode()
-        self.assertIn('denylist-line-3', {p for _, p, _ in self.check(*self.stage({'cli/new.txt': text})).blocks})
+        self.assertIn('denylist-line-3', {p for _, p, _ in self.check(*self.stage({'cli/template/web/new.txt': text})).blocks})
         self.denylist.write_text('AcMe\n', encoding='utf-8')
-        self.assertTrue(self.check(*self.stage({'cli/new.txt': b'by acme inc'})).blocked)
+        self.assertTrue(self.check(*self.stage({'cli/template/web/new.txt': b'by acme inc'})).blocked)
 
     def test_목록이_없거나_비면_거부하고_명시하면_건너뛴다(self):
-        rows = self.stage({'cli/plain.txt': b'public text\n'})
+        rows = self.stage({'cli/template/web/plain.txt': b'public text\n'})
         for name, body in (('absent.txt', None), ('empty.txt', '# only a comment\n\n')):
             with self.subTest(name):
                 path = self.tmp / name
@@ -201,13 +211,13 @@ class CheckPublicTests(unittest.TestCase):
         self.assertIn('거래처 이름은 확인하지 않았습니다', '\n'.join(report.lines()))
 
     def test_명령행_종료코드(self):
-        archive, manifest = self.stage({'cli/plain.txt': b'public text\n'})
+        archive, manifest = self.stage({'cli/template/web/plain.txt': b'public text\n'})
         with redirect_stdout(io.StringIO()) as out:
             code = c.main([str(archive), str(manifest), '--no-denylist'])
         # The repository under test here is the real checkout, where this member is new but clean.
         self.assertEqual(code, 0, out.getvalue())
         self.assertIn('거래처 이름은 확인하지 않았습니다', out.getvalue())
-        archive, manifest = self.stage({'cli/new.txt': b'key ' + TOKEN.encode()})
+        archive, manifest = self.stage({'cli/template/web/new.txt': b'key ' + TOKEN.encode()})
         with redirect_stdout(io.StringIO()):
             self.assertEqual(c.main([str(archive), str(manifest), '--no-denylist']), 1)
         with self.assertRaises(SystemExit) as stop:
