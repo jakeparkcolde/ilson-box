@@ -14,6 +14,7 @@ import subprocess
 import sys
 from contextlib import contextmanager
 import tempfile
+import urllib.error
 import urllib.request
 import urllib.parse
 import zipfile
@@ -28,7 +29,9 @@ FEED_LINE=re.compile(rb"^FEED='([^'\\\r\n]*)'[ \t]*$",re.M)
 UPDATER_KEY='cli/tools/update.py'
 NOT_REACHED='업데이트 서버에 연결하지 못했습니다. 일손 박스는 그대로입니다. 인터넷 연결을 확인하고 나중에 다시 실행하세요.'
 NOT_READABLE='업데이트 정보를 읽지 못했습니다. 일손 박스는 그대로입니다. 나중에 다시 실행하세요.'
+NO_RELEASE='업데이트 서버에 아직 배포가 없습니다. 일손 박스는 그대로입니다. 나중에 다시 실행하세요.'
 BUSY='다른 업데이트가 실행 중입니다. 끝난 뒤 다시 실행하세요.'
+INTERRUPTED='중단된 업데이트가 있습니다. ilson update 로 복구하세요'
 
 def digest(data):return hashlib.sha256(data).hexdigest()
 def read(path):return json.loads(path.read_text())
@@ -184,14 +187,40 @@ def restore_previous(roots,storage,journal,force_recovery=False):
     journal['status']='recovered' if force_recovery else 'rolled_back';save(storage/'journal.json',journal)
     print('이전 코드로 복구했습니다. 운영 데이터는 변경하지 않았습니다.')
 
+@contextmanager
+def update_lock(storage):
+    with (storage/'lock').open('a') as lock:
+        try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:raise ValueError(BUSY) from None
+        yield
+
+def interrupted(storage):
+    path=storage/'journal.json'
+    if storage.is_symlink() or path.is_symlink():raise ValueError('업데이트 관리 경로의 링크는 허용하지 않습니다')
+    return path.is_file() and read(path)['status']=='applying'
+
+def recover_interrupted(roots):
+    # A run killed mid-apply leaves the code half replaced. Put it back before anything else, the network included, so
+    # that no later message can call this box unchanged. Queued work is not waited for: the crash may have left it marked
+    # running, and it must not start on half-replaced code. activation.json stays pending, so the next run restarts the admin.
+    home=roots['box'];storage=home/'.updates'
+    if not interrupted(storage):return
+    with runtime_lock(home),update_lock(storage):
+        journal=read(storage/'journal.json')
+        if journal['status']!='applying':return
+        try:rollback(roots,storage,journal,True)
+        except Exception as exc:
+            detail=str(exc) if isinstance(exc,ValueError) else type(exc).__name__
+            raise ValueError('중단된 업데이트를 복구하지 못했습니다. 코드 일부가 새 버전일 수 있습니다: '+detail) from exc
+    print('중단됐던 업데이트를 복구했습니다.')
+
 def apply(roots,manifest,archive,check=False):
     storage=roots['box']/'.updates';storage.mkdir(parents=True,exist_ok=True)
     for p in [storage,*storage.rglob('*')]:
         if p.is_symlink():raise ValueError('업데이트 관리 경로의 링크는 허용하지 않습니다')
-    with (storage/'lock').open('a') as lock:
-        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    with update_lock(storage):
         if (storage/'journal.json').exists() and read(storage/'journal.json')['status']=='applying':
-            if check:raise ValueError('중단된 업데이트가 있습니다. ilson update 로 복구하세요')
+            if check:raise ValueError(INTERRUPTED)
             rollback(roots,storage,read(storage/'journal.json'),True)
         bodies=package(manifest,archive)
         previous=read(storage/'installed.json') if (storage/'installed.json').exists() else None
@@ -306,18 +335,24 @@ def activate_command(home,command):
 def check_manifest(manifest):
     # Everything apply reads without a default. Past this point a broken manifest is no longer a read failure.
     if not isinstance(manifest['version'],str) or not isinstance(manifest['archive_sha256'],str):raise TypeError('manifest')
+    if not manifest['archive'] or not isinstance(manifest['archive'],str):raise TypeError('manifest')
     for item in manifest['files']:item['area'],item['path'],item['sha256']
 
 def read_release(feed):
     # Nothing on the box has been touched yet, which is the only reason these messages can promise that.
     try:
-        manifest=json.loads(fetch(feed));url=urllib.parse.urljoin(feed,manifest['archive']);check_manifest(manifest)
-        if urllib.parse.urlsplit(url).netloc!=urllib.parse.urlsplit(feed).netloc:raise ValueError('배포 서버가 다른 묶음입니다')
+        manifest=json.loads(fetch(feed));check_manifest(manifest)
+        # A bad archive value is a broken manifest, not a network problem.
+        try:url=urllib.parse.urljoin(feed,manifest['archive']);host=urllib.parse.urlsplit(url).netloc;url.encode('ascii')
+        except ValueError as exc:raise TypeError('archive') from exc
+        if host!=urllib.parse.urlsplit(feed).netloc:raise ValueError('배포 서버가 다른 묶음입니다')
         return manifest,fetch(url)
+    except urllib.error.HTTPError as exc:raise ValueError(NO_RELEASE if exc.code==404 else NOT_REACHED) from exc
+    except (json.JSONDecodeError,UnicodeDecodeError,KeyError,TypeError,http.client.InvalidURL) as exc:raise ValueError(NOT_READABLE) from exc
     except (OSError,http.client.HTTPException) as exc:raise ValueError(NOT_REACHED) from exc
-    except (json.JSONDecodeError,UnicodeDecodeError,KeyError,TypeError) as exc:raise ValueError(NOT_READABLE) from exc
 
 def apply_running(roots,manifest,archive,check=False):
+    if not check:recover_interrupted(roots)
     # 먼저 파일 충돌·묶음 검증을 마친다. 충돌만으로 실행 중인 관리자를 중지하지 않는다.
     apply(roots,manifest,archive,check=True)
     if check:return
@@ -363,12 +398,15 @@ def main():
     if not (roots['box']/'lib/common.sh').is_file() or not (roots['cli']/'ilson').is_file():raise ValueError('기존 일손 설치를 확인하세요')
     if args.rollback:
         storage=roots['box']/'.updates'
-        with (storage/'lock').open('a') as lock:
-            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        with update_lock(storage):
             journal=read(storage/'journal.json')
+            if journal['status']=='applying':raise ValueError(INTERRUPTED)
             if journal['status']!='applied':raise ValueError('되돌릴 업데이트가 없습니다')
             rollback(roots,storage,journal)
         return
+    # Before any fetch: a fetch failure must not report a half-updated box as unchanged.
+    if not args.check:recover_interrupted(roots)
+    elif interrupted(roots['box']/'.updates'):raise ValueError(INTERRUPTED)
     if args.manifest:
         manifest=read(args.manifest);archive=args.archive.read_bytes()
     else:
@@ -379,7 +417,6 @@ def main():
     if not args.manifest and not args.check:remember_feed(roots['box'],feed)
 
 def failure_text(exc):
-    if isinstance(exc,BlockingIOError):return BUSY
     if isinstance(exc,ValueError):return str(exc)
     # Anything else can come from the apply phase, so this one must not say the box is unchanged.
     return '예상하지 못한 오류가 났습니다('+type(exc).__name__+'). ilson update --check 로 상태를 확인하세요.'

@@ -1,3 +1,4 @@
+from contextlib import redirect_stdout
 import http.client
 import importlib.util
 import io
@@ -5,6 +6,8 @@ import json
 from pathlib import Path
 import shutil
 import socket
+import subprocess
+import sys
 import tempfile
 import unittest
 import urllib.error
@@ -132,6 +135,21 @@ class PackRuntimeUpdateTests(UpdateTests):
         with patch.object(u.subprocess,'run') as run:u.ensure_pack_runtime(self.roots['box'])
         run.assert_not_called()
 
+KILL_DRIVER='''
+import importlib.util,json,os,sys
+from pathlib import Path
+source,box,cli,manifest,archive=sys.argv[1:6]
+spec=importlib.util.spec_from_file_location('killed_updater',source);u=importlib.util.module_from_spec(spec);spec.loader.exec_module(u)
+real=os.replace;seen=[]
+def replace(src,dst):
+    if '/.updates/' not in str(dst):
+        seen.append(dst)
+        if len(seen)==2:os._exit(137)
+    return real(src,dst)
+os.replace=replace
+u.apply({'box':Path(box),'cli':Path(cli)},json.loads(Path(manifest).read_text()),Path(archive).read_bytes())
+'''
+
 class FeedTests(unittest.TestCase):
     FEED='https://feed.example/box/latest-v2.json'
     def setUp(self):
@@ -232,7 +250,7 @@ class FeedTests(unittest.TestCase):
         self.assertEqual((self.box/'lib/search.sh').read_bytes(),b'old');self.assertIsNone(self.saved())
         return out.getvalue()
     def test_서버에_닿지_못하면_박스가_그대로라고_알린다(self):
-        broken=[urllib.error.HTTPError(self.FEED,404,'Not Found',None,None),urllib.error.URLError('no route'),socket.timeout('timed out'),ConnectionResetError('reset'),OSError('down'),http.client.IncompleteRead(b'')]
+        broken=[urllib.error.HTTPError(self.FEED,500,'Server Error',None,None),urllib.error.HTTPError(self.FEED,403,'Forbidden',None,None),urllib.error.URLError('no route'),socket.timeout('timed out'),ConnectionResetError('reset'),OSError('down'),http.client.IncompleteRead(b'')]
         for error in broken:
             with self.subTest(error=type(error).__name__):
                 def fail(url):raise error
@@ -241,12 +259,18 @@ class FeedTests(unittest.TestCase):
         m,a=self.bundle([('box','lib/search.sh',b'new',b'old')])
         def archive_fails(url):
             if url==self.FEED:return json.dumps(m).encode()
-            raise urllib.error.HTTPError(url,404,'Not Found',None,None)
+            raise urllib.error.HTTPError(url,503,'Unavailable',None,None)
         self.assertIn('연결하지 못했습니다',self.failing_run(archive_fails))
+    def test_배포가_없으면_404를_따로_알린다(self):
+        def fail(url):raise urllib.error.HTTPError(url,404,'Not Found',None,None)
+        out=self.failing_run(fail)
+        self.assertIn('업데이트 서버에 아직 배포가 없습니다',out);self.assertIn('일손 박스는 그대로입니다',out);self.assertNotIn('연결하지 못했습니다',out)
     def test_업데이트_정보를_못읽으면_박스가_그대로라고_알린다(self):
         m,a=self.bundle([('box','lib/search.sh',b'new',b'old')])
         def without(*keys):return json.dumps({k:v for k,v in m.items() if k not in keys}).encode()
-        cases={'not json':b'not json','bad bytes':b'\xff\xfe\xff','list':b'[]','text':b'"x"','no archive':without('archive'),'no version':without('version'),
+        cases={'not json':b'not json','bad bytes':b'\xff\xfe\xff','list':b'[]','text':b'"x"','no archive':without('archive'),
+               'archive empty':json.dumps(dict(m,archive='')).encode(),'archive null':json.dumps(dict(m,archive=None)).encode(),'archive number':json.dumps(dict(m,archive=7)).encode(),
+               'archive bad url':json.dumps(dict(m,archive='https://[bad/x.zip')).encode(),'archive not ascii':json.dumps(dict(m,archive='한글.zip')).encode(),'no version':without('version'),
                'no hash':without('archive_sha256'),'no files':without('files'),'files not list':json.dumps(dict(m,files=7)).encode(),'file not dict':json.dumps(dict(m,files=[1])).encode(),
                'file no sha':json.dumps(dict(m,files=[{'area':'box','path':'lib/x.sh'}])).encode(),'version number':json.dumps(dict(m,version=1)).encode()}
         for name,body in cases.items():
@@ -264,6 +288,19 @@ class FeedTests(unittest.TestCase):
         with patch.object(u.fcntl,'flock',side_effect=BlockingIOError()):
             out=self.failing_run(lambda url:served[url])
         self.assertIn('다른 업데이트가 실행 중입니다',out);self.assertNotIn('BlockingIOError',out)
+    def test_주소로_쓸수없는_묶음이름은_읽기_실패로_알린다(self):
+        m,a=self.bundle([('box','lib/search.sh',b'new',b'old')])
+        body=json.dumps(dict(m,archive='a b.zip')).encode()
+        def fetch(url):
+            if url==self.FEED:return body
+            raise http.client.InvalidURL('control characters')
+        self.assertIn('업데이트 정보를 읽지 못했습니다',self.failing_run(fetch))
+    def test_잠금이_아닌_BlockingIOError는_업데이트_충돌이_아니다(self):
+        m,a=self.bundle([('box','lib/search.sh',b'new',b'old')])
+        served={self.FEED:json.dumps(m).encode(),'https://feed.example/box/box.zip':a}
+        with patch.object(u,'apply_running',side_effect=BlockingIOError(35,'Resource temporarily unavailable')):
+            out=self.failing_run(lambda url:served[url])
+        self.assertIn('예상하지 못한 오류',out);self.assertNotIn('다른 업데이트',out)
     def test_적용_단계의_오류에는_그대로라고_쓰지_않는다(self):
         m,a=self.bundle([('box','lib/search.sh',b'new',b'old')])
         served={self.FEED:json.dumps(m).encode(),'https://feed.example/box/box.zip':a}
@@ -271,6 +308,94 @@ class FeedTests(unittest.TestCase):
             with self.subTest(error=type(error).__name__),patch.object(u,'apply_running',side_effect=error):
                 out=self.failing_run(lambda url:served[url])
                 self.assertIn('예상하지 못한 오류',out);self.assertIn(type(error).__name__,out);self.assertNotIn('그대로',out)
+    ROWS=[('box','lib/search.sh',b'new1',b'old'),('box','lib/two.sh',b'new2',b'old2'),('box','lib/three.sh',b'new3',b'old3')]
+    def killed_box(self):
+        # A real process dies on its second code write, so nothing in this one gets to clean up.
+        (self.box/'lib/two.sh').write_bytes(b'old2');(self.box/'lib/three.sh').write_bytes(b'old3')
+        m,a=self.bundle(self.ROWS,'2.0');(self.root/'m.json').write_text(json.dumps(m));(self.root/'a.zip').write_bytes(a)
+        driver=self.root/'kill.py'
+        driver.write_text(KILL_DRIVER)
+        result=subprocess.run([sys.executable,'-B',str(driver),str(Path(u.__file__)),str(self.box),str(self.cli),str(self.root/'m.json'),str(self.root/'a.zip')],capture_output=True,text=True)
+        self.assertEqual(result.returncode,137,result.stdout+result.stderr)
+        self.assertEqual(self.journal(),'applying')
+        self.assertEqual(self.code(),(b'new1',b'old2',b'old3'))
+        return m,a
+    def journal(self):return json.loads((self.box/'.updates/journal.json').read_text())['status']
+    def code(self):return tuple((self.box/'lib'/n).read_bytes() for n in ('search.sh','two.sh','three.sh'))
+    def served(self,m,a):return {self.FEED:json.dumps(m).encode(),'https://feed.example/box/box.zip':a}
+    def rerun(self,*args,fetch=None):
+        out=io.StringIO()
+        with patch.object(u,'fetch',side_effect=fetch) as called,patch('sys.stdout',out),patch.object(u.sys,'argv',['update.py','--home',str(self.box),'--cli',str(self.cli),'--feed',self.FEED,*args]):
+            try:u.run()
+            except SystemExit as stop:self.assertEqual(stop.code,1);return out.getvalue(),1,called
+        return out.getvalue(),0,called
+    def test_죽은_업데이트를_다음_실행이_복구하고_마친다_apply_running(self):
+        m,a=self.killed_box()
+        with redirect_stdout(io.StringIO()) as out:u.apply_running(self.roots,m,a)
+        self.assertIn('중단됐던 업데이트를 복구했습니다',out.getvalue())
+        self.assertEqual(self.code(),(b'new1',b'new2',b'new3'));self.assertEqual(self.journal(),'applied')
+    def test_죽은_업데이트를_다음_실행이_복구하고_마친다_main(self):
+        m,a=self.killed_box();served=self.served(m,a)
+        def fetch(url):
+            # Recovery has already happened by the time the network is touched.
+            self.assertEqual(self.journal(),'recovered');return served[url]
+        out,code,called=self.rerun(fetch=fetch)
+        self.assertEqual(code,0,out);self.assertEqual(called.call_count,2)
+        self.assertIn('중단됐던 업데이트를 복구했습니다',out)
+        self.assertEqual(self.code(),(b'new1',b'new2',b'new3'));self.assertEqual(self.journal(),'applied')
+        self.assertEqual(self.saved(),self.FEED+'\n')
+    def test_네트워크가_없어도_먼저_복구하고_사실대로_알린다(self):
+        self.killed_box()
+        def down(url):raise urllib.error.URLError('down')
+        out,code,_=self.rerun(fetch=down)
+        self.assertEqual(code,1);self.assertIn('중단됐던 업데이트를 복구했습니다',out);self.assertIn('연결하지 못했습니다',out)
+        self.assertEqual(self.code(),(b'old',b'old2',b'old3'));self.assertEqual(self.journal(),'recovered')
+    def test_복구가_실패하면_네트워크로_가지_않고_그대로라고_하지_않는다(self):
+        self.killed_box()
+        (self.box/'lib/two.sh').write_bytes(b'edited by a person')
+        out,code,called=self.rerun()
+        self.assertEqual(code,1);called.assert_not_called()
+        self.assertIn('복구하지 못했습니다',out);self.assertIn('일부가 새 버전',out);self.assertNotIn('그대로',out)
+        self.assertEqual(self.journal(),'applying')
+    def test_check는_중단을_알리고_네트워크와_코드를_건드리지_않는다(self):
+        self.killed_box();before=self.code()
+        out,code,called=self.rerun('--check')
+        self.assertEqual(code,1);called.assert_not_called();self.assertIn('ilson update 로 복구하세요',out);self.assertNotIn('그대로',out)
+        self.assertEqual(self.code(),before);self.assertEqual(self.journal(),'applying')
+    def test_rollback도_중단된_업데이트를_ilson_update로_안내한다(self):
+        self.killed_box();before=self.code()
+        out=io.StringIO()
+        with patch('sys.stdout',out),patch.object(u.sys,'argv',['update.py','--home',str(self.box),'--cli',str(self.cli),'--rollback']),self.assertRaises(SystemExit):u.run()
+        self.assertIn('ilson update 로 복구하세요',out.getvalue());self.assertEqual(self.code(),before)
+    def test_다른_실행이_잠금을_쥐면_복구를_미루고_알린다(self):
+        self.killed_box();before=self.code()
+        with (self.box/'.updates/runtime.lock').open('a') as held:
+            u.fcntl.flock(held,u.fcntl.LOCK_EX)
+            real=u.fcntl.flock
+            def refuse(stream,flags):
+                if stream is not held:raise BlockingIOError()
+                return real(stream,flags)
+            with patch.object(u.fcntl,'flock',side_effect=refuse):out,code,called=self.rerun()
+        self.assertEqual(code,1);called.assert_not_called();self.assertIn('완료 후 다시',out);self.assertEqual(self.code(),before)
+    def admin_box(self):
+        m,a=self.killed_box()
+        (self.box/'state/web-admin').mkdir(parents=True);(self.box/'state/web-admin/enabled').write_text('1')
+        u.save(self.box/'.updates/activation.json',dict(version='2.0',status='pending'))
+        return m,a
+    def test_복구_뒤_관리자를_다시_켠다(self):
+        m,a=self.admin_box();served=self.served(m,a)
+        with patch.object(u,'activate_command') as admin:out,code,_=self.rerun(fetch=lambda url:served[url])
+        self.assertEqual(code,0,out);self.assertEqual([c.args[1] for c in admin.call_args_list],['stop','install'])
+        self.assertEqual(u.read(self.box/'.updates/activation.json'),dict(version='2.0',status='active'))
+    def test_네트워크가_없어도_관리자_재시도_표시는_남는다(self):
+        m,a=self.admin_box();served=self.served(m,a)
+        def down(url):raise urllib.error.URLError('down')
+        with patch.object(u,'activate_command') as admin:out,code,_=self.rerun(fetch=down)
+        self.assertEqual(code,1);admin.assert_not_called()
+        self.assertEqual(u.read(self.box/'.updates/activation.json')['status'],'pending')
+        with patch.object(u,'activate_command') as admin:out,code,_=self.rerun(fetch=lambda url:served[url])
+        self.assertEqual(code,0,out);self.assertEqual([c.args[1] for c in admin.call_args_list],['stop','install'])
+        self.assertEqual(u.read(self.box/'.updates/activation.json')['status'],'active')
     def test_주소없는_새설치는_수동과_예약_모두_기본주소에서_받는다(self):
         for env in ({},{'ILSON_UPDATE_SKIP_IF_NO_FEED':'1'}):
             with self.subTest(env=env),patch.dict(u.os.environ,env):
