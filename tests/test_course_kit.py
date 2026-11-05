@@ -29,7 +29,7 @@ class CourseKitTests(unittest.TestCase):
                 self.assertTrue(unicodedata.is_normalized('NFC', path.read_text(encoding='utf-8')))
 
     def test_symlink_file_is_refused(self):
-        kit = self.box / '강의키트-20261109'
+        kit = self.box / '강의키트-20261109-v2'
         kit.mkdir(parents=True)
         outside = self.home / 'outside.md'
         outside.write_text('기존 파일')
@@ -43,7 +43,7 @@ class CourseKitTests(unittest.TestCase):
         vault = self.box / 'vault'
         vault.mkdir(parents=True)
         (vault / 'CONTEXT.md').write_text('existing vault')
-        kit = self.box / '강의키트-20261109'
+        kit = self.box / '강의키트-20261109-v2'
         kit.mkdir()
         note = kit / '내 업무 소개.md'
         note.write_text('my own work')
@@ -54,11 +54,25 @@ class CourseKitTests(unittest.TestCase):
         self.assertEqual((vault / 'CONTEXT.md').read_text(), 'existing vault')
         self.assertTrue((kit / '시작과_막힘_복구.md').is_file())
 
+    def test_upgrade_creates_separate_kit_and_preserves_both_versions(self):
+        old = self.box / '강의키트-20261109'
+        old.mkdir(parents=True)
+        (old / '작업_연습.md').write_text('사용자 수정')
+        result = self.run_kit()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        new = self.box / '강의키트-20261109-v2' / '작업_연습.md'
+        self.assertIn('STANDARD.md', new.read_text())
+        new.write_text('새 폴더에서도 수정')
+        result = self.run_kit()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((old / '작업_연습.md').read_text(), '사용자 수정')
+        self.assertEqual(new.read_text(), '새 폴더에서도 수정')
+
     def test_symlink_destination_is_refused(self):
         self.box.mkdir()
         other = self.home / 'other'
         other.mkdir()
-        (self.box / '강의키트-20261109').symlink_to(other, target_is_directory=True)
+        (self.box / '강의키트-20261109-v2').symlink_to(other, target_is_directory=True)
         self.assertNotEqual(self.run_kit().returncode, 0)
         self.assertEqual(list(other.iterdir()), [])
 
@@ -68,7 +82,7 @@ class CourseKitTests(unittest.TestCase):
         result = subprocess.run(['sh', str(ROOT / 'install.sh'), '--sandbox'], env=env,
                                 stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        note = self.box / '강의키트-20261109' / '작업_연습.md'
+        note = self.box / '강의키트-20261109-v2' / '작업_연습.md'
         original = note.read_text()
         note.write_text(original + '\n저장 확인\n')
         self.assertIn('저장 확인', note.read_text())
