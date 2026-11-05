@@ -125,6 +125,8 @@ def same_updater(current,expected,release,home):
 def allowed(area,name):
     p=PurePosixPath(name)
     if not name or p.is_absolute() or any(x in ('.','..','') for x in name.split('/')) or '\\' in name:return False
+    if area=='box' and len(p.parts)>=3 and p.parts[:2]==('.claude','skills') and p.parts[2].startswith('ilson-learned-'):return False
+    if area=='cli' and len(p.parts)>=4 and p.parts[:3]==('template','claude','skills') and p.parts[3].startswith('ilson-learned-'):return False
     if any(x in ('state','vault','logs','.env','pairing.json','settings.json','settings.local.json','job-settings.json','jobs.conf') or x.startswith('.env') for x in p.parts):return False
     if area=='cli':
         if name.startswith('template/web/') and p.suffix in ('.html','.css','.js','.svg','.woff2','.txt','.json'):return True
