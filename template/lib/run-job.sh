@@ -70,15 +70,19 @@ trap 'rm -f "$raw"' EXIT
 # 실패 알림은 보내지 않는다(사람이 멈춘 것이다). 띄우기 전에 걸어 그 사이의 신호도 받는다.
 child=""
 trap 'if [ -n "$child" ]; then kill -TERM "$child" 2>/dev/null; wait "$child"; fi; log "$name" "stopped by signal (pause, logout or shutdown)"; exit 143' TERM INT HUP
+# CLI stderr can contain credentials and private upstream responses. Keep only
+# an exit-code summary in the usual .err file, never the raw diagnostic stream.
+: > "$LOGS/$name.$today.err"
 "${T[@]}" claude --safe-mode -p --max-turns "$MAX_TURNS" --output-format json \
     --permission-mode dontAsk --setting-sources '' --settings "$policy" \
     --disable-slash-commands --strict-mcp-config --mcp-config '{"mcpServers":{}}' \
     --disallowedTools 'mcp__*' \
     --tools 'Read,Glob,Grep,Edit,Write,Bash,WebSearch,WebFetch' \
-    --append-system-prompt-file "$rules" <<< "$task" > "$raw" 2>"$LOGS/$name.$today.err" &
+    --append-system-prompt-file "$rules" <<< "$task" > "$raw" 2>/dev/null &
 child=$!
 wait "$child"; rc=$?
 trap - TERM INT HUP
+printf 'CLI rc=%s (stderr suppressed)\n' "$rc" > "$LOGS/$name.$today.err"
 if [ "$rc" -eq 0 ]; then
     if ! jq -e '.is_error == false and ((.permission_denials // []) | length == 0) and
         (.result | type == "string" and length > 0)' "$raw" >/dev/null 2>&1; then
@@ -104,7 +108,12 @@ if [ "$rc" -eq 0 ]; then
         "$LIB_DIR/notify.sh" "$name" < "$out"
     fi
 else
-    log "$name" "FAILED rc=$rc: $(tail -c 300 "$LOGS/$name.$today.err" | tr '\n' ' ')"
-    tail -c 600 "$LOGS/$name.$today.err" | "$LIB_DIR/notify.sh" "$name" --fail
+    case "$rc" in
+        124|137) reason='time limit reached' ;;
+        *) reason='command failed' ;;
+    esac
+    log "$name" "FAILED rc=$rc ($reason; stderr suppressed)"
+    printf '예약 업무 실행 실패 (rc=%s, %s). 관리 대화에서 확인하세요.\n' "$rc" "$reason" \
+        | "$LIB_DIR/notify.sh" "$name" --fail
     exit $rc
 fi
