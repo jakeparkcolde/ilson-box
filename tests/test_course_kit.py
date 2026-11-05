@@ -3,6 +3,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import unicodedata
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,6 +19,25 @@ class CourseKitTests(unittest.TestCase):
     def run_kit(self):
         return subprocess.run(['bash', str(ROOT / 'ilson'), 'course-kit'], env=self.env,
                               stdin=subprocess.DEVNULL, capture_output=True, text=True)
+
+    def test_kit_filenames_and_text_are_nfc(self):
+        files = list((ROOT / 'template/claude/skills/course-kit-20261109').glob('*.md'))
+        self.assertTrue(files)
+        for path in files:
+            with self.subTest(path=path.name):
+                self.assertTrue(unicodedata.is_normalized('NFC', path.name))
+                self.assertTrue(unicodedata.is_normalized('NFC', path.read_text(encoding='utf-8')))
+
+    def test_symlink_file_is_refused(self):
+        kit = self.box / '강의키트-20261109'
+        kit.mkdir(parents=True)
+        outside = self.home / 'outside.md'
+        outside.write_text('기존 파일')
+        (kit / '내 업무 소개.md').symlink_to(outside)
+        result = self.run_kit()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('강의 키트 파일이 연결 경로입니다', result.stderr)
+        self.assertEqual(outside.read_text(), '기존 파일')
 
     def test_existing_install_and_repeat_preserve_files(self):
         vault = self.box / 'vault'

@@ -18,6 +18,8 @@ def install(source, home):
     dest.mkdir(exist_ok=True)
     for src in sorted(source.glob('*.md')):
         target = dest / src.name
+        if target.is_symlink():
+            raise ValueError('강의 키트 파일이 연결 경로입니다. 위치를 확인하세요: ' + target.name)
         try:
             with target.open('xb') as output:
                 output.write(src.read_bytes())
