@@ -13,6 +13,11 @@ cd "$ILSON_HOME" || exit 1
 if ! grep -Fxq '/state/web-admin/' .gitignore 2>/dev/null; then
     printf '\n/state/web-admin/\n' >> .gitignore || exit 1
 fi
+for learning_temporary in '/vault/.ilson-learning/lock' '/vault/.ilson-learning/.ilson-*' '/vault/.ilson-learning/rollback/.ilson-*' '/vault/lessons/.ilson-*'; do
+    if ! grep -Fxq "$learning_temporary" .gitignore 2>/dev/null; then
+        printf '%s\n' "$learning_temporary" >> .gitignore || exit 1
+    fi
+done
 tracked_admin=$(git ls-files -- state/web-admin) || exit 1
 if [ -n "$tracked_admin" ]; then
     log snapshot "FAILED: web manager credentials are tracked; review local backup before continuing"

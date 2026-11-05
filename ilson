@@ -412,7 +412,7 @@ init_step_box() {
     sec 4 "박스 골격 → $ILSON_HOME"
     mkdir -p "$ILSON_HOME"
     # vault/ is the customer's data: -n never overwrites an existing note on re-run.
-    # lib/, .claude/, CLAUDE.md are our layer: always refreshed.
+    # Vault is user data. Refresh instructions only when their old hash is known.
     local new_context=0
     [ -e "$ILSON_HOME/vault/CONTEXT.md" ] || new_context=1
     # macOS cp -n reports nonzero when skipping an existing file. Copy only
@@ -429,8 +429,7 @@ init_step_box() {
     [ ! -L "$ILSON_HOME/web" ] || { bad "웹 관리자 폴더가 연결 경로입니다" "web 폴더 위치를 확인하세요"; return 1; }
     mkdir -p "$ILSON_HOME/web" && cp -R "$TEMPLATE/web/." "$ILSON_HOME/web/" || return 1
     cp "$TEMPLATE/open.command" "$ILSON_HOME/일손 열기.command" && chmod 700 "$ILSON_HOME/일손 열기.command" || return 1
-    mkdir -p "$ILSON_HOME/.claude" && cp -R "$TEMPLATE/claude/." "$ILSON_HOME/.claude/" || return 1
-    cp "$TEMPLATE/CLAUDE.md" "$ILSON_HOME/CLAUDE.md" || return 1
+    python3 "$TEMPLATE/lib/install-instructions.py" "$TEMPLATE" "$ILSON_HOME" || return 1
     mkdir -p "$ILSON_HOME/launchd" || return 1
     # User-approved schedules belong to the box; updates must not reset them.
     if [ ! -e "$ILSON_HOME/launchd/jobs.conf" ]; then
@@ -738,6 +737,7 @@ usage() {
   pause <업무명>                               예약 업무 멈춤 (워치독·스냅샷·업데이트는 제외)
   resume <업무명>                              멈춘 예약 업무를 현재 설정으로 다시 등록
   chat                                        설치·관리까지 가능한 대화 (auto 자동 심사)
+  learn                                       반복 업무 제안·학습 기준 관리
   people add | list | get                    직원 등록·목록·ID 확인 (people add --help)
   open                                        이 맥의 웹 관리자 열기
   admin start | status | stop                 웹 관리자 시작·상태·중지 (예약 업무와 별개)
@@ -760,6 +760,10 @@ fi
 if [ "$cmd" = people ]; then
     [ -f "$ILSON_HOME/lib/people-cli.py" ] || die "직원 등록 도우미가 없습니다. ilson update 후 다시 시도하세요."
     exec python3 "$ILSON_HOME/lib/people-cli.py" --home "$ILSON_HOME" "$@"
+fi
+if [ "$cmd" = learn ]; then
+    [ -f "$ILSON_HOME/lib/selflearn.py" ] || die "학습 도우미가 없습니다. ilson update 후 다시 시도하세요."
+    exec python3 "$ILSON_HOME/lib/selflearn.py" --home "$ILSON_HOME" "$@"
 fi
 if [ "$cmd" = open ]; then
     web_admin open "$@"; exit $?

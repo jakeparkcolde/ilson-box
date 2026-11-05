@@ -377,11 +377,16 @@ except subprocess.TimeoutExpired:
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(config.read_text(), custom)
 
-    def run_job(self, missing_policy=False, denied=False):
+    def run_job(self, missing_policy=False, denied=False, legacy_policy=False):
         shutil.copytree(ROOT / "template", self.box)
         (self.box / "claude").rename(self.box / ".claude")
         if missing_policy:
             (self.box / "lib/job-settings.json").unlink(missing_ok=True)
+        if legacy_policy:
+            policy = self.box / 'lib/job-settings.json'
+            settings = json.loads(policy.read_text())
+            settings['permissions']['deny'] = [item for item in settings['permissions']['deny'] if '.ilson-learning' not in item and 'approved-learning' not in item]
+            policy.write_text(json.dumps(settings))
         # 알림과 LLM 호출은 모두 가짜 실행기로 대체한다.
         (self.box / "lib/notify.sh").write_text('#!/bin/sh\ncat >/dev/null\n')
         (self.box / "lib/notify.sh").chmod(0o700)
@@ -394,7 +399,9 @@ except subprocess.TimeoutExpired:
             result["permission_denials"] = [{"tool_name": "Bash"}]
         claude.write_text('#!' + sys.executable + '\nimport json,sys\n'
                           + 'from pathlib import Path\nPath(' + repr(str(capture))
-                          + ').write_text(json.dumps(sys.argv[1:]))\nprint(' + repr(json.dumps(result)) + ')\n')
+                          + ').write_text(json.dumps(sys.argv[1:]))\n'
+                          + 'Path(' + repr(str(self.base / 'effective-settings.json')) + ').write_text(Path(sys.argv[sys.argv.index("--settings")+1]).read_text())\n'
+                          + 'print(' + repr(json.dumps(result)) + ')\n')
         claude.chmod(0o700)
         timer = fakebin / "gtimeout"
         timer.write_text('#!/bin/sh\nshift 3\nexec "$@"\n')
@@ -410,7 +417,10 @@ except subprocess.TimeoutExpired:
         args = json.loads(capture.read_text())
         self.assertEqual(args[args.index('--setting-sources') + 1], '')
         self.assertEqual(args[args.index('--permission-mode') + 1], 'dontAsk')
-        self.assertEqual(args[args.index('--settings') + 1], str(self.box / 'lib/job-settings.json'))
+        settings = json.loads((self.base / 'effective-settings.json').read_text())
+        self.assertTrue(settings['disableAllHooks'])
+        self.assertIn('Write(./vault/.ilson-learning/**)', settings['permissions']['deny'])
+        self.assertIn('Write(./vault/lessons/approved-learning.md)', settings['permissions']['deny'])
         self.assertIn('--strict-mcp-config', args)
         self.assertIn('--safe-mode', args)
         self.assertIn('--disable-slash-commands', args)
@@ -418,6 +428,14 @@ except subprocess.TimeoutExpired:
         self.assertNotIn('--dangerously-skip-permissions', args)
         self.assertNotIn('Agent', args[args.index('--tools') + 1].split(','))
         self.assertTrue((self.box / 'state/last-run.briefing').exists())
+
+    def test_기존_예약권한도_학습기록을_보호한다(self):
+        r, _ = self.run_job(legacy_policy=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        saved = json.loads((self.box / 'lib/job-settings.json').read_text())
+        effective = json.loads((self.base / 'effective-settings.json').read_text())
+        self.assertNotIn('Write(./vault/.ilson-learning/**)', saved['permissions']['deny'])
+        self.assertIn('Write(./vault/.ilson-learning/**)', effective['permissions']['deny'])
 
     def test_예약권한파일_없으면_관리권한으로_대체실행하지않는다(self):
         r, capture = self.run_job(missing_policy=True)

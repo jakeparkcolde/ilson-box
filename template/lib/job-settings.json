@@ -11,6 +11,9 @@
     ],
     "deny": [
       "Read(**/pairing.json)", "Read(**/.env*)",
+      "Read(./vault/.ilson-learning/**)",
+      "Edit(./vault/.ilson-learning/**)", "Write(./vault/.ilson-learning/**)",
+      "Edit(./vault/lessons/approved-learning.md)", "Write(./vault/lessons/approved-learning.md)",
       "Edit(./lib/**)", "Write(./lib/**)",
       "Edit(./.claude/**)", "Write(./.claude/**)",
       "Edit(./launchd/**)", "Write(./launchd/**)",

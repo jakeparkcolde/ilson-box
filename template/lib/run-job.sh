@@ -60,7 +60,19 @@ if command -v gtimeout >/dev/null 2>&1; then T=(gtimeout -k 5 "$TIMEOUT_S");
 elif command -v timeout >/dev/null 2>&1; then T=(timeout -k 5 "$TIMEOUT_S");
 else log "$name" "FAILED: timeout tool missing — run ilson setup"; exit 1; fi
 raw=$(mktemp) || exit 1
-trap 'rm -f "$raw"' EXIT
+effective_policy=$(mktemp) || { printf '예약 권한 설정을 준비하지 못했습니다.\n' >&2; exit 1; }
+trap 'rm -f "$raw" "$effective_policy"' EXIT
+# Existing installs keep their job-settings.json. Add the learning protections
+# to the per-run profile without overwriting the user's saved settings.
+if ! jq '.permissions.deny = ((.permissions.deny // []) + [
+  "Read(./vault/.ilson-learning/**)",
+  "Edit(./vault/.ilson-learning/**)", "Write(./vault/.ilson-learning/**)",
+  "Edit(./vault/lessons/approved-learning.md)", "Write(./vault/lessons/approved-learning.md)"
+] | unique)' "$policy" > "$effective_policy"; then
+    log "$name" 'FAILED: invalid scheduled-job policy'
+    exit 1
+fi
+policy="$effective_policy"
 # Do not use --bare: it disables subscription OAuth/keychain authentication.
 # Disable user/project/local settings, skills, hooks, and MCP inheritance.
 # Explicit tools exclude subagents and interactive questions. Managed policies
