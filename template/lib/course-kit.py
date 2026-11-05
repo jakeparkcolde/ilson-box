@@ -12,7 +12,7 @@ def install(source, home):
     if home.is_symlink():
         raise ValueError('Box 폴더가 연결 경로입니다. 위치를 확인하세요.')
     home.mkdir(parents=True, exist_ok=True)
-    dest = home / '강의키트-20261109'
+    dest = home / '강의키트-20261109-v2'
     if dest.is_symlink():
         raise ValueError('강의 키트 폴더가 연결 경로입니다. 위치를 확인하세요.')
     dest.mkdir(exist_ok=True)
