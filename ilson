@@ -424,6 +424,7 @@ init_step_box() {
             mkdir -p "$(dirname "$dest")" && cp "$src" "$dest" || return 1
         fi
     done < <(find "$TEMPLATE/vault" -type f)
+    python3 "$TEMPLATE/lib/course-kit.py" "$TEMPLATE/claude/skills/course-kit-20261109" "$ILSON_HOME" || return 1
     cp -R "$TEMPLATE/lib/." "$ILSON_HOME/lib/" && chmod +x "$ILSON_HOME"/lib/*.sh || return 1
     [ ! -L "$ILSON_HOME/web" ] || { bad "웹 관리자 폴더가 연결 경로입니다" "web 폴더 위치를 확인하세요"; return 1; }
     mkdir -p "$ILSON_HOME/web" && cp -R "$TEMPLATE/web/." "$ILSON_HOME/web/" || return 1
@@ -743,6 +744,7 @@ usage() {
   pair --code <코드> [--pairing-file <json>]     페어링 파일 (다시) 쓰기
   telegram connect                            안내에 따라 텔레그램 알림 연결·변경
   telegram status [--verify]                   저장 상태 확인 (verify: Telegram에 연결 점검)
+  course-kit                                  11/9 강의 키트 준비 (기존 파일 보존)
   update [--check|--rollback] [--feed <주소>]    배포 코드 갱신·확인·복구 (--feed: 업데이트 주소 1회 설정)
   llm [claude|codex] [모델명]                  기본 대화·리서치 LLM 확인/변경
   research                                      설치된 최신 리서치 실행
@@ -751,6 +753,10 @@ EOF
 }
 
 cmd="${1:-}"; shift || true
+if [ "$cmd" = course-kit ]; then
+    [ "$#" -eq 0 ] || die "사용법: ilson course-kit"
+    exec python3 "$TEMPLATE/lib/course-kit.py" "$TEMPLATE/claude/skills/course-kit-20261109" "$ILSON_HOME"
+fi
 if [ "$cmd" = people ]; then
     [ -f "$ILSON_HOME/lib/people-cli.py" ] || die "직원 등록 도우미가 없습니다. ilson update 후 다시 시도하세요."
     exec python3 "$ILSON_HOME/lib/people-cli.py" --home "$ILSON_HOME" "$@"
