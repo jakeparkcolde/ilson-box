@@ -22,9 +22,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-# Production public keys are added only after Jake's key ceremony and review.
-PUBLIC_KEYS = {}
-API_URL = ''  # Set the approved HTTPS Vercel URL before a production release.
+# Public verification key only; the signing seed stays on the issuing Studio.
+PUBLIC_KEYS = {1: bytes.fromhex('6455f743370eba4adf230aeb65b23fc2cd4e0ff7df35108e48e2c63bf0f35feb')}
+API_URL = 'https://ilson-license.vercel.app'
 DOMAIN = b'ILSON-LICENSE-V1\0'
 GRACE = 14 * 86400
 CHECK_INTERVAL = 86400

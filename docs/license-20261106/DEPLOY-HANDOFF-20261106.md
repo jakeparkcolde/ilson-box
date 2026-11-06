@@ -11,6 +11,8 @@
 - 배포 준비 중 Supabase 공식 문서에 맞춰 서버의 두 RPC 요청에서 opaque secret key를 `apikey`에만 보내도록 수정했다. PGlite 서버 시험 2개 통과. 실제 Vercel 서버 스모크는 아직이다.
 - 이후 순서: 서버 배포와 스모크 → Studio 운영 서명 키 → 공개키 Vercel 설정 및 재배포 → 공개키·실제 URL을 담은 GitHub prerelease → Jake 시리얼 1개 발급·등록 → 합성 HOME 활성화 및 status. 1기 학생 발급과 Latest 승격은 별도 지시 전 금지.
 
+후속 확인: `https://ilson-license.vercel.app` 운영 배포에서 health 200, 잘못된 시리얼 400, 잘못된 관리자 인증 403, 유효 관리자 인증 후 잘못된 시리얼 400을 확인했다. Studio에서 서명 키를 만들고 공개키를 Vercel에 등록해 재배포했다(배포 ID `dpl_35tWjM4PEiJA99RhXFz3TwNiVi32`). 이 기록 시점에 prerelease 생성, Jake 시리얼 발급 및 합성 HOME 시험은 아직 수행 전이다. 아래의 미실행 항목과 이어하기 프롬프트는 과거 기록이다.
+
 ## 목표와 최신 지시
 
 총괄 t3q는 Jake가 승인한 Vercel 콜드바이트 팀 `ilson-license`와 Supabase `ilson-license` 서울 지역으로 배포한 뒤, GitHub prerelease 및 Jake 시리얼 1개를 준비하도록 지시했다. 1기 학생 4명 발급과 Latest 승격은 별도 신호 전 금지. Jake 로그인이나 결제 확인이 필요하면 그 지점에서 멈추어 총괄에게 한 줄로 보고한다. 시리얼·개인키·인증정보 원문은 저장소·로그·대화에 넣지 않는다. macmini/macmini-1 접근 금지, 작업자가 직접 chmod/sudo/chown/rm 금지.
