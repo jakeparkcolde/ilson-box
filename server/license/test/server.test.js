@@ -22,6 +22,12 @@ function run(action,body,admin=false) {
   handler({method:'POST',query:{action},body:{...body,nonce:'a'.repeat(32)},headers:{'x-forwarded-for':'192.0.2.1',...(admin?{'x-ilson-admin':'test-secret'}:{})}},res).catch(reject);
  });
 }
+test('health responds without secrets and only accepts GET',()=>{
+ const health=require('../api/health.js');
+ const res={setHeader(){},status(code){this.code=code;return this},json(value){this.value=value;return this}};
+ health({method:'GET'},res);assert.equal(res.code,200);assert.deepEqual(res.value,{service:'ilson-license',status:'ok'});
+ health({method:'POST'},res);assert.equal(res.code,405);
+});
 test('API and PostgreSQL transactions: register, limit, revoke and renew', async()=>{
  const db=new PGlite();
  await db.exec('create role anon; create role authenticated; create role service_role;');
@@ -37,10 +43,12 @@ test('API and PostgreSQL transactions: register, limit, revoke and renew', async
   catch(e){throw e;}
  };
  const serial=token();const now=Math.floor(Date.now()/1000);
+ assert.equal((await run('register',{serial,display_name:'가명',paid_until:null,request_id:'0'.repeat(32)},true)).code,400);
  const reg=await run('register',{serial,display_name:'가명',paid_until:now+86400,request_id:'1'.repeat(32)},true);
  assert.equal(reg.value.status,'ok');
  for(let n=1;n<=2;n++) assert.equal((await run('activate',{serial,device_id:String(n).repeat(64)})).value.status,'active');
  assert.equal((await run('activate',{serial,device_id:'3'.repeat(64)})).value.status,'device_limit');
+ assert.equal((await run('renew-payment',{serial,paid_until:null,request_id:'9'.repeat(32)},true)).code,400);
  assert.equal((await run('renew-payment',{serial,paid_until:now+172800,request_id:'2'.repeat(32)},true)).value.status,'ok');
  assert.equal((await run('check',{serial,device_id:'1'.repeat(64)})).value.paid_until,now+172800);
  assert.equal((await run('revoke',{serial,request_id:'3'.repeat(32)},true)).value.status,'ok');

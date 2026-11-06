@@ -52,7 +52,10 @@ class PostgreSQLLicenseTest(unittest.TestCase):
         def request_sql(p):
             return "select public.ilson_license_request('"+json.dumps(p).replace("'","''")+"'::jsonb);"
         reg={**base,'action':'register','display_name':'test','paid_until':now+86400,'request_id':'1'*32}
+        self.assertEqual(json.loads(self.sql(request_sql({**reg,'paid_until':None})).stdout)['status'],'conflict')
         self.assertEqual(json.loads(self.sql(request_sql(reg)).stdout)['status'],'ok')
+        invalid_renew={**base,'action':'renew-payment','request_id':'9'*32,'paid_until':None}
+        self.assertEqual(json.loads(self.sql(request_sql(invalid_renew)).stdout)['status'],'conflict')
         barrier=threading.Barrier(3)
         def activate(n):
             request={**base,'action':'activate','device_hash':str(n)*64}

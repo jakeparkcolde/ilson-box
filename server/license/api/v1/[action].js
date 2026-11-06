@@ -53,6 +53,10 @@ async function handler(req,res) {
   if (admin && !eqSecret(req.headers['x-ilson-admin'],process.env.ILSON_ADMIN_SECRET)) return res.status(403).json({error:'UNAUTHORIZED'});
   let parsed;
   try { parsed = serialData(body.serial); } catch { return send(400,'invalid_serial'); }
+  if ((action === 'renew-payment' || (action === 'register' && parsed.plan === 2)) &&
+      (!Number.isSafeInteger(body.paid_until) || body.paid_until <= 0 || body.paid_until >= 0xffffffff)) {
+    return send(400,'invalid_serial');
+  }
   const device=body.device_id;
   if (!admin && !/^[a-f0-9]{64}$/.test(device || '')) return send(400,'invalid_serial');
   const input={action,license:parsed,device_hash:device ? hash('ilson-device-v1\0'+device) : null,

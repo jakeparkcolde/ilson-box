@@ -260,7 +260,7 @@ def _evaluate(home, serial=None, force=False, now=None, transport=request):
         safe_write(path/'device-id',device)
     previous = state.get('last_observed',now)
     clock_error = now < previous - 300
-    due = force or clock_error or not state.get('last_success') or now >= state['last_success']+CHECK_INTERVAL
+    due = force or clock_error or bool(state.get('denied')) or not state.get('last_success') or now >= state['last_success']+CHECK_INTERVAL
     result = None
     if due:
         try:
@@ -282,7 +282,9 @@ def _evaluate(home, serial=None, force=False, now=None, transport=request):
         status = result['status']
         if status != 'active':
             state.update({'denied':status,'last_observed':now})
-            safe_write(state_path,json.dumps(state))
+            # A rejected replacement serial must not overwrite the prior license state.
+            if same:
+                safe_write(state_path,json.dumps(state))
             return False,status.upper()
         state.update({'registered':True,'last_success':now,'denied':None,'paid_until':result.get('paid_until')})
     if clock_error:

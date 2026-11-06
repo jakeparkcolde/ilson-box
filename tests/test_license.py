@@ -116,6 +116,20 @@ class LicenseTest(unittest.TestCase):
         self.assertNotIn('state/license/serial',files)
         subprocess.run(['git','add','-f','state/license/serial'],cwd=root,check=True)
         self.assertNotEqual(run().returncode,0)
+    def test_rejected_replacement_preserves_original_and_denial_is_rechecked(self):
+        self.current=self.now
+        self.assertTrue(lic.evaluate(self.home,self.serial,now=self.now,transport=self.active)[0])
+        state=self.home/'state/license/state.json'; serial=self.home/'state/license/serial'
+        before=(state.read_bytes(),serial.read_bytes())
+        other=struct.pack('>BB16sHBII',1,1,b'b'*16,1,2,self.now-10000,self.now+86400)
+        replacement=lic.encode_serial(other,SEED)
+        denied=lambda *_:{'status':'device_limit','server_time':self.now+1}
+        self.assertEqual(lic.evaluate(self.home,replacement,force=True,now=self.now+1,transport=denied),(False,'DEVICE_LIMIT'))
+        self.assertEqual((state.read_bytes(),serial.read_bytes()),before)
+        self.assertTrue(lic.evaluate(self.home,now=self.now+2,transport=self.offline)[0])
+        self.assertEqual(lic.evaluate(self.home,now=self.now+3,force=True,transport=lambda *_:{'status':'payment_due','server_time':self.now+3}),(False,'PAYMENT_DUE'))
+        self.current=self.now+4
+        self.assertEqual(lic.evaluate(self.home,now=self.current,transport=self.active),(True,'ACTIVE'))
     def test_invalid_serial_does_not_replace_previous(self):
         self.assertTrue(lic.evaluate(self.home,self.serial,now=self.now,transport=self.offline)[0])
         with self.assertRaises(ValueError): lic.evaluate(self.home,'ILSON-BAD',now=self.now,transport=self.offline)

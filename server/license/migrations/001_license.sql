@@ -66,6 +66,16 @@ begin
      return jsonb_build_object('status','ok');
    end if;
  end if;
+ if (act='renew-payment' or (act='register' and lic->>'plan'='2')) and
+    (jsonb_typeof(p->'paid_until') is distinct from 'number' or
+     coalesce(p->>'paid_until','') !~ '^[0-9]{1,10}$') then
+   return jsonb_build_object('status','conflict');
+ end if;
+ if act='renew-payment' or (act='register' and lic->>'plan'='2') then
+   if (p->>'paid_until')::bigint <= 0 or (p->>'paid_until')::bigint >= 4294967295 then
+     return jsonb_build_object('status','conflict');
+   end if;
+ end if;
  if act='register' then
    if coalesce(p->>'display_name','')='' then return jsonb_build_object('status','invalid_serial'); end if;
    insert into license_private.licenses(id,payload_hash,display_name,cohort,plan,issued,expires,paid_until)
@@ -81,7 +91,7 @@ begin
  elsif act='revoke' then
    update license_private.licenses set status='revoked',revoked_at=coalesce(revoked_at,now_s) where id=ident;
  elsif act='renew-payment' then
-   if item.plan <> 2 or (p->>'paid_until')::bigint <= item.paid_until then return jsonb_build_object('status','conflict'); end if;
+   if item.plan <> 2 or (p->>'paid_until')::bigint <= item.paid_until or (p->>'paid_until')::bigint >= 4294967295 then return jsonb_build_object('status','conflict'); end if;
    update license_private.licenses set paid_until=(p->>'paid_until')::bigint where id=ident;
  elsif act='release-device' then
    update license_private.devices set released_at=now_s where license_id=ident and device_hash=p->>'target_device' and released_at is null;

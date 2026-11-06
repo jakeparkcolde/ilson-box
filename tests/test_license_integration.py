@@ -65,6 +65,13 @@ class Integration(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
         self.assertEqual(note.read_text(),'개인 수정')
         self.assertTrue((kit/'시작과_막힘_복구.md').is_file())
+    def test_help_anywhere_never_executes_motion_research_or_nested_commands(self):
+        for args in (('motion','-h'),('motion','영상 요청','--help'),('research','run','-h'),('people','add','--help')):
+            with self.subTest(args=args):
+                result=self.command(*args)
+                self.assertEqual(result.returncode,0,result.stderr)
+                self.assertIn('사용법:',result.stdout)
+        self.assertFalse((self.box/'state/license').exists())
     def test_unlicensed_watchdog_suppresses_missed_job_alert(self):
         (self.box/'lib').mkdir(parents=True)
         (self.box/'state').mkdir()

@@ -844,6 +844,11 @@ EOF
 }
 
 cmd="${1:-}"; shift || true
+# Help is always read-only, regardless of position or command implementation.
+case "$cmd" in help|--help|-h) usage; exit 0 ;; esac
+for argument in "$@"; do
+    case "$argument" in --help|-h) usage; exit 0 ;; esac
+done
 if [ "$cmd" = license ]; then
     license_action="${1:-status}"; [ "$#" -eq 0 ] || shift
     exec python3 "$TEMPLATE/lib/license.py" --home "$ILSON_HOME" "$license_action" "$@"
