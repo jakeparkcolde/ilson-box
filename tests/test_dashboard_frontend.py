@@ -16,6 +16,20 @@ class DashboardFrontendTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('component + shell lifecycle PASS', result.stdout)
 
+    def test_missing_research_archive_is_not_probed_or_advertised(self):
+        page = (ROOT/'template/web/current/pack-library/packs.html').read_text()
+        script = (ROOT/'template/web/current/pack-library/packs.js').read_text()
+        self.assertNotIn('리서치 팩 다운로드', page)
+        self.assertNotIn('research-pack-0.15.3.zip', script)
+        self.assertRegex(page, r'id="downloadPack"[^>]*hidden')
+        self.assertRegex(page, r'id="downloadHelp" hidden')
+
+    def test_mobile_account_workspace_does_not_force_empty_height(self):
+        css = (ROOT/'template/web/current/sns_operations.css').read_text()
+        mobile = css.split('@media(max-width:1200px)', 1)[1].split('@media(max-width:700px)', 1)[0]
+        self.assertRegex(mobile, r'\.sns-account-workspace\{[^}]*min-height:0')
+        self.assertNotIn('min-height:420px', mobile)
+
     def test_shared_assets_and_legacy_entry_do_not_add_another_shell(self):
         current = (ROOT/'template/web/current/index.html').read_text()
         for asset in ['/dashboard.css', '/dashboard.js']:

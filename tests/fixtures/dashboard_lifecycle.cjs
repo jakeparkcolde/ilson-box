@@ -65,7 +65,7 @@ class Element {
   dispatch(type) { for (const fn of this.events.get(type) || []) fn({target: this}); }
   focus() {}
 }
-function setup(search = '?tab=dashboard') {
+function setup(search = '?tab=dashboard', setupState = 'pending') {
   const body = new Element('body');
   body.innerHTML = '<nav id="sidebar"></nav><main id="main"></main><button id="mNavBtn"></button><div id="mNavBackdrop"></div>';
   const document = new Element('document'); document.append(body); document.body = body; document.hidden = false;
@@ -82,6 +82,8 @@ function setup(search = '?tab=dashboard') {
     history: {replaceState: (_, __, url) => { location.search = url; }},
     fetch: (url, options) => {
       if (url === '/api/session') return Promise.resolve({ok: true, json: async () => ({authenticated: true})});
+      if (url === '/api/logout') { assert.equal(options.method,'POST');assert.equal(options.body,'{}');return Promise.resolve({ok:true,json:async()=>({ok:true})}); }
+      if (url === '/api/overview') return Promise.resolve(setupState==='error' ? {ok:false,status:503,json:async()=>({error:'unavailable'})} : {ok:true,json:async()=>({box:{setup_state:setupState}})});
       assert.equal(url, '/api/dashboard');
       return new Promise((resolve, reject) => requests.push({resolve, reject, options}));
     },
@@ -180,6 +182,27 @@ async function component() {
   hidden.get('refresh').dispatch('click'); const empty = sample(); empty.automations = {...empty.automations, state: 'empty', items: []};
   await respond(hidden.requests[1], empty); assert.match(hidden.get('jobs').textContent, /등록된 업무가 없습니다/);
   hidden.ctx.IlsonDashboard.leave();
+  const pending = setup(); pending.ctx.IlsonDashboard.mount(pending.host);
+  const missing=sample(); missing.automations.items=[{id:'missing',name:'미등록 업무',state:'not_loaded',source:'box'}];
+  await respond(pending.requests[0],missing);
+  const badge=pending.get('jobs').querySelector('.db-badge');
+  assert.equal(badge.textContent,'예약 미등록');
+  assert.equal(badge.classList.contains('db-warning'),true,'unregistered jobs are warnings');
+  pending.ctx.IlsonDashboard.leave();
+}
+async function initialNavigation() {
+  for (const [search,state,expected] of [['','pending','home'],['','unknown','home'],['','error','home'],['','ready','sns'],['?tab=sns','pending','sns']]) {
+    const h=setup(search,state);
+    h.load('current/pack-library/pack-navigation.js');h.load('current/shell.js');await flush();await flush();
+    assert.equal(h.ctx.location.search,'?tab='+expected,`startup ${state} ${search}`);
+    if(expected==='home') {
+      const frame=h.document.getElementById('deviceFrame');assert.ok(frame);
+      assert.equal(frame.dataset.view,'overview');
+      assert.equal(frame.src,'/#device&embedded&view=overview');
+      assert.doesNotMatch(h.document.getElementById('sidebar').innerHTML,/href="\/#device"/);
+      h.run("A.go('settings')");assert.equal(frame.dataset.view,'settings');
+    } else assert.ok(h.document.getElementById('sns-view'));
+  }
 }
 async function shell() {
   const h = setup(); let leaves = 0, restores = 0, menus = 0;
@@ -207,5 +230,7 @@ async function shell() {
   h.run("A.go('research')"); assert.equal(h.document.getElementById('ilsonPackFrame').dataset.packView, 'research');
   h.run("A.go('knowledge')"); assert.equal(h.document.getElementById('ilsonPackFrame').dataset.packView, 'knowledge');
   assert.equal(h.timers.size, 0);
+  let logoutDestination=null;h.ctx.location.assign=url=>{logoutDestination=url};
+  await h.document.getElementById('logout').onclick();assert.equal(logoutDestination,'/');
 }
-(async () => {await component(); await shell(); console.log('dashboard component + shell lifecycle PASS');})().catch(error => {console.error(error); process.exitCode = 1;});
+(async () => {await component(); await initialNavigation(); await shell(); console.log('dashboard component + shell lifecycle PASS');})().catch(error => {console.error(error); process.exitCode = 1;});

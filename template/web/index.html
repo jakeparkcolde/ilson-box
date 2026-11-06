@@ -11,8 +11,12 @@
 <script>
 // 접속용 값은 화면·주소 기록·브라우저 저장소에 남기지 않는다.
 (() => {
-  let bootstrapToken = new URLSearchParams(location.hash.slice(1)).get('token');
-  const deviceMode = new URLSearchParams(location.hash.slice(1)).has('device');
+  const initialHash = new URLSearchParams(location.hash.slice(1));
+  let bootstrapToken = initialHash.get('token');
+  const deviceMode = initialHash.has('device');
+  const embeddedDevice = initialHash.has('embedded');
+  const requestedDevicePage = initialHash.get('view');
+  if (embeddedDevice) document.documentElement.classList.add('embedded-device');
   if (location.hash) {
     try { history.replaceState(null, '', location.pathname + location.search); }
     catch (_) { bootstrapToken = null; location.replace(location.pathname + location.search); }
@@ -55,6 +59,7 @@
         const label=theme==='dark'?'라이트 모드':'다크 모드';button.replaceChildren(icon(theme==='dark'?'sun':'moon'),element('span',label));button.setAttribute('aria-label',label+'로 전환');button.setAttribute('aria-pressed',String(theme==='light'));
       });
     }
+    window.addEventListener('storage',event=>{if(event.key==='ilson-theme')applyTheme(event.newValue);});
     function text(id,value){$(id).textContent=value;}
     function badge(label,tone='neutral'){return element('span',label,'badge '+tone);}
     function announce(message){text('toast',message);clearTimeout(toastTimer);toastTimer=setTimeout(()=>text('toast',''),3500);}
@@ -97,8 +102,14 @@
         const result=token?await api('/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})}):await api('/api/session');
         token=null;
         if(!(result.ok===true||result.authenticated===true))throw new Error('session');
-        if(!deviceMode){location.replace('/current/index.html?tab=sns');return;}
-        state.authenticated=true;state.epoch++;$('access').hidden=true;$('app').hidden=false;showPage('overview');await refresh();
+        if(!deviceMode){
+          let target='home';
+          try { const overview=await api('/api/overview'); if(overview.box?.setup_state==='ready') target='sns'; } catch (_) {}
+          location.replace('/current/index.html?tab='+target);return;
+        }
+        if(!embeddedDevice){location.replace('/current/index.html?tab=home');return;}
+        state.authenticated=true;state.epoch++;$('access').hidden=true;$('app').hidden=false;
+        showPage(['overview','jobs','reports','settings'].includes(requestedDevicePage)?requestedDevicePage:'overview');await refresh();
       } catch(error){token=null;lock(error.status===401?'':safeMessage(error,'이 화면을 열 수 없습니다. 이 맥의 터미널에서 다시 열어주세요.'));}
     }
     function closeNavigation(){
@@ -110,6 +121,7 @@
       document.querySelectorAll('[data-page]').forEach(section=>section.hidden=section.dataset.page!==page);
       document.querySelectorAll('[data-nav]').forEach(button=>{const active=button.dataset.nav===page;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
       text('page-title',titles[page]);placePageTools();closeNavigation();if(page==='reports')renderReports();window.MiniWorkspace?.show(page);
+      if(embeddedDevice)window.parent.postMessage({type:'ilson-device-page',page},location.origin);
     }
     function placePageTools(){
       const target=mobileMenu.matches?document.querySelector('.topbar'):document.querySelector('[data-page="'+state.page+'"] .page-heading');
@@ -350,6 +362,10 @@ button,input,textarea{font:inherit;color:inherit}button{cursor:pointer;touch-act
   .sidebar{width:min(78vw,270px);transform:translateX(-105%);visibility:hidden;transition:transform 180ms ease-out;z-index:50;box-shadow:var(--shadow-lg)}.sidebar.is-open{transform:none;visibility:visible}.nav-close{display:grid;place-items:center;position:absolute;top:16px;right:12px;padding:5px;border:0;background:var(--s1);color:var(--ink3);width:30px;height:30px}.sidebar .brand{padding-right:40px}.sidebar .brand-local{display:none}.main{margin-left:0}.nav-shade{position:fixed;inset:0;z-index:40;background:var(--veil);border:0;width:100%;height:100%}.menu-toggle{display:grid;place-items:center;padding:6px;min-width:34px;min-height:34px;border:0;background:transparent;color:var(--ink2)}.menu-toggle svg,.nav-close svg{width:18px;height:18px}.nav button{padding:11px 12px;font-size:15px}.nav button svg{width:17px;height:17px}
   .topbar{display:flex;padding:8px 14px;min-height:54px;border-bottom:1px solid var(--hair)}.topbar-left{gap:8px}.topbar-right{gap:6px}.last-checked,.breadcrumb>span{display:none}.topbar .button{font-size:12px;min-height:36px;padding:0 9px}.content{padding:25px 14px 70px}.page-heading{margin-bottom:18px;align-items:flex-start}.page-heading h1{font-size:20px}.page-heading p{font-size:12.5px}.page-heading #setup-marker{padding-top:0}.welcome{display:block;padding:13px 14px}.welcome h2{font-size:14px}.welcome .button{margin-top:12px;min-height:38px}.metrics{gap:8px}.metric{padding:13px 11px}.metric p{font-size:12px;margin-bottom:8px}.metric strong{font-size:22px}.metric small{font-size:11px}.job-grid{grid-template-columns:1fr}.job-card{padding:17px}.job-facts{font-size:12px}.overview-bottom{grid-template-columns:1fr;gap:0}.reports-layout{display:block;min-height:390px}.report-column{border-right:0;max-height:none}.reader{display:none;padding:20px 17px}.reports-layout.has-selection .report-column{display:none}.reports-layout.has-selection .reader{display:block}.reader-back{display:inline-flex;margin-bottom:20px;padding-left:0;min-height:38px}.report-body{font-size:14px}.report-item{padding:17px}.setup-step{grid-template-columns:25px minmax(0,1fr);gap:10px;padding:17px 14px}.step-heading{display:block}.step-heading>div{margin-top:8px}.step-heading h2{font-size:14.5px}.connection-grid{grid-template-columns:1fr}.command{padding-left:10px}.command code{font-size:12px}.copy-button{min-height:36px}.footer-note{display:block}.footer-note span{display:block;margin-top:5px}.access{padding:18px}.access-card{padding:24px}.button{min-height:36px}
 }
+/* Device content is hosted inside the single manager navigation. */
+html.embedded-device .sidebar,html.embedded-device .nav-shade,html.embedded-device .menu-toggle{display:none!important}
+html.embedded-device .main{margin-left:0}
+@media(max-width:720px){html.embedded-device .topbar-left{display:none}html.embedded-device .topbar{justify-content:flex-start;padding-right:64px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 </style>

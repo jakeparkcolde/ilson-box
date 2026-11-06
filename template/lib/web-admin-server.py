@@ -854,7 +854,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(raw)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
-        frameable = urlsplit(self.path).path.startswith("/current/pack-library/")
+        request_path = urlsplit(self.path).path
+        frameable = request_path == "/" or request_path.startswith("/current/pack-library/")
         self.send_header("X-Frame-Options", "SAMEORIGIN" if frameable else "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
         policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"

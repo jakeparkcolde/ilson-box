@@ -2,13 +2,13 @@
 (() => {
   let root = null, active = false, request = null;
   const $ = id => root.querySelector('#db-' + id);
-  const states = {ok:'관측됨',empty:'등록 항목 없음',failure:'수집 실패',unavailable:'관측 불가',stale:'지난 관측 · 갱신 실패',running:'프로세스 실행 중',exit_nonzero:'최근 종료값 확인 필요',idle:'등록 · 대기',paused:'멈춤 기록',not_loaded:'등록되지 않음'};
+  const states = {ok:'관측됨',empty:'등록 항목 없음',failure:'수집 실패',unavailable:'관측 불가',stale:'지난 관측 · 갱신 실패',running:'프로세스 실행 중',exit_nonzero:'최근 종료값 확인 필요',idle:'등록 · 대기',paused:'멈춤 기록',not_loaded:'예약 미등록'};
   let data = null, timer = null, failed = false;
   const open = new Set();
   const node = (tag, text, cls) => {const n=document.createElement(tag);if(text!==undefined)n.textContent=String(text);if(cls)n.className=cls;return n;};
   const time = value => value ? new Date(value).toLocaleString('ko-KR') : '기록 없음';
   const bytes = value => `${(value / 1024 ** 3).toFixed(1)} GiB`;
-  const warn = state => ['failure','exit_nonzero'].includes(state)?'db-failure':['stale','unavailable'].includes(state)?'db-warning':'';
+  const warn = state => ['failure','exit_nonzero'].includes(state)?'db-failure':['stale','unavailable','not_loaded'].includes(state)?'db-warning':'';
   function resources() {
     $('resources').replaceChildren();
     for(const [key,title] of [['cpu','CPU'],['memory','메모리'],['disk','디스크']]) {
