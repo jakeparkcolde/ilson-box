@@ -9,6 +9,7 @@ today=$(date '+%Y-%m-%d'); now=$(date +%s)
 # job:max-age-seconds — briefing daily, weekly 8 days, tidy daily, snapshot 30 min
 for spec in briefing:93600 weekly:691200 tidy:93600 snapshot:1800; do
     job=${spec%%:*}; max=${spec##*:}
+    if [ "$job" != snapshot ] && ! python3 "$LIB_DIR/license.py" --home "$ILSON_HOME" check >/dev/null 2>&1; then continue; fi
     f="$STATE/last-run.$job"
     [ -f "$STATE/enabled.$job" ] || continue           # only jobs init enabled
     [ -e "$STATE/paused.$job" ] && continue             # ilson pause 로 멈춘 업무

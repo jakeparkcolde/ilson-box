@@ -34,6 +34,8 @@ class WebAdminUpdateTests(unittest.TestCase):
     def test_업데이트_명령이_확인옵션을_새도구로_전달(self):
         with tempfile.TemporaryDirectory() as folder:
             cli=Path(folder);(cli/'tools').mkdir();(cli/'ilson').write_bytes((ROOT/'ilson').read_bytes())
+            (cli/'template/lib').mkdir(parents=True)
+            (cli/'template/lib/license.py').write_text('import sys\nsys.exit(0)\n')
             (cli/'tools/update.py').write_text('import sys; assert "--check" in sys.argv; print("safe updater")')
             result=subprocess.run(['bash',str(cli/'ilson'),'update','--check'],text=True,capture_output=True)
             self.assertEqual(result.returncode,0,result.stderr);self.assertIn('safe updater',result.stdout)

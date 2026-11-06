@@ -498,6 +498,7 @@ class Box:
         if isinstance(value, str):
             for secret in known:
                 value = value.replace(secret, "[비밀값 숨김]")
+            value = re.sub(r"(?i)\bILSON(?:[-\s]*[A-Z2-7]){149}\b", "[비밀값 숨김]", value)
             return re.sub(r"\b[0-9]{5,15}:[A-Za-z0-9_-]{20,200}\b", "[비밀값 숨김]", value)
         if isinstance(value, dict):
             return {key: self.redact(item) for key, item in value.items()}
@@ -928,6 +929,15 @@ class Handler(BaseHTTPRequestHandler):
     def guarded(self, callback):
         try:
             self.boundary()
+            from license import evaluate
+            try:
+                licensed = evaluate(self.server.box.home)[0]
+            except (OSError, ValueError, TypeError):
+                licensed = False
+            if not licensed and urlsplit(self.path).path not in ('/health', '/api/health'):
+                if self.command in ('GET', 'HEAD') and not urlsplit(self.path).path.startswith('/api/'):
+                    return self.reply(200, '<!doctype html><meta charset="utf-8"><title>일손 라이선스</title><h1>일손 라이선스가 필요합니다</h1><p>터미널에서 ilson license activate 를 실행하세요.</p>'.encode(), 'text/html; charset=utf-8')
+                return self.reply(403, {'error':'라이선스가 필요합니다. ilson license activate를 실행하세요.'})
             if urlsplit(self.path).path in ('/health','/api/health'):callback()
             else:
                 from runtime_gate import running

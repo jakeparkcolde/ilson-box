@@ -63,6 +63,8 @@ class NotifySecretsTests(unittest.TestCase):
         self.base = Path(self.temp.name)
         self.box = self.base / "box"
         shutil.copytree(ROOT / "template", self.box)
+        # Notification redaction tests assume the scheduled job is licensed.
+        (self.box / 'lib/license.py').write_text('import sys\nsys.exit(0)\n')
         (self.box / "claude").rename(self.box / ".claude")
         (self.box / "state").mkdir()
         self.pairing = self.box / "state/pairing.json"

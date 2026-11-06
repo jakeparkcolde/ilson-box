@@ -45,6 +45,16 @@ class SetupTests(unittest.TestCase):
         path.chmod(0o700)
         return path
 
+    def test_install_summary_records_individual_tool_states(self):
+        summary=self.base/'install-summary.tsv'
+        self.env['ILSON_INSTALL_SUMMARY']=str(summary)
+        result=self.shell('tool_result 재사용 git; tool_result 실패 Node "설치 확인"; tool_result 예정 Claude')
+        self.assertEqual(result.returncode,0,result.stderr)
+        text=summary.read_text()
+        self.assertIn('설치됨\tgit (재사용)',text)
+        self.assertIn('실패\tNode',text)
+        self.assertIn('다음할일\tClaude (미실행)',text)
+
     def test_intel_is_accepted_without_machine_changes(self):
         r = self.shell('uname() { echo x86_64; }; sysctl() { return 1; }; check_architecture; [ "$FAIL" -eq 0 ]')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
@@ -98,6 +108,10 @@ class SetupTests(unittest.TestCase):
         result = subprocess.run(["sh", str(ROOT / "install.sh"), "--sandbox"], env=env,
                                 text=True, capture_output=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        # Legacy setup tests exercise the licensed branch; actual license checks
+        # use RFC-signed fixtures in test_license_integration.py.
+        for license_file in (self.box / 'lib/license.py', self.base / 'cli/template/lib/license.py'):
+            license_file.write_text('import sys\nsys.exit(0)\n')
         return bin_dir, env
 
     def test_첫설치가_코드없이_볼트와_예약파일까지_만들되_실행은_안한다(self):
@@ -471,6 +485,8 @@ except subprocess.TimeoutExpired:
     def run_job(self, missing_policy=False, denied=False, legacy_policy=False):
         shutil.copytree(ROOT / "template", self.box)
         (self.box / "claude").rename(self.box / ".claude")
+        # This fixture targets the scheduled-job policy after license approval.
+        (self.box / 'lib/license.py').write_text('import sys\nsys.exit(0)\n')
         if missing_policy:
             (self.box / "lib/job-settings.json").unlink(missing_ok=True)
         if legacy_policy:

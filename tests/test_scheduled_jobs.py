@@ -268,6 +268,8 @@ class WatchdogTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.box = Path(self.temp.name) / "box"
         shutil.copytree(ROOT / "template/lib", self.box / "lib")
+        # Existing watchdog timing tests assume a licensed box.
+        (self.box / 'lib/license.py').write_text('import sys\nsys.exit(0)\n')
         (self.box / "state").mkdir()
         self.capture = Path(self.temp.name) / "notify.txt"
         notify = self.box / "lib/notify.sh"
@@ -372,6 +374,8 @@ class RunJobNotifyTests(unittest.TestCase):
         base = Path(self.temp.name)
         self.box = base / "box"
         shutil.copytree(ROOT / "template", self.box)
+        # Existing execution tests assume a licensed box.
+        (self.box / 'lib/license.py').write_text('import sys\nsys.exit(0)\n')
         (self.box / "claude").rename(self.box / ".claude")
         self.capture = base / "notify.txt"
         notify = self.box / "lib/notify.sh"

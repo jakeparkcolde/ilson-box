@@ -23,6 +23,11 @@ SPEC.loader.exec_module(admin)
 
 class BoxFixture(unittest.TestCase):
     def setUp(self):
+        # Product regression fixtures represent a licensed box; dedicated
+        # license tests override this mock to exercise the locked branch.
+        guard = patch('license.evaluate', return_value=(True, 'ACTIVE'))
+        guard.start()
+        self.addCleanup(guard.stop)
         self.temp = tempfile.TemporaryDirectory(prefix="ilson-admin-test-")
         self.addCleanup(self.temp.cleanup)
         self.home = Path(self.temp.name) / "box"

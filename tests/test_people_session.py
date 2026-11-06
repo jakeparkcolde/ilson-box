@@ -33,6 +33,10 @@ class SessionPeopleTests(unittest.TestCase):
         self.fixture = fixtures.WorkspaceHTTPTests();self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)
         self.home = self.fixture.home
+        # Separate process fixture tests employee sessions after a license check.
+        self.cli_root=self.home/'test-cli'; (self.cli_root/'template/lib').mkdir(parents=True)
+        shutil.copy2(ROOT/'ilson',self.cli_root/'ilson')
+        (self.cli_root/'template/lib/license.py').write_text('import sys\nsys.exit(0)\n')
         shutil.copytree(ROOT/'template/lib', self.home/'lib')
         self.config = self.home/'state/web-admin/config.json'
         self.write_private(self.config, json.dumps({'version': 1, 'port': self.fixture.server.server_port}))
@@ -44,7 +48,7 @@ class SessionPeopleTests(unittest.TestCase):
         with os.fdopen(os.open(path, os.O_WRONLY|os.O_CREAT|os.O_EXCL, mode), 'w') as f:f.write(value)
 
     def run_cli(self, *args, home=None):
-        result = subprocess.run(['bash', str(ROOT/'ilson'), 'people', *args],
+        result = subprocess.run(['bash', str(self.cli_root/'ilson'), 'people', *args],
                                 env={**os.environ, 'ILSON_HOME': str(home or self.home)}, capture_output=True, text=True, timeout=12)
         self.assertNotIn(self.fixture.token, result.stdout + result.stderr)
         return result

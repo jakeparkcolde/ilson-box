@@ -57,6 +57,8 @@ class FakeProviders:
 
 class WorkspaceTests(unittest.TestCase):
     def setUp(self):
+        # These existing workflow tests assume a licensed user.
+        guard=patch('license.evaluate',return_value=(True,'ACTIVE'));guard.start();self.addCleanup(guard.stop)
         self.temp=tempfile.TemporaryDirectory(prefix='mini-work-test-');self.addCleanup(self.temp.cleanup)
         self.home=Path(self.temp.name)/'box';self.home.mkdir();(self.home/'state').mkdir();(self.home/'vault').mkdir()
         self.providers=FakeProviders();self.clock=[datetime(2026,10,7,tzinfo=timezone.utc).timestamp()]
@@ -226,6 +228,8 @@ class WorkspaceTests(unittest.TestCase):
 
 class WorkspaceHTTPTests(unittest.TestCase):
     def setUp(self):
+        # These existing workflow tests assume a licensed user.
+        guard=patch('license.evaluate',return_value=(True,'ACTIVE'));guard.start();self.addCleanup(guard.stop)
         self.temp=tempfile.TemporaryDirectory(prefix='mini-http-');self.addCleanup(self.temp.cleanup)
         self.home=Path(self.temp.name);private=self.home/'state/web-admin';private.mkdir(parents=True)
         self.token=secrets.token_urlsafe(32)

@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -14,10 +15,17 @@ class CourseKitTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.home = Path(self.tmp.name)
         self.box = self.home / 'ilson'
+        # Course-file preservation tests exercise a licensed CLI copy. The real
+        # signed and unlicensed flows are tested in test_license_integration.
+        self.repo = self.home / 'repo'
+        self.repo.mkdir()
+        shutil.copy2(ROOT / 'ilson', self.repo / 'ilson')
+        shutil.copytree(ROOT / 'template', self.repo / 'template', ignore=shutil.ignore_patterns('__pycache__'))
+        (self.repo / 'template/lib/license.py').write_text('import sys\nsys.exit(0)\n')
         self.env = dict(os.environ, HOME=str(self.home), ILSON_HOME=str(self.box))
 
     def run_kit(self):
-        return subprocess.run(['bash', str(ROOT / 'ilson'), 'course-kit'], env=self.env,
+        return subprocess.run(['bash', str(self.repo / 'ilson'), 'course-kit'], env=self.env,
                               stdin=subprocess.DEVNULL, capture_output=True, text=True)
 
     def test_kit_filenames_and_text_are_nfc(self):
@@ -77,11 +85,16 @@ class CourseKitTests(unittest.TestCase):
         self.assertEqual(list(other.iterdir()), [])
 
     def test_new_install_setup_creates_kit_and_reopens_saved_file(self):
-        env = dict(self.env, ILSON_SRC=str(ROOT), ILSON_CLI_DIR=str(self.home / 'cli'),
+        env = dict(self.env, ILSON_SRC=str(self.repo), ILSON_CLI_DIR=str(self.home / 'cli'),
                    ILSON_BIN_DIR=str(self.home / 'bin'))
         result = subprocess.run(['sh', str(ROOT / 'install.sh'), '--sandbox'], env=env,
                                 stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('설치 요약', result.stdout)
+        self.assertIn('설치됨:', result.stdout)
+        self.assertIn('실패: 없음', result.stdout)
+        self.assertIn('다음 할 일:', result.stdout)
+        self.assertIn('강의 키트', result.stdout)
         note = self.box / '강의키트-20261109-v2' / '작업_연습.md'
         original = note.read_text()
         note.write_text(original + '\n저장 확인\n')

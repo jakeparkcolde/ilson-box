@@ -289,6 +289,10 @@ class Workspace:
         while not self.stop_event.is_set():
             try:
                 from runtime_gate import running
+                from license import evaluate
+                if not evaluate(self.home)[0]:
+                    self.stop_event.wait(1)
+                    continue
                 with running(self.home):callback()
             except BlockingIOError:
                 pass

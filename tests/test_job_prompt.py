@@ -44,6 +44,8 @@ class JobPromptTests(unittest.TestCase):
         path.chmod(0o700)
 
     def run_job(self, name="tidy"):
+        # Prompt processing is tested after a successful license check.
+        (self.box / 'lib/license.py').write_text('import sys\nsys.exit(0)\n')
         return subprocess.run(["bash", str(self.box / "lib/run-job.sh"), name],
                               env=self.env, capture_output=True, text=True, timeout=10)
 

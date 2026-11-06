@@ -252,9 +252,13 @@ printf '\n설치 끝 — %s\n' "$("$CLI_DIR/ilson" 2>/dev/null | head -1 || echo
 
 if [ "$CLI_ONLY" = "1" ]; then
     say "CLI만 설치했습니다. 기본 구성 시작: $CLI_DIR/ilson setup"
+    printf '\n설치 요약\n  설치됨: 일손 CLI\n  실패: 없음\n  다음 할 일: ilson setup · ilson license activate\n'
     exit 0
 fi
 
+ILSON_INSTALL_SUMMARY="$TMP/install-summary.tsv"
+export ILSON_INSTALL_SUMMARY
+: > "$ILSON_INSTALL_SUMMARY"
 printf '\n이어서 도구와 박스 기본 구성을 준비합니다.\n'
 set -- "$CLI_DIR/ilson" setup
 [ -z "$CODE" ] || set -- "$@" --code "$CODE"
@@ -270,11 +274,24 @@ else
 fi
 say "Herdr와 Aside에서 필요한 계정 로그인과 연결은 직접 해주세요."
 printf '\n강의 키트를 준비합니다. 기존 파일은 보존합니다.\n'
-if "$CLI_DIR/ilson" course-kit; then
+if python3 "$CLI_DIR/template/lib/course-kit.py" "$CLI_DIR/template/claude/skills/course-kit-20261109" "$BOX_HOME"; then
     ok "강의 키트 준비 완료"
+    printf '설치됨\t강의 키트\n' >> "$ILSON_INSTALL_SUMMARY"
 else
+    printf '실패\t강의 키트\n' >> "$ILSON_INSTALL_SUMMARY"
     say "강의 키트 준비 실패 — Python을 확인한 뒤 ilson course-kit 을 다시 실행하세요"
     SETUP_RC=1
 fi
-[ "$SETUP_RC" = 0 ] || say "일부 설치가 끝나지 않았습니다. 위 안내를 확인한 뒤 ilson setup 을 다시 실행하세요."
+printf '\n설치 요약\n'
+printf '  설치됨: 일손 CLI\n'
+awk -F '\t' '$1 == "설치됨" {print "    · " $2}' "$ILSON_INSTALL_SUMMARY"
+if [ "$SETUP_RC" = 0 ]; then
+    printf '  실패: 없음\n'
+else
+    printf '  실패: 아래 항목 또는 미완료 구성 (위 상세 안내 확인)\n'
+    awk -F '\t' '$1 == "실패" {print "    · " $2}' "$ILSON_INSTALL_SUMMARY"
+    say "일부 설치가 끝나지 않았습니다. 위 안내를 확인한 뒤 ilson setup 을 다시 실행하세요."
+fi
+printf '  다음 할 일: ilson license activate · 계정 로그인 및 필요한 권한 확인\n'
+awk -F '\t' '$1 == "다음할일" {print "    · " $2}' "$ILSON_INSTALL_SUMMARY"
 exit "$SETUP_RC"

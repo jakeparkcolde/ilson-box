@@ -7,6 +7,10 @@ source "$(dirname "$0")/common.sh"
 
 name="${1:?command name}"
 [[ "$name" =~ ^[a-z][a-z0-9_-]*$ ]] || { printf '잘못된 업무명\n' >&2; exit 2; }
+if ! python3 "$LIB_DIR/license.py" --home "$ILSON_HOME" check >/dev/null 2>&1; then
+    log "$name" 'skipped: license required'
+    exit 0
+fi
 today=$(date '+%Y-%m-%d')
 out="$LOGS/$name.$today.out"
 MAX_TURNS="${ILSON_MAX_TURNS:-12}"
