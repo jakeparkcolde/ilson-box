@@ -6,20 +6,16 @@ Only use signing on Jake's trusted Studio, never in a network service.
 import argparse
 import base64
 import getpass
-import os
-if os.name == 'nt':
-    import msvcrt
-else:
-    import fcntl
+import fcntl
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import secrets
 import stat
 import struct
 import sys
-import subprocess
 import tempfile
 import time
 import urllib.error
@@ -164,76 +160,23 @@ def parse_serial(value, now=None):
         raise ValueError('INVALID_SERIAL') from None
 
 
-def windows_acl(path, create=False):
-    """Create/check a user-only Windows DACL. Fail closed if ACLs are unavailable."""
-    script = r'''
-$ErrorActionPreference = 'Stop'
-$p = $env:ILSON_ACL_TARGET
-$sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
-$item = Get-Item -LiteralPath $p -Force
-if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { exit 1 }
-if ($env:ILSON_ACL_CREATE -eq '1') {
-    if ($item.PSIsContainer) {
-        $acl = New-Object Security.AccessControl.DirectorySecurity
-        $flags = [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit
-    } else {
-        $acl = New-Object Security.AccessControl.FileSecurity
-        $flags = [Security.AccessControl.InheritanceFlags]::None
-    }
-    $acl.SetOwner($sid)
-    $acl.SetAccessRuleProtection($true, $false)
-    $rule = New-Object Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', $flags, 'None', 'Allow')
-    $acl.AddAccessRule($rule)
-    Set-Acl -LiteralPath $p -AclObject $acl
-}
-$acl = Get-Acl -LiteralPath $p
-if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { exit 1 }
-$rules = @($acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]))
-if ($rules.Count -eq 0) { exit 1 }
-foreach ($rule in $rules) {
-    if ($rule.IdentityReference.Value -ne $sid.Value -or $rule.AccessControlType -ne 'Allow') { exit 1 }
-}
-'''
-    env = dict(os.environ, ILSON_ACL_TARGET=str(path), ILSON_ACL_CREATE='1' if create else '0')
-    encoded = base64.b64encode(script.encode('utf-16le')).decode('ascii')
-    result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
-                            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-    if result.returncode:
-        raise ValueError('STORAGE_ERROR')
-
-
 def private_dir(home):
     path = Path(home) / 'state' / 'license'
-    parts = (Path(home), path.parent, path) if os.name == 'nt' else (path.parent, path)
-    for part in parts:
-        try:
-            info = part.lstat()
-        except FileNotFoundError:
-            continue
-        if stat.S_ISLNK(info.st_mode) or (os.name == 'nt' and getattr(info, 'st_file_attributes', 0) & 0x400):
+    for part in (path.parent, path):
+        if part.is_symlink():
             raise ValueError('STORAGE_ERROR')
-    existed = path.exists()
     path.mkdir(mode=0o700, parents=True, exist_ok=True)
     info = path.stat()
-    if not stat.S_ISDIR(info.st_mode):
-        raise ValueError('STORAGE_ERROR')
-    if os.name == 'nt':
-        windows_acl(path, create=not existed)
-    elif info.st_uid != os.getuid() or info.st_mode & 0o077:
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
         raise ValueError('STORAGE_ERROR')
     return path
 
 
 def safe_read(path):
-    if os.name == 'nt':
-        path.lstat()  # Preserve FileNotFoundError for a not-yet-activated user.
-        windows_acl(path)
     fd = os.open(str(path), os.O_RDONLY | getattr(os,'O_NOFOLLOW',0))
     try:
         st = os.fstat(fd)
-        if (not stat.S_ISREG(st.st_mode) or st.st_size > 8192 or
-                (os.name != 'nt' and (st.st_uid != os.getuid() or st.st_mode & 0o077))):
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077 or st.st_size > 8192:
             raise ValueError('STORAGE_ERROR')
         with os.fdopen(fd,'r',encoding='utf-8') as f:
             fd = -1
@@ -248,8 +191,6 @@ def safe_write(path, value):
         raise ValueError('STORAGE_ERROR')
     fd, name = tempfile.mkstemp(prefix='.license-',dir=str(path.parent))
     try:
-        if os.name == 'nt':
-            windows_acl(name, create=True)
         with os.fdopen(fd,'w',encoding='utf-8') as f:
             f.write(value)
             f.flush()
@@ -363,28 +304,12 @@ def _evaluate(home, serial=None, force=False, now=None, transport=request):
 
 def evaluate(home, serial=None, force=False, now=None, transport=request):
     path = private_dir(home)
-    lock_path = path / 'lock'
-    created = False
-    if os.name == 'nt':
-        try:
-            lock = os.open(str(lock_path), os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o600)
-            created = True
-        except FileExistsError:
-            windows_acl(lock_path)
-            lock = os.open(str(lock_path), os.O_RDWR)
-    else:
-        lock = os.open(str(lock_path), os.O_RDWR | os.O_CREAT | getattr(os,'O_NOFOLLOW',0), 0o600)
+    lock = os.open(str(path / 'lock'), os.O_RDWR | os.O_CREAT | getattr(os,'O_NOFOLLOW',0), 0o600)
     try:
         info = os.fstat(lock)
-        if (not stat.S_ISREG(info.st_mode) or
-                (os.name != 'nt' and (info.st_uid != os.getuid() or info.st_mode & 0o077))):
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
             raise ValueError('STORAGE_ERROR')
-        if os.name == 'nt':
-            windows_acl(lock_path, create=created)
-            os.lseek(lock, 0, os.SEEK_SET)
-            msvcrt.locking(lock, msvcrt.LK_LOCK, 1)
-        else:
-            fcntl.flock(lock, fcntl.LOCK_EX)
+        fcntl.flock(lock, fcntl.LOCK_EX)
         return _evaluate(home, serial, force, now, transport)
     finally:
         os.close(lock)

@@ -21,6 +21,18 @@ PRODUCTION_PUBLIC = '6455f743370eba4adf230aeb65b23fc2cd4e0ff7df35108e48e2c63bf0f
 
 
 class CourseLearnTest(unittest.TestCase):
+    def test_flat_vault_keeps_lessons_inside_visible_vault(self):
+        spec = importlib.util.spec_from_file_location('course_flat_learn', ROOT / 'course/lib/selflearn.py')
+        learn = importlib.util.module_from_spec(spec); spec.loader.exec_module(learn)
+        with tempfile.TemporaryDirectory(prefix='일손 볼트 ') as tmp:
+            course = Path(tmp)
+            store = learn.Store(course, flat_vault=True)
+            target = store.resolve('vault/lessons/approved-learning.md')
+            store.transact([(target, None, '한글 기준\n'.encode('utf-8'))])
+            self.assertEqual(target.read_text(encoding='utf-8'), '한글 기준\n')
+            self.assertEqual(store.recorded_path(target), 'vault/lessons/approved-learning.md')
+            self.assertFalse((course / 'vault').exists())
+
     def test_embedded_helpers_match_source_and_never_overwrite_edits(self):
         shell = (ROOT / 'course/install-intel-mac.sh').read_text(encoding='utf-8')
         windows = (ROOT / 'course/install-windows.ps1').read_text(encoding='ascii')
@@ -28,8 +40,8 @@ class CourseLearnTest(unittest.TestCase):
         win_bundle = re.search(r"\$CoursePayload='([^']+)'", windows).group(1)
         self.assertEqual(mac_bundle, win_bundle)
         files = json.loads(gzip.decompress(base64.b64decode(mac_bundle)))
-        self.assertEqual(files['selflearn.py'], (ROOT / 'template/lib/selflearn.py').read_text(encoding='utf-8'))
-        self.assertEqual(files['license.py'], (ROOT / 'template/lib/license.py').read_text(encoding='utf-8'))
+        self.assertEqual(files['selflearn.py'], (ROOT / 'course/lib/selflearn.py').read_text(encoding='utf-8'))
+        self.assertEqual(files['license.py'], (ROOT / 'course/lib/license.py').read_text(encoding='utf-8'))
         self.assertEqual(files['ilson.py'], (ROOT / 'course/ilson.py').read_text(encoding='utf-8'))
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / '한글 폴더'
@@ -47,8 +59,8 @@ class CourseLearnTest(unittest.TestCase):
             vault = root / '한글 볼트'; vault.mkdir()
             state = root / '상태'
             shutil.copyfile(ROOT / 'course/ilson.py', lib / 'ilson.py')
-            shutil.copyfile(ROOT / 'template/lib/selflearn.py', lib / 'selflearn.py')
-            source = (ROOT / 'template/lib/license.py').read_text(encoding='utf-8')
+            shutil.copyfile(ROOT / 'course/lib/selflearn.py', lib / 'selflearn.py')
+            source = (ROOT / 'course/lib/license.py').read_text(encoding='utf-8')
             self.assertEqual(source.count(PRODUCTION_PUBLIC), 1)
             (lib / 'license.py').write_text(source.replace(PRODUCTION_PUBLIC, PUBLIC), encoding='utf-8')
             spec = importlib.util.spec_from_file_location('course_synthetic_license', lib / 'license.py')

@@ -32,16 +32,6 @@ class LearningTests(unittest.TestCase):
         return self.store.event(self.state, {'task_id': task_id or str(uuid.uuid4()), 'provider':'claude',
             'kind':'document', 'output':'draft', 'workflow':'organize', 'name':name})
 
-    def test_course_flat_vault_keeps_lessons_inside_the_visible_vault(self):
-        course = self.home / '한글 강의 볼트'
-        course.mkdir()
-        store = learn.Store(course, flat_vault=True)
-        target = store.resolve('vault/lessons/approved-learning.md')
-        store.transact([(target, None, '한글 기준\n'.encode('utf-8'))])
-        self.assertEqual(target.read_text(encoding='utf-8'), '한글 기준\n')
-        self.assertEqual(store.recorded_path(target), 'vault/lessons/approved-learning.md')
-        self.assertFalse((course / 'vault').exists())
-
     def draft(self):
         a = self.event(); b = self.event()
         self.assertEqual(b['match'], a['event_id'])

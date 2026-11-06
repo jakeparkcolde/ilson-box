@@ -28,8 +28,8 @@ class WindowsCourseTest(unittest.TestCase):
         self.scratch = Path(tempfile.mkdtemp(prefix='ilson-course-test-'))
         self.vault = self.scratch / '한글 볼트'
         self.vault.mkdir()
-        self.learn = load('win_learn_test', ROOT / 'template/lib/selflearn.py')
-        self.license = load('win_license_test', ROOT / 'template/lib/license.py')
+        self.learn = load('win_learn_test', ROOT / 'course/lib/selflearn.py')
+        self.license = load('win_license_test', ROOT / 'course/lib/license.py')
 
     def test_lock_serializes_processes_and_korean_data(self):
         store = self.learn.Store(self.vault, flat_vault=True)
@@ -43,7 +43,7 @@ with store.locked():
  pathlib.Path(sys.argv[3]).write_text('locked')
  while not pathlib.Path(sys.argv[4]).exists(): time.sleep(.05)
 '''
-        child = subprocess.Popen([sys.executable, '-c', code, str(ROOT / 'template/lib/selflearn.py'),
+        child = subprocess.Popen([sys.executable, '-c', code, str(ROOT / 'course/lib/selflearn.py'),
                                   str(self.vault), str(acquired), str(release)])
         try:
             end = time.monotonic() + 15
@@ -99,8 +99,8 @@ with store.locked():
         shutil.copyfile(installed, bin_dir / 'ilson.cmd')
         (root / 'python-path.txt').write_text(sys.executable, encoding='utf-8')
         shutil.copyfile(ROOT / 'course/ilson.py', lib / 'ilson.py')
-        shutil.copyfile(ROOT / 'template/lib/selflearn.py', lib / 'selflearn.py')
-        source = (ROOT / 'template/lib/license.py').read_text(encoding='utf-8')
+        shutil.copyfile(ROOT / 'course/lib/selflearn.py', lib / 'selflearn.py')
+        source = (ROOT / 'course/lib/license.py').read_text(encoding='utf-8')
         old = '6455f743370eba4adf230aeb65b23fc2cd4e0ff7df35108e48e2c63bf0f35feb'
         seed = bytes.fromhex('9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60')
         public = self.license.public_key(seed).hex()
