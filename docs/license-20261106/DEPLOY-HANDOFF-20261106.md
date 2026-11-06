@@ -43,7 +43,7 @@ Supabase 리소스 생성 여부는 프로젝트 연결 목록이 0개라는 사
 
 ## 이어하기 프롬프트
 
-`/Users/koldeumaegmini/orca/workspaces/ilson-box/license-20261106/docs/license-20261106/DEPLOY-HANDOFF-20261106.md`를 읽고 일손 라이선스 배포를 이어가라. Vercel 프로젝트는 이미 만들어졌고 Supabase Marketplace 연동의 브라우저·약관/결제 관련 단계에서 멈췄다. 정확한 요구는 미확인이다. Jake/총괄의 확인을 받은 뒤 기존 리소스부터 확인해 중복 생성을 피하고, 최신 지시의 배포 순서와 비밀값 보호·학생 발급 금지를 지켜라.
+`docs/license-20261106/DEPLOY-HANDOFF-20261106.md`를 읽고 일손 라이선스 배포를 이어가라. Vercel 프로젝트는 이미 만들어졌고 Supabase Marketplace 연동의 브라우저·약관/결제 관련 단계에서 멈췄다. 정확한 요구는 미확인이다. Jake/총괄의 확인을 받은 뒤 기존 리소스부터 확인해 중복 생성을 피하고, 최신 지시의 배포 순서와 비밀값 보호·학생 발급 금지를 지켜라.
 
 ## 후속: 관리자 화면 수정
 

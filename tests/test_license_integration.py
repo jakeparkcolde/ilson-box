@@ -3,6 +3,7 @@ import importlib.util
 import datetime
 import os
 from pathlib import Path
+import re
 import shutil
 import struct
 import subprocess
@@ -21,7 +22,13 @@ class Integration(unittest.TestCase):
         shutil.copy2(ROOT/'ilson',self.repo/'ilson')
         shutil.copytree(ROOT/'template',self.repo/'template',ignore=shutil.ignore_patterns('__pycache__'))
         p=self.repo/'template/lib/license.py'
-        p.write_text(p.read_text().replace('PUBLIC_KEYS = {}',f"PUBLIC_KEYS = {{1: bytes.fromhex('{PUBLIC}')}}"))
+        source,count=re.subn(r'^PUBLIC_KEYS\s*=.*$',f"PUBLIC_KEYS = {{1: bytes.fromhex('{PUBLIC}')}}",p.read_text(),flags=re.MULTILINE)
+        if count != 1:
+            raise AssertionError(f'expected one public key declaration, found {count}')
+        source,count=re.subn(r"^API_URL\s*=.*$", "API_URL = 'https://127.0.0.1:1'", source, flags=re.MULTILINE)
+        if count != 1:
+            raise AssertionError(f'expected one API URL declaration, found {count}')
+        p.write_text(source)
         spec=importlib.util.spec_from_file_location('fixture_license',p); self.license=importlib.util.module_from_spec(spec); spec.loader.exec_module(self.license)
         self.box=self.root/'box'; self.env={**os.environ,'HOME':str(self.root),'ILSON_HOME':str(self.box)}
     def command(self,*args):
