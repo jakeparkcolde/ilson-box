@@ -21,7 +21,7 @@ class SetupTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.base = Path(self.temp.name)
         self.box = self.base / "box"
-        self.env = dict(os.environ, ILSON_HOME=str(self.box), ILSON_CHECK_TIMEOUT="1")
+        self.env = dict(os.environ, HOME=str(self.base), ILSON_HOME=str(self.box), ILSON_CHECK_TIMEOUT="1")
 
     def shell(self, script, timeout=5):
         # 기존 v0 함수도 직접 시험하도록 명령 디스패치 이전까지만 읽는다.
@@ -219,12 +219,103 @@ class SetupTests(unittest.TestCase):
 
     def test_텔레그램에_필요한_Python이_없으면_설치한다(self):
         r = self.shell('''installed=0
-has() { [ "$1" != python3 ]; }
+has() { [ "$1" != python3 ] || [ "$installed" = 1 ]; }
+app_present() { return 0; }
 brew() { if [ "$*" = 'install python' ]; then installed=1; fi; return 0; }
 setup_search_tools() { return 0; }
 setup_tools && [ "$installed" = 1 ]
 ''')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_설치된_도구는_다시_설치하지_않는다(self):
+        r = self.shell('''has() { return 0; }
+app_present() { return 0; }
+brew() { echo unexpected-install; return 42; }
+install_official_script() { echo unexpected-download; return 42; }
+setup_tools''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("재사용 Herdr 앱", r.stdout)
+        self.assertIn("재사용 hc", r.stdout)
+        self.assertNotIn("unexpected", r.stdout)
+
+    def test_없는_앱과_명령을_공식_경로로_설치한다(self):
+        r = self.shell('''herdr=0; core=0; aside_app=0; aside_cli=0; node_installed=0
+has() { case "$1" in node) [ "$node_installed" = 1 ] ;; hc) [ "$core" = 1 ] ;; herdr-core) [ "$core" = 1 ] ;; aside) [ "$aside_cli" = 1 ] ;; *) return 0 ;; esac; }
+app_path_in_use() { return 1; }
+app_present() { case "$1" in Herdr) [ "$herdr" = 1 ] ;; Aside) [ "$aside_app" = 1 ] ;; *) return 0 ;; esac; }
+brew() { case "$*" in 'list --cask '*) return 1 ;; 'install node') node_installed=1 ;; 'install --cask aside') aside_app=1 ;; *) return 42 ;; esac; }
+install_official_script() { case "$1" in https://releases.herdr.dev/app/install.sh) herdr=1 ;; https://releases.herdr.dev/core/install.sh) core=1 ;; https://releases.aside.com/install.sh) aside_cli=1 ;; *) return 42 ;; esac; }
+setup_tools''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        for item in ("설치 node", "설치 Aside", "설치 Aside CLI", "설치 Herdr 앱", "설치 hc"):
+            self.assertIn(item, r.stdout)
+
+    def test_일부_실패해도_나머지_도구를_계속_설치한다(self):
+        r = self.shell('''has() { case "$1" in brew|claude|codex|hc|aside|tvly) return 0 ;; *) return 1 ;; esac; }
+app_path_in_use() { return 1; }
+app_present() { [ "$1" = Herdr ]; }
+brew() { echo "brew-call $*"; case "$*" in 'list --cask '*) return 1 ;; 'install node') return 42 ;; *) return 0 ;; esac; }
+setup_tools''')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("실패 node", r.stdout)
+        self.assertIn("brew-call install --cask aside", r.stdout)
+        self.assertIn("재사용 Herdr 앱", r.stdout)
+        self.assertIn("실패 Aside", r.stdout)  # success status without an app is not success
+
+    def test_깨진_hc_링크도_덮어쓰지_않는다(self):
+        bin_dir = self.base / ".local/bin"
+        bin_dir.mkdir(parents=True)
+        link = bin_dir / "hc"
+        link.symlink_to(self.base / "missing-hc")
+        r = self.shell('''has() { case "$1" in hc|herdr-core) return 1 ;; *) return 0 ;; esac; }
+app_present() { return 0; }
+install_official_script() { echo unexpected-download; return 42; }
+setup_tools''')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("실패 hc", r.stdout)
+        self.assertNotIn("unexpected-download", r.stdout)
+        self.assertTrue(link.is_symlink())
+
+    def test_기존_core_데이터가_있으면_링크가_없어도_보존한다(self):
+        data = self.base / ".local/share/herdr-core"
+        data.mkdir(parents=True)
+        marker = data / "keep"
+        marker.write_text("original")
+        r = self.shell('''has() { case "$1" in hc|herdr-core) return 1 ;; *) return 0 ;; esac; }
+app_present() { return 0; }
+install_official_script() { echo unexpected-download; return 42; }
+setup_tools''')
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("실패 hc", r.stdout)
+        self.assertNotIn("unexpected-download", r.stdout)
+        self.assertEqual(marker.read_text(), "original")
+
+    def test_기존_hc가_있으면_Her드_앱_설치시_core를_보존한다(self):
+        r = self.shell('''herdr=0
+has() { [ "$1" != herdr-core ]; }
+app_path_in_use() { return 1; }
+app_present() { [ "$1" != Herdr ] || [ "$herdr" = 1 ]; }
+install_official_script() {
+  [ "$1" = https://releases.herdr.dev/app/install.sh ] || return 42
+  command -v herdr-core >/dev/null || return 42
+  herdr=1
+}
+setup_tools''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("설치 Herdr 앱", r.stdout)
+        self.assertIn("재사용 hc", r.stdout)
+
+    def test_dry_run은_실제_앱이나_도구를_설치하지_않는다(self):
+        r = self.shell('''ILSON_DRY_RUN=1
+has() { return 1; }
+app_present() { return 1; }
+brew() { echo unexpected; return 42; }
+install_official_script() { echo unexpected; return 42; }
+setup_tools''')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("예정 Herdr 앱", r.stdout)
+        self.assertIn("예정 Aside", r.stdout)
+        self.assertNotIn("unexpected", r.stdout)
 
     def test_검색도구_없으면_설치하고_있으면_재사용한다(self):
         r = self.shell('''installed=0; calls=0
@@ -356,7 +447,7 @@ except subprocess.TimeoutExpired:
         self.assertIn("회사 정보가 비어", r.stdout + r.stderr)
 
     def test_필수도구_설치실패를_완료로_삼키지않는다(self):
-        r = self.shell('has() { [ "$1" = brew ]; }; brew() { return 42; }; setup_tools')
+        r = self.shell('has() { [ "$1" = brew ]; }; brew() { return 42; }; install_official_script() { return 1; }; app_present() { return 1; }; setup_tools')
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("설치 실패", r.stdout)
         self.assertNotIn("도구 설치 확인", r.stdout)

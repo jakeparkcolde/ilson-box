@@ -262,8 +262,19 @@ set -- "$CLI_DIR/ilson" setup
 # Do not exec here: the installer EXIT trap must clean its download directory.
 # curl | sh has a pipe on stdin. Use a controlling terminal when available,
 # otherwise setup reports steps that require a person and exits without waiting.
+SETUP_RC=0
 if [ -z "$PASS_SANDBOX" ] && ( : </dev/tty ) 2>/dev/null; then
-    "$@" </dev/tty
+    "$@" </dev/tty || SETUP_RC=$?
 else
-    "$@"
+    "$@" || SETUP_RC=$?
 fi
+say "Herdr와 Aside에서 필요한 계정 로그인과 연결은 직접 해주세요."
+printf '\n강의 키트를 준비합니다. 기존 파일은 보존합니다.\n'
+if "$CLI_DIR/ilson" course-kit; then
+    ok "강의 키트 준비 완료"
+else
+    say "강의 키트 준비 실패 — Python을 확인한 뒤 ilson course-kit 을 다시 실행하세요"
+    SETUP_RC=1
+fi
+[ "$SETUP_RC" = 0 ] || say "일부 설치가 끝나지 않았습니다. 위 안내를 확인한 뒤 ilson setup 을 다시 실행하세요."
+exit "$SETUP_RC"

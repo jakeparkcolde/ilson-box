@@ -26,9 +26,9 @@ curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/instal
 ILSON_SRC="$PWD" sh install.sh
 ```
 
-자동 처리: Homebrew(없으면 관리자 입력 필요), git·jq·gh·coreutils·Python, Claude Code·Codex CLI, Obsidian·Tailscale, Tavily CLI(없으면 uv로 격리 설치), `~/ilson` 볼트와 일손 검색 스킬·업무 스크립트, 예약 업무 plist 생성. 기존 설치 도구는 재사용합니다. 기존 Orca는 그대로 사용하며 자동 설치 대상이 아닙니다.
+자동 처리: Homebrew(없으면 관리자 입력 필요), git·jq·gh·coreutils·Python·Node.js, Claude Code·Codex CLI, Herdr Desktop·hc, Aside 브라우저·CLI, Obsidian·Tailscale, Tavily CLI(없으면 uv로 격리 설치), `~/ilson` 볼트와 일손 검색 스킬·업무 스크립트, 예약 업무 plist와 강의 키트 생성. 기존 설치 도구는 재사용합니다. 기존 Orca는 그대로 사용하며 자동 설치 대상이 아닙니다.
 
-사람이 할 일: 구독 계정 로그인, Tailscale 연결, 회사 인터뷰, 필요한 macOS 권한 클릭. Aside는 브라우저 업무를 사용할 때 별도로 연결합니다. 설치코드 없이 로컬 구성이 가능하며 서버 페어링은 아직 구현되지 않았습니다.
+사람이 할 일: 구독 계정 로그인, Tailscale 연결, 회사 인터뷰, 필요한 macOS 권한 클릭. Herdr와 Aside를 열어 필요한 계정에 직접 로그인하고 연결합니다. 설치코드 없이 로컬 구성이 가능하며 서버 페어링은 아직 구현되지 않았습니다.
 
 기본 설치 중 텔레그램 알림 연결도 안내합니다. BotFather가 발급한 토큰을 숨김 입력창에 붙여넣고, 열리는 텔레그램에서 **시작**을 누르면 받을 개인 대화를 자동으로 찾습니다. 나중에 연결할 수도 있고, 재설치 때는 기존 연결을 보존합니다.
 

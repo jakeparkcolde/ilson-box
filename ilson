@@ -607,52 +607,125 @@ setup_search_tools() {
     ok "Tavily CLI 설치 확인" "검색 스킬은 Box 폴더에 구성 · 계정은 이 기기에서 별도 연결"
 }
 
+# Every item reports its own result so one failure does not hide later work.
+TOOL_FAILURES=0
+TOOL_RESULTS=""
+tool_result() {
+    local state="$1" name="$2" advice="${3:-}"
+    TOOL_RESULTS="${TOOL_RESULTS}  ${state} ${name}${advice:+ — $advice}
+"
+    [ "$state" != 실패 ] || TOOL_FAILURES=$((TOOL_FAILURES+1))
+}
+herdr_state_present() { [ -e "$HOME/.local/share/herdr-core" ] || [ -L "$HOME/.local/share/herdr-core" ]; }
+app_present() { [ -d "$HOME/Applications/$1.app" ] || [ -d "/Applications/$1.app" ]; }
+app_path_in_use() { [ -e "$HOME/Applications/$1.app" ] || [ -L "$HOME/Applications/$1.app" ] || [ -e "/Applications/$1.app" ] || [ -L "/Applications/$1.app" ]; }
+install_official_script() {
+    local url="$1" file rc
+    file=$(mktemp) || return 1
+    if ! curl -fsSL --connect-timeout 10 --max-time 120 "$url" -o "$file"; then
+        rm -f "$file"; return 1
+    fi
+    case "$url" in
+        *herdr.dev/*) HERDR_RELEASES_URL=https://releases.herdr.dev HC_INSTALL_DIR="$HOME/.local/bin" HC_VERSION="" HC_BUNDLE_ONLY=0 /bin/sh "$file" ;;
+        https://releases.aside.com/*) ASIDE_CLI_BASE_URL=https://releases.aside.com/cli ASIDE_CLI_VERSION=latest /bin/bash "$file" ;;
+        *) /bin/bash "$file" ;;
+    esac
+    rc=$?; rm -f "$file"; return "$rc"
+}
 setup_tools() {
     sec 2 "필수 도구 자동 설치"
     [ "$SANDBOX" = "1" ] && { skip "도구 설치"; return 0; }
     export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
-    if ! has brew; then
-        [ -t 0 ] || { bad "Homebrew 설치 대기" "새 맥의 대화형 터미널에서 ilson setup 실행"; return 1; }
-        local brew_script; brew_script=$(mktemp) || return 1
-        if ! curl -fsSL --connect-timeout 10 --max-time 120 https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o "$brew_script"; then
-            rm -f "$brew_script"; bad "Homebrew 내려받기 실패"; return 1
-        fi
-        /bin/bash "$brew_script"; local rc=$?; rm -f "$brew_script"
-        [ "$rc" -eq 0 ] && has brew || { bad "Homebrew 설치 실패"; return 1; }
+    local dry="${ILSON_DRY_RUN:-0}" formula executable url installer rc brew_ready=1
+    TOOL_FAILURES=0; TOOL_RESULTS=""
+    if has brew; then tool_result 재사용 Homebrew
+    elif [ "$dry" = 1 ]; then tool_result 예정 Homebrew; brew_ready=0
+    elif [ ! -t 0 ]; then tool_result 실패 Homebrew "대화형 터미널에서 ilson setup 을 다시 실행하세요"; brew_ready=0
+    else
+        printf 'Homebrew 설치에는 관리자 비밀번호가 필요할 수 있습니다. 화면의 안내에 따라 입력하세요.\n'
+        installer=$(mktemp) || installer=""
+        if [ -n "$installer" ] && curl -fsSL --connect-timeout 10 --max-time 120 https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o "$installer"; then
+            /bin/bash "$installer"; rc=$?
+        else rc=1; fi
+        [ -z "$installer" ] || rm -f "$installer"
+        if [ "$rc" -eq 0 ] && has brew; then tool_result 설치 Homebrew
+        else tool_result 실패 Homebrew "연결과 관리자 권한을 확인하고 ilson setup 을 다시 실행하세요"; brew_ready=0; fi
     fi
-    local formula executable
-    for formula in git jq gh coreutils python; do
+    for formula in git jq gh coreutils python node; do
         executable="$formula"; [ "$formula" = coreutils ] && executable=gtimeout
         [ "$formula" = python ] && executable=python3
-        if ! has "$executable"; then
-            brew install "$formula" || { bad "$formula 설치 실패"; return 1; }
-        fi
+        if has "$executable"; then tool_result 재사용 "$formula"
+        elif [ "$dry" = 1 ]; then tool_result 예정 "$formula"
+        elif [ "$brew_ready" = 1 ] && brew install "$formula" && has "$executable"; then tool_result 설치 "$formula"
+        else tool_result 실패 "$formula" "Homebrew 확인 후 ilson setup 을 다시 실행하세요"; fi
     done
     for executable in claude codex; do
-        if ! has "$executable"; then
-            local url installer
-            case "$executable" in
-                claude) url=https://claude.ai/install.sh ;;
-                codex) url=https://chatgpt.com/codex/install.sh ;;
-            esac
-            installer=$(mktemp) || return 1
-            if ! curl -fsSL --connect-timeout 10 --max-time 120 "$url" -o "$installer"; then
-                rm -f "$installer"; bad "$executable 내려받기 실패"; return 1
-            fi
-            /bin/bash "$installer"; local rc=$?; rm -f "$installer"
-            [ "$rc" -eq 0 ] && has "$executable" || { bad "$executable 설치 실패"; return 1; }
-        fi
+        if has "$executable"; then tool_result 재사용 "$executable"; continue; fi
+        if [ "$dry" = 1 ]; then tool_result 예정 "$executable"; continue; fi
+        case "$executable" in claude) url=https://claude.ai/install.sh ;; codex) url=https://chatgpt.com/codex/install.sh ;; esac
+        if install_official_script "$url" && has "$executable"; then tool_result 설치 "$executable"
+        else tool_result 실패 "$executable" "인터넷 연결을 확인하고 ilson setup 을 다시 실행하세요"; fi
     done
-    if [ ! -d /Applications/Obsidian.app ] && [ ! -d "$HOME/Applications/Obsidian.app" ]; then
-        brew install --cask obsidian || { bad "Obsidian 설치 실패"; return 1; }
+    local app cask
+    for app in Obsidian Tailscale Aside; do
+        case "$app" in Obsidian) cask=obsidian ;; Tailscale) cask=tailscale-app ;; Aside) cask=aside ;; esac
+        if app_present "$app"; then tool_result 재사용 "$app"
+        elif [ "$dry" = 1 ]; then tool_result 예정 "$app" "앱 설치 생략 (시험)"
+        elif app_path_in_use "$app"; then
+            tool_result 실패 "$app" "기존 앱 경로를 확인하세요"
+        elif [ "$brew_ready" = 1 ] && brew list --cask "$cask" >/dev/null 2>&1; then
+            tool_result 실패 "$app" "이미 등록된 앱의 위치를 확인하세요"
+        elif [ "$brew_ready" = 1 ] && brew install --cask "$cask" && app_present "$app"; then tool_result 설치 "$app"
+        else tool_result 실패 "$app" "Homebrew 확인 후 ilson setup 을 다시 실행하세요"; fi
+    done
+    # The CLI is distributed separately from the browser; its installer replaces
+    # old files, so preserve even broken or non-PATH installations for review.
+    local aside_bin="${ASIDE_CLI_BIN_DIR:-$HOME/.local/bin}/aside"
+    local aside_app="${ASIDE_CLI_INSTALL_DIR:-$HOME/.aside/cli}/Aside CLI.app"
+    if has aside; then tool_result 재사용 "Aside CLI"
+    elif [ "$dry" = 1 ]; then tool_result 예정 "Aside CLI"
+    elif [ -e "$aside_bin" ] || [ -L "$aside_bin" ] || [ -e "$aside_app" ] || [ -L "$aside_app" ]; then
+        tool_result 실패 "Aside CLI" "기존 Aside CLI 경로를 확인하세요: https://aside.com/download"
+    elif install_official_script https://releases.aside.com/install.sh && has aside; then tool_result 설치 "Aside CLI"
+    else tool_result 실패 "Aside CLI" "https://aside.com/download 에서 확인 후 ilson setup 을 다시 실행하세요"; fi
+    # The vendor app installer replaces ~/Applications/Herdr.app. Never run it
+    # when either standard app location already contains a copy.
+    if app_present Herdr; then tool_result 재사용 "Herdr 앱"
+    elif [ "$dry" = 1 ]; then tool_result 예정 "Herdr 앱" "앱 설치 생략 (시험)"
+    elif app_path_in_use Herdr || [ -e "$HOME/.local/bin/herdr-app" ] || [ -L "$HOME/.local/bin/herdr-app" ]; then
+        tool_result 실패 "Herdr 앱" "기존 Herdr 경로를 확인하세요: https://herdr.dev/download/"
+    else
+        # The vendor installer tests for herdr-core, not hc. If hc already
+        # exists alone, hide only its core-install step with a temporary alias.
+        local shield="" herdr_ok=0
+        if ! has herdr-core && [ ! -e "$HOME/.local/bin/herdr-core" ] && { has hc || herdr_state_present || [ -L "$HOME/.local/bin/herdr-core" ] || [ -e "$HOME/.local/bin/hc" ] || [ -L "$HOME/.local/bin/hc" ]; }; then
+            shield=$(mktemp -d) || shield=""
+            if [ -n "$shield" ] && ln -s /usr/bin/true "$shield/herdr-core"; then
+                PATH="$shield:$PATH" install_official_script https://releases.herdr.dev/app/install.sh && herdr_ok=1
+            fi
+            [ -z "$shield" ] || rm -rf "$shield"
+        else
+            install_official_script https://releases.herdr.dev/app/install.sh && herdr_ok=1
+        fi
+        if [ "$herdr_ok" = 1 ] && app_present Herdr; then tool_result 설치 "Herdr 앱"
+        else tool_result 실패 "Herdr 앱" "https://herdr.dev/download/ 에서 설치하세요"; fi
     fi
-    if [ ! -d /Applications/Tailscale.app ] && [ ! -d "$HOME/Applications/Tailscale.app" ]; then
-        brew install --cask tailscale-app || { bad "Tailscale 설치 실패"; return 1; }
-    fi
+    # The app installer may install core itself. Don't overwrite any existing hc.
+    if has hc; then tool_result 재사용 hc
+    elif [ "$dry" = 1 ]; then tool_result 예정 hc
+    elif has herdr-core || herdr_state_present || [ -e "$HOME/.local/bin/herdr-core" ] || [ -L "$HOME/.local/bin/herdr-core" ] || [ -e "$HOME/.local/bin/hc" ] || [ -L "$HOME/.local/bin/hc" ]; then
+        tool_result 실패 hc "기존 Herdr core를 확인하거나 https://herdr.dev/core/ 안내를 따르세요"
+    elif install_official_script https://releases.herdr.dev/core/install.sh && has hc; then tool_result 설치 hc
+    else tool_result 실패 hc "https://herdr.dev/core/ 에서 설치하세요"; fi
     TS_BIN=/Applications/Tailscale.app/Contents/MacOS/Tailscale
     [ -x "$TS_BIN" ] || TS_BIN="$HOME/Applications/Tailscale.app/Contents/MacOS/Tailscale"
-    setup_search_tools || return 1
-    ok "도구 설치 확인"
+    if has tvly; then tool_result 재사용 "Tavily CLI"
+    elif [ "$dry" = 1 ]; then tool_result 예정 "Tavily CLI"
+    elif [ "$brew_ready" = 1 ] && setup_search_tools; then tool_result 설치 "Tavily CLI"
+    else tool_result 실패 "Tavily CLI" "Homebrew 확인 후 ilson setup 을 다시 실행하세요"; fi
+    printf '\n도구 설치 결과:\n%s' "$TOOL_RESULTS"
+    [ "$TOOL_FAILURES" -eq 0 ] || return 1
+    if [ "$dry" = 1 ]; then ok "도구 설치 계획 확인 (시험)"; else ok "도구 설치 확인"; fi
 }
 
 setup() {
@@ -663,7 +736,10 @@ setup() {
     case "$mac_major" in ""|*[!0-9]*) die "macOS 버전을 확인하지 못했습니다" ;; esac
     [ "$mac_major" -ge 13 ] || die "macOS 13 이상이 필요합니다"
     [ -f "$TEMPLATE/CLAUDE.md" ] || die "설치본에 template 이 없습니다 — CLI를 다시 설치하세요"
-    setup_tools || return 1
+    local tools_failed=0
+    setup_tools || tools_failed=1
+    # A dry run exercises staging in a synthetic HOME, without services or app writes.
+    [ "${ILSON_DRY_RUN:-0}" = 1 ] && SANDBOX=1
     if [ "$CONFIGURE_MACHINE" = "1" ]; then
         if [ "$SANDBOX" = "0" ] && [ ! -t 0 ]; then
             bad "전원 설정 대기" "대화형 터미널에서 ilson setup --configure-machine"; return 1
@@ -680,8 +756,13 @@ setup() {
     if [ ! -f "$ILSON_HOME/state/setup-complete" ]; then touch "$ILSON_HOME/state/setup-pending"; fi
     STAGE_ONLY=1
     init_step_jobs || return 1
-    printf '\n기본 설치 완료. 예약 업무는 아직 새로 시작하지 않았습니다.\n'
-    [ "$SANDBOX" = "1" ] && { echo '샌드박스: 로그인·시스템 설정·서비스 실행 생략'; return 0; }
+    if [ "$tools_failed" = 0 ]; then
+        printf '\n기본 설치 완료. 예약 업무는 아직 새로 시작하지 않았습니다.\n'
+    else
+        printf '\n박스 기본 파일을 준비했습니다. 일부 도구는 설치하지 못했습니다.\n'
+    fi
+    [ "$SANDBOX" = "1" ] && { echo '샌드박스: 로그인·시스템 설정·서비스 실행 생략'; [ "$tools_failed" = 0 ]; return; }
+    [ "$tools_failed" = 0 ] || { printf "일부 도구 설치가 실패했습니다. 위 안내를 확인하고 ilson setup 을 다시 실행하세요.\n"; return 1; }
     setup_web_admin || return 1
     setup_telegram
     printf '\n사람이 마칠 단계:\n'
@@ -694,7 +775,7 @@ setup() {
     printf '  • 회사 정보 준비 후 ilson start 로 예약 업무 시작\n'
     printf '  • 이후 설치·설정·업무 요청은 ilson chat (관리용 자동 심사 모드)\n'
     printf '  • 텔레그램 알림 연결·변경: ilson telegram connect\n'
-    printf '  • Aside 및 macOS 권한은 해당 기능 연결 시 설정\n'
+    printf '  • Herdr와 Aside를 열어 필요한 계정에 직접 로그인하고 macOS 권한을 설정\n'
     printf '  • 웹 검색: ilson doctor --probe-search (공개 검색 1회). 예약 검색은 이 기기에서 tvly login 후 점검 권장\n'
     check_remote
     if [ "$REMOTE_STATE" != connected ]; then
