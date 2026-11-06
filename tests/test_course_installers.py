@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -27,12 +28,15 @@ class EmbeddedTextTests(unittest.TestCase):
         for index, (value, original) in enumerate(zip(encoded, expected)):
             with self.subTest(index=index):
                 self.assertEqual(base64.b64decode(value, validate=True).decode('utf-8'), original)
+        for key, name in (('Guide', '00_강의_시작.md'), ('Rules', 'CLAUDE.md')):
+            value = re.search(r"\$Course" + key + r"='([A-Za-z0-9+/=]+)'", source).group(1)
+            self.assertEqual(base64.b64decode(value, validate=True).decode('utf-8'),
+                             (ROOT / 'course' / name).read_text(encoding='utf-8'))
 
     def test_all_mac_embedded_text_matches_original(self):
         source = (ROOT / 'course/install-intel-mac.sh').read_text(encoding='utf-8')
-        encoded = re.findall(r"printf '%s' '([A-Za-z0-9+/=]+)' \| base64 -D", source)
-        self.assertEqual(len(encoded), 2)
-        for value, name in zip(encoded, ('00_강의_시작.md', 'CLAUDE.md')):
+        for key, name in (('GUIDE', '00_강의_시작.md'), ('RULES', 'CLAUDE.md')):
+            value = re.search(r"COURSE_" + key + r"='([A-Za-z0-9+/=]+)'", source).group(1)
             self.assertEqual(base64.b64decode(value, validate=True).decode('utf-8'),
                              (ROOT / 'course' / name).read_text(encoding='utf-8'))
 
@@ -65,6 +69,52 @@ claude() { echo "Claude mock"; }
 
 
 class PowerShellTests(unittest.TestCase):
+    def test_python_bootstrap_and_existing_environment_are_preserved(self):
+        pwsh = os.environ.get('ILSON_TEST_PWSH') or shutil.which('pwsh')
+        if not pwsh:
+            self.skipTest('pwsh required for mocked PowerShell tests')
+        source = (ROOT / 'course/install-windows.ps1').read_text(encoding='ascii')
+        source = source.replace('New-Object Net.WebClient', 'New-TestClient')
+        source = source.replace('[IO.Path]::GetPathRoot($env:USERPROFILE).Substring(0,1)', "'T'")
+        mocks = r'''
+function Get-CimInstance { param($ClassName) if ($ClassName -eq 'Win32_OperatingSystem') { [pscustomobject]@{ BuildNumber='26300'; ProductType=1; Caption='test Windows' } } else { [pscustomobject]@{ SystemType='x64-based PC' } } }
+function Get-PSDrive { param($Name) [pscustomobject]@{Free=10GB} }
+function Find-Claude { [pscustomobject]@{ Source='/usr/bin/true' } }
+function Find-Orca { '/fake/Orca.exe' }
+function Get-Command {
+    [CmdletBinding()] param([string]$Name)
+    if ($Name -eq 'python.exe') { return [pscustomobject]@{Source=$env:ILSON_TEST_PYTHON} }
+    return $null
+}
+function New-TestClient {
+    $client = [pscustomobject]@{}
+    $client | Add-Member ScriptMethod DownloadData { param($url) return ,([Text.Encoding]::UTF8.GetBytes('fixture')) }
+    $client | Add-Member ScriptMethod Dispose { }
+    return $client
+}
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp); kit = home / 'kit'; kit.mkdir()
+            obs = home / 'Programs/obsidian/Obsidian.exe'
+            obs.parent.mkdir(parents=True); obs.write_text('fixture')
+            runner = home / 'runner.ps1'
+            runner.write_text(source[:-5] + '\n' + mocks + '''
+Main
+Write-Output ('ENV_PAYLOAD=' + $env:ILSON_COURSE_PAYLOAD)
+Write-Output ('ENV_BOOTSTRAP=' + $env:ILSON_COURSE_BOOTSTRAP)
+''', encoding='ascii')
+            env = dict(os.environ, USERPROFILE=tmp, LOCALAPPDATA=tmp, ProgramFiles=tmp,
+                       ILSON_COURSE_DRY_RUN='0', ILSON_TEST_PYTHON=sys.executable,
+                       ILSON_COURSE_PAYLOAD='existing-payload', ILSON_COURSE_BOOTSTRAP='existing-bootstrap')
+            result = subprocess.run([pwsh, '-NoProfile', '-File', str(runner), '-KitPath', str(kit)],
+                                    text=True, capture_output=True, timeout=30, env=env)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('Learn: 준비됨', result.stdout)
+            self.assertIn('ENV_PAYLOAD=existing-payload', result.stdout)
+            self.assertIn('ENV_BOOTSTRAP=existing-bootstrap', result.stdout)
+            self.assertEqual((home / 'ilson-course/lib/ilson.py').read_text(encoding='utf-8'),
+                             (ROOT / 'course/ilson.py').read_text(encoding='utf-8'))
+
     def test_dry_run_and_failures_preserve_existing_files(self):
         pwsh = os.environ.get('ILSON_TEST_PWSH') or shutil.which('pwsh')
         if not pwsh:

@@ -30,6 +30,14 @@ class LicenseTest(unittest.TestCase):
         self.serial=lic.encode_serial(self.payload,SEED)
     def offline(self,*_):
         raise OSError('offline')
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX Box compatibility')
+    def test_box_home_symlink_keeps_existing_posix_behavior(self):
+        actual = Path(self.tmp.name) / 'actual-box'
+        actual.mkdir()
+        alias = Path(self.tmp.name) / 'box-alias'
+        alias.symlink_to(actual, target_is_directory=True)
+        self.assertEqual(lic.private_dir(alias), alias / 'state/license')
     def active(self,*_):
         return {'status':'active','server_time':self.current,'paid_until':self.current+86400}
     def test_https_client_checks_nonce_and_online_revocation(self):

@@ -4,10 +4,13 @@ import base64
 import contextlib
 import datetime as dt
 import difflib
-import fcntl
+import os
+if os.name == 'nt':
+    import msvcrt
+else:
+    import fcntl
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
 import stat
@@ -105,16 +108,28 @@ def transaction_path(path):
             or re.fullmatch(r'\.claude/skills/ilson-learned-[0-9a-f-]{36}/SKILL\.md', path) is not None)
 
 class Store:
-    def __init__(self, home):
+    def __init__(self, home, flat_vault=False):
         self.home = Path(home).absolute()
+        self.flat_vault = flat_vault
         if not self.home.is_dir() or self.home.is_symlink():
             raise Problem('Box 폴더를 확인하세요')
-        self.base = self.home / 'vault/.ilson-learning'
+        self.base = self.resolve('vault/.ilson-learning')
         self.check(self.base, parents=True)
         self.base.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.check(self.base)
         self.state_path = self.base / 'state.json'
         self.journal = self.base / 'transaction.json'
+
+    def resolve(self, name):
+        if self.flat_vault and name.startswith('vault/'):
+            name = name[len('vault/'):]
+        return self.home / name
+
+    def recorded_path(self, path):
+        name = path.relative_to(self.home).as_posix()
+        if self.flat_vault and (name.startswith('.ilson-learning/') or name.startswith('lessons/')):
+            return 'vault/' + name
+        return name
 
     def check(self, path, parents=False):
         path = Path(path)
@@ -131,7 +146,10 @@ class Store:
                 info = current.lstat()
             except FileNotFoundError:
                 continue
-            if stat.S_ISLNK(info.st_mode) or info.st_uid != os.getuid():
+            is_reparse = bool(getattr(info, 'st_file_attributes', 0) & 0x400)
+            # Windows has no getuid; keep the reparse-point guard. Course vaults
+            # are user-selected documents, so their ownership is not inferred.
+            if stat.S_ISLNK(info.st_mode) or is_reparse or (os.name != 'nt' and info.st_uid != os.getuid()):
                 raise Problem('소유자 또는 연결 경로를 확인하세요')
             if current != path and not stat.S_ISDIR(info.st_mode):
                 raise Problem('상위 폴더를 확인하세요')
@@ -159,11 +177,12 @@ class Store:
                 os.fsync(stream.fileno())
             self.check(path)
             os.replace(temp, path)
-            dfd = os.open(path.parent, os.O_RDONLY)
-            try:
-                os.fsync(dfd)
-            finally:
-                os.close(dfd)
+            if os.name != 'nt':
+                dfd = os.open(path.parent, os.O_RDONLY)
+                try:
+                    os.fsync(dfd)
+                finally:
+                    os.close(dfd)
         finally:
             if os.path.exists(temp):
                 os.unlink(temp)
@@ -173,12 +192,22 @@ class Store:
         lock = self.base / 'lock'
         self.check(lock)
         fd = os.open(lock, os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+        acquired = False
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX)
+            if os.name == 'nt':
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+            else:
+                fcntl.flock(fd, fcntl.LOCK_EX)
+            acquired = True
             self.recover()
             yield
         finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
+            if acquired and os.name == 'nt':
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+            elif acquired:
+                fcntl.flock(fd, fcntl.LOCK_UN)
             os.close(fd)
 
     def load(self):
@@ -207,14 +236,14 @@ class Store:
         for change in changes:
             if not transaction_path(change['path']):
                 raise Problem('중단된 변경의 대상 경로를 확인하세요')
-            path = self.home / change['path']
+            path = self.resolve(change['path'])
             actual = digest(self.read(path))
             if actual not in (change['before_hash'], change['after_hash']):
                 raise Problem('중단된 변경에 사용자 수정이 있어 복구를 멈췄습니다')
         # The journal is durable evidence of a previously confirmed transaction.
         # Finish it only if every touched file still has a known version.
         for change in changes:
-            path = self.home / change['path']
+            path = self.resolve(change['path'])
             after = decode(change['after'])
             if digest(self.read(path)) != change['after_hash']:
                 if after is None:
@@ -230,11 +259,11 @@ class Store:
         rows = []
         for path, before, after in changes:
             self.check(path)
-            if not transaction_path(path.relative_to(self.home).as_posix()):
+            if not transaction_path(self.recorded_path(path)):
                 raise Problem('변경 대상 경로를 확인하세요')
             if self.read(path) != before:
                 raise Problem('파일이 변경되어 적용을 중단했습니다')
-            rows.append({'path': path.relative_to(self.home).as_posix(), 'before_hash': digest(before),
+            rows.append({'path': self.recorded_path(path), 'before_hash': digest(before),
                          'after_hash': digest(after), 'after': encode(after)})
         self.write(self.journal, self.dump({'status': 'pending', 'id': stamp(), 'changes': rows}))
         self.recover()
@@ -344,7 +373,7 @@ class Store:
 
     def review(self, state):
         self.enabled(state)
-        path = self.home / 'vault/lessons/approved-learning.md'
+        path = self.resolve('vault/lessons/approved-learning.md')
         before = self.read(path)
         old = before.decode('utf-8') if before is not None else '# 승인한 배운 점\n'
         count = 0
@@ -376,7 +405,7 @@ class Store:
         if p['status'] != 'pending' or p['type'] != 'lesson' or p['path'] != 'vault/lessons/approved-learning.md':
             raise Problem('대기 중인 배운 점 제안만 다시 만들 수 있습니다')
         clean_text(p['rule'], 160)
-        before = self.read(self.home / p['path'])
+        before = self.read(self.resolve(p['path']))
         old = before.decode('utf-8') if before is not None else '# 승인한 배운 점\n'
         if p['rule'] in old:
             raise Problem('이미 기준에 반영되어 있습니다')
@@ -398,7 +427,7 @@ class Store:
                 raise Problem('스킬의 대상 경로를 확인하세요')
         else:
             raise Problem('제안 종류를 확인하세요')
-        path = self.home / p['path']
+        path = self.resolve(p['path'])
         before = self.read(path)
         if digest(before) != p['before_hash']:
             raise Problem('사용자가 파일을 수정했거나 대상이 이미 있어 변경하지 않았습니다. 배운 점은 ilson learn refresh <ID>로 재검토하세요')
@@ -445,7 +474,7 @@ class Store:
                     '.claude/skills/ilson-learned-' + ident(h['proposal_id']) + '/SKILL.md')
         if h['type'] not in ('lesson', 'skill') or h['path'] != expected:
             raise Problem('복구할 대상 경로를 확인하세요')
-        path = self.home / h['path']
+        path = self.resolve(h['path'])
         current = self.read(path)
         if digest(current) != h['after_hash']:
             raise Problem('이후에 수정된 파일이라 복구하지 않았습니다')
@@ -500,10 +529,11 @@ def manual_event():
 def main():
     parser = argparse.ArgumentParser(description='반복 업무 제안과 승인형 학습')
     parser.add_argument('--home', required=True)
+    parser.add_argument('--flat-vault', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('command', choices=['status', 'enable', 'disable', 'record', 'events', 'draft', 'lesson', 'review', 'proposals', 'show', 'approve', 'reject', 'reconsider', 'refresh', 'history', 'rollback', 'match', 'skills'])
     parser.add_argument('ids', nargs='*')
     args = parser.parse_args()
-    store = Store(args.home)
+    store = Store(args.home, flat_vault=args.flat_vault)
     with store.locked():
         state = store.load()
         cmd = args.command
@@ -555,7 +585,8 @@ def main():
                 if cmd == 'show': result = p
                 elif cmd == 'approve':
                     print(p.get('diff', p.get('content', '')))
-                    require_human('위 내용을 승인하여 ' + p['path'] + '에 반영합니다.')
+                    display_path = store.resolve(p['path']).relative_to(store.home).as_posix()
+                    require_human('위 내용을 승인하여 ' + display_path + '에 반영합니다.')
                     result = store.approve(state, p)
                 elif cmd == 'reject':
                     require_human('이 제안을 거절하고 같은 제안을 자동으로 반복하지 않습니다.')
