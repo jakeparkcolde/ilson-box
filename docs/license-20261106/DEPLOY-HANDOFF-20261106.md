@@ -1,5 +1,16 @@
 # 일손 라이선스 배포 대기 기록 — 2026-11-06
 
+## 최신 진행 상황 — 2026-11-06
+
+아래의 Marketplace 대기와 미실행 목록은 당시 기록이다. Jake가 승인한 Supabase `ilson-license`(ref `nzhsnuwmtocstazadsho`, 서울, Pro 조직, Micro, 추가 월 $10)를 직접 만들었고 Marketplace 연결은 사용하지 않는다. Vercel 프로젝트는 아래에 기록한 기존 프로젝트를 사용한다.
+
+- 관리자 화면 전환 재수정 `a1970bf`: WebKit 실브라우저 회귀, 웹 관리자 및 학습 안내 시험 통과. `ADMIN-WORK-20261106.md` 참조.
+- Supabase 대시보드가 제공한 서울 세션 풀러로 `001_license.sql`을 적용했다. 네 테이블 RLS 활성, 두 RPC는 anon/authenticated 실행 불가 및 service_role 실행 가능함을 확인했다. DB 비밀번호는 Studio의 0600 파일에서만 읽었다.
+- 새 전용 Supabase secret key `ilson_license_vercel`을 만들고 해당 키의 실제 RPC 호출을 확인했다. 디스크에 키를 저장하지 않고 권한 0600 FIFO와 메모리로 Vercel production의 Sensitive `SUPABASE_SECRET_KEY`에 설정했다. `SUPABASE_URL`은 Config, Studio에서 생성한 `ILSON_ADMIN_SECRET`은 Sensitive로 설정했다. Studio 설정 디렉터리는 소유권을 확인하고 0700으로 맞췄다.
+- 보안 사고: 이 Codex/Herdr 작업 대화의 2026-11-06 `aside repl` Supabase API Keys 화면 스냅샷 출력에서 기존 `default` secret key의 일부가 표시됐다. 조각은 이 문서에 기록하지 않는다. 총괄 지시에 따라 새 전용 키의 RPC 성공을 확인한 뒤 노출된 `default` secret key를 Supabase 대시보드에서 삭제했고 성공 메시지를 확인했다. 다른 키나 publishable key는 삭제하지 않았다.
+- 배포 준비 중 Supabase 공식 문서에 맞춰 서버의 두 RPC 요청에서 opaque secret key를 `apikey`에만 보내도록 수정했다. PGlite 서버 시험 2개 통과. 실제 Vercel 서버 스모크는 아직이다.
+- 이후 순서: 서버 배포와 스모크 → Studio 운영 서명 키 → 공개키 Vercel 설정 및 재배포 → 공개키·실제 URL을 담은 GitHub prerelease → Jake 시리얼 1개 발급·등록 → 합성 HOME 활성화 및 status. 1기 학생 발급과 Latest 승격은 별도 지시 전 금지.
+
 ## 목표와 최신 지시
 
 총괄 t3q는 Jake가 승인한 Vercel 콜드바이트 팀 `ilson-license`와 Supabase `ilson-license` 서울 지역으로 배포한 뒤, GitHub prerelease 및 Jake 시리얼 1개를 준비하도록 지시했다. 1기 학생 4명 발급과 Latest 승격은 별도 신호 전 금지. Jake 로그인이나 결제 확인이 필요하면 그 지점에서 멈추어 총괄에게 한 줄로 보고한다. 시리얼·개인키·인증정보 원문은 저장소·로그·대화에 넣지 않는다. macmini/macmini-1 접근 금지, 작업자가 직접 chmod/sudo/chown/rm 금지.

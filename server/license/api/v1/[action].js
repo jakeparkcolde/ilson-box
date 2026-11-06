@@ -45,7 +45,7 @@ async function handler(req,res) {
   try {
     const endpoint=new URL('/rest/v1/rpc/ilson_rate_limit',process.env.SUPABASE_URL);
     if (endpoint.protocol !== 'https:' || !process.env.SUPABASE_SECRET_KEY) throw new Error('configuration');
-    const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',apikey:process.env.SUPABASE_SECRET_KEY,Authorization:`Bearer ${process.env.SUPABASE_SECRET_KEY}`},body:JSON.stringify({p_bucket:hash('ilson-ip-v1\0'+ip)}),signal:AbortSignal.timeout(5000)});
+    const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',apikey:process.env.SUPABASE_SECRET_KEY},body:JSON.stringify({p_bucket:hash('ilson-ip-v1\0'+ip)}),signal:AbortSignal.timeout(5000)});
     if (!response.ok) throw new Error('database');
     if (await response.json() !== true) return send(429,'rate_limited');
   } catch { return send(503,'unavailable'); }
@@ -66,7 +66,7 @@ async function handler(req,res) {
   try {
     const endpoint = new URL('/rest/v1/rpc/ilson_license_request', process.env.SUPABASE_URL);
     if (endpoint.protocol !== 'https:' || !process.env.SUPABASE_SECRET_KEY) throw new Error('configuration');
-    const response=await fetch(endpoint, {method:'POST',headers:{'Content-Type':'application/json',apikey:process.env.SUPABASE_SECRET_KEY,Authorization:`Bearer ${process.env.SUPABASE_SECRET_KEY}`},body:JSON.stringify({p:input}),signal:AbortSignal.timeout(5000)});
+    const response=await fetch(endpoint, {method:'POST',headers:{'Content-Type':'application/json',apikey:process.env.SUPABASE_SECRET_KEY},body:JSON.stringify({p:input}),signal:AbortSignal.timeout(5000)});
     if (!response.ok) throw new Error('database');
     const result=await response.json();
     if (!result || typeof result.status !== 'string') throw new Error('database');

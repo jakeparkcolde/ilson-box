@@ -34,6 +34,8 @@ test('API and PostgreSQL transactions: register, limit, revoke and renew', async
  await db.exec(fs.readFileSync(require('node:path').join(__dirname,'../migrations/001_license.sql'),'utf8'));
  global.fetch=async (_url,opts)=>{
   try {
+   assert.equal(opts.headers.apikey,process.env.SUPABASE_SECRET_KEY);
+   assert.equal(opts.headers.Authorization,undefined,'opaque Supabase API keys are not bearer JWTs');
    const body=JSON.parse(opts.body);
    const r=_url.pathname.endsWith('/ilson_rate_limit')
     ? await db.query('select public.ilson_rate_limit($1::text) as result',[body.p_bucket])
