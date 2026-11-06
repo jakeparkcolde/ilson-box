@@ -1,5 +1,6 @@
 # ASCII only: Windows PowerShell 5.1 can read this both as a file and through irm | iex.
-param([switch]$DryRun)
+param([switch]$DryRun, [string]$KitPath)
+$script:CourseKitPath = $KitPath
 $DryRun = $DryRun -or ($env:ILSON_COURSE_DRY_RUN -eq '1')
 function K([string]$s) { [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($s)) }
 function Find-Claude { Get-Command claude -ErrorAction SilentlyContinue | Select-Object -First 1 }
@@ -14,7 +15,7 @@ function Main {
     $ErrorActionPreference = 'Stop'
     $ProgressPreference = 'SilentlyContinue'
     $statuses = [ordered]@{ Claude = ''; Orca = ''; Obsidian = ''; Kit = ''; Vault = '' }
-    $kit = Join-Path (Join-Path $env:USERPROFILE 'Documents') (K '7J287IaQ6rCV7J2YLTHquLA=')
+    $kit = if ($script:CourseKitPath) { $script:CourseKitPath } else { Join-Path (Join-Path $env:USERPROFILE 'Documents') (K '7J287IaQ6rCV7J2YLTHquLA=') }
     $files = @(
         'OOu4lOuhnV/smpTssq3rrLgubWQ='
         '64K0IOyXheustCDshozqsJwubWQ='
@@ -103,7 +104,7 @@ function Main {
                     $client = New-Object Net.WebClient
                     try { $bytes = $client.DownloadData($url) } finally { $client.Dispose() }
                     if ($name -eq (K '7Iuc7J6R6rO8X+unie2emF/rs7XqtawubWQ=')) {
-                        $prefix = [Text.Encoding]::UTF8.GetBytes((K 'PiBXaW5kb3dz7JmAIEludGVsIOunpeydgCDrqLzsoIAgMDBf6rCV7J2YX+yLnOyekS5tZA==66W8IOuUsOultOyEuOyalC4=') + "`n`n")
+                        $prefix = [Text.Encoding]::UTF8.GetBytes((K 'PiBXaW5kb3dz7JmAIEludGVsIOunpeydgCDrqLzsoIAgMDBf6rCV7J2YX+yLnOyekS5tZOulvCDrlLDrpbTshLjsmpQu') + "`n`n")
                         $bytes = $prefix + $bytes
                     }
                     $stream = [IO.File]::Open($dest, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
@@ -120,7 +121,7 @@ function Main {
                 } catch { $failed++; Write-Output ($guideName + ': ' + $_.Exception.Message) }
             }
             if ($failed) { throw ((K '67Cb7KeAIOuqu+2VnCDtjIzsnbwg7IiYOg==') + ' ' + $failed) }
-            $statuses.Kit = (K '7KSA67mE65CoICjquLDsobQg7YyM7J28IOuztOyhtCk=')
+            $statuses.Kit = (K '7JmE66OMICjquLDsobQg7YyM7J28IOuztOyhtCk=')
         }
     } catch { $statuses.Kit = (K '7Iuk7Yyo'); Write-Output ('Kit: ' + $_.Exception.Message) }
 
