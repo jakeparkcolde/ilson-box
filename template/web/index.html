@@ -59,7 +59,6 @@
         const label=theme==='dark'?'라이트 모드':'다크 모드';button.replaceChildren(icon(theme==='dark'?'sun':'moon'),element('span',label));button.setAttribute('aria-label',label+'로 전환');button.setAttribute('aria-pressed',String(theme==='light'));
       });
     }
-    window.addEventListener('storage',event=>{if(event.key==='ilson-theme')applyTheme(event.newValue);});
     function text(id,value){$(id).textContent=value;}
     function badge(label,tone='neutral'){return element('span',label,'badge '+tone);}
     function announce(message){text('toast',message);clearTimeout(toastTimer);toastTimer=setTimeout(()=>text('toast',''),3500);}
@@ -123,6 +122,15 @@
       text('page-title',titles[page]);placePageTools();closeNavigation();if(page==='reports')renderReports();window.MiniWorkspace?.show(page);
       if(embeddedDevice)window.parent.postMessage({type:'ilson-device-page',page},location.origin);
     }
+    // Parent sidebar changes iframe.src only by fragment; browsers keep the
+    // current document, so apply the new view instead of waiting for a reload.
+    window.addEventListener('hashchange',()=>{
+      if(!embeddedDevice||!state.authenticated)return;
+      const params=new URLSearchParams(location.hash.slice(1)),page=params.get('view');
+      if(!params.has('device')||!params.has('embedded')||!['overview','jobs','reports','settings'].includes(page))return;
+      showPage(page);
+      try{history.replaceState(null,'',location.pathname+location.search);}catch(_){}
+    });
     function placePageTools(){
       const target=mobileMenu.matches?document.querySelector('.topbar'):document.querySelector('[data-page="'+state.page+'"] .page-heading');
       if(target)target.append($('page-tools'));

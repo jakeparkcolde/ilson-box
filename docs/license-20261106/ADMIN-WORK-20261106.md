@@ -30,3 +30,13 @@
 - `template/web/current/pack-library`가 바뀌었으므로 다음 라이선스 릴리스 패키지를 만들 때 `tools/refresh_pack.py`로 배포용 리서치 팩을 최신 템플릿에서 다시 구성하고 `tools/build_release.py`의 동등성 검사를 통과해야 한다. 외부 배포와 Latest 승격은 하지 않았다.
 - 추가 검증: 작업 전용 합성 서버에서 통합 메뉴의 `접속 종료`를 눌러 실제 세션이 종료되는지와 재접속을 확인했다. 통합 릴리스 시험 19개, 팩 갱신 시험 11개, 현재 UI 시험 13개, 공개 검사 시험 41개도 통과했다. 팩 갱신 시험은 합성 입력의 `serve.py` 허용 목록을 읽지 못했다는 기존 경고를 출력했으며 시험 자체는 성공했다.
 - Close-out: Ego Lite 공간 49는 `finish({keep: []})`로 종료했다. QA 서버 PID 63052는 시작 시각·명령·cwd·포트 확인 후 SIGTERM했고 프로세스 종료 및 포트 56095 해제를 확인했다. 최초 서버 49410/54675와 중간 서버 53465/55081도 종료했다. 재시작 명령 `python3 /tmp/ilson-admin-qa-server.py` (새 임시 HOME·포트를 생성). 실제 운영 서비스와 일반 브라우저는 건드리지 않았다. 미디어 완성물이 없어 My Book 이관 대상 없음.
+
+## 재검수 수정 진행
+
+Antigravity는 `ba34779`에서 통합 사이드바의 프레임 내부 전환 불능(P1)과 테마 이벤트 중복(P3)을 발견했다. 이전 기록의 '설정 버튼' 확인은 홈 **내부 버튼**만 확인한 것이며, 사이드바 네 항목의 연속 전환을 검증했다는 뜻이 아니다. 재현·수정을 위해 합성 QA 서버 PID 38978·포트 65229, HOME `/var/folders/fj/dg8_lcwj31z46p9hj060t2zc0000gp/T/ilson-admin-qa-dq8mhmip/home`을 `python3 /tmp/ilson-admin-qa-server.py`로 시작했다. 다른 기기나 실계정은 사용하지 않는다.
+- 재검증 Ego Lite 공간 ID `51`, 페이지 `p1`; 완료 후 `finish({keep: []})`로 닫는다.
+
+- 원인 수정: 같은 iframe 문서의 fragment 변경을 `hashchange`에서 검증·처리해 `showPage()`를 호출하고 fragment를 정리한다. 테마 `storage` 중복 리스너를 하나로 줄였다.
+- Ego Lite에서 1440×1000과 390×844 각각 `업무 → 보고서 → 설정 → 홈 → 설정 → 업무 → 홈`을 실제 클릭해 보이는 iframe 화면과 선택 메뉴를 모두 확인했다. 홈 내부 설정 버튼 후 부모 메뉴 복귀도 확인했다. [1440 업무](admin-qa/recheck-desktop-jobs.png), [390 설정](admin-qa/recheck-mobile-settings.png).
+- 회귀 시험 `tests/test_admin_navigation_browser.py`는 격리 서버와 실제 WebKit을 띄워 위 양방향 전환을 자동 확인하고 종료한다. `PLAYWRIGHT_CORE`에 설치된 playwright-core 경로를 지정하면 실행되며 미설치 시 skip한다. 같은 시험은 이전 `ba34779` HTML에서 전환 타임아웃으로 실패하고 수정 후 두 크기 모두 통과했다. 관리자 40개·학습 35개·현재 화면 HTTP 10개·프런트 4개·라이선스 화면 3개도 통과했다. 학습 b12/b17의 설정·업무·보고서 안내는 현재 통합 메뉴와 일치한다.
+- Close-out 재수정: Ego 공간 51을 `finish({keep: []})`로 종료했다. QA 서버 PID 38978은 시작 시각·명령·cwd·포트 확인 후 SIGTERM, 프로세스 종료 및 포트 65229 해제 확인. 재시작 `python3 /tmp/ilson-admin-qa-server.py`. 시험용 WebKit은 테스트가 정상 종료했다. 관련 미디어 아카이브 대상 없음.
