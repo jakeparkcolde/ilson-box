@@ -43,6 +43,7 @@ class CourseLearnTest(unittest.TestCase):
         self.assertEqual(files['selflearn.py'], (ROOT / 'course/lib/selflearn.py').read_text(encoding='utf-8'))
         self.assertEqual(files['license.py'], (ROOT / 'course/lib/license.py').read_text(encoding='utf-8'))
         self.assertEqual(files['ilson.py'], (ROOT / 'course/ilson.py').read_text(encoding='utf-8'))
+        self.assertEqual(files['skill_share.py'], (ROOT / 'course/lib/skill_share.py').read_text(encoding='utf-8'))
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / '한글 폴더'
             env = dict(os.environ, ILSON_COURSE_PAYLOAD=mac_bundle)
@@ -51,6 +52,33 @@ class CourseLearnTest(unittest.TestCase):
             (target / 'ilson.py').write_text('user edit', encoding='utf-8')
             self.assertNotEqual(subprocess.run(cmd, env=env, capture_output=True).returncode, 0)
             self.assertEqual((target / 'ilson.py').read_text(encoding='utf-8'), 'user edit')
+
+    def test_known_legacy_entry_point_upgrades_but_user_changes_are_preserved(self):
+        shell = (ROOT / 'course/install-intel-mac.sh').read_text(encoding='utf-8')
+        payload = re.search(r"COURSE_PAYLOAD='([^']+)'", shell).group(1)
+        files = json.loads(gzip.decompress(base64.b64decode(payload)))
+        legacy = (ROOT / 'tests/fixtures/course-legacy-ilson.py').read_bytes()
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp)
+            for name in ('license.py', 'selflearn.py'):
+                (target / name).write_text(files[name], encoding='utf-8')
+            (target / 'ilson.py').write_bytes(legacy)
+            env = dict(os.environ, ILSON_COURSE_PAYLOAD=payload)
+            cmd = [sys.executable, str(ROOT / 'course/install_payload.py'), str(target)]
+            result = subprocess.run(cmd, env=env, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr.decode())
+            self.assertEqual((target / 'ilson.py').read_text(encoding='utf-8'), files['ilson.py'])
+            self.assertEqual((target / 'skill_share.py').read_text(encoding='utf-8'), files['skill_share.py'])
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp)
+            for name in ('license.py', 'selflearn.py'):
+                (target / name).write_text(files[name], encoding='utf-8')
+            (target / 'ilson.py').write_bytes(legacy + b'\n# user edit\n')
+            env = dict(os.environ, ILSON_COURSE_PAYLOAD=payload)
+            cmd = [sys.executable, str(ROOT / 'course/install_payload.py'), str(target)]
+            self.assertNotEqual(subprocess.run(cmd, env=env, capture_output=True).returncode, 0)
+            self.assertEqual((target / 'ilson.py').read_bytes(), legacy + b'\n# user edit\n')
+            self.assertFalse((target / 'skill_share.py').exists())
 
     def test_only_learning_is_locked_and_synthetic_license_unlocks_it(self):
         with tempfile.TemporaryDirectory(prefix='일손 시험 ') as tmp:

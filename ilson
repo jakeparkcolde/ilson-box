@@ -829,6 +829,7 @@ usage() {
   license activate | status                    시리얼 활성화·상태 확인
   chat                                        설치·관리까지 가능한 대화 (auto 자동 심사)
   learn                                       반복 업무 제안·학습 기준 관리
+  skill share|list|get|withdraw                 승인형 스킬 나눔
   people add | list | get                    직원 등록·목록·ID 확인 (people add --help)
   open                                        이 맥의 웹 관리자 열기
   admin start | status | stop                 웹 관리자 시작·상태·중지 (예약 업무와 별개)
@@ -872,6 +873,10 @@ fi
 if [ "$cmd" = learn ]; then
     [ -f "$ILSON_HOME/lib/selflearn.py" ] || die "학습 도우미가 없습니다. ilson update 후 다시 시도하세요."
     exec python3 "$ILSON_HOME/lib/selflearn.py" --home "$ILSON_HOME" "$@"
+fi
+if [ "$cmd" = skill ]; then
+    [ -f "$ILSON_HOME/lib/skill_share.py" ] || die "스킬 나눔 도우미가 없습니다. ilson update 후 다시 시도하세요."
+    exec python3 "$ILSON_HOME/lib/skill_share.py" --home "$ILSON_HOME" --license-home "$ILSON_HOME" "$@"
 fi
 if [ "$cmd" = open ]; then
     web_admin open "$@"; exit $?

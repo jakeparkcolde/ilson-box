@@ -8,9 +8,9 @@ const seed=Buffer.from('9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac03
 const key=crypto.createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),seed]),format:'der',type:'pkcs8'});
 process.env.ILSON_PUBLIC_KEY_1='d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a';
 process.env.ILSON_ADMIN_SECRET='test-secret'; process.env.SUPABASE_URL='https://example.invalid'; process.env.SUPABASE_SECRET_KEY='test-key';
-function token(plan=2) {
- const p=Buffer.alloc(29); p[0]=1;p[1]=1;p.fill(42,2,18);p.writeUInt16BE(1,18);p[20]=plan;
- const now=Math.floor(Date.now()/1000);p.writeUInt32BE(now-60,21);p.writeUInt32BE(now+3600*24*365,25);
+function token(plan=2, fill=42, cohort=1, expired=false) {
+ const p=Buffer.alloc(29); p[0]=1;p[1]=1;p.fill(fill,2,18);p.writeUInt16BE(cohort,18);p[20]=plan;
+ const now=Math.floor(Date.now()/1000);p.writeUInt32BE(now-120,21);p.writeUInt32BE(expired?now-60:now+3600*24*365,25);
  const sig=crypto.sign(null,Buffer.concat([Buffer.from('ILSON-LICENSE-V1\0'),p]),key);
  let bits=0,acc=0,out=''; for (const byte of Buffer.concat([p,sig])) {acc=(acc<<8)|byte;bits+=8;while(bits>=5){bits-=5;out+='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'[(acc>>bits)&31];acc&=(1<<bits)-1;}}
  if(bits)out+='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'[(acc<<(5-bits))&31];
@@ -27,6 +27,56 @@ test('health responds without secrets and only accepts GET',()=>{
  const res={setHeader(){},status(code){this.code=code;return this},json(value){this.value=value;return this}};
  health({method:'GET'},res);assert.equal(res.code,200);assert.deepEqual(res.value,{service:'ilson-license',status:'ok'});
  health({method:'POST'},res);assert.equal(res.code,405);
+});
+test('skill sharing requires a live registered license and moderation', async()=>{
+ const db=new PGlite();
+ await db.exec('create role anon; create role authenticated; create role service_role;');
+ for (const name of ['001_license.sql','002_skill_share.sql']) await db.exec(fs.readFileSync(require('node:path').join(__dirname,'../migrations',name),'utf8'));
+ global.fetch=async (url,opts)=>{
+  const body=JSON.parse(opts.body);
+  const fn=url.pathname.split('/').pop();
+  const arg=fn==='ilson_rate_limit'?body.p_bucket:JSON.stringify(body.p);
+  const type=fn==='ilson_rate_limit'?'text':'jsonb';
+  const result=await db.query(`select public.${fn}($1::${type}) as result`,[arg]);
+  return {ok:true,json:async()=>result.rows[0].result};
+ };
+ const one=token(1,41,1), two=token(1,42,2), dead=token(1,43,1,true), device='a'.repeat(64);
+ for (const [i,serial] of [one,two,dead].entries()) {
+  assert.equal((await run('register',{serial,display_name:'실명은 비공개',request_id:String(i+1).repeat(32)},true)).value.status,'ok');
+  if (serial!==dead) assert.equal((await run('activate',{serial,device_id:device})).value.status,'active');
+ }
+ const data={serial:one,device_id:device,name:'sample',files:{'SKILL.md':'# 학습\n검토합니다.'}};
+ assert.equal((await run('skill-list',{serial:'bad',device_id:device})).value.status,'invalid_serial');
+ assert.equal((await run('skill-list',{serial:dead,device_id:device})).value.status,'expired');
+ assert.equal((await run('skill-list',{serial:one,device_id:'b'.repeat(64)})).value.status,'device_not_registered');
+ assert.equal((await run('skill-share',{...data,files:{'../SKILL.md':'bad'}})).value.status,'invalid_request');
+ const shared=await run('skill-share',data);assert.equal(shared.value.status,'ok');const id=shared.value.id;
+ assert.deepEqual((await run('skill-list',{serial:two,device_id:device})).value.items,[]);
+ assert.equal((await run('skill-get',{serial:two,device_id:device,id})).value.status,'not_found');
+ assert.equal((await run('skill-withdraw',{serial:two,device_id:device,id})).value.status,'forbidden');
+ assert.equal((await run('skill-admin-approve',{id})).code,403);
+ const pending=await run('skill-admin-list',{},true);assert.equal(pending.value.items[0].status,'pending');
+ assert.equal((await run('skill-admin-approve',{id},true)).value.status,'ok');
+ const list=await run('skill-list',{serial:two,device_id:device});assert.equal(list.value.items.length,1);
+ assert(!JSON.stringify(list).includes('실명은 비공개'));
+ assert.equal((await run('skill-get',{serial:two,device_id:device,id})).value.item.files['SKILL.md'],'# 학습\n검토합니다.');
+ process.env.ILSON_SKILL_COHORT_ONLY='true';
+ assert.deepEqual((await run('skill-list',{serial:two,device_id:device})).value.items,[]);
+ assert.equal((await run('skill-get',{serial:two,device_id:device,id})).value.status,'not_found');
+ delete process.env.ILSON_SKILL_COHORT_ONLY;
+ const rejected=(await run('skill-share',data)).value.id;
+ assert.equal((await run('skill-admin-reject',{id:rejected},true)).value.status,'ok');
+ assert.equal((await run('skill-get',{serial:one,device_id:device,id:rejected})).value.status,'not_found');
+ assert.equal((await run('skill-admin-approve',{id:rejected},true)).value.status,'conflict');
+ const moderated=(await run('skill-share',data)).value.id;
+ assert.equal((await run('skill-admin-approve',{id:moderated},true)).value.status,'ok');
+ assert.equal((await run('skill-admin-withdraw',{id:moderated},true)).value.status,'ok');
+ assert.equal((await run('skill-get',{serial:two,device_id:device,id:moderated})).value.status,'not_found');
+ assert.equal((await run('skill-withdraw',{serial:one,device_id:device,id})).value.status,'ok');
+ assert.equal((await run('skill-get',{serial:one,device_id:device,id})).value.status,'not_found');
+ assert.equal((await run('revoke',{serial:two,request_id:'7'.repeat(32)},true)).value.status,'ok');
+ assert.equal((await run('skill-list',{serial:two,device_id:device})).value.status,'revoked');
+ await db.close();
 });
 test('API and PostgreSQL transactions: register, limit, revoke and renew', async()=>{
  const db=new PGlite();

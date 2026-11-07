@@ -34,7 +34,8 @@ async function handler(req,res) {
   const action=req.query.action;
   let body=req.body;
   try { if (typeof body==='string') body=JSON.parse(body); } catch { return res.status(400).json({error:'INVALID_REQUEST'}); }
-  if (!body || typeof body!=='object' || Buffer.byteLength(JSON.stringify(body))>8192) return res.status(400).json({error:'INVALID_REQUEST'});
+  const skillActions=['skill-share','skill-list','skill-get','skill-withdraw','skill-admin-list','skill-admin-approve','skill-admin-reject','skill-admin-withdraw'];
+  if (!body || typeof body!=='object' || Buffer.byteLength(JSON.stringify(body))>(skillActions.includes(action)?131072:8192)) return res.status(400).json({error:'INVALID_REQUEST'});
   const now=Math.floor(Date.now()/1000), nonce=body.nonce;
   if (!/^[a-f0-9]{32}$/.test(nonce || '')) return res.status(400).json({error:'INVALID_REQUEST'});
   const send=(code,status,extra={})=>res.status(code).json({nonce,server_time:now,status,...extra});
@@ -49,6 +50,37 @@ async function handler(req,res) {
     if (!response.ok) throw new Error('database');
     if (await response.json() !== true) return send(429,'rate_limited');
   } catch { return send(503,'unavailable'); }
+  if (skillActions.includes(action)) {
+    const skillAction=action.slice(6), skillAdmin=skillAction.startsWith('admin-');
+    if (skillAdmin && !eqSecret(req.headers['x-ilson-admin'],process.env.ILSON_ADMIN_SECRET)) return res.status(403).json({error:'UNAUTHORIZED'});
+    if (skillAction==='admin-list' && body.offset!==undefined && (!Number.isSafeInteger(body.offset) || body.offset<0 || body.offset>1000000)) return send(400,'invalid_request');
+    let license=null, deviceHash=null;
+    if (!skillAdmin) {
+      try { license=serialData(body.serial); } catch { return send(400,'invalid_serial'); }
+      if (!/^[a-f0-9]{64}$/.test(body.device_id || '')) return send(400,'invalid_serial');
+      deviceHash=hash('ilson-device-v1\0'+body.device_id);
+    }
+    if (skillAction==='share') {
+      if (typeof body.name!=='string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(body.name) ||
+          !body.files || Array.isArray(body.files) || typeof body.files!=='object') return send(400,'invalid_request');
+      const entries=Object.entries(body.files);
+      if (!Object.hasOwn(body.files,'SKILL.md') || entries.length<1 || entries.length>10 ||
+          entries.some(([name,value])=>!/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}\.md$/.test(name) || typeof value!=='string' || /[\x00-\x08\x0b-\x1f\x7f]/.test(value)) ||
+          entries.reduce((n,[,value])=>n+Buffer.byteLength(value),0)>48000) return send(400,'invalid_request');
+    }
+    try {
+      const endpoint=new URL('/rest/v1/rpc/ilson_skill_request',process.env.SUPABASE_URL);
+      if (endpoint.protocol!=='https:' || !process.env.SUPABASE_SECRET_KEY) throw new Error('configuration');
+      const input={action:skillAction,license,device_hash:deviceHash,admin:skillAdmin,
+        cohort_only:process.env.ILSON_SKILL_COHORT_ONLY==='true',name:body.name,files:body.files,id:body.id,offset:body.offset};
+      const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',apikey:process.env.SUPABASE_SECRET_KEY},body:JSON.stringify({p:input}),signal:AbortSignal.timeout(5000)});
+      if (!response.ok) throw new Error('database');
+      const result=await response.json();
+      if (!result || typeof result.status!=='string') throw new Error('database');
+      const code={ok:200,invalid_request:400,invalid_serial:400,revoked:403,expired:403,payment_due:403,forbidden:403,device_not_registered:403,not_found:404,conflict:409,rate_limited:429}[result.status] || 503;
+      return send(code,result.status,Object.fromEntries(Object.entries(result).filter(([key])=>key!=='status')));
+    } catch { return send(503,'unavailable'); }
+  }
   if (!admin && !['activate','check','deactivate'].includes(action)) return send(400,'invalid_serial');
   if (admin && !eqSecret(req.headers['x-ilson-admin'],process.env.ILSON_ADMIN_SECRET)) return res.status(403).json({error:'UNAUTHORIZED'});
   let parsed;
