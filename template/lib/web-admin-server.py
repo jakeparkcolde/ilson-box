@@ -105,6 +105,8 @@ STATIC['/current/sns_accounts.js'] = ('web/current/sns_accounts.js', 'applicatio
 STATIC['/current/sns_operations.css'] = ('web/current/sns_operations.css', 'text/css; charset=utf-8')
 STATIC['/current/sns_operations.js'] = ('web/current/sns_operations.js', 'application/javascript; charset=utf-8')
 STATIC['/current/vault.js'] = ('web/current/vault.js', 'application/javascript; charset=utf-8')
+STATIC['/current/inbox-files.js'] = ('web/current/inbox-files.js', 'application/javascript; charset=utf-8')
+STATIC['/current/inbox-files.css'] = ('web/current/inbox-files.css', 'text/css; charset=utf-8')
 # Claude 배우기 화면 — 강의 파일을 추가하면 여기에도 한 줄씩 등록한다.
 STATIC['/current/learn/learn.js'] = ('web/current/learn/learn.js', 'application/javascript; charset=utf-8')
 STATIC['/current/learn/learn.css'] = ('web/current/learn/learn.css', 'text/css; charset=utf-8')
@@ -991,6 +993,9 @@ class Handler(BaseHTTPRequestHandler):
                 raise AdminError("관리자 화면 파일이 없습니다. ilson setup으로 갱신해주세요.", 404) from None
             return self.reply(200, raw, kind)
         self.require_session()
+        if path == '/api/inbox-files':
+            from inbox_files import list_files
+            return self.reply(200, {'files':list_files(self.server.box.home)})
         from current_ui import handles
         if re.fullmatch(r'/api/motion/projects/[a-f0-9]{32}/download',path):
             from motion_pack import asset
@@ -1093,6 +1098,39 @@ class Handler(BaseHTTPRequestHandler):
             print("기존 일손 화면 요청 실패: 실행 환경을 확인하세요.", file=sys.stderr)
             raise AdminError("업무를 완료하지 못했습니다. 실행 도구·인증·저장 상태를 확인하세요.", 503) from None
 
+    def inbox_request(self, path):
+        from inbox_files import InboxError, inspect
+        from inbox_extract import extract
+        from inbox_review import read_draft, approve
+        import base64
+        try:
+            data = self.body(limit=50000)
+            if not isinstance(data, dict):
+                raise InboxError('입력을 확인하세요.')
+            if path == '/api/inbox-files/preview' and set(data) == {'name','sha256','page'}:
+                meta, image = inspect(self.server.box.home, data['name'])
+                if meta['sha256'] != data['sha256']:
+                    raise InboxError('파일이 바뀌었습니다. 다시 확인하세요.')
+                if meta['format']=='PDF':
+                    from inbox_pdf import render_pdf
+                    image = render_pdf(image, data['page'])
+                elif data['page'] != 1 or isinstance(data['page'],bool):
+                    raise InboxError('쪽수를 확인하세요.')
+                result = {'kind':'pdf' if meta['format']=='PDF' else 'image','image':base64.b64encode(image).decode('ascii')}
+            elif path == '/api/inbox-files/extract' and set(data) == {'name','sha256','consent'}:
+                result = extract(self.server.box.home, data['name'], data['sha256'], data['consent'])
+            elif path == '/api/inbox-files/draft' and set(data) == {'sha256'}:
+                result = read_draft(self.server.box.home, data['sha256'])
+            elif path == '/api/inbox-files/approve' and set(data) == {'sha256','text','category','confirmed'}:
+                result = approve(self.server.box.home, data['sha256'], data['text'], data['category'], data['confirmed'])
+            else:
+                raise InboxError('요청을 확인하세요.')
+            return self.reply(200,result)
+        except InboxError as error:
+            raise AdminError(str(error), 400) from None
+        except Exception:
+            raise AdminError('요청을 완료하지 못했습니다. 원본은 보존됩니다.', 503) from None
+
     def approval_request(self, path):
         import approval_store as store
         import approval_dispatch as dispatch
@@ -1165,6 +1203,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, action(self.server.box.home, data))
             except Exception:
                 raise AdminError('요청을 완료하지 못했습니다. 입력과 연결 상태를 확인해 주세요.', 400) from None
+        if path.startswith('/api/inbox-files/'):
+            self.require_session()
+            return self.inbox_request(path)
         from current_ui import handles
         if handles(path):
             self.require_session()

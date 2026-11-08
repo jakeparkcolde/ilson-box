@@ -1,0 +1,42 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const {webkit}=require(process.env.PLAYWRIGHT_CORE);
+const base=process.argv[2], token=fs.readFileSync(process.argv[3],'utf8').trim();
+(async()=>{
+  const browser=await webkit.launch({headless:true});
+  try{
+    const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
+    const page=await context.newPage();page.setDefaultTimeout(10000);
+    await page.route('**/*',route=>new URL(route.request().url()).origin===base?route.continue():route.abort());
+    await page.goto(base+'/#token='+encodeURIComponent(token));
+    await page.waitForURL('**/current/index.html?tab=home');
+    await page.locator('#sidebar').getByRole('button',{name:'받은 파일',exact:true}).click();
+    await page.getByRole('button',{name:'정리할 파일 검토'}).click();
+    await page.locator('li').filter({hasText:'synthetic.pdf'}).getByRole('button',{name:'확인'}).click();
+    const preview=page.locator('img[alt="선택한 파일 1쪽 미리보기"]');
+    await preview.waitFor({state:'visible'});
+    assert.ok((await preview.getAttribute('src')).startsWith('data:image/jpeg;base64,'));
+    assert.ok(await preview.evaluate(node=>node.naturalWidth>100));
+    await page.getByRole('button',{name:'다음 쪽'}).click();
+    await page.locator('img[alt="선택한 파일 2쪽 미리보기"]').waitFor({state:'visible'});
+    await page.getByRole('button',{name:'동의하고 초안 만들기'}).click();
+    await page.getByText('파일을 보내는 데 동의해야 초안을 만듭니다.').waitFor();
+    await page.locator('#inbox-consent').check();
+    await page.getByRole('button',{name:'동의하고 초안 만들기'}).click();
+    await page.locator('#inbox-edit').waitFor();
+    await page.locator('#inbox-edit').fill('사람이 확인한 가상 금액');
+    await page.getByRole('button',{name:'이전 쪽'}).click();
+    await page.locator('img[alt="선택한 파일 1쪽 미리보기"]').waitFor({state:'visible'});
+    assert.equal(await page.locator('#inbox-edit').inputValue(),'사람이 확인한 가상 금액');
+    await page.getByRole('button',{name:'반영 승인'}).click();
+    await page.getByText('반영하기 전에 내용을 확인하고 동의해 주세요.').waitFor();
+    await page.locator('#inbox-approve').check();
+    await page.getByRole('button',{name:'반영 승인'}).click();
+    await page.getByText(/새 노트를 저장했습니다/).waitFor();
+    assert.equal(await page.locator('#inbox-edit').inputValue(),'사람이 확인한 가상 금액');
+    await page.setViewportSize({width:390,height:844});
+    assert.ok(await page.locator('#main').evaluate(n=>n.scrollWidth<=n.clientWidth+1));
+    await context.close();
+    console.log('WebKit: PDF preview, consent, edit and separate approval PASS');
+  } finally {await browser.close();}
+})().catch(error=>{console.error(error.stack);process.exitCode=1});
