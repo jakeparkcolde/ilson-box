@@ -20,6 +20,10 @@ from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 import warnings
 
+LIBRARY = str(Path(__file__).resolve().parent)
+if LIBRARY not in sys.path:
+    sys.path.insert(0, LIBRARY)
+
 
 TOKEN = re.compile(r"[0-9]{5,16}:[A-Za-z0-9_-]{20,200}\Z")
 USERNAME = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,63}\Z")
@@ -157,7 +161,7 @@ def wait_for_start(home, token, nonce, *, wait_seconds=WAIT_SECONDS):
             if not isinstance(chat, dict) or not isinstance(sender, dict):
                 continue
             chat_id = positive_id(chat.get("id"))
-            if chat.get("type") == "private" and chat_id is not None and positive_id(sender.get("id")) == chat_id and sender.get("is_bot") is False and not message.get("forward_origin"):
+            if chat.get("type") == "private" and chat_id is not None and positive_id(sender.get("id")) == chat_id and sender.get("is_bot") is False and not any(message.get(key) for key in ("forward_origin", "forward_from", "forward_from_chat", "forward_sender_name", "forward_date")):
                 matches.add(chat_id)
         if len(matches) > 1:
             raise SetupError("서로 다른 개인 대화에서 연결 요청을 받았습니다. 링크를 공유하지 말고 다시 연결하세요.")
@@ -277,9 +281,72 @@ def status(home, verify=False):
     return 0
 
 
+def connect_approval(home):
+    # 승인 연결은 기존 알림 연결과 별도이며 개인 대화 소유자를 다시 확인한다.
+    from approval_telegram import receiver_lock, save_config, TelegramError
+    check_sandbox(home)
+    if not interactive():
+        raise SetupError("터미널에서 ilson telegram approval-connect 를 직접 실행해 주세요.")
+    try:
+        lock = receiver_lock(home)
+    except TelegramError as error:
+        raise SetupError(str(error)) from None
+    try:
+        print("휴대폰 승인 연결: 승인할 전문이 텔레그램과 해당 단말에 전달됩니다.")
+        print("민감한 내용은 로컬 승인 대기함에서만 확인하세요. 자동 개인정보 가림은 제공하지 않습니다.")
+        if input("개인 대화에 승인 요청을 보내는 데 동의하시겠어요? [y/N] ").strip().lower() not in ('y', 'yes'):
+            print("기존 연결을 유지했습니다.")
+            return
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', getpass.GetPassWarning)
+            try:
+                token = getpass.getpass('승인용 봇 토큰 붙여넣기: ').strip()
+            except getpass.GetPassWarning:
+                raise SetupError('토큰을 숨겨서 입력할 수 없습니다.') from None
+        if not TOKEN.fullmatch(token):
+            raise SetupError('봇 토큰 형식을 확인해 주세요.')
+        if token == read_pairing(home).get('telegram_bot_token'):
+            raise SetupError('기존 알림을 보존하려면 승인 전용 봇을 새로 만들어 주세요.')
+        bot = bot_identity(home, token)
+        webhook = request(home, token, 'getWebhookInfo')
+        if not isinstance(webhook.get('url'), str) or webhook['url']:
+            raise SetupError('다른 수신 서비스에 연결된 봇입니다. 승인 전용 봇을 사용해 주세요.')
+        nonce = secrets.token_urlsafe(24)
+        url = 'https://t.me/' + bot['username'] + '?start=' + nonce
+        print('아래 링크를 직접 열어 개인 대화의 시작 버튼을 눌러 주세요. 링크는 공유하지 마세요.')
+        print(url)
+        open_bot(url)
+        chat_id = wait_for_start(home, token, nonce)
+        verify_chat(home, token, chat_id)
+        save_config(home, token, chat_id, chat_id)
+        print('휴대폰 승인 연결을 저장했습니다. 기존 알림 연결은 유지됩니다.')
+        print('수신 시작: ilson telegram approval-start')
+    finally:
+        os.close(lock)
+
+
+def disconnect_approval(home):
+    from approval_telegram import receiver_lock, TelegramError, root
+    try:
+        lock = receiver_lock(home)
+    except TelegramError as error:
+        raise SetupError(str(error)) from None
+    try:
+        path = root(home) / 'telegram.json'
+        if path.is_symlink():
+            raise SetupError('연결 설정 경로를 확인해 주세요.')
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+        print('휴대폰 승인 연결을 해제했습니다. 기존 승인 기록과 알림 연결은 유지됩니다.')
+    finally:
+        os.close(lock)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="개인 텔레그램 알림 연결")
-    parser.add_argument("command", choices=("setup", "connect", "status"))
+    parser.add_argument("command", choices=("setup", "connect", "status", "approval-connect", "approval-disconnect"))
     parser.add_argument("--home", type=Path, default=Path(os.environ.get("ILSON_HOME", Path.home() / "ilson")))
     parser.add_argument("--verify", action="store_true")
     args = parser.parse_args(argv)
@@ -288,6 +355,12 @@ def main(argv=None):
     try:
         if args.command == "status":
             return status(args.home, args.verify)
+        if args.command == "approval-connect":
+            connect_approval(args.home)
+            return 0
+        if args.command == "approval-disconnect":
+            disconnect_approval(args.home)
+            return 0
         if args.command == "setup":
             original = read_pairing(args.home)
             if configured(original):
@@ -302,9 +375,27 @@ def main(argv=None):
             if input("개인 텔레그램으로 일손 알림을 받으시겠어요? [Y/n] ").strip().lower() in ("n", "no"):
                 print("나중에 ilson telegram connect 로 연결할 수 있습니다.")
                 return 0
-            connect(args.home, original)
+            check_sandbox(args.home)
+            from approval_telegram import receiver_lock, TelegramError
+            try:
+                lock = receiver_lock(args.home)
+            except TelegramError as error:
+                raise SetupError(str(error)) from None
+            try:
+                connect(args.home, original)
+            finally:
+                os.close(lock)
         else:
-            connect(args.home)
+            check_sandbox(args.home)
+            from approval_telegram import receiver_lock, TelegramError
+            try:
+                lock = receiver_lock(args.home)
+            except TelegramError as error:
+                raise SetupError(str(error)) from None
+            try:
+                connect(args.home)
+            finally:
+                os.close(lock)
         return 0
     except (EOFError, KeyboardInterrupt):
         print("\n연결을 취소했습니다. 기존 설정은 유지됩니다.")

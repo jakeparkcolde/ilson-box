@@ -1,0 +1,13 @@
+'use strict';
+(async () => {
+  const message=document.getElementById('message'), list=document.getElementById('requests');
+  const hash=new URLSearchParams(location.hash.slice(1)); const token=hash.get('token');
+  if(location.hash) history.replaceState(null,'',location.pathname);
+  const api=async(path,body)=>{const options={credentials:'same-origin',cache:'no-store'};if(body!==undefined){options.method='POST';options.headers={'Content-Type':'application/json'};options.body=JSON.stringify(body);}const response=await fetch(path,options),data=await response.json();if(!response.ok)throw Error(data.error||'요청을 완료하지 못했습니다.');return data;};
+  const show=value=>{message.textContent=value;};
+  const node=(tag,text)=>{const el=document.createElement(tag);el.textContent=text;return el;};
+  const states={pending:'승인 대기',approved:'승인 접수',changed:'수정 후 재승인 필요',rejected:'취소됨',expired:'기간 만료',executing:'실행 중',success:'성공',failed:'실패',result_unknown:'결과 확인 필요'};
+  const update=async()=>{const data=await api('/api/approvals');list.replaceChildren();if(!data.requests.length)list.append(node('p','승인 요청이 없습니다.'));for(const req of data.requests){const card=document.createElement('article');card.append(node('h2',req.title),node('p','상태: '+(states[req.state]||'확인 필요')),node('p','행동: '+req.action_type+' · 대상: '+Object.values(req.target).join(' / ')),node('pre',req.body));if(req.local_context!==null){card.append(node('h3','고객 문의 원문'),node('pre',req.local_context));}if(req.context_error)card.append(node('p','문의 원문을 읽지 못했습니다. 확인 후 다시 시도해 주세요.'));if(req.review_blocked)card.append(node('p','숨겨진 내용이 있어 승인할 수 없습니다. 초안을 수정한 뒤 다시 요청하세요.'));if(req.state==='pending'||(req.state==='approved'&&req.execution==='received')){for(const [label,path] of (req.state==='pending'?[['승인','approve'],['고치기','change'],['버리기','reject'],['휴대폰으로 보내기','send']]:[['실행하기','run'],['버리기','reject']])){const b=node('button',label);b.type='button';if(req.review_blocked&&['approve','send','run'].includes(path))b.disabled=true;b.addEventListener('click',async()=>{try{if(path==='send'&&!confirm('승인 대상 전문이 텔레그램과 해당 단말로 전송됩니다. 보내시겠어요?'))return;if(path==='approve'&&!confirm('위의 대상과 내용으로 실행하시겠어요?'))return;await api('/api/approvals/'+path,{id:req.id,consent:path==='send'});show('처리했습니다.');await update();}catch(e){show(e.message);}});card.append(b);}}list.append(card);}};
+  try{if(token)await api('/api/session',{token});await update();}catch(e){show(e.message+' 터미널에서 ilson open으로 다시 열어 주세요.');}
+  document.getElementById('create').addEventListener('click',async()=>{try{await api('/api/approvals/create',{name:document.getElementById('name').value});show('승인 대기함에 추가했습니다.');await update();}catch(e){show(e.message);}});
+})();

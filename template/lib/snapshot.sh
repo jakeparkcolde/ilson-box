@@ -31,7 +31,7 @@ tracked_license=$(git ls-files -- state/license) || exit 1
 [ -z "$tracked_license" ] || { log snapshot "FAILED: license credentials are tracked; review local backup"; exit 1; }
 git check-ignore --quiet state/license/serial || { log snapshot "FAILED: license credentials are not excluded"; exit 1; }
 # SNS 비밀과 실행 장부는 볼트/보고서 백업과 분리한다.
-for private in .credentials .workspace; do
+for private in .credentials .workspace .approval; do
     if ! grep -Fxq "/$private/" .gitignore 2>/dev/null; then
         printf '\n/%s/\n' "$private" >> .gitignore || exit 1
     fi
