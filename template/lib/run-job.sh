@@ -19,6 +19,30 @@ TIMEOUT_S="${ILSON_JOB_TIMEOUT:-600}"
 cd "$ILSON_HOME" || exit 1
 log "$name" "start (max_turns=$MAX_TURNS timeout=${TIMEOUT_S}s)"
 
+# Opt-in product Q&A collector uses a no-tools Claude invocation and never
+# sends or requests approval. Only this fixed job name reaches the adapter.
+if [ "$name" = reply-drafts ]; then
+    if command -v gtimeout >/dev/null 2>&1; then REPLY_TIMEOUT=(gtimeout -k 5 "$TIMEOUT_S");
+    elif command -v timeout >/dev/null 2>&1; then REPLY_TIMEOUT=(timeout -k 5 "$TIMEOUT_S");
+    else log "$name" 'FAILED: timeout tool missing'; exit 1; fi
+    "${REPLY_TIMEOUT[@]}" python3 "$LIB_DIR/replies_scheduled.py" "$ILSON_HOME" >/dev/null 2>&1 &
+    reply_child=$!
+    trap 'kill -TERM "$reply_child" 2>/dev/null; wait "$reply_child"; log "$name" "stopped by signal"; exit 143' TERM INT HUP
+    wait "$reply_child"; reply_rc=$?
+    trap - TERM INT HUP
+    if [ "$reply_rc" -eq 2 ]; then
+        log "$name" 'skipped: disabled or already running'
+        exit 0
+    fi
+    if [ "$reply_rc" -eq 0 ]; then
+        mark_run "$name"
+        log "$name" 'draft collection complete or disabled'
+        exit 0
+    fi
+    log "$name" 'FAILED: draft collection; diagnostics suppressed'
+    exit 1
+fi
+
 # report_heading <file> <title> — 제목 줄이 없는 저장 보고서에만 제목을 붙인다.
 # 웹 보고서 목록과 같은 규칙: 앞 40줄에 '# 제목' 줄이 있으면 그대로 둔다. 머리말(---)로
 # 시작하는 문서는 머리말이 깨지므로 건드리지 않는다. BOM은 빼고 판단하며 권한은 그대로 둔다.
