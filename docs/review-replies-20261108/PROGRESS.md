@@ -21,7 +21,7 @@
 
 ## 완료 직전 검증 (2026-11-08)
 
-- Pillow 격리 의존성 `PYTHONPATH=/tmp/ilson-license-test-deps python3 -m unittest discover -s tests -v`: 767개 통과, 7개 건너뜀. WebKit 환경 미설정 1, PowerShell 미설치 3, Windows 전용 3. 실행 중 승인 원문 계약과 예약 중복 처리 등 후속 수정을 했으므로, 전체 시험의 기능별 목록은 당시 17개이며 최신 `test_replies.py` 21개는 이후 별도 재실행해 모두 통과했다. 실기 및 실제 1번 store 통합 시험을 대신하지 않는다.
+- Pillow 격리 의존성 `PYTHONPATH=/tmp/ilson-license-test-deps python3 -m unittest discover -s tests -v`: 767개 실행: 760개 통과, 7개 건너뜀. WebKit 환경 미설정 1, PowerShell 미설치 3, Windows 전용 3. 실행 중 승인 원문 계약과 예약 중복 처리 등 후속 수정을 했으므로, 전체 시험의 기능별 목록은 당시 17개이며 최신 `test_replies.py` 21개는 이후 별도 재실행해 모두 통과했다. 실기 및 실제 1번 store 통합 시험을 대신하지 않는다.
 - 예약 수집 재시작은 마지막 완료 시점보다 하루 겹쳐 재조회한다. 저장된 지문이 같은 문의는 기존 조회 범위를 보존해 중복 초안과 불필요한 기존 승인 무효화를 방지한다. 일시적 색인 지연을 완화하지만 모든 플랫폼의 지연을 보장해 포착하지는 못한다.
 - 6.4 `2e6fd52` 기준 `check_public --exact-commit`: 합성 리서치 팩을 넣은 시험 묶음에서 차단 36건. 기존 커밋과 다른 신규/변경 내용 및 원본 파일 매칭 32건, 합성 팩의 빠진 공식 전용 파일·정식 manifest 4건. `/tmp/ilson-replies-public-check-20261108/result.txt` 참고. 이는 실제 팩/최종 통합 커밋을 검사한 결과가 아니며 릴리스 검사는 통합에서 다시 필요하다. 검사 뒤에도 기능 코드를 보완했으므로 이 시험 묶음은 최종 산출물이 아니다. 가드는 끄지 않았다.
 - Aside 스킬 지시에 따라 이 기기의 Aside CLI를 1.26.1104.1843에서 1.26.1107.24로 갱신했다. 해당 작업에서 연 탭과 로컬 시험 서버는 모두 닫았다.
