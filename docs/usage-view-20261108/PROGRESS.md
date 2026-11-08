@@ -12,3 +12,11 @@
 
 - 6.4 ZIP과 `235952a`를 비교한 `check_public --exact-commit`은 변경된 내용·누락된 새 파일 등 11건 차단(`/tmp/ilson-usage-public-check-20261108.log`). 검사를 완화하지 않았으며 통합 릴리스의 새 산출물로 다시 검사해야 한다.
 - 이 작업에서 지속 실행 서버·브라우저 공간을 열지 않았고 완성 미디어는 없다.
+
+## Antigravity 지적 수정 · 2026-11-08
+
+- 상태줄 연결 시 실제 기록한 `statusLine` 전체를 복구 기록에 저장해, 복구 명령을 실행하는 Python 경로가 달라도 정확히 비교한다. 기존 형식의 복구 기록은 observer 파일·Box 실경로와 옵션을 대조해 호환한다. 사용자가 상태줄을 변경한 경우 자동 복구를 거절하는 기존 보호는 유지한다.
+- `preview()`가 설정 파일 오류·입출력 오류를 내면 관리자 API는 503 대신 연결 충돌 상태를 반환한다.
+- 격리 가상환경 Python에서 관측을 켠 뒤 실제 `ilson usage stop`을 다른 Python 경로로 호출해 기존 설정을 복구하는 시험, 구 복구 기록 호환, 오류 상태의 API 응답을 합성 파일로 검증했다. 실제 사용자 설정·계정과 외부 API는 사용하지 않았다.
+- 통합 시 3번 작업과 `course/ilson.py`, `course/install_payload.py`가 겹치므로 병합 결과를 확인하고 `python3 course/pack_course.py`를 재실행해 Intel·Windows 설치기 내장본을 다시 만든 뒤 강의 시험을 돌려야 한다.
+- 수정 후 전체 회귀 764개 실행·실패 0·7개 skip(WebKit 1, PowerShell 3, Windows 전용 3), `/tmp/ilson-usage-antigravity-fix-regression-20261108.log`. 실행 중 실제 CLI까지 호출하도록 시험을 보강해 최종 새 시험 12개와 인증 HTTP 1개를 별도 재실행해 통과했다. 강의 시험 20개 실패 0·6개 skip, `/tmp/ilson-usage-antigravity-fix-course-20261108.log`. `git diff --check` 통과.

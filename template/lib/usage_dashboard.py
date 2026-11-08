@@ -20,6 +20,10 @@ def dashboard(home, now=None):
             reset = clean[key].get('resets_at')
             clean[key]['stale'] = stale or (type(reset) in (int, float) and reset <= now)
         sample = clean
-    return {'sample': sample, 'stale': stale, 'observer': preview(home),
+    try:
+        observer = preview(home)
+    except (ValueError, OSError):
+        observer = {'enabled': False, 'existing': False, 'supported': False, 'conflict': True}
+    return {'sample': sample, 'stale': stale, 'observer': observer,
             'alerts': {'enabled': isinstance(settings, dict) and settings.get('enabled') is True,
                        'threshold': settings.get('threshold', 80) if isinstance(settings, dict) else 80}}

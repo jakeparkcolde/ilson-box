@@ -84,7 +84,28 @@ def installed_value(home, backup):
 
 
 def is_wrapper(value, home, backup):
-    return isinstance(backup, dict) and value == installed_value(home, backup)
+    if not isinstance(value, dict) or not isinstance(backup, dict):
+        return False
+    # New installations compare the exact value that was written, independent
+    # of the interpreter used by the caller doing the check or restoration.
+    if 'installed' in backup:
+        return isinstance(backup['installed'], dict) and value == backup['installed']
+    # Backups from earlier builds lack that field. Check the observer and Box
+    # identity while permitting a different Python executable; keep every other
+    # status-line option subject to the same conflict check.
+    try:
+        command = shlex.split(value.get('command', ''))
+        expected = installed_value(home, backup)
+        options = dict(value)
+        options.pop('command', None)
+        expected.pop('command', None)
+        return (options == expected and len(command) == 4
+                and Path(command[0]).name.lower().startswith('python')
+                and Path(command[1]).resolve() == Path(__file__).resolve()
+                and command[2] == '--observe'
+                and Path(command[3]).resolve() == Path(home).resolve())
+    except (ValueError, TypeError, OSError):
+        return False
 
 
 def preview(home, settings=None):
@@ -132,11 +153,12 @@ def _enable(home, settings):
         raise ValueError('기존 상태줄 설정을 안전하게 연결할 수 없습니다. 설정을 확인하세요.')
     config = read_json(settings, {})
     old = config.get('statusLine')
-    # Persist before changing the setting; an interrupted setup can be recovered.
-    write_json(backup_path(home, settings), {'present': 'statusLine' in config, 'value': old})
+    # Save the exact installed value before changing settings for safe restoration.
+    installed = installed_value(home, {'value': old})
+    write_json(backup_path(home, settings), {'present': 'statusLine' in config, 'value': old, 'installed': installed})
     if read_json(settings, {}) != config:
         raise ValueError('Claude 설정이 동시에 변경되어 연결을 멈췄습니다. 복구 기록을 확인하세요.')
-    config['statusLine'] = installed_value(home, {'value': old})
+    config['statusLine'] = installed
     write_json(settings, config)
 
 

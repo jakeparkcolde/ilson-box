@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -52,6 +53,42 @@ class UsageTests(unittest.TestCase):
         u.write_json(self.settings, conf)
         with self.assertRaises(ValueError): u.disable(self.home, self.settings)
         self.assertEqual(u.read_json(self.settings, {})['statusLine']['command'], 'new command')
+
+    def test_venv_enable_and_system_python_stop(self):
+        userhome = Path(self.tmp.name) / 'user with spaces'
+        settings = userhome / '.claude' / 'settings.json'
+        original = {'type': 'command', 'command': 'cat', 'padding': 2}
+        u.write_json(settings, {'statusLine': original, 'other': 'preserve'})
+        venv = Path(self.tmp.name) / 'venv'
+        subprocess.run([sys.executable, '-m', 'venv', '--without-pip', str(venv)], check=True, capture_output=True)
+        other_python = venv / 'bin' / 'python'
+        installed_lib = self.home / 'lib'
+        installed_lib.mkdir(parents=True)
+        shutil.copyfile(u.__file__, installed_lib / 'usage_observer.py')
+        env = dict(os.environ, HOME=str(userhome), ILSON_HOME=str(self.home), PYTHONPATH=str(installed_lib))
+        code = 'import sys, usage_observer as u; u.enable(sys.argv[1])'
+        subprocess.run([str(other_python), '-c', code, str(self.home)], env=env, check=True, capture_output=True)
+        self.assertIn(str(other_python), u.read_json(settings, {})['statusLine']['command'])
+        cli = Path(__file__).resolve().parents[1] / 'ilson'
+        result = subprocess.run(['bash', str(cli), 'usage', 'stop'], env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(u.read_json(settings, {}), {'statusLine': original, 'other': 'preserve'})
+
+    def test_legacy_backup_restores_across_python_executables(self):
+        old = {'type': 'command', 'command': 'cat', 'padding': 2}
+        with patch.object(sys, 'executable', '/venv/bin/python'):
+            installed = u.installed_value(self.home, {'value': old})
+        u.write_json(self.settings, {'statusLine': installed})
+        u.write_json(u.backup_path(self.home, self.settings), {'present': True, 'value': old})
+        self.assertTrue(u.preview(self.home, self.settings)['enabled'])
+        u.disable(self.home, self.settings)
+        self.assertEqual(u.read_json(self.settings, {})['statusLine'], old)
+
+    def test_preview_errors_are_reported_as_conflicts(self):
+        for exc in (ValueError('bad settings'), OSError('unreadable')):
+            with self.subTest(exc=exc), patch.object(dashboard, 'preview', side_effect=exc):
+                result = dashboard.dashboard(self.home)
+                self.assertEqual(result['observer'], {'enabled': False, 'existing': False, 'supported': False, 'conflict': True})
 
     def test_wrapper_passes_input_and_existing_output_without_recording_secrets(self):
         userhome = Path(self.tmp.name) / 'user'

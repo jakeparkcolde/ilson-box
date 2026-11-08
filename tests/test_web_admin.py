@@ -417,6 +417,11 @@ class HTTP시험(BoxFixture):
             self.assertEqual(self.request('POST', '/api/usage', {'action':'enable'})[0], 401)
             cookie, _ = self.login()
             headers = {'Cookie': cookie}
+            import usage_dashboard
+            with patch.object(usage_dashboard, 'preview', side_effect=ValueError('invalid')):
+                status, _, result = self.request('GET', '/api/usage', headers=headers)
+                self.assertEqual(status, 200)
+                self.assertTrue(result['observer']['conflict'])
             self.assertEqual(self.request('POST', '/api/usage', {'action':'enable'}, headers={**headers, 'Origin':'https://bad.example'})[0], 403)
             status, _, body = self.request('POST', '/api/usage', {'action':'enable'}, headers=headers)
             self.assertEqual(status, 200)
