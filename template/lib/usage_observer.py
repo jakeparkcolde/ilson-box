@@ -190,7 +190,7 @@ def observe(home, raw, now=None, notify=None, authorized=None):
             used, reset = window['used_percentage'], window['resets_at']
             if used is None or reset is None or reset <= sample['observed_at'] or used < threshold:
                 continue
-            marker = f'{reset}:{float(threshold):g}'
+            marker = f'{reset}:{float(threshold)}'
             seen = sent.get(key, [])
             if not isinstance(seen, list):
                 seen = [seen] if isinstance(seen, str) else []
