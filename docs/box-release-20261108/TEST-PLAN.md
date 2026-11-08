@@ -5,7 +5,7 @@
 ## 6.4 → 새 버전
 
 - 원본은 작업폴더 바깥 `~/orca/workspaces/ilson-box/box-release-20261108-scratch/6.4/`에 보존한다. 먼저 `python3 docs/box-release-20261108/preflight_64.py --baseline "$BASELINE" --candidate-manifest "$NEW_MANIFEST" --candidate-archive "$NEW_ZIP"`를 실행한다. 이 검사는 양 ZIP·manifest의 해시와 멤버, 구 updater의 `allowed()`만 확인한다. 실제 업그레이드 대체 불가.
-- 완전히 새 임시 HOME과 분리된 CLI·Box 경로를 준비한다. 6.4 ZIP은 업데이트 묶음(`cli/`, `box/`)이므로 설치기 자체가 아니다. `2e6fd52`의 설치기 및 ZIP의 `cli/`를 로컬 소스로 사용하여 실제 설치 경로와 샌드박스 초기화가 가능한지 먼저 확인한다. 실제 launchd·계정·시스템 변경이나 외부 접속을 막고 실행 경로와 제한을 기록한다. 설치기가 내부적으로 사용하는 권한 변경·임시 파일 정리도 지시의 금지 범위와 충돌하는지 총괄에 확인할 것. 단순 ZIP 추출은 실제 설치로 보고하지 않는다.
+- 완전히 새 임시 HOME과 분리된 CLI·Box 경로를 준비한다. 6.4 ZIP은 업데이트 묶음(`cli/`, `box/`)이므로 설치기 자체가 아니다. `2e6fd52`의 설치기 및 ZIP의 `cli/`를 로컬 소스로 사용하여 실제 설치 경로와 샌드박스 초기화가 가능한지 먼저 확인한다. 실제 launchd·계정·시스템 변경이나 외부 접속을 막고 실행 경로와 제한을 기록한다. 총괄은 설치기 내부의 권한 변경·임시 파일 정리를 허용했다. HOME·ILSON_HOME·TMPDIR 격리, 시스템 명령 shim 및 실제 홈/LaunchAgents 전후 확인을 필수로 한다. 단순 ZIP 추출은 실제 설치로 보고하지 않는다.
 - 가짜 볼트 노트, 설정, 학습 자료, 텔레그램 설정을 만들고 내용을 해시로 보관한다. 실제 토큰과 사용자 자료를 사용하지 않는다. 신규 ZIP/manifest의 전체 멤버를 확인하고 구 6.4 설치본의 `tools/update.py --home <임시 Box> --cli <임시 CLI> --manifest <새 manifest> --archive <새 ZIP>`를 구 프로세스로 실행한다. 외부 패키지 설치와 실제 서비스 실행은 격리해야 하며, `ensure_runtime`을 대체하면 그 사실과 보장 범위를 기록한다.
 - 모든 산출물의 해시, 보존 자료 해시, 구 updater 자신의 교체 및 다음 실행 상태를 확인한다. `preserve_sha256`가 있는 경우 보존된 파일과 사유도 별도 확인한다. 받은 파일 첫 사용 시 폴더 생성 및 미동의 수신기의 launchd 미등록을 독립 확인한다. 둘 다 4·1 PASS 전에는 해당 없음/미실행으로 기록한다.
 - 버전·정식 research pack·이전 배포 manifest는 최종 병합 및 총괄 신호에 따라 정한다. 빌드는 `tools/build_release.py --preserve-from <6.4 manifest>`를 사용하고, 새 커밋 기준 `tools/check_public.py --exact-commit`과 실제 `publish_release.py`의 비공개 드라이런 경로를 확인한다. 보존 목록을 무시하거나 가드를 끄지 않는다.

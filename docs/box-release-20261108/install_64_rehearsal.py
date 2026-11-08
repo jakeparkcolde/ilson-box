@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRATCH = ROOT.parent / 'box-release-20261108-scratch'
 RUN = Path(tempfile.mkdtemp(prefix='install-64-rehearsal-', dir=SCRATCH))
 ASSET = SCRATCH / '6.4/ilson-box-2026.11.6.4.zip'
-ACTUAL = Path('/Users/koldeumaegmini')
+ACTUAL = Path.home()
 
 def snapshot(path):
     if not path.exists() and not path.is_symlink(): return {'missing': True}
