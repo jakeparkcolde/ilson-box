@@ -395,6 +395,23 @@ def read_release(feed):
     except (json.JSONDecodeError,UnicodeDecodeError,KeyError,TypeError,http.client.InvalidURL) as exc:raise ValueError(NOT_READABLE) from exc
     except (OSError,http.client.HTTPException) as exc:raise ValueError(NOT_REACHED) from exc
 
+def ensure_inbox(home):
+    # 운영 데이터 디렉터리는 기존 내용을 보존하고 소유자·연결 경로를 확인한다.
+    fd=None
+    try:
+        fd=os.open(str(home),os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+        if os.fstat(fd).st_uid!=os.geteuid():raise ValueError('받은 파일 폴더 소유자를 확인하세요')
+        for name in ('vault','inbox'):
+            try:os.mkdir(name,0o700,dir_fd=fd)
+            except FileExistsError:pass
+            child=os.open(name,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd)
+            os.close(fd);fd=child
+            if os.fstat(fd).st_uid!=os.geteuid():raise ValueError('받은 파일 폴더 소유자를 확인하세요')
+    except OSError:
+        raise ValueError('받은 파일 폴더를 안전하게 열지 못했습니다') from None
+    finally:
+        if fd is not None:os.close(fd)
+
 def apply_running(roots,manifest,archive,check=False):
     if not check:recover_interrupted(roots)
     # 먼저 파일 충돌·묶음 검증을 마친다. 충돌만으로 실행 중인 관리자를 중지하지 않는다.
@@ -407,10 +424,12 @@ def apply_running(roots,manifest,archive,check=False):
     if before.get('version')==manifest['version'] and pending.get('version')==manifest['version'] and pending.get('status')=='active':
         with runtime_lock(home):
             ensure_idle(home)
+            ensure_inbox(home)
             ensure_pack_runtime(home)
         print('관리자와 선택한 팩의 실행 프로그램까지 최신 배포 상태입니다.');return
     with runtime_lock(home):
         ensure_idle(home)
+        ensure_inbox(home)
         enabled=(home/'state/web-admin/enabled').is_file() or pending.get('status')=='pending'
         if enabled:
             save(activation,dict(version=manifest['version'],status='pending'))

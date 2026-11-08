@@ -1,0 +1,10 @@
+.inbox-files{padding:28px;max-width:1100px;line-height:1.65}
+.inbox-files h1{font-size:28px;margin-bottom:12px}
+.inbox-files h2{margin-top:24px}
+.inbox-files p,.inbox-files li{color:var(--ink2)}
+.inbox-files button,.inbox-files select{background:var(--s2);color:var(--ink);border:1px solid var(--hair2);border-radius:8px;padding:7px 12px;font-size:14px;cursor:pointer}
+.inbox-files button:hover{background:var(--s3)}
+.inbox-files button:disabled{opacity:.55;cursor:wait}
+.inbox-files textarea{background:var(--s1);color:var(--ink);border:1px solid var(--hair2);border-radius:8px;padding:12px;font-size:15px;line-height:1.6}
+.inbox-files img{background:white;border:1px solid var(--hair2);border-radius:6px}
+.inbox-files [role=status]{color:var(--ink);padding:8px 12px;border-left:3px solid #828fff}
