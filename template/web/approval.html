@@ -1,0 +1,7 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>승인 대기함 · 일손</title>
+<style>body{font:16px/1.6 system-ui,sans-serif;color:#202a24;background:#f4f7f4;max-width:850px;margin:0 auto;padding:24px}article,section{background:white;padding:20px;margin:16px 0;border:1px solid #d6e1d8;border-radius:12px}button,input{font:inherit;padding:9px;margin:4px}button{cursor:pointer}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f7f4;padding:14px}.status{color:#345340}.error{color:#9a2433}</style><script src="/approval.js" defer></script></head><body>
+<a href="/">← 일손 홈</a><h1>승인 대기함</h1><p>내용과 대상 전체를 확인한 뒤 결정하세요. 맥 Box 전용 기능입니다.</p>
+<p>휴대폰 승인은 <code>ilson telegram approval-connect</code>로 개인 대화를 연결하고 <code>ilson telegram approval-start</code>로 수신을 시작하세요. 기기 분실 시 <code>ilson telegram approval-stop</code>으로 중지한 뒤 <code>ilson telegram approval-disconnect</code>로 연결을 해제하고 다시 연결하세요.</p>
+<p>승인 요청 내용은 이 맥에 보관됩니다. 텔레그램으로 보내면 해당 대화와 기기에도 남습니다. 자동 개인정보 가림은 제공하지 않습니다. 승인 기록은 보관되며, 이 기능의 데이터는 일반 vault/state 스냅샷에 포함되지 않습니다.</p>
+<section><h2>초안 승인 요청 만들기</h2><p><code>vault/reports/pending</code>에 있는 Markdown 초안 파일 이름을 입력하세요. 승인하면 초안을 approved 폴더에 옮기고 일지에 기록합니다.</p><label>파일 이름 <input id="name" placeholder="초안.md"></label><button id="create" type="button">대기함에 추가</button></section>
+<p id="message" role="status"></p><div id="requests"></div></body></html>

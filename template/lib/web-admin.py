@@ -278,7 +278,7 @@ def build_plist(home, port):
         "ProgramArguments": [str(home / ".runtime/venv/bin/python") if (home / ".runtime/venv/bin/python").is_file() else str(Path(sys.executable).absolute()), str(home / "lib/web-admin-server.py"),
                              "--home", str(home), "--port", str(port)],
         "WorkingDirectory": str(home), "RunAtLoad": True, "KeepAlive": True,
-        "EnvironmentVariables": {"PATH": str(Path.home() / ".local/bin") + ":/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"},
+        "EnvironmentVariables": {"ILSON_HOME": str(home), "PATH": str(Path.home() / ".local/bin") + ":/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"},
         "StandardOutPath": str(private / "stdout.log"), "StandardErrorPath": str(private / "stderr.log"),
         "Umask": 0o077,
     }

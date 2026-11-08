@@ -836,6 +836,7 @@ usage() {
   pair --code <코드> [--pairing-file <json>]     페어링 파일 (다시) 쓰기
   telegram connect                            안내에 따라 텔레그램 알림 연결·변경
   telegram status [--verify]                   저장 상태 확인 (verify: Telegram에 연결 점검)
+  telegram approval-connect|approval-start|approval-stop|approval-status|approval-disconnect  휴대폰 승인 연결·수신 관리 (맥 Box)
   course-kit                                  11/9 강의 키트 준비 (기존 파일 보존)
   update [--check|--rollback] [--feed <주소>]    배포 코드 갱신·확인·복구 (--feed: 업데이트 주소 1회 설정)
   llm [claude|codex] [모델명]                  기본 대화·리서치 LLM 확인/변경
@@ -857,7 +858,7 @@ fi
 # Setup and safe diagnostic/stop commands remain usable without a license.
 case "$cmd:${1:-}" in
     setup:*|init:*|doctor:*|help:*|--help:*|-h:*|:*) ;;
-    open:*|admin:start|admin:stop|admin:status|admin:|pause:*|telegram:status) ;;
+    open:*|admin:start|admin:stop|admin:status|admin:|pause:*|telegram:status|telegram:approval-status|telegram:approval-stop|telegram:approval-disconnect) ;;
     update:--rollback) ;;
     *:--help|*:-h) ;;
     *) python3 "$TEMPLATE/lib/license.py" --home "$ILSON_HOME" check || exit 1 ;;
@@ -892,7 +893,10 @@ fi
 if [ "$cmd" = telegram ]; then
     telegram_command="${1:-connect}"; [ "$#" -eq 0 ] || shift
     case "$telegram_command" in
-        connect|status) telegram_box "$telegram_command" "$@"; exit $? ;;
+        connect|status|approval-connect|approval-disconnect) telegram_box "$telegram_command" "$@"; exit $? ;;
+        approval-start) python3 "$ILSON_HOME/lib/approval_service.py" install --home "$ILSON_HOME"; exit $? ;;
+        approval-stop) python3 "$ILSON_HOME/lib/approval_service.py" stop --home "$ILSON_HOME"; exit $? ;;
+        approval-status) python3 "$ILSON_HOME/lib/approval_service.py" status --home "$ILSON_HOME"; exit $? ;;
         *) usage; exit 2 ;;
     esac
 fi

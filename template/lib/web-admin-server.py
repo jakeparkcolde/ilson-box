@@ -60,6 +60,9 @@ STATIC = {"/dashboard": ("web/dashboard.html", "text/html; charset=utf-8"),
           "/favicon.svg": ("web/favicon.svg", "image/svg+xml")}
 
 
+STATIC['/approval'] = ('web/approval.html', 'text/html; charset=utf-8')
+STATIC['/approval.js'] = ('web/approval.js', 'application/javascript; charset=utf-8')
+
 STATIC['/people'] = ('web/people.html', 'text/html; charset=utf-8')
 STATIC['/people.js'] = ('web/people.js', 'application/javascript; charset=utf-8')
 STATIC['/people.css'] = ('web/people.css', 'text/css; charset=utf-8')
@@ -935,9 +938,11 @@ class Handler(BaseHTTPRequestHandler):
                 licensed = evaluate(self.server.box.home)[0]
             except (OSError, ValueError, TypeError):
                 licensed = False
-            if not licensed and urlsplit(self.path).path not in ('/health', '/api/health'):
+            approval_path = urlsplit(self.path).path
+            approval_safe = ((self.command in ('GET', 'HEAD') and approval_path in ('/approval', '/approval.js', '/api/approvals', '/api/session')) or (self.command == 'POST' and approval_path in ('/api/session', '/api/approvals/reject')))
+            if not licensed and approval_path not in ('/health', '/api/health') and not approval_safe:
                 if self.command in ('GET', 'HEAD') and not urlsplit(self.path).path.startswith('/api/'):
-                    return self.reply(200, '<!doctype html><meta charset="utf-8"><title>일손 라이선스</title><h1>일손 라이선스가 필요합니다</h1><p>터미널에서 ilson license activate 를 실행하세요.</p>'.encode(), 'text/html; charset=utf-8')
+                    return self.reply(200, '<!doctype html><meta charset="utf-8"><title>일손 라이선스</title><h1>일손 라이선스가 필요합니다</h1><p>터미널에서 ilson license activate 를 실행하세요.</p><p><a id="approval" href="/approval">승인 대기함 보기·취소</a></p><script>document.getElementById("approval").href+=location.hash</script>'.encode(), 'text/html; charset=utf-8')
                 return self.reply(403, {'error':'라이선스가 필요합니다. ilson license activate를 실행하세요.'})
             if urlsplit(self.path).path in ('/health','/api/health'):callback()
             else:
@@ -993,6 +998,28 @@ class Handler(BaseHTTPRequestHandler):
             except WorkspaceError as error: raise AdminError(str(error),error.status) from None
         if handles(path):
             return self.current_request("GET", path)
+        if path == "/api/approvals":
+            import approval_store as store
+            from approval_actions import load_all
+            load_all()
+            rows = store.list_requests(self.server.box.home)
+            for row in rows:
+                visible = [row['body'], row['title'], *row['target'].values()]
+                row['local_context'] = None
+                row['context_error'] = False
+                action = store._ACTIONS.get(row['action_type'])
+                if action and action[2] is not None:
+                    try:
+                        context = action[2](store.approval_request(row))
+                        if context is not None and (not isinstance(context, str) or len(context) > 256000):
+                            raise ValueError('invalid local context')
+                        row['local_context'] = context
+                        if context is not None:
+                            visible.append(context)
+                    except Exception:
+                        row['context_error'] = True
+                row['review_blocked'] = row['context_error'] or any(self.server.box.redact(value) != value for value in visible)
+            return self.reply(200, {"requests": rows})
         if path == "/api/session":
             return self.reply(200, {"authenticated": True})
         if path.startswith("/api/workspace/"):
@@ -1062,8 +1089,62 @@ class Handler(BaseHTTPRequestHandler):
             print("기존 일손 화면 요청 실패: 실행 환경을 확인하세요.", file=sys.stderr)
             raise AdminError("업무를 완료하지 못했습니다. 실행 도구·인증·저장 상태를 확인하세요.", 503) from None
 
+    def approval_request(self, path):
+        import approval_store as store
+        import approval_dispatch as dispatch
+        from approval_actions import load_all
+        load_all()
+        from approval_telegram import TelegramError, send_card
+        data = self.body()
+        if not isinstance(data, dict):
+            raise AdminError('요청 형식을 확인해 주세요.')
+        home = self.server.box.home
+        if path == '/api/approvals/create':
+            name = data.get('name')
+            if not isinstance(name, str) or not name.endswith('.md') or Path(name).name != name:
+                raise AdminError('대기 중인 초안 파일 이름을 확인해 주세요.')
+            pending = home / 'vault/reports/pending'
+            if any(p.is_symlink() for p in (home / 'vault', home / 'vault/reports', pending, pending / name)):
+                raise AdminError('초안 경로를 확인해 주세요.')
+            try:
+                if not (pending / name).is_file() or (pending / name).stat().st_size > 256000:
+                    raise ValueError('invalid draft')
+                body = (pending / name).read_text(encoding='utf-8')
+                request_id = store.request_approval('local_note', {'channel': 'local_note', 'account': 'local', 'object_id': name}, name, body, home=home)
+            except (OSError, UnicodeError, ValueError):
+                raise AdminError('초안을 읽지 못했습니다. 파일과 크기를 확인해 주세요.') from None
+            return self.reply(200, {'id': request_id})
+        request_id = data.get('id')
+        if not isinstance(request_id, str) or not re.fullmatch('[a-f0-9]{32}', request_id):
+            raise AdminError('승인 요청을 확인해 주세요.')
+        if path == '/api/approvals/run':
+            return self.reply(200, {'status': dispatch.dispatch(request_id, home)})
+        if path == '/api/approvals/send':
+            try:
+                req = store.get(request_id, home)
+                if not req or any(self.server.box.redact(value) != value for value in [req['body'], req['title'], *req['target'].values()]):
+                    raise TelegramError('sensitive content')
+                send_card(home, request_id, consent=data.get('consent') is True)
+                return self.reply(200, {'ok': True})
+            except (TelegramError, OSError, ValueError):
+                raise AdminError('휴대폰 승인 요청을 보내지 못했습니다. 연결과 내용을 확인해 주세요.') from None
+        decisions = {'/api/approvals/approve': 'approved', '/api/approvals/change': 'changed', '/api/approvals/reject': 'rejected'}
+        if path not in decisions:
+            raise AdminError('지원하지 않는 요청입니다.', 404)
+        if decisions[path] == 'approved':
+            req = store.get(request_id, home)
+            if not req or any(self.server.box.redact(value) != value for value in [req['body'], req['title'], *req['target'].values()]):
+                raise AdminError('숨겨진 내용이 있어 승인할 수 없습니다. 초안을 수정한 뒤 다시 요청하세요.')
+        if not store.decide(request_id, decisions[path], 'local', home=home):
+            raise AdminError('이미 처리되었거나 만료된 요청입니다.', 409)
+        status = dispatch.dispatch(request_id, home) if decisions[path] == 'approved' else decisions[path]
+        return self.reply(200, {'status': status})
+
     def post(self):
         path = self.route()
+        if path.startswith('/api/approvals/'):
+            self.require_session()
+            return self.approval_request(path)
         from current_ui import handles
         if handles(path):
             self.require_session()
@@ -1096,6 +1177,9 @@ def main():
     try:
         if not args.home.is_absolute() or not 1 <= args.port <= 65535:
             raise AdminError("Box 절대 경로와 포트를 확인해주세요.")
+        os.environ['ILSON_HOME'] = str(args.home.resolve())
+        from approval_actions import load_all
+        load_all()
         server = Server(Box(args.home), args.port)
         server.box.workspace().start()
     except (AdminError, OSError, ValueError):
