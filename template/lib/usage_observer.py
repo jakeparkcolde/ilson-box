@@ -89,6 +89,8 @@ def is_wrapper(value, home, backup):
 
 def preview(home, settings=None):
     settings = settings or settings_path()
+    if settings.is_symlink() or backup_path(home, settings).is_symlink():
+        raise ValueError('설정 또는 복구 기록이 링크여서 자동 변경할 수 없습니다.')
     config = read_json(settings, {})
     if not isinstance(config, dict):
         raise ValueError('Claude 설정 형식을 확인하세요.')
@@ -144,6 +146,8 @@ def disable(home, settings=None):
 
 def _disable(home, settings):
     saved_path = backup_path(home, settings)
+    if settings.is_symlink() or saved_path.is_symlink():
+        raise ValueError('설정 또는 복구 기록이 링크여서 자동 복구할 수 없습니다.')
     backup = read_json(saved_path, None)
     if not isinstance(backup, dict):
         raise ValueError('복구할 설정 기록이 없습니다.')

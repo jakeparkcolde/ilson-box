@@ -65,6 +65,15 @@ class UsageTests(unittest.TestCase):
         saved = (u.state_dir(self.home) / 'latest.json').read_text()
         self.assertNotIn('PRIVATE', saved)
 
+    def test_symlink_settings_are_never_replaced(self):
+        target = Path(self.tmp.name) / 'original.json'
+        target.write_text('{"other": 1}')
+        self.settings.parent.mkdir(parents=True)
+        self.settings.symlink_to(target)
+        with self.assertRaises(ValueError): u.enable(self.home, self.settings)
+        self.assertTrue(self.settings.is_symlink())
+        self.assertEqual(target.read_text(), '{"other": 1}')
+
     def test_project_override_refused(self):
         u.write_json(self.home / '.claude' / 'settings.local.json', {'statusLine': {'type':'command','command':'true'}})
         with self.assertRaises(ValueError): u.enable(self.home, self.settings)
