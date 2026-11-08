@@ -8,11 +8,12 @@ from pathlib import Path
 import sys
 import tempfile
 
-# Only the exact course entry point from 8c67266 is eligible for replacement.
+# Only known, exact course entry points are eligible for replacement.
 # Unknown or edited files remain protected by the existing no-overwrite rule.
 SHARE_SELFLEARN_SHA256 = '48b6804a599765af19f6ab35c75409986fb5bd3e52967bdd52d1386119ee528d'
 SHARE_ILSON_SHA256 = '70c922f15483534e401dccf7f7fefdea88c4be1102b32196ad00fb60f4fa4bff'
 LEGACY_ILSON_SHA256 = 'b8491dea3dd3f9b9bf82070c0a054d669386f083a68f1380f0a44e6a141cc5e4'
+KNOWN_ILSON_SHA256 = {LEGACY_ILSON_SHA256, '70c922f15483534e401dccf7f7fefdea88c4be1102b32196ad00fb60f4fa4bff'}
 
 
 def main():
@@ -35,7 +36,7 @@ def main():
                 raise ValueError('existing helper differs; ask the instructor')
             old = path.read_bytes()
             if old != data:
-                if not ((name == 'ilson.py' and hashlib.sha256(old).hexdigest() in (LEGACY_ILSON_SHA256, SHARE_ILSON_SHA256)) or (name == 'selflearn.py' and hashlib.sha256(old).hexdigest() == SHARE_SELFLEARN_SHA256)):
+                if not ((name == 'ilson.py' and hashlib.sha256(old).hexdigest() in KNOWN_ILSON_SHA256) or (name == 'selflearn.py' and hashlib.sha256(old).hexdigest() == SHARE_SELFLEARN_SHA256)):
                     raise ValueError('existing helper differs; ask the instructor')
                 replacements.append((path, old, data))
         else:

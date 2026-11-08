@@ -826,6 +826,7 @@ usage() {
   start                                       로그인·회사 정보 확인 후 예약 업무 시작
   pause <업무명>                               예약 업무 멈춤 (워치독·스냅샷·업데이트는 제외)
   resume <업무명>                              멈춘 예약 업무를 현재 설정으로 다시 등록
+  usage [stop]                                Claude 사용량 확인 안내·관측 중지
   license activate | status                    시리얼 활성화·상태 확인
   chat                                        설치·관리까지 가능한 대화 (auto 자동 심사)
   learn                                       반복 업무 제안·학습 기준 관리
@@ -859,10 +860,18 @@ fi
 case "$cmd:${1:-}" in
     setup:*|init:*|doctor:*|help:*|--help:*|-h:*|:*) ;;
     open:*|admin:start|admin:stop|admin:status|admin:|pause:*|telegram:status|telegram:approval-status|telegram:approval-stop|telegram:approval-disconnect) ;;
-    update:--rollback) ;;
+    update:--rollback|usage:|usage:stop) ;;
     *:--help|*:-h) ;;
     *) python3 "$TEMPLATE/lib/license.py" --home "$ILSON_HOME" check || exit 1 ;;
 esac
+if [ "$cmd" = usage ]; then
+    case "${1:-}" in
+        '') printf 'Claude Code에서 /usage 또는 Claude 설정의 Usage를 확인하세요.\n' ;;
+        stop) [ "$#" -eq 1 ] || die "사용법: ilson usage [stop]"; exec python3 "$ILSON_HOME/lib/usage_observer.py" --disable "$ILSON_HOME" ;;
+        *) die "사용법: ilson usage [stop]" ;;
+    esac
+    exit 0
+fi
 if [ "$cmd" = course-kit ]; then
     [ "$#" -eq 0 ] || die "사용법: ilson course-kit"
     exec python3 "$TEMPLATE/lib/course-kit.py" "$TEMPLATE/claude/skills/course-kit-20261109" "$ILSON_HOME"

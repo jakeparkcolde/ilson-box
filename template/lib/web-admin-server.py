@@ -1025,6 +1025,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(200, {"authenticated": True})
         if path.startswith("/api/workspace/"):
             return self.workspace_request("GET", path)
+        if path == "/api/usage":
+            from usage_dashboard import dashboard as usage_dashboard
+            return self.reply(200, usage_dashboard(self.server.box.home))
         if path == "/api/dashboard":
             from resource_dashboard import dashboard
             return self.reply(200, dashboard(self.server.box, self.server.box.resource_collector))
@@ -1171,6 +1174,26 @@ class Handler(BaseHTTPRequestHandler):
             # 요청이 실행 모듈을 불러오기 전에 세션과 출처부터 검증한다.
             self.server.box.workspace()
             return self.workspace_request("POST", path)
+        if path == "/api/usage":
+            self.require_session()
+            from usage_observer import enable, disable, state_dir, write_json, number
+            data = self.body()
+            if not isinstance(data, dict):
+                raise AdminError("설정을 확인해주세요.")
+            try:
+                action = data.get('action')
+                if action == 'enable' and set(data) == {'action'}:
+                    enable(self.server.box.home)
+                elif action == 'disable' and set(data) == {'action'}:
+                    disable(self.server.box.home)
+                elif action == 'alerts' and set(data) == {'action', 'enabled', 'threshold'} and type(data['enabled']) is bool and number(data['threshold'], 1, 100) is not None:
+                    write_json(state_dir(self.server.box.home) / 'alerts.json', {'enabled': data['enabled'], 'threshold': data['threshold']})
+                else:
+                    raise AdminError("설정을 확인해주세요.")
+            except ValueError as error:
+                raise AdminError(str(error)) from None
+            from usage_dashboard import dashboard as usage_dashboard
+            return self.reply(200, usage_dashboard(self.server.box.home))
         if path == "/api/session":
             data = self.body()
             if set(data) != {"token"}:

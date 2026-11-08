@@ -6,8 +6,11 @@ import sys
 
 
 def main(argv):
+    if argv and argv[0] == 'usage':
+        print('Claude Code에서 /usage를 입력하거나 Claude 설정의 Usage에서 계정 한도를 확인하세요. 강의판은 자동 경고를 제공하지 않습니다.')
+        return 0
     if not argv or argv[0] not in ('learn', 'license', 'skill', 'report'):
-        print('사용법: ilson report weekly | ilson learn ... | ilson skill share|list|get|withdraw | ilson license activate|status')
+        print('사용법: ilson usage | ilson report weekly | ilson learn ... | ilson skill share|list|get|withdraw | ilson license activate|status')
         return 0 if not argv or argv[0] in ('-h', '--help') else 2
     lib = Path(__file__).resolve().parent
     home = Path(os.environ.get('ILSON_COURSE_STATE', Path.home() / '.ilson-course'))
