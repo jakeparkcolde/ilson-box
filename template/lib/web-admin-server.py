@@ -62,6 +62,7 @@ STATIC = {"/dashboard": ("web/dashboard.html", "text/html; charset=utf-8"),
 
 STATIC['/approval'] = ('web/approval.html', 'text/html; charset=utf-8')
 STATIC['/approval.js'] = ('web/approval.js', 'application/javascript; charset=utf-8')
+STATIC['/current/replies.js'] = ('web/current/replies.js', 'application/javascript; charset=utf-8')
 
 STATIC['/people'] = ('web/people.html', 'text/html; charset=utf-8')
 STATIC['/people.js'] = ('web/people.js', 'application/javascript; charset=utf-8')
@@ -1145,6 +1146,22 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith('/api/approvals/'):
             self.require_session()
             return self.approval_request(path)
+        if path in ('/api/replies/connection', '/api/replies/collect', '/api/replies/draft', '/api/replies/install', '/api/replies/request', '/api/replies/schedule', '/api/replies/drafts', '/api/replies/disconnect'):
+            self.require_session()
+            import replies_service as service
+            try:
+                data = self.body(limit=12000)
+                action = {'/api/replies/connection': service.save_connection,
+                          '/api/replies/collect': service.fetch_questions,
+                          '/api/replies/draft': service.manual_draft,
+                          '/api/replies/install': service.install_connection_runtime,
+                          '/api/replies/request': service.request_answer,
+                          '/api/replies/schedule': service.schedule,
+                          '/api/replies/drafts': service.list_drafts,
+                          '/api/replies/disconnect': service.disconnect}[path]
+                return self.reply(200, action(self.server.box.home, data))
+            except Exception:
+                raise AdminError('요청을 완료하지 못했습니다. 입력과 연결 상태를 확인해 주세요.', 400) from None
         from current_ui import handles
         if handles(path):
             self.require_session()
