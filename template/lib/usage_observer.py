@@ -98,6 +98,8 @@ def preview(home, settings=None):
     backup = read_json(backup_path(home, settings), None)
     installed = is_wrapper(old, home, backup)
     supported = old is None or (isinstance(old, dict) and old.get('type') == 'command' and isinstance(old.get('command'), str) and set(old) <= {'type', 'command', 'padding', 'refreshInterval'})
+    if isinstance(old, dict) and 'usage_observer.py' in str(old.get('command', '')) and not installed:
+        supported = False
     # Project and local settings take precedence over user settings. Do not claim
     # a working connection when a Box-specific override exists.
     for name in ('settings.json', 'settings.local.json'):

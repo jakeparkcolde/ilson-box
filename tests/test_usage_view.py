@@ -74,6 +74,11 @@ class UsageTests(unittest.TestCase):
         self.assertTrue(self.settings.is_symlink())
         self.assertEqual(target.read_text(), '{"other": 1}')
 
+    def test_other_box_observer_is_not_wrapped(self):
+        u.write_json(self.settings, {'statusLine': {'type':'command', 'command':'python /another/usage_observer.py --observe /another'}})
+        with self.assertRaises(ValueError): u.enable(self.home, self.settings)
+        self.assertIn('/another/', u.read_json(self.settings, {})['statusLine']['command'])
+
     def test_project_override_refused(self):
         u.write_json(self.home / '.claude' / 'settings.local.json', {'statusLine': {'type':'command','command':'true'}})
         with self.assertRaises(ValueError): u.enable(self.home, self.settings)
