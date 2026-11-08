@@ -35,12 +35,13 @@ class UsageTests(unittest.TestCase):
         self.assertIsNone(u.extract({'rate_limits': {'five_hour': {'used_percentage': float('nan')}}})['five_hour']['used_percentage'])
 
     def test_existing_statusline_wrap_and_restore_conflict(self):
-        old = {'type':'command', 'command':'printf existing', 'padding':2}
+        old = {'type':'command', 'command':'printf existing', 'padding':2, 'hideVimModeIndicator':True}
         u.write_json(self.settings, {'statusLine': old, 'other': 1})
         u.enable(self.home, self.settings)
         self.assertTrue(u.preview(self.home, self.settings)['enabled'])
         conf = u.read_json(self.settings, {})
         self.assertEqual(conf['statusLine']['padding'], 2)
+        self.assertTrue(conf['statusLine']['hideVimModeIndicator'])
         conf['other'] = 2
         u.write_json(self.settings, conf)
         u.disable(self.home, self.settings)

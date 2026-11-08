@@ -77,7 +77,7 @@ def installed_value(home, backup):
     result = wrapper(home)
     old = backup.get('value') if isinstance(backup, dict) else None
     if isinstance(old, dict):
-        for key in ('padding', 'refreshInterval'):
+        for key in ('padding', 'refreshInterval', 'hideVimModeIndicator'):
             if key in old:
                 result[key] = old[key]
     return result
@@ -97,7 +97,7 @@ def preview(home, settings=None):
     old = config.get('statusLine')
     backup = read_json(backup_path(home, settings), None)
     installed = is_wrapper(old, home, backup)
-    supported = old is None or (isinstance(old, dict) and old.get('type') == 'command' and isinstance(old.get('command'), str) and set(old) <= {'type', 'command', 'padding', 'refreshInterval'})
+    supported = old is None or (isinstance(old, dict) and old.get('type') == 'command' and isinstance(old.get('command'), str) and set(old) <= {'type', 'command', 'padding', 'refreshInterval', 'hideVimModeIndicator'})
     if isinstance(old, dict) and 'usage_observer.py' in str(old.get('command', '')) and not installed:
         supported = False
     # Project and local settings take precedence over user settings. Do not claim
