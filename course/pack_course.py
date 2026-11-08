@@ -29,4 +29,5 @@ for name in ('install-intel-mac.sh', 'install-windows.ps1'):
         source, count = re.subn(pattern, lambda m: m.group(1) + variable + "='" + value + "'" + m.group(2), source, flags=re.S)
         if count != 1:
             raise RuntimeError(f'{name}: expected one {key} marker, got {count}')
-    path.write_text(source, encoding='utf-8', newline='\n')
+    with path.open('w', encoding='utf-8', newline='\n') as output:
+        output.write(source)

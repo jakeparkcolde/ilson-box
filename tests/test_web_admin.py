@@ -408,6 +408,22 @@ class HTTP시험(BoxFixture):
         self.assertNotIn(self.token, json.dumps(body))
         return headers["Set-Cookie"].split(";", 1)[0], headers
 
+    def test_usage_requires_auth_and_preserves_settings(self):
+        import usage_observer
+        settings = self.user_home / '.claude' / 'settings.json'
+        usage_observer.write_json(settings, {'statusLine': {'type':'command', 'command':'cat'}, 'other':'keep'})
+        with patch.object(usage_observer, 'settings_path', return_value=settings):
+            self.assertEqual(self.request('GET', '/api/usage')[0], 401)
+            self.assertEqual(self.request('POST', '/api/usage', {'action':'enable'})[0], 401)
+            cookie, _ = self.login()
+            headers = {'Cookie': cookie}
+            self.assertEqual(self.request('POST', '/api/usage', {'action':'enable'}, headers={**headers, 'Origin':'https://bad.example'})[0], 403)
+            status, _, body = self.request('POST', '/api/usage', {'action':'enable'}, headers=headers)
+            self.assertEqual(status, 200)
+            self.assertTrue(body['observer']['enabled'])
+            self.assertEqual(self.request('POST', '/api/usage', {'action':'disable'}, headers=headers)[0], 200)
+            self.assertEqual(usage_observer.read_json(settings, {})['statusLine']['command'], 'cat')
+
     def test_로컬127주소에만_묶고_건강응답엔_신원만_넣는다(self):
         self.assertEqual(self.server.server_address[0], "127.0.0.1")
         for path in ("/api/health", "/health"):

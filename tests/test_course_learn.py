@@ -80,6 +80,21 @@ class CourseLearnTest(unittest.TestCase):
             self.assertEqual((target / 'ilson.py').read_bytes(), legacy + b'\n# user edit\n')
             self.assertFalse((target / 'skill_share.py').exists())
 
+    def test_skill_share_course_entry_point_upgrades(self):
+        shell = (ROOT / 'course/install-intel-mac.sh').read_text(encoding='utf-8')
+        payload = re.search(r"COURSE_PAYLOAD='([^']+)'", shell).group(1)
+        files = json.loads(gzip.decompress(base64.b64decode(payload)))
+        previous = (ROOT / 'tests/fixtures/course-skill-share-ilson.py').read_bytes()
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp)
+            for name in ('license.py', 'selflearn.py', 'skill_share.py'):
+                (target / name).write_text(files[name], encoding='utf-8')
+            (target / 'ilson.py').write_bytes(previous)
+            env = dict(os.environ, ILSON_COURSE_PAYLOAD=payload)
+            result = subprocess.run([sys.executable, str(ROOT / 'course/install_payload.py'), str(target)], env=env, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr.decode())
+            self.assertEqual((target / 'ilson.py').read_text(encoding='utf-8'), files['ilson.py'])
+
     def test_only_learning_is_locked_and_synthetic_license_unlocks_it(self):
         with tempfile.TemporaryDirectory(prefix='일손 시험 ') as tmp:
             root = Path(tmp)
