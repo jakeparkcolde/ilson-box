@@ -94,7 +94,7 @@
       const value = w => w && typeof w.used_percentage === 'number' ? `${w.used_percentage}%${w.stale ? ' · 오래됨' : ''}${w.resets_at ? ' · 초기화 ' + time(w.resets_at * 1000) : ''}` : '확인 불가 · /usage 로 확인';
       box.replaceChildren();
       box.append(node('p', `5시간 한도: ${value(sample?.five_hour)}`), node('p', `7일 한도: ${value(sample?.seven_day)}`));
-      box.append(node('p', sample ? `관측 ${time(sample.observed_at * 1000)}${d.stale ? ' · 오래됨' : ''}` : '관측 없음 · /usage 로 확인'));
+      box.append(node('p', sample ? `Claude Code가 마지막으로 알려 준 값 · 받은 시각 ${time(sample.observed_at * 1000)}${d.stale ? ' · 오래됨' : ''} · 정확한 한도는 /usage로 확인하세요.` : '관측 없음 · /usage 로 확인'));
       box.append(node('p', `세션 비용: ${typeof sample?.cost_usd === 'number' ? '$' + sample.cost_usd : '확인 불가 · /usage 로 확인'} · 목록가 기준 추정, 실제 청구 아님 (사용자 가격 설정에 따라 달라질 수 있음)`));
       box.append(node('p', '이 사용자 계정의 Claude Code 상태줄 설정을 연결하므로 다른 대화형 세션도 관측될 수 있습니다. 상태줄에서 전달된 값만 표시합니다. 화면을 닫거나 값이 전달되지 않으면 경고하지 못합니다. Claude 설정의 Usage에서도 확인하세요. 터미널에서 ilson usage stop으로 관측을 끄고 기존 상태줄을 복구할 수 있습니다.'));
       box.append(node('p', d.observer.enabled ? '관측 켜짐' : d.observer.existing ? '기존 상태줄 있음 · 연결하면 감싸서 유지합니다.' : '관측 꺼짐'));
@@ -104,7 +104,7 @@
       const label=node('label',' 한도 경고 켜기 '), check=document.createElement('input');check.type='checkbox';check.checked=d.alerts.enabled;label.prepend(check);box.append(label);
       const threshold=document.createElement('input');threshold.type='number';threshold.min='1';threshold.max='100';threshold.value=d.alerts.threshold;threshold.setAttribute('aria-label','한도 경고 기준 퍼센트');box.append(threshold);
       const save=node('button','경고 설정 저장');save.type='button';save.onclick=()=>usagePost({action:'alerts',enabled:check.checked,threshold:Number(threshold.value)});box.append(save);
-      box.append(node('p','경고는 기본 꺼짐이며 신선한 한도 관측이 있을 때만 각 초기화 기간에 한 번 기존 텔레그램으로 전송을 시도합니다. 연결되지 않았거나 전송에 실패하면 자동 재시도하지 않습니다.'));
+      box.append(node('p','경고는 기본 꺼짐이며 신선한 한도 관측이 있을 때만 각 초기화 기간의 기준값마다 한 번 기존 텔레그램으로 전송을 시도합니다. 연결되지 않았거나 전송에 실패하면 자동 재시도하지 않습니다.'));
     } catch { box.textContent='사용량을 확인하지 못했습니다 · /usage 로 확인'; }
   }
   async function usagePost(body) {

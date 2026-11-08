@@ -101,6 +101,12 @@ class UsageTests(unittest.TestCase):
         u.observe(self.home, sample(81, 3000), 1004, sent.append, lambda: True)
         u.observe(self.home, sample(81, 2000), 1005, sent.append, lambda: True)
         self.assertEqual(len(sent),2)
+        u.write_json(u.state_dir(self.home) / 'alerts.json', {'enabled':True, 'threshold':90})
+        u.observe(self.home, sample(95, 3000), 1006, sent.append, lambda: True)
+        u.observe(self.home, sample(95, 3000), 1007, sent.append, lambda: True)
+        self.assertEqual(len(sent),3)
+        self.assertIn('받은 시각', sent[-1])
+        self.assertIn('/usage', sent[-1])
         self.assertNotIn('never save', (u.state_dir(self.home) / 'latest.json').read_text())
 
     def test_staleness_and_zero(self):

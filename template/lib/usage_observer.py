@@ -190,10 +190,11 @@ def observe(home, raw, now=None, notify=None, authorized=None):
             used, reset = window['used_percentage'], window['resets_at']
             if used is None or reset is None or reset <= sample['observed_at'] or used < threshold:
                 continue
-            marker = str(reset)
+            marker = f'{reset}:{float(threshold):g}'
             seen = sent.get(key, [])
             if not isinstance(seen, list):
                 seen = [seen] if isinstance(seen, str) else []
+            seen = [item for item in seen if isinstance(item, str) and item.split(':', 1)[0].isdigit() and int(item.split(':', 1)[0]) > sample['observed_at']]
             if marker in seen:
                 continue
             if authorized is None:
@@ -207,9 +208,10 @@ def observe(home, raw, now=None, notify=None, authorized=None):
             if not allowed:
                 continue
             # Mark before sending: crashes or failed deliveries never cause duplicate sends.
-            sent[key] = (seen + [marker])[-32:]
+            sent[key] = seen + [marker]
             write_json(folder / 'sent.json', sent)
-            message = f"Claude {'5시간' if key == 'five_hour' else '7일'} 한도 관측값이 {used}%입니다. /usage에서 확인하세요."
+            received = time.strftime('%H:%M', time.localtime(sample['observed_at']))
+            message = f"Claude Code가 마지막으로 알려 준 {'5시간' if key == 'five_hour' else '7일'} 한도: {used}% · 받은 시각 {received}. 정확한 한도는 /usage로 확인하세요."
             if notify:
                 notify(message)
             else:
