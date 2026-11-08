@@ -1,5 +1,19 @@
 # 스킬 나눔 작업 기록 · 2026-11-07
 
+## 운영 반영 2026-11-08
+
+- 작업 전 복구 계획: 현재 운영 Vercel 배포는 `dpl_35tWjM4PEiJA99RhXFz3TwNiVi32` (`ilson-license-lwgag0nto-jakeparkcoldes-projects.vercel.app`). 장애 시 `cd server/license && vercel rollback dpl_35tWjM4PEiJA99RhXFz3TwNiVi32 --scope jakeparkcoldes-projects --yes`로 라우팅 복구 후 health와 기존 API를 재검증한다. 롤백은 DB를 되돌리지 않으며 자동 도메인 배정에 영향을 준다. 이전 서버와 002 추가 스키마는 공존한다.
+- DB 복구 계획: 적용 전 운영 `license_private`와 `public`의 `pg_dump` 백업을 제한된 로컬 위치에 만들고 복원 목록을 검증한다. 적용을 원상복구해야 할 때는 서버를 먼저 이전 배포로 되돌리고, 공유 자료의 실제 사용 여부를 확인한 뒤 002가 추가한 `public.ilson_skill_request(jsonb)` 함수와 `license_private.shared_skills` 표만 제거한다. 공유 데이터가 생긴 뒤 표를 제거하면 데이터가 소실되므로 백업과 별도 판단이 필요하다. 기존 001 표는 삭제하거나 덮어쓰지 않는다.
+- 시작 상태: 작업 브랜치 `feat/skill-share-20261107`의 `121920aa7740cce9e8e445586290f8fd6976f9f1`, 작업 트리 깨끗함. 대상 Vercel 프로젝트 `prj_wOQ9v3bBmlZkY7prIvEU8z12RP26`, 팀 `jakeparkcoldes-projects`; Supabase 프로젝트 `nzhsnuwmtocstazadsho`. `ILSON_SKILL_COHORT_ONLY`는 production 환경변수 목록에 없음을 확인했다.
+- DB 사전 확인: `license_private`의 기존 네 표 모두 RLS 활성, 기존 공개 RPC 두 개를 확인했다. Supabase 대시보드가 제공한 CA로 TLS `verify-full` 연결. 대시보드에 최근 백업 약 5시간 전으로 표시. 별도로 적용 전 `public`과 `license_private`의 논리 백업 `~/.local/share/ilson-license/backups/pre-skill-share-20261108-092146.dump` (0600, SHA-256 `1ad58b8403a704810b43fce692474ababb2e0978c8ee911b88492a70b1ca7a45`)을 만들고 `pg_restore --list`에서 기존 네 표와 두 함수를 확인했다. 복원 실행은 미검증이며 이 백업은 프로젝트 전체 백업이 아니다.
+- 작업 중 Aside REPL 세션 `2026-11-08_BXE19TqmgUD4oPYf`의 Supabase 탭을 사용했다. 검증 후 탭과 REPL을 닫았다.
+- 운영 DB: 002를 트랜잭션으로 적용했다. 001의 네 표 스키마와 두 RPC 정의·권한의 사전/사후 덤프 SHA-256이 동일했다. `anon`·`authenticated`의 표 조회와 새 RPC 실행은 실제 거부, `service_role`의 RPC 호출은 성공했다. 합성 행과 임시 SELECT 권한을 단일 트랜잭션에서 부여해 두 역할에 행이 보이지 않는 RLS를 확인하고 롤백했으며 합성 행 잔존 0건이다.
+- 서버: `121920a`의 `ILSON_LICENSE_REVIEW_PASSED=yes sh server/license/deploy.sh`로 production 빌드를 도메인 없이 배포하고 스테이징 시험 후 promote했다. 현재 `https://ilson-license.vercel.app`은 `dpl_79RQ79QVUedVCxpYZ5dWbyo2neo8` (`https://ilson-license-he44iuw0q-jakeparkcoldes-projects.vercel.app`)를 가리킨다. 1기 전체 유효 시리얼 사용 정책에 따라 `ILSON_SKILL_COHORT_ONLY`는 설정하지 않았다.
+- 스테이징과 운영 각각: 잘못된 시리얼의 skill-list·skill-share는 400 `invalid_serial`, 관리자 목록은 200 `ok`, 기존 activate·check는 잘못된 시리얼에 400 `invalid_serial`; health 200. 실제 시리얼은 쓰지 않아 유효 시리얼의 활성화·확인 성공 경로는 운영에서 재시험하지 않았다. 각 스모크의 새 rate-limit 행은 시험 호출 수와 일치하고 기존 행이 없음을 확인한 후 조건부 삭제했다. 공유 시험 데이터는 남기지 않았다.
+- 시험 환경 정정: 시스템 기본 Python 3.9.6으로 실행한 PowerShell 강의 설치기 모의 6개 중 1개가 Python 3.10 이상 조건 미충족으로 실패했다. Python 3.15.2와 PowerShell 7.6.9로 다시 실행한 6개는 모두 통과했다. macOS의 모의 시험이며 Windows 실기 시험은 아니다. Node 26.13.0에서 서버 PGlite 시험 3개 통과; 배포 대상 런타임은 package.json에 따라 Node 24다. WebKit 관리자 탐색 시험 1개 통과.
+- 전체 회귀: Python 3.9로 750개 실행, 실패 1·skip 7. 실패는 이 운영 기록에 쓴 개인 홈 절대경로를 개인정보 검사가 감지한 것이었고 `~/` 표기로 고친 뒤 해당 `test_update_feed.py` 18개 모두 통과했다. 최초 전체 실행에서 건너뛴 WebKit 1개와 PowerShell 모의 3개는 위와 같이 별도 통과했으며 Windows 전용 3개는 미실행이다. 최초 전체 로그 `/tmp/ilson-skill-share-production-regression-20261108.log`. 전체 750개를 수정 후 다시 실행한 것은 아니다. 기존 6.4 공개판 exact-commit 차단은 아래의 종전 기록과 같다.
+- Close-out 2026-11-08: Aside 작업 탭과 REPL을 닫았다. 작업 중 생성한 Vercel 임시 환경 파일 2개와 로컬 빌드·의존성 디렉터리를 정리하고 롤백용 프로젝트 연결은 유지했다. 별도 미리보기 서버·Ego 공간·완성 미디어는 없다. 운영 서비스 및 다른 세션은 유지한다.
+
 - 범위: `feat/skill-share-20261107`, 기준 `8c67266`. 공개판 6.4 유지. 운영 DB 마이그레이션, 서버 배포, main 반영, push, 릴리스 및 학생 기기 접속은 하지 않는다.
 - 구현: 공통 명령과 온라인 라이선스·기기 검사, 로컬 내용 검사와 TTY 확인, 승인 대기·승인·반려·철회, 기수 제한 설정, 별칭, 출처를 포함한 충돌 방지 설치. 강사용 검토는 기존 학생 Box 화면이 아닌 별도 로컬 화면으로 분리했다. 실행 `python3 server/license/skill_admin.py` 후 관리 비밀을 직접 입력한다. 상세는 `DESIGN.md`.
 - 검증: Node 24.22.2 + 격리 PGlite 서버 시험 3개 통과. 새 Python 기능·화면 HTTP 시험 10개 통과. 기존 전체 회귀 747개 실행·실패 0·6개 skip(Studio에서 PowerShell 모의 3, Windows 전용 3); 전체 실행 뒤 설치기 보강을 포함한 최신 스킬 시험 10개와 강의 관련 19개를 별도 재실행해 실패 0. PowerShell 7.6.9 경로를 추가해 모의 3개를 통과했고 Windows 전용 3개만 skip했다. WebKit을 포함한 전체 로그 `/tmp/ilson-skill-share-test-20261107/regression.log`. `git diff --check` 통과. 실제 Windows 실기·강사용 화면의 실제 브라우저 시각 검증·운영 DB 검증은 하지 않았다.
