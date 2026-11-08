@@ -8,7 +8,7 @@
 
 ## 새 맥미니 설치
 
-애플 칩(M1 이후) 맥과 macOS 13 이상이 필요합니다. 인텔 맥은 Homebrew가 지원을 끝내 지금은 새로 설치할 수 없습니다.
+애플 칩(M1 이후) 맥과 macOS 13 이상이 필요합니다. 인텔 맥은 Homebrew가 지원을 끝내 일손 Box 전체는 설치할 수 없고, 대신 강의판(Claude Code + Orca + Obsidian + 위키 + 자동 스킬)을 터미널에서 `curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/course/install-intel-mac.sh | bash` 로 설치합니다(macOS 13 이상). Windows 10·11은 PowerShell에서 `irm https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/course/install-windows.ps1 | iex` 로 설치합니다.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/install.sh | sh
