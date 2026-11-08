@@ -50,6 +50,7 @@ class RuntimeGateTests(unittest.TestCase):
    with u.runtime_lock(home):
     with self.assertRaises(BlockingIOError):
      with running(home):pass
+ @unittest.skipUnless(importlib.util.find_spec('PIL') is not None, 'Pillow is needed to create synthetic images')
  def test_이미지첨부는_실행에전달하지만_업무장부에저장하지않음(self):
   import base64,io
   from PIL import Image

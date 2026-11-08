@@ -1,5 +1,6 @@
 """가상 자료와 가짜 Claude로만 시험한다."""
 import hashlib
+import importlib.util
 import io
 import os
 from pathlib import Path
@@ -35,6 +36,23 @@ sys.path.insert(0,str(ROOT/'template/lib'))
 import inbox_files as files
 import inbox_extract as extract
 import inbox_review as review
+
+@unittest.skipUnless(sys.platform == 'darwin' and (Image is None or importlib.util.find_spec('pillow_heif') is None),
+                     'macOS fallback test runs when Pillow or pillow-heif is missing')
+class NativeFallbackTests(unittest.TestCase):
+    def test_real_imageio_sips_with_missing_optional_dependencies(self):
+        import inbox_sips
+        fixture = ROOT / 'tests/fixtures/inbox-images'
+        extensions = ('jpg', 'png', 'heic') if Image is None else ('heic',)
+        for ext in extensions:
+            with self.subTest(ext=ext), patch.object(inbox_sips, 'normalize_sips', wraps=inbox_sips.normalize_sips) as native:
+                output = files.normalize('synthetic.' + ext, (fixture / ('synthetic.' + ext)).read_bytes())
+                self.assertEqual(native.call_count, 1)
+                self.assertTrue(output.startswith(b'\xff\xd8'))
+                self.assertEqual(inbox_sips.metadata(output)[:2], (60, 40))
+        with self.assertRaises(files.InboxError):
+            files.normalize('fake.heic', (fixture / 'synthetic.png').read_bytes())
+
 
 @unittest.skipUnless(Image is not None, 'Pillow is needed to generate synthetic fixtures')
 class InboxTests(unittest.TestCase):
@@ -124,15 +142,22 @@ class InboxTests(unittest.TestCase):
             self.assertEqual(extract.run_claude(self.home,b'fake'),output)
             args=run.call_args.args[0];self.assertEqual(args[args.index('--tools')+1],'');self.assertIn('--no-session-persistence',args)
             self.assertNotIn('fake',str(args))
-    def test_png_and_heic_are_really_decoded(self):
+    def test_png_is_really_decoded(self):
+        path=self.folder/'sample.png'
+        Image.new('RGB',(20,30),'white').save(path,format='PNG')
+        meta, thumbnail=files.inspect(self.home,path.name)
+        self.assertEqual(meta['format'],'PNG')
+        self.assertEqual(Image.open(io.BytesIO(thumbnail)).size,(20,30))
+    @unittest.skipUnless(importlib.util.find_spec('pillow_heif') is not None, 'pillow-heif is needed to create a synthetic HEIC')
+    def test_heic_is_really_decoded(self):
         from pillow_heif import register_heif_opener
         register_heif_opener()
-        for ext, fmt in [('png','PNG'),('heic','HEIF')]:
-            path=self.folder/('sample.'+ext)
-            Image.new('RGB',(20,30),'white').save(path,format=fmt)
-            meta, thumbnail=files.inspect(self.home,path.name)
-            self.assertEqual(meta['format'],fmt)
-            self.assertEqual(Image.open(io.BytesIO(thumbnail)).size,(20,30))
+        path = self.folder / 'sample.heic'
+        Image.new('RGB', (20, 30), 'white').save(path, format='HEIF')
+        meta, thumbnail = files.inspect(self.home, path.name)
+        self.assertEqual(meta['format'], 'HEIF')
+        self.assertEqual(Image.open(io.BytesIO(thumbnail)).size, (20, 30))
+
     def test_pixel_limit_and_bad_document(self):
         with patch.object(files,'MAX_PIXELS',100):
             with self.assertRaises(files.InboxError):files.inspect(self.home,self.name)
@@ -144,11 +169,9 @@ class InboxTests(unittest.TestCase):
         self.assertFalse((self.home/'state/inbox-drafts'/f'{self.digest}.json').exists())
         self.assertEqual(review.read_draft(self.home,extract.extract(self.home,self.name,self.digest,True,self.fake)['sha256'])['draft'],'합계 확인 필요')
 
-    def test_sips_without_pillow_for_jpeg_png_heic_and_rotations(self):
+    def test_sips_jpeg_png_and_rotations(self):
         from inbox_sips import normalize_sips
         from PIL import ImageDraw, ImageOps, ImageChops, ImageStat
-        from pillow_heif import register_heif_opener
-        register_heif_opener()
         image=Image.new('RGB',(60,40),'white');draw=ImageDraw.Draw(image)
         draw.rectangle((0,0,29,19),fill='red');draw.rectangle((30,0,59,19),fill='green')
         draw.rectangle((0,20,29,39),fill='blue');draw.rectangle((30,20,59,39),fill='yellow')
@@ -161,10 +184,18 @@ class InboxTests(unittest.TestCase):
             self.assertEqual(actual.size,expected.size,orientation)
             self.assertLess(sum(ImageStat.Stat(ImageChops.difference(actual,expected)).mean)/3,20,orientation)
             self.assertFalse(actual.getexif())
-        for extension,fmt in [('png','PNG'),('heic','HEIF')]:
-            source=io.BytesIO();image.save(source,format=fmt)
-            self.assertEqual(Image.open(io.BytesIO(normalize_sips('photo.'+extension,source.getvalue()))).size,image.size)
-            with self.assertRaises(files.InboxError):normalize_sips('fake.jpg',source.getvalue())
+        source=io.BytesIO();image.save(source,format='PNG')
+        self.assertEqual(Image.open(io.BytesIO(normalize_sips('photo.png',source.getvalue()))).size,image.size)
+        with self.assertRaises(files.InboxError):normalize_sips('fake.jpg',source.getvalue())
+
+    @unittest.skipUnless(importlib.util.find_spec('pillow_heif') is not None, 'pillow-heif is needed to create a synthetic HEIC')
+    def test_sips_heic(self):
+        from inbox_sips import normalize_sips
+        from pillow_heif import register_heif_opener
+        register_heif_opener()
+        source=io.BytesIO();Image.new('RGB',(60,40),'white').save(source,format='HEIF')
+        self.assertEqual(Image.open(io.BytesIO(normalize_sips('photo.heic',source.getvalue()))).size,(60,40))
+        with self.assertRaises(files.InboxError):normalize_sips('fake.jpg',source.getvalue())
     def test_duplicate_call_is_serialized(self):
         import threading
         entered=threading.Event();release=threading.Event();errors=[]

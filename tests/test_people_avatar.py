@@ -3,7 +3,10 @@ import base64
 import io
 import subprocess
 import unittest
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 import test_people_skills as base
 import test_mini_workspace as fixtures
 import test_web_admin as http
@@ -19,6 +22,7 @@ class AvatarTests(unittest.TestCase):
     setUp=base.PeopleTests.setUp
     employee=base.PeopleTests.employee
 
+    @unittest.skipUnless(Image is not None, 'Pillow is needed to create and inspect synthetic images')
     def test_replace_remove_delete_and_reopen(self):
         e=self.employee();self.assertEqual(self.people.state()['avatars'],[])
         a=self.people.avatar({'employee_id':e,'expected':'','image':photo()})
@@ -35,6 +39,7 @@ class AvatarTests(unittest.TestCase):
         self.assertEqual(self.people.state()['avatars'][0]['choice'],'face-6')
         self.people.delete('employees',e);self.assertEqual(self.work.db.execute('SELECT count(*) FROM people_avatars').fetchone()[0],0)
 
+    @unittest.skipUnless(Image is not None, 'Pillow is needed to create and inspect synthetic images')
     def test_invalid_images_paths_no_mutation(self):
         e=self.employee();good=photo();original=self.people.state()
         bad=[{'media_type':'image/svg+xml','data':base64.b64encode(b'<svg onload="x"/>').decode()},
@@ -49,6 +54,7 @@ class AvatarTests(unittest.TestCase):
         with self.assertRaises(WorkspaceError):self.people.avatar({'employee_id':e,'expected':'','path':'../../x'})
         self.assertEqual(self.people.state(),original)
 
+    @unittest.skipUnless(Image is not None, 'Pillow is needed to create and inspect synthetic images')
     def test_update_rollback_preserves_photo_bytes(self):
         import test_update
         f=test_update.UpdateTests();f.setUp();self.addCleanup(f.doCleanups)
@@ -72,6 +78,7 @@ class AvatarTests(unittest.TestCase):
         result=subprocess.run(['node',str(fixtures.ROOT/'tests/people_layout_check.js')],cwd=fixtures.ROOT,capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
 
+    @unittest.skipUnless(Image is not None, 'Pillow is needed to create and inspect synthetic images')
     def test_previous_code_write_preserves_image(self):
         e=self.employee();a=self.people.avatar({'employee_id':e,'expected':'','image':photo()});raw=self.people.avatar_image(e+'/'+a['revision'])
         source=subprocess.check_output(['git','show','377d55e:template/lib/people_skills.py'],cwd=fixtures.ROOT,text=True)
@@ -91,6 +98,7 @@ class AvatarHTTP(http.BoxFixture):
         self.thread=threading.Thread(target=self.server.serve_forever,daemon=True)
         self.thread.start();self.addCleanup(self.stop)
 
+    @unittest.skipUnless(Image is not None, 'Pillow is needed to create and inspect synthetic images')
     def test_avatar_auth_cache_origin_path(self):
         cookie,_=self.login();h={'Cookie':cookie}
         e=self.box.workspace().people.save('employees',{'name':'시험 얼굴','role':'검토'})['id']
