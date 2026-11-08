@@ -10,6 +10,7 @@ files = {
     'ilson.py': (root / 'course/ilson.py').read_text(encoding='utf-8'),
     'license.py': (root / 'course/lib/license.py').read_text(encoding='utf-8'),
     'selflearn.py': (root / 'course/lib/selflearn.py').read_text(encoding='utf-8'),
+    'weekly_summary.py': (root / 'course/lib/weekly_summary.py').read_text(encoding='utf-8'),
     'skill_share.py': (root / 'course/lib/skill_share.py').read_text(encoding='utf-8'),
 }
 payload = base64.b64encode(gzip.compress(json.dumps(files, ensure_ascii=False, sort_keys=True).encode('utf-8'), mtime=0)).decode('ascii')
@@ -29,4 +30,5 @@ for name in ('install-intel-mac.sh', 'install-windows.ps1'):
         source, count = re.subn(pattern, lambda m: m.group(1) + variable + "='" + value + "'" + m.group(2), source, flags=re.S)
         if count != 1:
             raise RuntimeError(f'{name}: expected one {key} marker, got {count}')
-    path.write_text(source, encoding='utf-8', newline='\n')
+    with path.open('w', encoding='utf-8', newline='\n') as stream:
+        stream.write(source)

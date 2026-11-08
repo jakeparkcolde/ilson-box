@@ -103,7 +103,7 @@ def blank():
 
 def transaction_path(path):
     return (path in ('vault/.ilson-learning/state.json', 'vault/.ilson-learning/approved-skills.json',
-                     'vault/lessons/approved-learning.md')
+                     'vault/lessons/approved-learning.md', 'vault/reports/weekly/.learning-summary.json')
             or re.fullmatch(r'vault/\.ilson-learning/rollback/[0-9a-f-]{36}\.md', path) is not None
             or re.fullmatch(r'\.claude/skills/ilson-learned-[0-9a-f-]{36}/SKILL\.md', path) is not None)
 
@@ -127,7 +127,7 @@ class Store:
 
     def recorded_path(self, path):
         name = path.relative_to(self.home).as_posix()
-        if self.flat_vault and (name.startswith('.ilson-learning/') or name.startswith('lessons/')):
+        if self.flat_vault and (name.startswith('.ilson-learning/') or name.startswith('lessons/') or name.startswith('reports/weekly/')):
             return 'vault/' + name
         return name
 
@@ -416,6 +416,20 @@ class Store:
         self.save(state)
         return {'status': 'pending', 'id': p['id'], 'diff': p['diff']}
 
+    def weekly_summary_change(self, state):
+        # Only approved skill name and approval date leave the learning store.
+        proposals = {p['id']: p for p in state['proposals'] if p.get('type') == 'skill' and p.get('status') == 'approved'}
+        items = []
+        for h in state['history']:
+            p = proposals.get(h.get('proposal_id'))
+            if h.get('type') != 'skill' or h.get('status') != 'applied' or not p:
+                continue
+            items.append({'id': h['id'], 'type': 'skill', 'status': 'approved',
+                          'title': clean_text(p['name'], 40, name=True), 'date': h['at'],
+                          'source': '학습 승인 이력'})
+        path = self.resolve('vault/reports/weekly/.learning-summary.json')
+        return (path, self.read(path), self.dump({'version': 1, 'items': items}))
+
     def approve(self, state, p):
         if p['status'] != 'pending':
             raise Problem('검토 대기 제안이 아닙니다')
@@ -462,6 +476,7 @@ class Store:
                    'before': encode(before), 'before_hash': digest(before), 'after_hash': digest(content), 'status': 'applied'}
         state['history'].append(history)
         changes.append((self.state_path, self.read(self.state_path), self.dump(state)))
+        changes.append(self.weekly_summary_change(state))
         self.transact(changes)
         return history
 
@@ -498,6 +513,7 @@ class Store:
         h['status'] = 'rolled_back'
         h['rolled_back_at'] = now()
         changes.append((self.state_path, self.read(self.state_path), self.dump(state)))
+        changes.append(self.weekly_summary_change(state))
         self.transact(changes)
         return h
 
@@ -530,7 +546,7 @@ def main():
     parser = argparse.ArgumentParser(description='반복 업무 제안과 승인형 학습')
     parser.add_argument('--home', required=True)
     parser.add_argument('--flat-vault', action='store_true', help=argparse.SUPPRESS)
-    parser.add_argument('command', choices=['status', 'enable', 'disable', 'record', 'events', 'draft', 'lesson', 'review', 'proposals', 'show', 'approve', 'reject', 'reconsider', 'refresh', 'history', 'rollback', 'match', 'skills'])
+    parser.add_argument('command', choices=['status', 'enable', 'disable', 'record', 'events', 'draft', 'lesson', 'review', 'proposals', 'show', 'approve', 'reject', 'reconsider', 'refresh', 'history', 'rollback', 'match', 'skills', 'export-weekly'])
     parser.add_argument('ids', nargs='*')
     args = parser.parse_args()
     store = Store(args.home, flat_vault=args.flat_vault)
@@ -556,6 +572,11 @@ def main():
         elif cmd == 'proposals':
             result = [{**{k: p[k] for k in ('id', 'type', 'status', 'at')},
                        'title': p['name'] if p['type'] == 'skill' else p['rule']} for p in state['proposals']]
+        elif cmd == 'export-weekly':
+            require_human('승인된 스킬 이름과 승인일을 보고서용 공개 요약에 저장합니다. 보고서는 로컬 Git 이력에 남을 수 있습니다.')
+            change = store.weekly_summary_change(state)
+            store.transact([change])
+            result = {'status': 'exported'}
         elif cmd == 'history': result = [{k: h[k] for k in ('id', 'proposal_id', 'at', 'type', 'path', 'status')} for h in state['history']]
         elif cmd == 'skills':
             raw = store.read(store.base / 'approved-skills.json')

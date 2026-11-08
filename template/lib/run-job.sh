@@ -108,6 +108,13 @@ if [ "$rc" -eq 0 ]; then
         exit 1
     fi
     jq -r '.result' "$raw" > "$out" || exit 1
+    # 정형 리포트는 별도로 생성하며 학습 비공개 저장소를 읽지 않는다.
+    if [ "$name" = weekly ]; then
+        if ! python3 "$LIB_DIR/weekly_summary.py" --vault "$VAULT" >/dev/null; then
+            log "$name" 'FAILED: weekly summary generation'
+            exit 1
+        fi
+    fi
     mark_run "$name"
     log "$name" "ok ($(wc -c < "$out" | tr -d ' ') bytes)"
     # 2026-10-21: 보고서 목록은 첫 '# ' 줄을 제목으로 쓴다. 평문으로 저장된
