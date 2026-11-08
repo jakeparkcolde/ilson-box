@@ -100,7 +100,7 @@ def blank():
 
 def transaction_path(path):
     return (path in ('vault/.ilson-learning/state.json', 'vault/.ilson-learning/approved-skills.json',
-                     'vault/lessons/approved-learning.md')
+                     'vault/lessons/approved-learning.md', 'vault/reports/weekly/.learning-summary.json')
             or re.fullmatch(r'vault/\.ilson-learning/rollback/[0-9a-f-]{36}\.md', path) is not None
             or re.fullmatch(r'\.claude/skills/ilson-learned-[0-9a-f-]{36}/SKILL\.md', path) is not None)
 
@@ -387,6 +387,20 @@ class Store:
         self.save(state)
         return {'status': 'pending', 'id': p['id'], 'diff': p['diff']}
 
+    def weekly_summary_change(self, state):
+        # Only approved skill name and approval date leave the learning store.
+        proposals = {p['id']: p for p in state['proposals'] if p.get('type') == 'skill' and p.get('status') == 'approved'}
+        items = []
+        for h in state['history']:
+            p = proposals.get(h.get('proposal_id'))
+            if h.get('type') != 'skill' or h.get('status') != 'applied' or not p:
+                continue
+            items.append({'id': h['id'], 'type': 'skill', 'status': 'approved',
+                          'title': clean_text(p['name'], 40, name=True), 'date': h['at'],
+                          'source': '학습 승인 이력'})
+        path = self.home / 'vault/reports/weekly/.learning-summary.json'
+        return (path, self.read(path), self.dump({'version': 1, 'items': items}))
+
     def approve(self, state, p):
         if p['status'] != 'pending':
             raise Problem('검토 대기 제안이 아닙니다')
@@ -433,6 +447,7 @@ class Store:
                    'before': encode(before), 'before_hash': digest(before), 'after_hash': digest(content), 'status': 'applied'}
         state['history'].append(history)
         changes.append((self.state_path, self.read(self.state_path), self.dump(state)))
+        changes.append(self.weekly_summary_change(state))
         self.transact(changes)
         return history
 
@@ -469,6 +484,7 @@ class Store:
         h['status'] = 'rolled_back'
         h['rolled_back_at'] = now()
         changes.append((self.state_path, self.read(self.state_path), self.dump(state)))
+        changes.append(self.weekly_summary_change(state))
         self.transact(changes)
         return h
 
@@ -500,7 +516,7 @@ def manual_event():
 def main():
     parser = argparse.ArgumentParser(description='반복 업무 제안과 승인형 학습')
     parser.add_argument('--home', required=True)
-    parser.add_argument('command', choices=['status', 'enable', 'disable', 'record', 'events', 'draft', 'lesson', 'review', 'proposals', 'show', 'approve', 'reject', 'reconsider', 'refresh', 'history', 'rollback', 'match', 'skills'])
+    parser.add_argument('command', choices=['status', 'enable', 'disable', 'record', 'events', 'draft', 'lesson', 'review', 'proposals', 'show', 'approve', 'reject', 'reconsider', 'refresh', 'history', 'rollback', 'match', 'skills', 'export-weekly'])
     parser.add_argument('ids', nargs='*')
     args = parser.parse_args()
     store = Store(args.home)
@@ -526,6 +542,11 @@ def main():
         elif cmd == 'proposals':
             result = [{**{k: p[k] for k in ('id', 'type', 'status', 'at')},
                        'title': p['name'] if p['type'] == 'skill' else p['rule']} for p in state['proposals']]
+        elif cmd == 'export-weekly':
+            require_human('승인된 스킬 이름과 승인일을 보고서용 공개 요약에 저장합니다. 보고서는 로컬 Git 이력에 남을 수 있습니다.')
+            change = store.weekly_summary_change(state)
+            store.transact([change])
+            result = {'status': 'exported'}
         elif cmd == 'history': result = [{k: h[k] for k in ('id', 'proposal_id', 'at', 'type', 'path', 'status')} for h in state['history']]
         elif cmd == 'skills':
             raw = store.read(store.base / 'approved-skills.json')
@@ -555,7 +576,7 @@ def main():
                 if cmd == 'show': result = p
                 elif cmd == 'approve':
                     print(p.get('diff', p.get('content', '')))
-                    require_human('위 내용을 승인하여 ' + p['path'] + '에 반영합니다.')
+                    require_human('위 내용을 승인하여 ' + p['path'] + '에 반영합니다. 승인된 스킬 이름과 날짜는 보고서용 공개 요약과 로컬 Git 이력에 남을 수 있습니다.')
                     result = store.approve(state, p)
                 elif cmd == 'reject':
                     require_human('이 제안을 거절하고 같은 제안을 자동으로 반복하지 않습니다.')

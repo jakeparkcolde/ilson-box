@@ -83,6 +83,18 @@ class LearningTests(unittest.TestCase):
         self.assertFalse(path.exists())
         self.assertTrue((self.store.base / 'rollback' / (change['id'] + '.md')).is_file())
 
+    def test_weekly_export_contains_only_approved_skills_and_tracks_rollback(self):
+        p = self.draft()
+        target = self.home / 'vault/reports/weekly/.learning-summary.json'
+        self.assertFalse(target.exists())
+        change = self.store.approve(self.state, p)
+        public = json.loads(target.read_text(encoding='utf-8'))
+        self.assertEqual(len(public['items']), 1)
+        self.assertEqual(public['items'][0]['title'], p['name'])
+        self.assertNotIn(p['content'], target.read_text(encoding='utf-8'))
+        self.store.rollback(self.state, change['id'])
+        self.assertEqual(json.loads(target.read_text(encoding='utf-8'))['items'], [])
+
     def test_lesson_diff_approval_conflict_and_rollback(self):
         self.store.lesson(self.state, {'kind':'correction', 'issue':'unsupported_claim', 'action':'check_evidence', 'rule':'고객 안내 전에 원문 기준을 확인합니다.'})
         self.assertEqual(1, self.store.review(self.state)['created'])

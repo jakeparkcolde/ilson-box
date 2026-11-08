@@ -424,6 +424,13 @@ class RunJobNotifyTests(unittest.TestCase):
                 self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
                 self.assertIn(f"ARGS:{name}\n{name} 결과", self.sent())
 
+    def test_주간_예약이_정형_보고서를_만든다(self):
+        r = self.run_job('weekly')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        reports = list((self.box / 'vault/reports/weekly').glob('*-ilson.md'))
+        self.assertEqual(len(reports), 1)
+        self.assertIn('이번 주 일손 리포트', reports[0].read_text(encoding='utf-8'))
+
     def test_저장된_브리핑과_주간보고에_목록용_제목을_붙이고_알림은_그대로다(self):
         date = today()
         body = f"☀️ 시험 회사 아침 브리핑 {date}\n어제 한 일: 기록 없음\n"

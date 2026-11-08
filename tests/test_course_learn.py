@@ -33,6 +33,38 @@ class CourseLearnTest(unittest.TestCase):
             self.assertEqual(store.recorded_path(target), 'vault/lessons/approved-learning.md')
             self.assertFalse((course / 'vault').exists())
 
+    def test_flat_approved_summary_transaction(self):
+        spec = importlib.util.spec_from_file_location('course_export', ROOT / 'course/lib/selflearn.py')
+        learn = importlib.util.module_from_spec(spec); spec.loader.exec_module(learn)
+        with tempfile.TemporaryDirectory(prefix='강의 볼트 ') as tmp:
+            vault = Path(tmp)
+            store = learn.Store(vault, flat_vault=True)
+            state = learn.blank()
+            state['proposals'] = [{'id': 'p', 'type': 'skill', 'status': 'approved', 'name': '문서 정리'},
+                                  {'id': 'q', 'type': 'skill', 'status': 'pending', 'name': '미승인 초안'}]
+            state['history'] = [{'id': 'h', 'proposal_id': 'p', 'type': 'skill', 'status': 'applied', 'at': '2026-11-08T00:00:00+00:00'}]
+            store.transact([store.weekly_summary_change(state)])
+            result = (vault / 'reports/weekly/.learning-summary.json').read_text(encoding='utf-8')
+            self.assertIn('문서 정리', result)
+            self.assertNotIn('미승인 초안', result)
+            self.assertFalse((vault / 'vault').exists())
+
+    def test_weekly_command_uses_flat_vault_and_license_check(self):
+        with tempfile.TemporaryDirectory(prefix='강의 볼트 ') as tmp:
+            root = Path(tmp)
+            lib = root / 'lib'; lib.mkdir()
+            vault = root / '한글 볼트'; vault.mkdir()
+            shutil.copyfile(ROOT / 'course/ilson.py', lib / 'ilson.py')
+            shutil.copyfile(ROOT / 'course/lib/weekly_summary.py', lib / 'weekly_summary.py')
+            (lib / 'license.py').write_text('import sys; sys.exit(0)\n', encoding='utf-8')
+            env = dict(os.environ, ILSON_COURSE_VAULT=str(vault), ILSON_COURSE_STATE=str(root / 'state'))
+            result = subprocess.run([sys.executable, str(lib / 'ilson.py'), 'report', 'weekly'], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(len(list((vault / 'reports/weekly').glob('*-ilson.md'))), 1)
+            self.assertFalse((vault / 'vault').exists())
+            (lib / 'license.py').write_text('import sys; sys.exit(1)\n', encoding='utf-8')
+            self.assertNotEqual(subprocess.run([sys.executable, str(lib / 'ilson.py'), 'report', 'weekly'], env=env, capture_output=True).returncode, 0)
+
     def test_embedded_helpers_match_source_and_never_overwrite_edits(self):
         shell = (ROOT / 'course/install-intel-mac.sh').read_text(encoding='utf-8')
         windows = (ROOT / 'course/install-windows.ps1').read_text(encoding='ascii')
@@ -43,6 +75,7 @@ class CourseLearnTest(unittest.TestCase):
         self.assertEqual(files['selflearn.py'], (ROOT / 'course/lib/selflearn.py').read_text(encoding='utf-8'))
         self.assertEqual(files['license.py'], (ROOT / 'course/lib/license.py').read_text(encoding='utf-8'))
         self.assertEqual(files['ilson.py'], (ROOT / 'course/ilson.py').read_text(encoding='utf-8'))
+        self.assertEqual(files['weekly_summary.py'], (ROOT / 'course/lib/weekly_summary.py').read_text(encoding='utf-8'))
         self.assertEqual(files['skill_share.py'], (ROOT / 'course/lib/skill_share.py').read_text(encoding='utf-8'))
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / '한글 폴더'

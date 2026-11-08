@@ -6,8 +6,8 @@ import sys
 
 
 def main(argv):
-    if not argv or argv[0] not in ('learn', 'license', 'skill'):
-        print('사용법: ilson learn ... | ilson skill share|list|get|withdraw | ilson license activate|status')
+    if not argv or argv[0] not in ('learn', 'license', 'skill', 'report'):
+        print('사용법: ilson report weekly | ilson learn ... | ilson skill share|list|get|withdraw | ilson license activate|status')
         return 0 if not argv or argv[0] in ('-h', '--help') else 2
     lib = Path(__file__).resolve().parent
     home = Path(os.environ.get('ILSON_COURSE_STATE', Path.home() / '.ilson-course'))
@@ -17,6 +17,11 @@ def main(argv):
         return subprocess.call(license_cmd + (argv[1:] or ['status']))
     if subprocess.call(license_cmd + ['check']):
         return 1
+    if argv[0] == 'report':
+        if argv[1:] != ['weekly']:
+            print('사용법: ilson report weekly')
+            return 2
+        return subprocess.call([sys.executable, '-X', 'utf8', str(lib / 'weekly_summary.py'), '--vault', str(vault), '--flat-vault'])
     if argv[0] == 'skill':
         return subprocess.call([sys.executable, '-X', 'utf8', str(lib / 'skill_share.py'),
                                 '--home', str(vault), '--license-home', str(home), '--flat-vault'] + argv[1:])
