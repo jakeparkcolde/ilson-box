@@ -231,15 +231,39 @@ ok "$BIN_DIR/ilson"
 
 # ~/.zprofile only reaches login shells. Orca, Claude Code and other non-login zsh shells read ~/.zshrc,
 # and a bash user reads the bash startup files, so the same line goes into each of them once.
+# The rule matches course/install-intel-mac.sh: a file already counts when it holds the line in either
+# form (this installer writes the expanded path, the Intel installer and the lecture workaround use $HOME);
+# a symlink, a directory or a file that cannot be written is never followed or replaced — the line to add
+# by hand is printed and listed again in the summary, and the install goes on.
 LINE="export PATH=\"$BIN_DIR:\$PATH\""
+case "$BIN_DIR" in
+    "$HOME"/*) HOME_LINE="export PATH=\"\$HOME/${BIN_DIR#"$HOME"/}:\$PATH\"" ;;
+    *) HOME_LINE="$LINE" ;;
+esac
+PATH_MANUAL=""
+has_path_line() {
+    # Whole-line match after trimming surrounding blanks; an unreadable file counts as not having it.
+    ILSON_LINE_A="$LINE" ILSON_LINE_B="$HOME_LINE" awk '
+        { sub(/^[[:space:]]+/, ""); sub(/[[:space:]]+$/, "") }
+        $0 == ENVIRON["ILSON_LINE_A"] || $0 == ENVIRON["ILSON_LINE_B"] { found = 1; exit }
+        END { exit !found }' "$1" 2>/dev/null
+}
+path_manual() {
+    say "PATH 줄을 쓰지 못함 ($1) — 직접 추가하세요: $LINE"
+    PATH_MANUAL="$PATH_MANUAL    · $1
+"
+}
 add_path_line() {
-    if [ -f "$1" ] && grep -Fqs "$LINE" "$1"; then
+    if [ -f "$1" ] && has_path_line "$1"; then
         ok "PATH 줄이 이미 있음 ($1)"
+    elif [ -L "$1" ] || { [ -e "$1" ] && [ ! -f "$1" ]; }; then
+        # A link (dotfile manager) or a directory: never write through it.
+        path_manual "$1"
     elif printf '\n# ilson\n%s\n' "$LINE" 2>/dev/null >> "$1"; then
         ok "PATH 추가 ($1)"
     else
-        # e.g. a root-owned ~/.zshrc: report it instead of stopping the install
-        say "PATH 줄을 쓰지 못함 ($1) — 직접 추가하세요: $LINE"
+        # e.g. a read-only or root-owned ~/.zshrc: report it instead of stopping the install
+        path_manual "$1"
     fi
 }
 add_path_lines() {
@@ -257,14 +281,18 @@ add_path_lines() {
             ;;
     esac
 }
+print_path_manual() {
+    [ -n "$PATH_MANUAL" ] || return 0
+    printf '  PATH 직접 추가 필요: 아래 파일에 이 줄을 넣으세요 — %s\n' "$LINE"
+    printf '%s' "$PATH_MANUAL"
+}
 
 case ":$PATH:" in
     *":$BIN_DIR:"*)
         ok "PATH 에 이미 있음"
-        # An earlier install wrote ~/.zprofile only; add the missing non-login shell lines on reinstall.
-        if [ -f "$HOME/.zprofile" ] && grep -Fqs "$LINE" "$HOME/.zprofile"; then
-            add_path_lines
-        fi
+        # Same rule as a first install (and as the Intel installer): fill in any shell file still missing the line,
+        # e.g. an earlier install that wrote ~/.zprofile only, or a PATH set by hand in this window.
+        add_path_lines
         ;;
     *)
         add_path_lines
@@ -280,7 +308,9 @@ printf '\n설치 끝 — %s\n' "$("$CLI_DIR/ilson" 2>/dev/null | head -1 || echo
 
 if [ "$CLI_ONLY" = "1" ]; then
     say "CLI만 설치했습니다. 기본 구성 시작: $CLI_DIR/ilson setup"
-    printf '\n설치 요약\n  설치됨: 일손 CLI\n  실패: 없음\n  다음 할 일: ilson setup · ilson license activate\n'
+    printf '\n설치 요약\n  설치됨: 일손 CLI\n  실패: 없음\n'
+    print_path_manual
+    printf '  다음 할 일: ilson setup · ilson license activate\n'
     exit 0
 fi
 
@@ -320,6 +350,7 @@ else
     awk -F '\t' '$1 == "실패" {print "    · " $2}' "$ILSON_INSTALL_SUMMARY"
     say "일부 설치가 끝나지 않았습니다. 위 안내를 확인한 뒤 ilson setup 을 다시 실행하세요."
 fi
+print_path_manual
 printf '  다음 할 일: ilson license activate · 계정 로그인 및 필요한 권한 확인\n'
 awk -F '\t' '$1 == "다음할일" {print "    · " $2}' "$ILSON_INSTALL_SUMMARY"
 exit "$SETUP_RC"

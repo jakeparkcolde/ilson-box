@@ -283,10 +283,17 @@ class IntelPathTests(unittest.TestCase):
     LINE = 'export PATH="$HOME/.local/bin:$PATH"'
 
     def run_writer(self, home, shell):
-        proc = subprocess.run([sys.executable, '-', sys.executable, str(home / 'lib'), str(home), shell],
+        notes = home / 'path-notes.txt'
+        proc = subprocess.run([sys.executable, '-', sys.executable, str(home / 'lib'), str(home), shell, str(notes)],
                               input=intel_path_writer(), text=True, capture_output=True, timeout=20)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertTrue((home / '.local/bin/ilson').is_file())
+        proc.manual = notes.read_text(encoding='utf-8').splitlines()
         return proc
+
+    def path_lines(self, path):
+        known = (self.LINE, 'export PATH="' + str(path.parent / '.local/bin') + ':$PATH"')
+        return sum(l.strip() in known for l in path.read_text(encoding='utf-8').splitlines())
 
     def test_zsh_user_gets_zprofile_and_zshrc_once(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -327,6 +334,47 @@ class IntelPathTests(unittest.TestCase):
             self.assertEqual(target.read_text(encoding='utf-8'), '# managed\n')
             self.assertIn(self.LINE, proc.stdout)
             self.assertIn(self.LINE, (home / '.zprofile').read_text(encoding='utf-8'))
+            self.assertEqual(proc.manual, [str(home / '.zshrc')])
+
+    def test_linked_zprofile_and_zshrc_are_left_alone_and_listed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            for name in ('.zprofile', '.zshrc'):
+                (home / ('dotfiles' + name)).write_text('# managed\n', encoding='utf-8')
+                (home / name).symlink_to(home / ('dotfiles' + name))
+            (home / '.bashrc').symlink_to(home / 'missing-bashrc')
+            for _ in range(2):
+                proc = self.run_writer(home, '/bin/bash')
+            for name in ('.zprofile', '.zshrc'):
+                self.assertTrue((home / name).is_symlink())
+                self.assertEqual((home / ('dotfiles' + name)).read_text(encoding='utf-8'), '# managed\n')
+            self.assertFalse((home / 'missing-bashrc').exists())
+            self.assertEqual(proc.manual, [str(home / n) for n in ('.zprofile', '.zshrc', '.bashrc')])
+            self.assertEqual(self.path_lines(home / '.bash_profile'), 1)
+
+    @unittest.skipIf(os.geteuid() == 0, 'root ignores file modes')
+    def test_read_only_zprofile_is_reported_and_zshrc_still_written(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            (home / '.zprofile').write_text('# mine\n', encoding='utf-8')
+            os.chmod(home / '.zprofile', 0o400)
+            proc = self.run_writer(home, '/bin/zsh')
+            self.assertEqual((home / '.zprofile').read_text(encoding='utf-8'), '# mine\n')
+            self.assertEqual(self.path_lines(home / '.zshrc'), 1)
+            self.assertEqual(proc.manual, [str(home / '.zprofile')])
+            self.assertIn(self.LINE, proc.stdout)
+
+    def test_lines_from_older_installers_are_recognized(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            box = 'export PATH="' + str(home / '.local/bin') + ':$PATH"'
+            (home / '.zprofile').write_text('# mine\n\n# ilson\n' + box + '\n', encoding='utf-8')
+            (home / '.zshrc').write_text('  ' + self.LINE + '  \n', encoding='utf-8')
+            for _ in range(2):
+                proc = self.run_writer(home, '/bin/zsh')
+            self.assertEqual((home / '.zprofile').read_text(encoding='utf-8'), '# mine\n\n# ilson\n' + box + '\n')
+            self.assertEqual((home / '.zshrc').read_text(encoding='utf-8'), '  ' + self.LINE + '  \n')
+            self.assertEqual(proc.manual, [])
 
     def test_unwritable_zshrc_does_not_fail_the_install(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -335,11 +383,14 @@ class IntelPathTests(unittest.TestCase):
             proc = self.run_writer(home, '/bin/zsh')
             self.assertIn(self.LINE, proc.stdout)
             self.assertIn(self.LINE, (home / '.zprofile').read_text(encoding='utf-8'))
+            self.assertEqual(proc.manual, [str(home / '.zshrc')])
+            self.assertEqual(list((home / '.zshrc').iterdir()), [])
 
     def test_result_tells_how_to_reach_ilson_in_open_windows(self):
         source = (ROOT / 'course/install-intel-mac.sh').read_text(encoding='utf-8')
-        self.assertIn('"${SHELL:-}" <<\'PYWRAP\'', source)
+        self.assertIn('"${SHELL:-}" "$path_notes" <<\'PYWRAP\'', source)
         self.assertIn('새 터미널을 열거나 source ~/.zshrc', source)
+        self.assertIn('PATH 직접 추가 필요', source)
 
 
 @unittest.skipUnless(sys.platform == 'darwin', 'install.sh supports macOS only')
@@ -358,6 +409,10 @@ class BoxInstallerPathTests(unittest.TestCase):
         (self.src / 'ilson').write_text('#!/bin/sh\necho "ilson test"\n')
         (self.src / 'template/CLAUDE.md').write_text('# test\n')
         (self.src / 'tools/update.py').write_bytes((ROOT / 'tools/update.py').read_bytes())
+        self.line = 'export PATH="' + str(self.bin) + ':$PATH"'
+
+    def use_home_bin(self):
+        self.bin = self.home / '.local/bin'
         self.line = 'export PATH="' + str(self.bin) + ':$PATH"'
 
     def install(self, shell, on_path=False):
@@ -393,15 +448,72 @@ class BoxInstallerPathTests(unittest.TestCase):
         self.install('/bin/zsh', on_path=True)
         self.assertEqual((self.count('.zprofile'), self.count('.zshrc')), (1, 1))
 
+    def manual_list(self, result):
+        lines = result.stdout.splitlines()
+        if not any(l.startswith('  PATH 직접 추가 필요') for l in lines):
+            return []
+        start = next(i for i, l in enumerate(lines) if l.startswith('  PATH 직접 추가 필요'))
+        self.assertIn(self.line, lines[start])
+        return [l.strip()[2:] for l in lines[start + 1:] if l.startswith('    · ')]
+
     def test_unwritable_zshrc_is_reported_not_fatal(self):
         (self.home / '.zshrc').mkdir()
         result = self.install('/bin/zsh')
         self.assertIn('PATH 줄을 쓰지 못함', result.stdout)
         self.assertEqual(self.count('.zprofile'), 1)
+        self.assertEqual(self.manual_list(result), [str(self.home / '.zshrc')])
+        self.assertEqual(list((self.home / '.zshrc').iterdir()), [])
 
-    def test_path_set_elsewhere_leaves_shell_files_alone(self):
+    def test_linked_zprofile_and_zshrc_are_left_alone_and_listed(self):
+        for name in ('.zprofile', '.zshrc'):
+            (self.base / ('dotfiles' + name)).write_text('# managed\n', encoding='utf-8')
+            (self.home / name).symlink_to(self.base / ('dotfiles' + name))
+        (self.home / '.bashrc').symlink_to(self.base / 'missing-bashrc')
+        for _ in range(2):
+            result = self.install('/bin/bash')
+        for name in ('.zprofile', '.zshrc'):
+            self.assertTrue((self.home / name).is_symlink())
+            self.assertEqual((self.base / ('dotfiles' + name)).read_text(encoding='utf-8'), '# managed\n')
+        self.assertFalse((self.base / 'missing-bashrc').exists())
+        self.assertEqual(self.manual_list(result), [str(self.home / n) for n in ('.zprofile', '.zshrc', '.bashrc')])
+        self.assertEqual(self.count('.bash_profile'), 1)
+
+    @unittest.skipIf(os.geteuid() == 0, 'root ignores file modes')
+    def test_read_only_zprofile_is_reported_and_zshrc_still_written(self):
+        (self.home / '.zprofile').write_text('# mine\n', encoding='utf-8')
+        os.chmod(self.home / '.zprofile', 0o400)
+        self.addCleanup(os.chmod, self.home / '.zprofile', 0o600)
+        result = self.install('/bin/zsh')
+        self.assertEqual((self.home / '.zprofile').read_text(encoding='utf-8'), '# mine\n')
+        self.assertEqual(self.count('.zshrc'), 1)
+        self.assertEqual(self.manual_list(result), [str(self.home / '.zprofile')])
+
+    def test_already_on_path_still_fills_missing_files(self):
         self.install('/bin/zsh', on_path=True)
-        self.assertEqual(sorted(p.name for p in self.home.iterdir() if p.name.startswith('.z')), [])
+        self.install('/bin/zsh', on_path=True)
+        self.assertEqual((self.count('.zprofile'), self.count('.zshrc')), (1, 1))
+
+    def test_home_form_from_lecture_workaround_or_intel_is_recognized(self):
+        self.use_home_bin()
+        home_line = 'export PATH="$HOME/.local/bin:$PATH"'
+        (self.home / '.zprofile').write_text('# mine\n' + home_line + '\n', encoding='utf-8')
+        (self.home / '.zshrc').write_text('\n# ilson course user bin\n' + home_line + '\n', encoding='utf-8')
+        for _ in range(2):
+            result = self.install('/bin/zsh', on_path=True)
+        self.assertEqual((self.home / '.zprofile').read_text(encoding='utf-8'), '# mine\n' + home_line + '\n')
+        self.assertEqual((self.home / '.zshrc').read_text(encoding='utf-8'),
+                         '\n# ilson course user bin\n' + home_line + '\n')
+        self.assertEqual(self.manual_list(result), [])
+
+    def test_intel_then_box_leaves_one_path_line_per_file(self):
+        # The other direction (Box lines seen by the Intel writer) is IntelPathTests.test_lines_from_older_installers_are_recognized.
+        self.use_home_bin()
+        intel = IntelPathTests()
+        intel.run_writer(self.home, '/bin/bash')
+        self.install('/bin/bash')
+        self.install('/bin/bash', on_path=True)
+        for name in ('.zprofile', '.zshrc', '.bash_profile', '.bashrc'):
+            self.assertEqual(intel.path_lines(self.home / name), 1, name)
 
 
 if __name__ == '__main__':
