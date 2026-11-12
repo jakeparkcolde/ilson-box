@@ -267,6 +267,21 @@ function Main {
                 if (-not (Test-Path -LiteralPath $suggested)) {
                     $stream = [IO.File]::Open($suggested, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
                     try { $stream.Write($expectedRules, 0, $expectedRules.Length) } finally { $stream.Dispose() }
+                } elseif ([Convert]::ToBase64String([IO.File]::ReadAllBytes($suggested)) -ne $CourseRules) {
+                    # An upgrade must not leave the old suggestion behind; keep it as a dated copy first.
+                    $oldSuggested = [IO.File]::ReadAllBytes($suggested)
+                    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+                    $backup = $null
+                    for ($n = 0; $n -lt 100 -and -not $backup; $n++) {
+                        $name = 'CLAUDE-course-suggested.' + $stamp + $(if ($n) { '-' + $n } else { '' }) + '.bak.md'
+                        $candidate = Join-Path ([IO.Path]::GetDirectoryName($suggested)) $name
+                        if (-not (Test-Path -LiteralPath $candidate)) { $backup = $candidate }
+                    }
+                    if (-not $backup) { throw 'No free backup name' }
+                    $stream = [IO.File]::Open($backup, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
+                    try { $stream.Write($oldSuggested, 0, $oldSuggested.Length) } finally { $stream.Dispose() }
+                    [IO.File]::WriteAllBytes($suggested, $expectedRules)
+                    Write-Output ((K '7J207KCEIOygnOyViCDqt5zsuZnsnYAg67Cx7JeF7ZaI7Iq164uI64ukOiA=') + $backup)
                 }
                 Write-Output ((K '6riw7KG0IENMQVVERS5tZOulvCDrs7TsobTtlojsirXri4jri6QuIO2VmeyKtSDqt5zsuZnsnYQg6rCV7IKs7JmAIOqygO2GoO2VtCDrsJjsmIHtlZjshLjsmpQ6IA==') + $suggested)
             } catch { Write-Output (K '6riw7KG0IENMQVVERS5tZOulvCDrs7TsobTtlojsirXri4jri6QuIO2VmeyKtSDqt5zsuZkg67CY7JiB7J2EIOqwleyCrOyXkOqyjCDrrLjsnZjtlZjshLjsmpQu') }

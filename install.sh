@@ -9,7 +9,8 @@
 #   1. preflight   macOS · Apple Silicon/Intel · curl · tar
 #   2. fetch       ilson CLI + template/ (they must stay together — ilson reads $SELF_DIR/template)
 #   3. install     -> $CLI_DIR (default ~/.ilson-cli), kept apart from the box itself (~/ilson)
-#   4. link        -> $BIN_DIR/ilson (default ~/.local/bin), PATH appended to ~/.zprofile if missing
+#   4. link        -> $BIN_DIR/ilson (default ~/.local/bin), PATH appended to ~/.zprofile and ~/.zshrc
+#                     (bash: login profile and ~/.bashrc) if missing
 #   5. setup       install tools and stage the box; authentication stays interactive
 #
 # Sources, in order of precedence:
@@ -228,20 +229,47 @@ mkdir -p "$BIN_DIR"
 ln -sf "$CLI_DIR/ilson" "$BIN_DIR/ilson"
 ok "$BIN_DIR/ilson"
 
+# ~/.zprofile only reaches login shells. Orca, Claude Code and other non-login zsh shells read ~/.zshrc,
+# and a bash user reads the bash startup files, so the same line goes into each of them once.
+LINE="export PATH=\"$BIN_DIR:\$PATH\""
+add_path_line() {
+    if [ -f "$1" ] && grep -Fqs "$LINE" "$1"; then
+        ok "PATH 줄이 이미 있음 ($1)"
+    elif printf '\n# ilson\n%s\n' "$LINE" 2>/dev/null >> "$1"; then
+        ok "PATH 추가 ($1)"
+    else
+        # e.g. a root-owned ~/.zshrc: report it instead of stopping the install
+        say "PATH 줄을 쓰지 못함 ($1) — 직접 추가하세요: $LINE"
+    fi
+}
+add_path_lines() {
+    add_path_line "$HOME/.zprofile"
+    add_path_line "$HOME/.zshrc"
+    case "${SHELL:-}" in
+        */bash)
+            # A bash login shell reads only the first of these that exists; do not create one that hides another.
+            BASH_LOGIN="$HOME/.bash_profile"
+            for candidate in "$HOME/.bash_profile" "$HOME/.bash_login" "$HOME/.profile"; do
+                if [ -f "$candidate" ]; then BASH_LOGIN="$candidate"; break; fi
+            done
+            add_path_line "$BASH_LOGIN"
+            add_path_line "$HOME/.bashrc"
+            ;;
+    esac
+}
+
 case ":$PATH:" in
     *":$BIN_DIR:"*)
         ok "PATH 에 이미 있음"
+        # An earlier install wrote ~/.zprofile only; add the missing non-login shell lines on reinstall.
+        if [ -f "$HOME/.zprofile" ] && grep -Fqs "$LINE" "$HOME/.zprofile"; then
+            add_path_lines
+        fi
         ;;
     *)
-        PROFILE="$HOME/.zprofile"
-        LINE="export PATH=\"$BIN_DIR:\$PATH\""
-        if [ -f "$PROFILE" ] && grep -Fqs "$LINE" "$PROFILE"; then
-            ok "PATH 줄이 이미 있음 ($PROFILE)"
-        else
-            printf '\n# ilson\n%s\n' "$LINE" >> "$PROFILE"
-            ok "PATH 추가 ($PROFILE)"
-        fi
+        add_path_lines
         say "이 터미널에서 바로 쓰려면: export PATH=\"$BIN_DIR:\$PATH\""
+        say "또는 새 터미널을 열거나 source ~/.zshrc 를 실행하세요 (bash는 source ~/.bash_profile)."
         PATH="$BIN_DIR:$PATH"
         export PATH
         ;;

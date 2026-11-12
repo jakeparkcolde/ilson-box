@@ -150,10 +150,10 @@ else
     export ILSON_COURSE_PAYLOAD="$COURSE_PAYLOAD"
     course_lib="$HOME/.ilson-course/lib"
     if "$course_python" -X utf8 -c 'import base64;exec(base64.b64decode("'"$COURSE_BOOTSTRAP"'"))' "$course_lib" && \
-       "$course_python" - "$course_python" "$course_lib" "$HOME" <<'PYWRAP'
+       "$course_python" - "$course_python" "$course_lib" "$HOME" "${SHELL:-}" <<'PYWRAP'
 import os, shlex, sys
 from pathlib import Path
-python, lib, home = sys.argv[1:]
+python, lib, home, shell = sys.argv[1:]
 bin_dir = Path(home) / '.local' / 'bin'
 if bin_dir.is_symlink(): raise SystemExit('bin path is a link')
 bin_dir.mkdir(parents=True, exist_ok=True)
@@ -165,13 +165,29 @@ if wrapper.exists():
 else:
     fd = os.open(str(wrapper), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o755)
     with os.fdopen(fd, 'wb') as f: f.write(body)
+marker = '# ilson course user bin'
+line = 'export PATH="$HOME/.local/bin:$PATH"'
+def add_path(profile):
+    old = profile.read_text(encoding='utf-8') if profile.exists() else ''
+    if marker not in old:
+        with profile.open('a', encoding='utf-8') as f:
+            f.write('\n' + marker + '\n' + line + '\n')
 profile = Path(home) / '.zprofile'
 if profile.is_symlink(): raise SystemExit('shell profile is a link')
-marker = '# ilson course user bin'
-old = profile.read_text(encoding='utf-8') if profile.exists() else ''
-if marker not in old:
-    with profile.open('a', encoding='utf-8') as f:
-        f.write('\n' + marker + '\nexport PATH="$HOME/.local/bin:$PATH"\n')
+add_path(profile)
+# ~/.zprofile reaches login shells only; Orca, Claude Code and other non-login shells read ~/.zshrc,
+# and a bash user reads the bash startup files.
+extra = [Path(home) / '.zshrc']
+if os.path.basename(shell) == 'bash':
+    # A bash login shell reads only the first of these that exists; do not create one that hides another.
+    login = [Path(home) / n for n in ('.bash_profile', '.bash_login', '.profile')]
+    extra += [next((p for p in login if p.is_file()), login[0]), Path(home) / '.bashrc']
+for profile in extra:
+    try:
+        if profile.is_symlink(): raise OSError('link')
+        add_path(profile)
+    except OSError:
+        print('셸 설정 파일을 바꾸지 못해 건너뜁니다. 직접 추가하세요: ' + str(profile) + ' <- ' + line)
 PYWRAP
     then learn_status='준비됨'; export PATH="$HOME/.local/bin:$PATH"; fi
     unset ILSON_COURSE_PAYLOAD
@@ -185,5 +201,5 @@ if [[ "$DRY_RUN" != 1 && -f "$KIT/CLAUDE.md" ]] && ! printf '%s' "$COURSE_RULES"
   printf '기존 CLAUDE.md를 보존했습니다. 학습 규칙을 직접 검토하고 반영하세요: %s\n' "$suggested"
 fi
 
-printf '%s\n' '--- 결과 ---' "Claude: $claude_status" "Orca: $orca_status" "Obsidian: $obs_status" "강의 키트: $kit_status" "위키 볼트: $vault_status" "Python: $python_status" "학습 도우미: $learn_status" '다음: 새 터미널에서 claude로 로그인하세요. Obsidian에서 일손강의-1기 폴더를 보관함으로 열고, Orca에서 같은 폴더를 열어 Claude Code를 실행하세요. 학습 기능은 ilson license activate로 시리얼을 입력한 뒤, 사람이 직접 ilson learn enable을 실행해 켭니다.' "$KIT"
+printf '%s\n' '--- 결과 ---' "Claude: $claude_status" "Orca: $orca_status" "Obsidian: $obs_status" "강의 키트: $kit_status" "위키 볼트: $vault_status" "Python: $python_status" "학습 도우미: $learn_status" '이미 열려 있는 창에서 ilson이 안 보이면: 새 터미널을 열거나 source ~/.zshrc 를 실행하세요 (bash는 source ~/.bash_profile).' '다음: 새 터미널에서 claude로 로그인하세요. Obsidian에서 일손강의-1기 폴더를 보관함으로 열고, Orca에서 같은 폴더를 열어 Claude Code를 실행하세요. 학습 기능은 ilson license activate로 시리얼을 입력한 뒤, 사람이 직접 ilson learn enable을 실행해 켭니다.' "$KIT"
 [[ "$claude_status" != 실패 && "$orca_status" != 실패 && "$obs_status" != 실패 && "$kit_status" != 실패 && "$vault_status" != 실패 && "$learn_status" != 실패 ]]

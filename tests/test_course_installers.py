@@ -218,5 +218,191 @@ function New-TestClient {
             self.assertEqual((home / 'downloads').read_text().count('download'), 18)
 
 
+    def test_upgrade_replaces_old_suggested_rules_and_keeps_a_dated_backup(self):
+        pwsh = os.environ.get('ILSON_TEST_PWSH') or shutil.which('pwsh')
+        if not pwsh:
+            self.skipTest('pwsh required for mocked PowerShell tests')
+        source = (ROOT / 'course/install-windows.ps1').read_text(encoding='ascii')
+        source = source.replace('New-Object Net.WebClient', 'New-TestClient')
+        source = source.replace('[IO.Path]::GetPathRoot($env:USERPROFILE).Substring(0,1)', "'T'")
+        mocks = r"""
+function Get-CimInstance { param($ClassName) if ($ClassName -eq 'Win32_OperatingSystem') { [pscustomobject]@{ BuildNumber='26300'; ProductType=1; Caption='test Windows' } } else { [pscustomobject]@{ SystemType='x64-based PC' } } }
+function Get-PSDrive { param($Name) [pscustomobject]@{Free=10GB} }
+function Find-Claude { [pscustomobject]@{ Source='/usr/bin/true' } }
+function Find-Orca { '/fake/Orca.exe' }
+function Get-Command {
+    [CmdletBinding()] param([string]$Name)
+    if ($Name -eq 'python.exe') { return [pscustomobject]@{Source=$env:ILSON_TEST_PYTHON} }
+    return $null
+}
+function New-TestClient {
+    $client = [pscustomobject]@{}
+    $client | Add-Member ScriptMethod DownloadData { param($url) return ,([Text.Encoding]::UTF8.GetBytes('fixture')) }
+    $client | Add-Member ScriptMethod Dispose { }
+    return $client
+}
+"""
+        rules = (ROOT / 'course/CLAUDE.md').read_bytes()
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp); kit = home / 'kit'; kit.mkdir()
+            (kit / 'CLAUDE.md').write_bytes(b'user rules\n')
+            obs = home / 'Programs/obsidian/Obsidian.exe'
+            obs.parent.mkdir(parents=True); obs.write_text('fixture')
+            course = home / 'ilson-course'; course.mkdir()
+            suggested = course / 'CLAUDE-course-suggested.md'
+            suggested.write_bytes(b'old suggested rules\n')
+            runner = home / 'runner.ps1'
+            runner.write_text(source[:-5] + '\n' + mocks + '\nMain\n', encoding='ascii')
+            env = dict(os.environ, USERPROFILE=tmp, LOCALAPPDATA=tmp, ProgramFiles=tmp,
+                       ILSON_COURSE_DRY_RUN='0', ILSON_TEST_PYTHON=sys.executable)
+            def run():
+                result = subprocess.run([pwsh, '-NoProfile', '-File', str(runner), '-KitPath', str(kit)],
+                                        text=True, capture_output=True, timeout=30, env=env)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                return result
+            first = run()
+            self.assertEqual(suggested.read_bytes(), rules)
+            backups = sorted(course.glob('CLAUDE-course-suggested.*.bak.md'))
+            self.assertEqual(len(backups), 1)
+            self.assertRegex(backups[0].name, r'^CLAUDE-course-suggested\.\d{8}-\d{6}\.bak\.md$')
+            self.assertEqual(backups[0].read_bytes(), b'old suggested rules\n')
+            self.assertIn(str(backups[0]), first.stdout)
+            self.assertEqual((kit / 'CLAUDE.md').read_bytes(), b'user rules\n')
+            run()
+            self.assertEqual(sorted(course.glob('CLAUDE-course-suggested.*.bak.md')), backups)
+            self.assertEqual(suggested.read_bytes(), rules)
+
+
+def intel_path_writer():
+    source = (ROOT / 'course/install-intel-mac.sh').read_text(encoding='utf-8')
+    return re.search(r"<<'PYWRAP'\n(.*?)\nPYWRAP\n", source, re.S).group(1)
+
+
+class IntelPathTests(unittest.TestCase):
+    """Runs the installer's own PATH writer (the PYWRAP block) against a temporary HOME."""
+    LINE = 'export PATH="$HOME/.local/bin:$PATH"'
+
+    def run_writer(self, home, shell):
+        proc = subprocess.run([sys.executable, '-', sys.executable, str(home / 'lib'), str(home), shell],
+                              input=intel_path_writer(), text=True, capture_output=True, timeout=20)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        return proc
+
+    def test_zsh_user_gets_zprofile_and_zshrc_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            (home / '.zshrc').write_text('alias ll="ls -l"\n', encoding='utf-8')
+            for _ in range(2):
+                self.run_writer(home, '/bin/zsh')
+            for name in ('.zprofile', '.zshrc'):
+                text = (home / name).read_text(encoding='utf-8')
+                self.assertEqual(text.count('# ilson course user bin'), 1, name)
+                self.assertEqual(text.count(self.LINE), 1, name)
+            self.assertTrue((home / '.zshrc').read_text(encoding='utf-8').startswith('alias ll="ls -l"\n'))
+            for name in ('.bash_profile', '.bashrc', '.profile'):
+                self.assertFalse((home / name).exists(), name)
+            self.assertTrue((home / '.local/bin/ilson').is_file())
+
+    def test_bash_user_gets_bash_startup_files_without_hiding_profile(self):
+        for existing in (None, '.profile', '.bash_profile'):
+            with self.subTest(existing=existing), tempfile.TemporaryDirectory() as tmp:
+                home = Path(tmp)
+                if existing:
+                    (home / existing).write_text('# mine\n', encoding='utf-8')
+                for _ in range(2):
+                    self.run_writer(home, '/bin/bash')
+                login = existing or '.bash_profile'
+                for name in ('.zprofile', '.zshrc', login, '.bashrc'):
+                    self.assertEqual((home / name).read_text(encoding='utf-8').count(self.LINE), 1, name)
+                if existing == '.profile':
+                    self.assertFalse((home / '.bash_profile').exists())
+
+    def test_linked_zshrc_is_left_alone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            target = home / 'dotfiles-zshrc'
+            target.write_text('# managed\n', encoding='utf-8')
+            (home / '.zshrc').symlink_to(target)
+            proc = self.run_writer(home, '/bin/zsh')
+            self.assertEqual(target.read_text(encoding='utf-8'), '# managed\n')
+            self.assertIn(self.LINE, proc.stdout)
+            self.assertIn(self.LINE, (home / '.zprofile').read_text(encoding='utf-8'))
+
+    def test_unwritable_zshrc_does_not_fail_the_install(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            (home / '.zshrc').mkdir()
+            proc = self.run_writer(home, '/bin/zsh')
+            self.assertIn(self.LINE, proc.stdout)
+            self.assertIn(self.LINE, (home / '.zprofile').read_text(encoding='utf-8'))
+
+    def test_result_tells_how_to_reach_ilson_in_open_windows(self):
+        source = (ROOT / 'course/install-intel-mac.sh').read_text(encoding='utf-8')
+        self.assertIn('"${SHELL:-}" <<\'PYWRAP\'', source)
+        self.assertIn('새 터미널을 열거나 source ~/.zshrc', source)
+
+
+@unittest.skipUnless(sys.platform == 'darwin', 'install.sh supports macOS only')
+class BoxInstallerPathTests(unittest.TestCase):
+    """install.sh --cli-only with a temporary HOME, CLI and bin directory."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(prefix='ilson-path-')
+        self.addCleanup(tmp.cleanup)
+        self.base = Path(tmp.name)
+        self.home, self.box, self.cli, self.bin = (self.base / n for n in ('home', 'box', 'cli', 'bin'))
+        self.home.mkdir()
+        self.src = self.base / 'src'
+        (self.src / 'template').mkdir(parents=True)
+        (self.src / 'tools').mkdir()
+        (self.src / 'ilson').write_text('#!/bin/sh\necho "ilson test"\n')
+        (self.src / 'template/CLAUDE.md').write_text('# test\n')
+        (self.src / 'tools/update.py').write_bytes((ROOT / 'tools/update.py').read_bytes())
+        self.line = 'export PATH="' + str(self.bin) + ':$PATH"'
+
+    def install(self, shell, on_path=False):
+        environ = {k: v for k, v in os.environ.items() if not k.startswith('ILSON_')}
+        path = os.environ['PATH']
+        environ.update(HOME=str(self.home), SHELL=shell, ILSON_SRC=str(self.src), ILSON_CLI_DIR=str(self.cli),
+                       ILSON_BIN_DIR=str(self.bin), ILSON_HOME=str(self.box),
+                       PATH=(str(self.bin) + ':' + path) if on_path else path)
+        result = subprocess.run(['sh', str(ROOT / 'install.sh'), '--cli-only'], env=environ,
+                                text=True, capture_output=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return result
+
+    def count(self, name):
+        path = self.home / name
+        return path.read_text(encoding='utf-8').count(self.line) if path.exists() else 0
+
+    def test_zsh_install_writes_zprofile_and_zshrc_once(self):
+        first = self.install('/bin/zsh')
+        self.assertIn('source ~/.zshrc', first.stdout)
+        self.install('/bin/zsh')
+        self.assertEqual((self.count('.zprofile'), self.count('.zshrc')), (1, 1))
+        self.assertFalse((self.home / '.bash_profile').exists())
+        self.assertFalse((self.home / '.bashrc').exists())
+
+    def test_bash_install_also_writes_bash_startup_files(self):
+        self.install('/bin/bash')
+        self.install('/bin/bash')
+        self.assertEqual([self.count(n) for n in ('.zprofile', '.zshrc', '.bash_profile', '.bashrc')], [1, 1, 1, 1])
+
+    def test_reinstall_repairs_zprofile_only_install(self):
+        (self.home / '.zprofile').write_text('\n# ilson\n' + self.line + '\n', encoding='utf-8')
+        self.install('/bin/zsh', on_path=True)
+        self.assertEqual((self.count('.zprofile'), self.count('.zshrc')), (1, 1))
+
+    def test_unwritable_zshrc_is_reported_not_fatal(self):
+        (self.home / '.zshrc').mkdir()
+        result = self.install('/bin/zsh')
+        self.assertIn('PATH 줄을 쓰지 못함', result.stdout)
+        self.assertEqual(self.count('.zprofile'), 1)
+
+    def test_path_set_elsewhere_leaves_shell_files_alone(self):
+        self.install('/bin/zsh', on_path=True)
+        self.assertEqual(sorted(p.name for p in self.home.iterdir() if p.name.startswith('.z')), [])
+
+
 if __name__ == '__main__':
     unittest.main()
