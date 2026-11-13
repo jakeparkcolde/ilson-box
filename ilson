@@ -580,6 +580,10 @@ doctor() {
     PATH="$ILSON_CALLER_PATH" python3 "$TEMPLATE/lib/install_diagnostics.py" --install || true
     printf 'ilson doctor v0 — %s · %s\n' "[기기]" "$(date '+%Y-%m-%d %H:%M')"
     check_preflight; check_machine; check_tools; check_search; check_remote; check_box; check_tcc; check_jobs; check_safety
+    if [ -f "$TEMPLATE/lib/curator.py" ]; then
+        printf '\n지식 큐레이터 (시계 보류·기존 watchdog 호환 여부 포함):\n'
+        python3 "$TEMPLATE/lib/curator.py" --home "$ILSON_HOME" --status || warn "큐레이터 상태" "로컬 상태를 확인하세요"
+    fi
     printf '\n결과: ✅ %d · ⚠️ %d · ❌ %d\n' "$PASS" "$WARN" "$FAIL"
     if [ -f "$ILSON_HOME/state/setup-pending" ] || is_sandbox_box; then
         echo "기본 구성만 준비됨 — 실제 업무 가동은 아직입니다."
@@ -1102,6 +1106,8 @@ usage() {
   license activate | status                    시리얼 활성화·상태 확인
   chat                                        설치·관리까지 가능한 대화 (auto 자동 심사)
   learn                                       반복 업무 제안·학습 기준 관리
+  curator | diary [--status|--on|--off]         로컬 지식 정리 (새 노트만, 최초 OFF)
+  curator --auto-on | --auto-off              전체판 23:00 정리 설정 (watchdog 필요)
   skill share|list|get|withdraw                 승인형 스킬 나눔
   people add | list | get                    직원 등록·목록·ID 확인 (people add --help)
   open                                        이 맥의 웹 관리자 열기
@@ -1138,6 +1144,13 @@ done
 if [ "$cmd" = license ]; then
     license_action="${1:-status}"; [ "$#" -eq 0 ] || shift
     exec python3 "$TEMPLATE/lib/license.py" --home "$ILSON_HOME" "$license_action" "$@"
+fi
+# Curator owns consent and a strictly offline license-cache gate, including stop/status.
+# Do not route it through the normal license check (which may renew over the network).
+if [ "$cmd" = curator ] || [ "$cmd" = diary ]; then
+    curator_lib="$ILSON_HOME/lib/curator.py"
+    [ -f "$curator_lib" ] || curator_lib="$TEMPLATE/lib/curator.py"
+    exec python3 "$curator_lib" --home "$ILSON_HOME" --edition full-mac "$@"
 fi
 # Setup and safe diagnostic/stop commands remain usable without a license.
 case "$cmd:${1:-}" in

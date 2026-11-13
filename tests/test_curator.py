@@ -243,6 +243,33 @@ class CuratorTests(unittest.TestCase):
             self.assertNotEqual(store.state, self.store.state)
             self.assertFalse((vault / 'vault').exists())
 
+    def test_markdown_payload_is_literal_and_cannot_embed_remote_media(self):
+        self.note('company/a.md', '- [ ] ![secret](https://example.invalid/collect) <img src="https://example.invalid/collect">')
+        self.assertEqual(self.run_digest(), 'OK')
+        self.assertNotIn('![secret](', self.output())
+        self.assertNotIn('<img', self.output())
+
+    def test_watchdog_returns_without_waiting_for_curator_child(self):
+        import shutil
+        box = self.home / 'watchdog-box'
+        (box / 'lib').mkdir(parents=True)
+        for name in ('watchdog.sh', 'common.sh'):
+            shutil.copyfile(ROOT / 'template/lib' / name, box / 'lib' / name)
+        (box / 'lib/license.py').write_text('import sys; sys.exit(0)')
+        marker = box / 'state/child-finished'
+        (box / 'lib/curator.py').write_text('import time; from pathlib import Path; time.sleep(1); Path(' + repr(str(marker)) + ').touch()')
+        env = dict(os.environ, ILSON_HOME=str(box))
+        start = time.monotonic()
+        result = subprocess.run(['bash', str(box / 'lib/watchdog.sh')], env=env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertLess(time.monotonic()-start, 0.9)
+        self.assertTrue((box / 'state/last-run.watchdog').is_file())
+        for _ in range(30):
+            if marker.exists():
+                break
+            time.sleep(0.1)
+        self.assertTrue(marker.is_file())
+
     def test_ai_hook_cannot_send(self):
         with self.assertRaisesRegex(c.CuratorError, 'AI_DISABLED'):
             c.run_ai_summary('do anything')

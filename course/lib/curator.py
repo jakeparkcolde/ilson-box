@@ -29,6 +29,10 @@ class CuratorError(Exception):
 def canonical(path):
     """Normalize only Apple's system aliases, never resolve user symlinks."""
     path = Path(os.path.abspath(os.path.expanduser(str(path))))
+    if os.name == 'nt':
+        import ctypes
+        if str(path).startswith('\\\\') or ctypes.windll.kernel32.GetDriveTypeW(str(path.anchor)) == 4:
+            raise CuratorError('REMOTE_VAULT_UNSUPPORTED')
     if sys.platform == 'darwin' and len(path.parts) > 1 and path.parts[1] in ('var', 'tmp', 'etc'):
         alias = Path('/') / path.parts[1]
         if alias.is_symlink() and os.readlink(alias) == '/private' + str(alias):
@@ -255,7 +259,10 @@ def local_license(home, now=None):
 
 
 def allowed_parts(parts):
-    return all(not part.startswith('.') and part.casefold() not in FORBIDDEN for part in parts)
+    return all(not part.startswith('.') and not any(ord(char) < 32 for char in part)
+               and part.casefold() not in FORBIDDEN
+               and Path(part).stem.casefold() not in {'credentials', 'secrets', 'passwords', 'tokens', 'settings', 'config', 'conversation', 'transcript'}
+               for part in parts)
 
 
 def candidates(vault):
@@ -333,12 +340,13 @@ def collect_notes(store, start, end):
 def wikilink(path):
     # Plain literal label + percent-encoded relative link, preventing Markdown/wiki injection.
     from urllib.parse import quote
-    label = path.replace('\\', '\\\\').replace('[', '\\[').replace(']', '\\]').replace('\n', ' ')
+    label = literal(path)
     return '[' + label + '](' + quote('../../' + path, safe='/') + ')'
 
 
 def literal(text):
-    return text.replace('\r', ' ').replace('\n', ' ').replace('<', '&lt;').replace('>', '&gt;')
+    text = text.replace('\r', ' ').replace('\n', ' ').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    return re.sub(r'([\\`*_{}\[\]()#+.!|~-])', r'\\\1', text)
 
 
 def build_local_digest(notes, counts, start, end, target):
@@ -509,12 +517,17 @@ def watchdog_active(store):
 def status(store):
     cfg, result = store.config(), store.result()
     active = watchdog_active(store)
-    compatible = b'curator.py' in (store.home / 'lib/watchdog.sh').read_bytes() if (store.home / 'lib/watchdog.sh').is_file() else False
+    try:
+        code, _ = read_file(store.home / 'lib/watchdog.sh')
+        compatible = b'curator.py' in code
+    except (OSError, CuratorError):
+        compatible = False
     return {'schema': SCHEMA, 'enabled': cfg.get('enabled') is True, 'mode': 'local', 'ai': 'disabled',
             'inputs': INPUTS, 'output': 'journal/curator/YYYY-MM-DD.md',
             'auto_supported': store.edition == 'full-mac', 'auto_enabled': cfg.get('auto') is True,
             'watchdog_active': active, 'watchdog_compatible': compatible,
             'schedule_running': bool(active and compatible and cfg.get('enabled') and cfg.get('auto')),
+            'clock_review_required': bool(result.get('zone', timezone_id()) != timezone_id() or time.time() < result.get('observed', 0) - 300),
             'last': result}
 
 

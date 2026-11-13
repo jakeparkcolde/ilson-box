@@ -43,3 +43,10 @@ done
 find "$LOGS" -name '*.out' -mtime +30 -delete 2>/dev/null
 find "$STATE" -name 'alerted.*' -mtime +7 -delete 2>/dev/null
 mark_run watchdog
+
+# Curator is OFF until a person consents, with separate automatic consent.
+# Its own offline gate and per-vault OS lock cover due/catch-up and overlapping ticks.
+# Detached stdin/stdout keep the existing watchdog checks and launchd tick non-blocking.
+if [ -f "$LIB_DIR/curator.py" ]; then
+    python3 "$LIB_DIR/curator.py" --home "$ILSON_HOME" --edition full-mac --tick </dev/null >/dev/null 2>&1 &
+fi
