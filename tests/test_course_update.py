@@ -39,9 +39,9 @@ class CourseUpdateTests(unittest.TestCase):
         self.root = Path(self.temp.name) / 'lib'
         self.root.mkdir()
 
-    def seed_old(self):
+    def seed_old(self, revision='e9e41a3'):
         for name in ('ilson.py', 'license.py', 'selflearn.py', 'skill_share.py', 'weekly_summary.py', 'install_diagnostics.py'):
-            data = subprocess.check_output(['git', 'show', 'e9e41a3:course/'+('' if name=='ilson.py' else 'lib/')+name], cwd=ROOT)
+            data = subprocess.check_output(['git', 'show', revision+':course/'+('' if name=='ilson.py' else 'lib/')+name], cwd=ROOT)
             (self.root/name).write_bytes(data)
         return {path.name: (path.read_bytes(), path.stat().st_mtime_ns) for path in self.root.iterdir()}
 
@@ -65,6 +65,15 @@ class CourseUpdateTests(unittest.TestCase):
             self.assertEqual((self.root/name).read_bytes(), old)
         self.assertFalse((self.root/'curator.py').exists())
         self.assertEqual((keep.read_bytes(), keep.stat().st_mtime_ns), keep_before)
+
+    def test_windows_transport_baseline_is_a_known_upgrade_source(self):
+        before = self.seed_old('67a5a67')
+        data = installer(sources())
+        backup = u.upgrade(self.root, self.pin(data), installer=data)
+        self.assertIsNotNone(backup)
+        p.rollback(self.root, backup)
+        for name, (old, _) in before.items():
+            self.assertEqual((self.root/name).read_bytes(), old)
 
     def test_windows_fixture_uses_same_bundle_without_executing_powershell(self):
         files = sources()

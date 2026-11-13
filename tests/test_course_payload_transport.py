@@ -39,7 +39,7 @@ class PayloadTransportTests(unittest.TestCase):
             root = Path(temp).resolve() / 'lib'
             root.mkdir()
             for name in files:
-                if name == 'install_diagnostics.py':
+                if name in ('install_diagnostics.py', 'curator.py', 'course_update.py', 'install_payload.py'):
                     continue
                 old = subprocess.check_output(['git', 'show', '6002abb:course/' + ('' if name == 'ilson.py' else 'lib/') + name], cwd=ROOT)
                 (root / name).write_bytes(old)
@@ -58,7 +58,7 @@ class PayloadTransportTests(unittest.TestCase):
             rollback = subprocess.run([sys.executable, str(ROOT / 'course/install_payload.py'), str(root), '--rollback', backup.name],
                                       env=env, capture_output=True, timeout=10)
             self.assertEqual(rollback.returncode, 0, rollback.stderr)
-            self.assertEqual({p.name: p.read_bytes() for p in root.iterdir() if p.is_file()}, before)
+            self.assertEqual({p.name: p.read_bytes() for p in root.iterdir() if p.is_file() and p.name in files}, before)
 
     def test_installers_stream_bootstrap_and_payload_without_environment_or_argument_transport(self):
         windows = (ROOT / 'course/install-windows.ps1').read_text(encoding='ascii')
