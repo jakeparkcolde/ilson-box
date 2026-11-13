@@ -37,3 +37,12 @@ Added exact 67a5a67 diagnostics bytes to known-source upgrade hashes and a regre
 Final regression starting in owned hc program `local-curator-final-suite`; log `.scratch/final-regression.log`. No code changes while it runs.
 
 Lead follow-up: a private absolute path in main's Windows-fix documentation requires a further main docs commit. Stopped owned final-suite t340 promptly (HUP, interrupted at about one minute; no complete result), verified its process group is gone, removed the terminal. Partial log preserved as `.scratch/interrupted-pre-doc-fix-regression.log`; no test failure/pass count claimed. Await new main notice, rebase, then run the final suite once. New feature docs/README/course guide/progress contain no personal absolute paths or tailnet hostnames; external handoff/review notes use home-relative project paths as well.
+
+## Final validation and close-out — 2026-11-14
+
+- Rebased on sanitized main **9321b35** with no conflicts. Tested implementation HEAD **a95cb2f**; only this final progress record is committed afterward, with no code/payload changes.
+- Final full suite, run once after the new-main notice: `python3 -m unittest discover -s tests -v < /dev/null` — **922 tests in 352.543s, OK (skipped=39), exit 0**. Log: `.scratch/final-regression.log`.
+- Focused coverage: curator23, course update10, legacy payload5, stream transport5(skip1), scheduled jobs48, course learn7, installer24(skip4), diagnostics17. Full suite contains all these groups. Both curator sources are identical; both 9-file payloads and bootstrap blocks match sources. Bash syntax / compile / whitespace checks passed. No jobs.conf/launchd changes.
+- Not executed: actual Windows/PowerShell 5.1 curator/update/Win32/ACL behavior, real Intel installs, real launchd 23:00/sleep/reboot, real user licensing/AI/network/production. Course update first use requires a reviewed immutable pin; no new feed/installer/version has been published.
+- AGY review package prepared externally under the lead's `agy-impl2-review/`: final BRIEF plus **9321b35..HEAD** target.diff. No AGY launched; lead reviews/merges later. No main checkout, push, Release or mini changes.
+- Close-out: owned regression terminals t33w (completed pre-integration), t340 (interrupted per lead), t342 (final exit0) all inspected and removed. Final owned process group verified gone. No task browser/preview server or running test process retained. No media outputs to archive; source files preserved. No manual deletions pending.
