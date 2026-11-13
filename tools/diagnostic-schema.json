@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Ilson offline diagnostic event v1",
+  "title": "Ilson offline install diagnostic event v1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,20 +19,6 @@
     "required"
   ],
   "properties": {
-    "schema": {
-      "const": 1
-    },
-    "run_id": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{32}$"
-    },
-    "parent_run_id": {},
-    "seq": {
-      "type": "integer",
-      "minimum": 1
-    },
-    "installer_version": {},
-    "source_ref": {},
     "edition": {
       "enum": [
         "full-mac",
@@ -99,21 +85,6 @@
         "verify.simulated"
       ]
     },
-    "attempt": {
-      "type": "integer",
-      "minimum": 1
-    },
-    "started_at": {},
-    "ended_at": {},
-    "elapsed_ms": {},
-    "result": {
-      "enum": [
-        "failed",
-        "ok",
-        "running",
-        "skipped-with-reason"
-      ]
-    },
     "reason_code": {
       "enum": [
         "AUTH_PENDING",
@@ -150,11 +121,14 @@
         "WRONG_INSTALLER"
       ]
     },
-    "required": {
-      "type": "boolean"
+    "result": {
+      "enum": [
+        "failed",
+        "ok",
+        "running",
+        "skipped-with-reason"
+      ]
     },
-    "exit_code": {},
-    "exit_source": {},
     "host": {
       "enum": [
         "chatgpt.com",
@@ -169,15 +143,194 @@
         "www.python.org"
       ]
     },
-    "http_code": {},
-    "transport_code": {},
-    "proxy": {},
-    "clock": {},
-    "error_tail": {},
-    "cwd_kind": {},
-    "cwd_display": {},
-    "environment": {},
-    "path_facts": {}
-  },
-  "description": "Runtime validate_event is authoritative for nested fields and bounded values. No free-text command output."
+    "proxy": {
+      "enum": [
+        "false",
+        "true",
+        "unknown"
+      ]
+    },
+    "clock": {
+      "enum": [
+        "monotonic",
+        "unverified"
+      ]
+    },
+    "exit_source": {
+      "enum": [
+        "curl",
+        "doctor",
+        "exception",
+        "installer",
+        "native",
+        "none"
+      ]
+    },
+    "cwd_kind": {
+      "enum": [
+        "inside_vault",
+        "outside_vault",
+        "unknown"
+      ]
+    },
+    "schema": {
+      "const": 1
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{32}$"
+    },
+    "parent_run_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{32}$"
+    },
+    "installer_version": {
+      "const": "ILSON-DIAG-1"
+    },
+    "source_ref": {
+      "type": "string",
+      "pattern": "^(ILSON-DIAG-1|[a-f0-9]{7,40})$"
+    },
+    "required": {
+      "type": "boolean"
+    },
+    "cwd_display": {
+      "const": "[작업폴더]"
+    },
+    "error_tail": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "const": "DETAIL_SUPPRESSED"
+      }
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "exit_code": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "transport_code": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "http_code": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "elapsed_ms": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "started_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "ended_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "os_version": {
+          "type": "string",
+          "pattern": "^(missing|unknown|[0-9]{1,3}(\\.[0-9]{1,3}){1,3})$"
+        },
+        "shell_version": {
+          "type": "string",
+          "pattern": "^(missing|unknown|[0-9]{1,3}(\\.[0-9]{1,3}){1,3})$"
+        },
+        "python": {
+          "type": "string",
+          "pattern": "^(missing|unknown|[0-9]{1,3}(\\.[0-9]{1,3}){1,3})$"
+        },
+        "node": {
+          "type": "string",
+          "pattern": "^(missing|unknown|[0-9]{1,3}(\\.[0-9]{1,3}){1,3})$"
+        },
+        "claude": {
+          "type": "string",
+          "pattern": "^(missing|unknown|[0-9]{1,3}(\\.[0-9]{1,3}){1,3})$"
+        },
+        "os": {
+          "enum": [
+            "Darwin",
+            "Windows",
+            "Linux",
+            "unknown"
+          ]
+        },
+        "arch": {
+          "enum": [
+            "arm64",
+            "x86_64",
+            "AMD64",
+            "unknown"
+          ]
+        },
+        "shell": {
+          "enum": [
+            "sh",
+            "bash",
+            "zsh",
+            "powershell",
+            "unknown"
+          ]
+        },
+        "rosetta": {
+          "type": "boolean"
+        }
+      }
+    },
+    "path_facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bin_in_path": {
+          "type": "boolean"
+        },
+        "cli_exists": {
+          "type": "boolean"
+        },
+        "vault_exists": {
+          "type": "boolean"
+        },
+        "command_matches": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
 }

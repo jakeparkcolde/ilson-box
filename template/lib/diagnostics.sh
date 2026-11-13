@@ -45,8 +45,17 @@ diag_event() {
     [ "$1" != step-start ] || diag_attempt=$((diag_attempt+1))
     [ "$diag_attempt" -gt 0 ] || diag_attempt=1
     [ "$(wc -c < "$DIAG_FILE")" -lt 1048576 ] || { diag_unavailable; return 0; }
-    if ! printf '1\t%s\t-\t%s\tILSON-DIAG-1\tILSON-DIAG-1\t%s\t%s\t%s\t%s\t%s\t%s\t-\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tunverified\t%s\n' \
-        "$ILSON_DIAG_RUN_ID" "$diag_seq" "$DIAG_EDITION" "$1" "$2" "$diag_attempt" "$diag_now" "$diag_end" "$3" "$4" "$5" "$diag_exit" "${DIAG_EXIT_SOURCE:-none}" "$diag_host" "$diag_http" "$diag_transfer" "$DIAG_PROXY" "$DIAG_ENVIRONMENT" >> "$DIAG_FILE"; then diag_unavailable; fi
+    diag_bin=${ILSON_BIN_DIR:-$HOME/.local/bin}
+    diag_in_path=false; case ":$PATH:" in *":$diag_bin:"*) diag_in_path=true ;; esac
+    diag_exists=false; [ ! -f "$diag_bin/ilson" ] || diag_exists=true
+    diag_vault=${ILSON_COURSE_VAULT:-$HOME/Documents/일손강의-1기}
+    [ "$DIAG_EDITION" != full-mac ] || diag_vault=${ILSON_HOME:-$HOME/ilson}/vault
+    diag_vault_exists=false; [ ! -d "$diag_vault" ] || diag_vault_exists=true
+    diag_cwd=outside_vault
+    case "$(pwd -P)/" in "$diag_vault/"*) diag_cwd=inside_vault ;; esac
+    diag_facts="{\"bin_in_path\":$diag_in_path,\"cli_exists\":$diag_exists,\"vault_exists\":$diag_vault_exists}"
+    if ! printf '1\t%s\t-\t%s\tILSON-DIAG-1\tILSON-DIAG-1\t%s\t%s\t%s\t%s\t%s\t%s\t-\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tunverified\t%s\t%s\t%s\n' \
+        "$ILSON_DIAG_RUN_ID" "$diag_seq" "$DIAG_EDITION" "$1" "$2" "$diag_attempt" "$diag_now" "$diag_end" "$3" "$4" "$5" "$diag_exit" "${DIAG_EXIT_SOURCE:-none}" "$diag_host" "$diag_http" "$diag_transfer" "$DIAG_PROXY" "$DIAG_ENVIRONMENT" "$diag_facts" "$diag_cwd" >> "$DIAG_FILE"; then diag_unavailable; fi
 }
 diag_begin() {
     DIAG_EDITION=$1; DIAG_AVAILABLE=0; DIAG_ACTIVE=; DIAG_CHILD=0; DIAG_DRY=0
@@ -122,8 +131,18 @@ diag_download() {
 }
 diag_next() {
     diag_valid_id "${ILSON_DIAG_RUN_ID:-}" || return 0
+    if [ "${ILSON_BIN_DIR:-$HOME/.local/bin}" != "$HOME/.local/bin" ]; then
+        diag_bin_quoted=$(diag_quote "$ILSON_BIN_DIR") || { printf '강사와 경로 확인\n'; return 0; }
+        printf '\n현재 창에서 직접 실행:\nexport PATH=%s:"$PATH"; ilson doctor --install --confirm-shell current --run %s\n' "$diag_bin_quoted" "$ILSON_DIAG_RUN_ID"
+    else
     printf '\n현재 창에서 직접 실행:\nexport PATH="$HOME/.local/bin:$PATH"; ilson doctor --install --confirm-shell current --run %s\n' "$ILSON_DIAG_RUN_ID"
+    fi
     printf '새 창을 연 뒤 직접 실행 (사용자 선언):\nilson doctor --install --confirm-shell new --run %s\n' "$ILSON_DIAG_RUN_ID"
+    if [ "$DIAG_EDITION" = full-mac ] && [ "${ILSON_CLI_DIR:-$HOME/.ilson-cli}" != "$HOME/.ilson-cli" ]; then
+        diag_cli_quoted=$(diag_quote "$ILSON_CLI_DIR/ilson") || { printf '강사와 경로 확인\n'; return 0; }
+        printf '명령 복구: %s doctor --install --run %s\n' "$diag_cli_quoted" "$ILSON_DIAG_RUN_ID"
+        return 0
+    fi
     case "$DIAG_EDITION" in full-mac) printf '명령 복구: "$HOME/.ilson-cli/ilson" doctor --install --run %s\n' "$ILSON_DIAG_RUN_ID" ;; *) printf '명령 복구: "$HOME/.local/bin/ilson" doctor --install --run %s\n' "$ILSON_DIAG_RUN_ID" ;; esac
 }
 diag_verify() (
@@ -160,6 +179,13 @@ diag_retain() (
             printf '%s %s %s\n' "$diag_stamp" "$diag_bytes" "$diag_id"
         done | sort -rn
     )
+    if [ -d "$DIAG_ROOT/share" ] && [ ! -L "$DIAG_ROOT/share" ]; then
+        for diag_share in "$DIAG_ROOT"/share/IL-*; do
+            [ -f "$diag_share" ] && [ ! -L "$diag_share" ] || continue
+            printf '%s' "${diag_share##*/}" | LC_ALL=C grep -Eq '^IL-[A-F0-9]{12}\.(txt|json)$' || continue
+            find "$diag_share" -type f -mtime +30 -delete
+        done
+    fi
     printf '%s\n' "$diag_inventory" | while read -r diag_stamp diag_bytes diag_id; do
         diag_valid_id "${diag_id:-}" || continue
         diag_count=$((diag_count+1)); diag_total=$((diag_total+diag_bytes))
@@ -172,3 +198,7 @@ diag_retain() (
         fi
     done
 )
+diag_quote() {
+    [ "$(printf '%s' "$1" | LC_ALL=C tr -d '\000-\037\177')" = "$1" ] || return 1
+    printf "'"; printf '%s' "$1" | sed "s/'/'\\\\''/g"; printf "'"
+}

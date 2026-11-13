@@ -14,3 +14,7 @@
 - 검증: setup 58건 PASS (.scratch/install-diagnostics/setup-final.log), course installers 24건 PASS/4 skip, course learn 7건 PASS, upgrade/rollback 4건 PASS. 원래 mock은 실행 존재만 가정했으므로 버전 probe mock/fixture를 추가. K/base64 순서 fixture는 새 비교 문구에 맞춰 갱신.
 - 테스트 실행 메모: hc TTY를 물려준 첫 setup 시험은 기존 텔레그램 대화 입력 대기로 2건 timeout. stdin /dev/null로 재실행해 통과. native retention 초기 bash3.2 case 파서 오류는 if문으로 고치고 shell syntax 및 재시험 통과.
 - 현재 추가 작업: immutable inline bootstrap·shell 확인·보존 통합 시험, Windows 정적 제약·안전성 보강, 문서 및 AGY 묶음. 전체 suite t33b 실행 중 (로그 .scratch/install-diagnostics/full-suite.log).
+- 단계 4: immutable SHA URL+SHA256 inline bootstrap/생성기, 독립 doctor 한 줄·오프라인 파일 경로, current/new 확인 및 명시 opt-in shell simulation, 명령 충돌·판본·폴더·smart dash 안내. 네트워크 전송 없음. 정확한 사용자 경로 인용, 출력 크기/5초 제한. native/PS 보존·환경/PATH boolean·지원 파일 정제 보강.
+- 신규 진단 통합17건 PASS (.scratch/install-diagnostics/diagnostics17.log): 실제 setup_tools Claude DNS / Codex503 / execute 의존 생략 / PATH 미확인 분리, Python3.9 Intel, inline 첫 fetch 실패 및 hash 불일치 부분 실행 0, shell current/new/simulation/충돌, 링크 거절·잘못된 설치기, retention20건, 로컬/공유 정보 가림, payload parity/PS5.1 정적 제약.
+- 첫 전체 suite: 878건 / 38 skip / 16 failure. 15개는 update_feed CLI mock이 새 버전을 출력하지 않아 생긴 실패 → version fixture 보완. 1개는 scratch 실패 로그가 개인정보 repository scan 대상 → scratch gitignore 추가. 해당 update_feed18건 재시험 PASS (.scratch/install-diagnostics/update-feed.log). 기존 검사 기준은 완화하지 않음.
+- 문서: docs/install-diagnostics.md, README, docs/설치, 강의 시작 안내. 공개 배포 승인 전임을 명시. 강의 kit 내장 guide/payload 재생성.

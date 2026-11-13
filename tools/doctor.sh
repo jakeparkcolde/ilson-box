@@ -48,8 +48,17 @@ diag_event() {
     [ "$1" != step-start ] || diag_attempt=$((diag_attempt+1))
     [ "$diag_attempt" -gt 0 ] || diag_attempt=1
     [ "$(wc -c < "$DIAG_FILE")" -lt 1048576 ] || { diag_unavailable; return 0; }
-    if ! printf '1\t%s\t-\t%s\tILSON-DIAG-1\tILSON-DIAG-1\t%s\t%s\t%s\t%s\t%s\t%s\t-\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tunverified\t%s\n' \
-        "$ILSON_DIAG_RUN_ID" "$diag_seq" "$DIAG_EDITION" "$1" "$2" "$diag_attempt" "$diag_now" "$diag_end" "$3" "$4" "$5" "$diag_exit" "${DIAG_EXIT_SOURCE:-none}" "$diag_host" "$diag_http" "$diag_transfer" "$DIAG_PROXY" "$DIAG_ENVIRONMENT" >> "$DIAG_FILE"; then diag_unavailable; fi
+    diag_bin=${ILSON_BIN_DIR:-$HOME/.local/bin}
+    diag_in_path=false; case ":$PATH:" in *":$diag_bin:"*) diag_in_path=true ;; esac
+    diag_exists=false; [ ! -f "$diag_bin/ilson" ] || diag_exists=true
+    diag_vault=${ILSON_COURSE_VAULT:-$HOME/Documents/일손강의-1기}
+    [ "$DIAG_EDITION" != full-mac ] || diag_vault=${ILSON_HOME:-$HOME/ilson}/vault
+    diag_vault_exists=false; [ ! -d "$diag_vault" ] || diag_vault_exists=true
+    diag_cwd=outside_vault
+    case "$(pwd -P)/" in "$diag_vault/"*) diag_cwd=inside_vault ;; esac
+    diag_facts="{\"bin_in_path\":$diag_in_path,\"cli_exists\":$diag_exists,\"vault_exists\":$diag_vault_exists}"
+    if ! printf '1\t%s\t-\t%s\tILSON-DIAG-1\tILSON-DIAG-1\t%s\t%s\t%s\t%s\t%s\t%s\t-\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tunverified\t%s\t%s\t%s\n' \
+        "$ILSON_DIAG_RUN_ID" "$diag_seq" "$DIAG_EDITION" "$1" "$2" "$diag_attempt" "$diag_now" "$diag_end" "$3" "$4" "$5" "$diag_exit" "${DIAG_EXIT_SOURCE:-none}" "$diag_host" "$diag_http" "$diag_transfer" "$DIAG_PROXY" "$DIAG_ENVIRONMENT" "$diag_facts" "$diag_cwd" >> "$DIAG_FILE"; then diag_unavailable; fi
 }
 diag_begin() {
     DIAG_EDITION=$1; DIAG_AVAILABLE=0; DIAG_ACTIVE=; DIAG_CHILD=0; DIAG_DRY=0
@@ -125,8 +134,18 @@ diag_download() {
 }
 diag_next() {
     diag_valid_id "${ILSON_DIAG_RUN_ID:-}" || return 0
+    if [ "${ILSON_BIN_DIR:-$HOME/.local/bin}" != "$HOME/.local/bin" ]; then
+        diag_bin_quoted=$(diag_quote "$ILSON_BIN_DIR") || { printf '강사와 경로 확인\n'; return 0; }
+        printf '\n현재 창에서 직접 실행:\nexport PATH=%s:"$PATH"; ilson doctor --install --confirm-shell current --run %s\n' "$diag_bin_quoted" "$ILSON_DIAG_RUN_ID"
+    else
     printf '\n현재 창에서 직접 실행:\nexport PATH="$HOME/.local/bin:$PATH"; ilson doctor --install --confirm-shell current --run %s\n' "$ILSON_DIAG_RUN_ID"
+    fi
     printf '새 창을 연 뒤 직접 실행 (사용자 선언):\nilson doctor --install --confirm-shell new --run %s\n' "$ILSON_DIAG_RUN_ID"
+    if [ "$DIAG_EDITION" = full-mac ] && [ "${ILSON_CLI_DIR:-$HOME/.ilson-cli}" != "$HOME/.ilson-cli" ]; then
+        diag_cli_quoted=$(diag_quote "$ILSON_CLI_DIR/ilson") || { printf '강사와 경로 확인\n'; return 0; }
+        printf '명령 복구: %s doctor --install --run %s\n' "$diag_cli_quoted" "$ILSON_DIAG_RUN_ID"
+        return 0
+    fi
     case "$DIAG_EDITION" in full-mac) printf '명령 복구: "$HOME/.ilson-cli/ilson" doctor --install --run %s\n' "$ILSON_DIAG_RUN_ID" ;; *) printf '명령 복구: "$HOME/.local/bin/ilson" doctor --install --run %s\n' "$ILSON_DIAG_RUN_ID" ;; esac
 }
 diag_verify() (
@@ -163,6 +182,13 @@ diag_retain() (
             printf '%s %s %s\n' "$diag_stamp" "$diag_bytes" "$diag_id"
         done | sort -rn
     )
+    if [ -d "$DIAG_ROOT/share" ] && [ ! -L "$DIAG_ROOT/share" ]; then
+        for diag_share in "$DIAG_ROOT"/share/IL-*; do
+            [ -f "$diag_share" ] && [ ! -L "$diag_share" ] || continue
+            printf '%s' "${diag_share##*/}" | LC_ALL=C grep -Eq '^IL-[A-F0-9]{12}\.(txt|json)$' || continue
+            find "$diag_share" -type f -mtime +30 -delete
+        done
+    fi
     printf '%s\n' "$diag_inventory" | while read -r diag_stamp diag_bytes diag_id; do
         diag_valid_id "${diag_id:-}" || continue
         diag_count=$((diag_count+1)); diag_total=$((diag_total+diag_bytes))
@@ -175,6 +201,10 @@ diag_retain() (
         fi
     done
 )
+diag_quote() {
+    [ "$(printf '%s' "$1" | LC_ALL=C tr -d '\000-\037\177')" = "$1" ] || return 1
+    printf "'"; printf '%s' "$1" | sed "s/'/'\\\\''/g"; printf "'"
+}
 # DIAGNOSTICS_END
 run=; share=0
 while [ $# -gt 0 ]; do
@@ -196,7 +226,7 @@ diag_private "$root/runs/$run" && diag_safe "$file" && [ -f "$file" ] && [ ! -L 
 [ "$(wc -c < "$file")" -le 1048576 ] || { diag_unavailable; exit 3; }
 # Validate and rebuild every output token. Even a tampered local TSV cannot leak free text.
 summary=$(LC_ALL=C awk -F '\t' '
-    NF!=24 {damaged=1; next}
+    NF!=26 {damaged=1; next}
     $1!=1 || length($2)!=32 || $2 ~ /[^a-f0-9]/ || $4 !~ /^[0-9]+$/ {damaged=1; next}
     $7!="full-mac" && $7!="intel-course" && $7!="windows-course" && $7!="unknown" {damaged=1; next}
     $8=="run-start" {edition=$7; started=1}
@@ -204,19 +234,26 @@ summary=$(LC_ALL=C awk -F '\t' '
     $8=="step-end" {
         delete active[$9 FS $10]
         if ($9=="runtime.python" && $15=="PYTHON_TOO_OLD") python=1
-        if ($9=="verify.current" && $14=="ok") current=1
-        if ($9=="verify.new-window" && $14=="ok") newwin=1
+        if ($9=="verify.current") current=($14=="ok")
+        if ($9=="verify.new-window") newwin=($14=="ok")
+        if ($16=="false" && $14!="ok" && $15!="DRY_RUN" && $15!="NOT_APPLICABLE" && $15!="NOT_SELECTED") pending=1
+        if ($9 ~ /^(tools[.](claude|codex|vendor)[.]download|download[.]installer)$/ && $15 ~ /^(DNS_FAILED|HTTP_FAILED|TIMEOUT|TLS_FAILED|DOWNLOAD_FAILED)$/) {
+            host=($19 ~ /^(none|custom_host|raw[.]githubusercontent[.]com|codeload[.]github[.]com|github[.]com|claude[.]ai|chatgpt[.]com|www[.]python[.]org|releases[.]herdr[.]dev|releases[.]aside[.]com)$/)?$19:"custom_host"
+            http=($20 ~ /^[0-9][0-9][0-9]$/)?$20:"unknown"
+            errors=errors "download=" $9 ";reason=" $15 ";host=" host ";http=" http "\n"
+        }
         if ($16=="true" && $14!="ok" && $15!="NOT_APPLICABLE" && $15!="NOT_SELECTED" && $15!="DRY_RUN") failed=1
     }
     $8=="run-end" {ended=1; if ($14=="failed") failed=1}
     END {
         for (a in active) damaged=1
-        rc=(!started || !ended || damaged)?3:(failed?1:0)
+        rc=(!started || !ended || damaged)?3:(failed?1:pending?4:0)
         print "edition=" (edition?edition:"unknown")
-        print "status=" (rc==3?"interrupted":rc==1?"failed":"ok")
+        print "status=" (rc==3?"interrupted":rc==1?"failed":rc==4?"pending":"ok")
         print "python=" (python?"PYTHON_TOO_OLD":"unconfirmed")
         print "current=" (current?"ok":"unconfirmed")
         print "new_window=" (newwin?"ok":"unconfirmed")
+        printf "%s",errors
         print "exit_code=" rc
     }' "$file")
 printf '일손 설치 점검 · Python/라이선스/네트워크 불필요\n%s\n' "$summary"
@@ -226,10 +263,11 @@ if [ "$share" = 1 ]; then
     (umask 077; mkdir -p "$root/share") && diag_private "$root/share" || { diag_unavailable; exit 3; }
     ref="IL-$(od -An -N6 -tx1 /dev/urandom | tr -d ' \n' | tr 'a-f' 'A-F')"
     (umask 077; set -C; printf '%s\n%s\n' "$summary" '파일도 함께 직접 전달하세요. 자동 전송하지 않았습니다.' > "$root/share/$ref.txt") || { diag_unavailable; exit 3; }
+    (umask 077; set -C; { printf '{"schema":1,"reference":"%s","summary":[' "$ref"; printf '%s\n' "$summary" | awk 'BEGIN {comma=""} {printf "%s\"%s\"",comma,$0; comma=","}'; printf ']}\n'; } > "$root/share/$ref.json") || { diag_unavailable; exit 3; }
     printf '공유 참조: %s (share 폴더의 TXT 파일을 검토한 뒤 함께 보내 주세요)\n' "$ref"
 fi
 ILSON_DIAG_RUN_ID=$run; DIAG_EDITION=intel-course
 case "$summary" in *edition=full-mac*) DIAG_EDITION=full-mac ;; esac
 diag_next
 case "$summary" in *python=PYTHON_TOO_OLD*) printf 'Python 3.10 이상을 공식 macOS 설치기로 직접 설치한 뒤 검수된 Intel 강의판 설치 명령을 다시 실행하세요: https://www.python.org/downloads/macos/\n' ;; esac
-case "$summary" in *exit_code=3*) exit 3 ;; *exit_code=1*) exit 1 ;; *) exit 0 ;; esac
+case "$summary" in *exit_code=3*) exit 3 ;; *exit_code=1*) exit 1 ;; *exit_code=4*) exit 4 ;; *) exit 0 ;; esac

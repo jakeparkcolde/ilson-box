@@ -3,6 +3,9 @@ import argparse
 import datetime as dt
 import json
 import os
+import queue
+import signal
+import threading
 from pathlib import Path
 import re
 import secrets
@@ -20,7 +23,7 @@ REASONS = set('STARTED OK REUSED_VERIFIED DEPENDENCY_FAILED PYTHON_TOO_OLD RUNTI
 HOSTS = {'none', 'custom_host', 'raw.githubusercontent.com', 'codeload.github.com', 'github.com', 'claude.ai', 'chatgpt.com', 'www.python.org', 'releases.herdr.dev', 'releases.aside.com'}
 EVENTS = {'run-start', 'step-start', 'step-end', 'run-end'}
 RESULTS = {'ok', 'failed', 'skipped-with-reason', 'running'}
-TSV_FIELDS = 'schema run_id parent_run_id seq installer_version source_ref edition event step_id attempt started_at ended_at elapsed_ms result reason_code required exit_code exit_source host http_code transport_code proxy clock environment'.split()
+TSV_FIELDS = 'schema run_id parent_run_id seq installer_version source_ref edition event step_id attempt started_at ended_at elapsed_ms result reason_code required exit_code exit_source host http_code transport_code proxy clock environment path_facts cwd_kind'.split()
 EXTRA_FIELDS = {'environment', 'path_facts', 'cwd_kind', 'cwd_display', 'error_tail'}
 ID = re.compile(r'^[a-f0-9]{32}$')
 STAMP = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$')
@@ -75,7 +78,7 @@ def redact_event(event):
     if isinstance(env, dict):
         safe = {}
         for key, allowed in {'os': {'Darwin', 'Windows', 'Linux', 'unknown'}, 'arch': {'arm64', 'x86_64', 'AMD64', 'unknown'}, 'shell': {'sh', 'bash', 'zsh', 'powershell', 'unknown'}}.items():
-            if env.get(key) in allowed:
+            if isinstance(env.get(key), str) and env[key] in allowed:
                 safe[key] = env[key]
         for key in ('os_version', 'shell_version', 'python', 'node', 'claude'):
             value = env.get(key)
@@ -96,6 +99,10 @@ def validate_event(event):
         raise ValueError('INVALID_EVENT')
     if any(clean.get(k) != v for k, v in event.items() if k not in ('error_tail', 'cwd_display')):
         raise ValueError('INVALID_EVENT')
+    if clean['event'] in ('run-start', 'step-start') and clean['result'] != 'running':
+        raise ValueError('INVALID_EVENT')
+    if clean['event'] in ('run-end', 'step-end') and clean['result'] == 'running':
+        raise ValueError('INVALID_EVENT')
     return clean
 
 
@@ -115,6 +122,8 @@ def safe_path(path, private=False):
                 # System-owned ancestors are normal; task-owned storage must be private.
                 if info.st_uid not in (0, os.getuid()):
                     raise ValueError('UNSAFE_OWNER')
+                if info.st_mode & 0o002 and not info.st_mode & stat.S_ISVTX:
+                    raise ValueError('UNSAFE_PERMISSIONS')
                 if part == path and private and (info.st_uid != os.getuid() or info.st_mode & 0o077):
                     raise ValueError('UNSAFE_PERMISSIONS')
     return path
@@ -152,6 +161,7 @@ def read_run(directory):
                     for key in ('schema', 'seq', 'attempt', 'elapsed_ms', 'exit_code', 'http_code', 'transport_code'):
                         event[key] = None if event[key] == '-' else int(event[key])
                     event['environment'] = json.loads(event['environment'])
+                    event['path_facts'] = json.loads(event['path_facts'])
                     event['required'] = {'true': True, 'false': False}[event['required']]
                     for key in ('parent_run_id', 'ended_at'):
                         if event[key] == '-': event[key] = None
@@ -253,6 +263,38 @@ def append_confirmation(directory, events, kind, matched):
         with os.fdopen(fd, 'a', encoding='utf-8') as stream: stream.write(json.dumps(e) + '\n')
 
 
+def probe_command(command, env=None):
+    """At most 4096 output bytes and five seconds, including unexpected CLI output."""
+    process = subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                               start_new_session=(os.name != 'nt'))
+    output = queue.Queue(maxsize=1)
+    def read():
+        try: output.put(process.stdout.read(4097))
+        except OSError: output.put(b'')
+    reader = threading.Thread(target=read, daemon=True)
+    reader.start()
+    def stop():
+        try:
+            if os.name != 'nt': os.killpg(process.pid, signal.SIGKILL)
+            else: process.kill()
+        except ProcessLookupError: pass
+    try:
+        data = output.get(timeout=5)
+        if len(data) > 4096:
+            stop(); return 1, b''
+        try: code = process.wait(timeout=1)
+        except subprocess.TimeoutExpired: stop(); return 1, b''
+        return code, data
+    except queue.Empty:
+        stop(); return 1, b''
+    finally:
+        if process.poll() is None:
+            stop()
+            try: process.wait(timeout=1)
+            except subprocess.TimeoutExpired: pass
+        if not reader.is_alive(): process.stdout.close()
+
+
 def next_lines(edition, run_id, cli=None, vault=None):
     if not run_id or not ID.fullmatch(run_id): return []
     if edition == 'windows-course':
@@ -261,7 +303,10 @@ def next_lines(edition, run_id, cli=None, vault=None):
                 '& "$env:LOCALAPPDATA\\ilson-course\\bin\\ilson.cmd" doctor --install --run ' + run_id]
     target = cli or str(Path.home() / ('.ilson-cli/ilson' if edition == 'full-mac' else '.local/bin/ilson'))
     if any(ord(c) < 32 or ord(c) == 127 for c in target): return ['강사와 경로 확인']
-    return ['export PATH="$HOME/.local/bin:$PATH"; ilson doctor --install --confirm-shell current --run ' + run_id,
+    bin_dir = os.environ.get('ILSON_BIN_DIR', str(Path.home() / '.local/bin'))
+    if any(ord(c) < 32 or ord(c) == 127 for c in bin_dir): return ['강사와 경로 확인']
+    path_prefix = 'export PATH="$HOME/.local/bin:$PATH"' if bin_dir == str(Path.home() / '.local/bin') else 'export PATH=' + shlex.quote(bin_dir) + ':"$PATH"'
+    return [path_prefix + '; ilson doctor --install --confirm-shell current --run ' + run_id,
             'ilson doctor --install --confirm-shell new --run ' + run_id,
             shlex.quote(target) + ' doctor --install --run ' + run_id]
 
@@ -272,7 +317,7 @@ def main(argv=None, edition='unknown', cli=None, vault=None):
     parser.add_argument('--share', action='store_true')
     parser.add_argument('--json', action='store_true')
     parser.add_argument('--self-check', action='store_true', help=argparse.SUPPRESS)
-    parser.add_argument('--simulate-shell', choices=('zsh', 'bash'), help='명시적으로 셸 초기화 파일 실행을 허용하고 모의 점검')
+    parser.add_argument('--simulate-shell', choices=('zsh', 'bash', 'powershell'), help='명시적으로 셸 초기화 파일 실행을 허용하고 모의 점검')
     parser.add_argument('--run')
     parser.add_argument('--confirm-shell', choices=('current', 'new'))
     args = parser.parse_args(argv)
@@ -288,14 +333,27 @@ def main(argv=None, edition='unknown', cli=None, vault=None):
         events, damaged = read_run(directory) if directory and directory.exists() else ([], False)
         if args.simulate_shell:
             if not args.run or not events: raise ValueError('RUN_REQUIRED')
-            shell = '/bin/' + args.simulate_shell
             expected = Path(cli or str(Path.home() / '.local/bin/ilson')).resolve()
             matched = True
-            for flags in ('-lic', '-ic'):
+            probes = []
+            probe_env = dict(os.environ)
+            if args.simulate_shell == 'powershell':
+                if os.name != 'nt': raise ValueError('UNSUPPORTED_OS')
+                import winreg
+                parts = []
+                for hive, key in [(winreg.HKEY_LOCAL_MACHINE, r'SYSTEM\CurrentControlSet\Control\Session Manager\Environment'), (winreg.HKEY_CURRENT_USER, 'Environment')]:
+                    try:
+                        with winreg.OpenKey(hive, key) as handle: parts.append(winreg.QueryValueEx(handle, 'Path')[0])
+                    except OSError: pass
+                probe_env['PATH'] = os.path.expandvars(';'.join(parts))
+                probes.append(['powershell.exe', '-NoProfile', '-Command', '[Console]::OutputEncoding=New-Object Text.UTF8Encoding($false); (Get-Command ilson -ErrorAction Stop).Source'])
+            else:
+                probes = [['/bin/' + args.simulate_shell, flags, 'command -v ilson'] for flags in ('-lic', '-ic')]
+            for command in probes:
                 try:
-                    probe = subprocess.run([shell, flags, 'command -v ilson'], capture_output=True, timeout=5)
-                    value = probe.stdout[-4096:].decode('utf-8', errors='replace').strip().splitlines()
-                    matched = matched and probe.returncode == 0 and bool(value) and Path(value[-1]).resolve() == expected
+                    probe_code, probe_output = probe_command(command, env=probe_env)
+                    value = probe_output.decode('utf-8', errors='replace').strip().splitlines()
+                    matched = matched and probe_code == 0 and bool(value) and Path(value[-1]).resolve() == expected
                 except (OSError, subprocess.TimeoutExpired): matched = False
             append_confirmation(directory, events, 'simulated', matched)
             events, damaged = read_run(directory)
@@ -306,8 +364,8 @@ def main(argv=None, edition='unknown', cli=None, vault=None):
             matched = bool(found and Path(found).resolve() == Path(expected).resolve())
             if matched:
                 try:
-                    output = subprocess.run([found, '--version'], capture_output=True, timeout=5)
-                    matched = output.returncode == 0 and VERSION.encode() in output.stdout and edition.encode() in output.stdout
+                    code, output = probe_command([found, '--version'])
+                    matched = code == 0 and VERSION.encode() in output and edition.encode() in output
                 except (OSError, subprocess.TimeoutExpired): matched = False
             append_confirmation(directory, events, args.confirm_shell, matched)
             events, damaged = read_run(directory)

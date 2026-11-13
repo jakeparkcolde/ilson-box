@@ -71,7 +71,7 @@ class InstallerFeedTests(unittest.TestCase):
         self.src = self.base / 'src'
         (self.src / 'template').mkdir(parents=True)
         (self.src / 'tools').mkdir()
-        (self.src / 'ilson').write_text('#!/bin/sh\necho "ilson test"\n')
+        (self.src / 'ilson').write_text('#!/bin/sh\necho "ilson full-mac ILSON-DIAG-1"\n')
         (self.src / 'template/CLAUDE.md').write_text('# test\n')
         (self.src / 'tools/update.py').write_bytes((ROOT / 'tools/update.py').read_bytes())
         self.feed_file = self.box / '.updates/feed'

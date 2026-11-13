@@ -8,7 +8,7 @@
 
 ## 새 맥미니 설치
 
-애플 칩(M1 이후) 맥과 macOS 13 이상이 필요합니다. 인텔 맥은 Homebrew가 지원을 끝내 일손 Box 전체는 설치할 수 없고, 대신 강의판(Claude Code + Orca + Obsidian + 위키 + 자동 스킬)을 터미널에서 `curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/course/install-intel-mac.sh | bash` 로 설치합니다(macOS 13 이상). Windows 10·11은 PowerShell에서 `irm https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/course/install-windows.ps1 | iex` 로 설치합니다.
+macOS 13 이상에서 Apple Silicon과 Intel을 구분해 점검합니다. Intel 전체판은 Homebrew 의존 도구 지원을 별도로 확인해야 하며, 강의에서는 강의판(Claude Code + Orca + Obsidian + 위키 + 자동 스킬)을 권장합니다. Intel 강의판은 터미널에서 `curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/course/install-intel-mac.sh | bash` 로 설치합니다(macOS 13 이상). Windows 10·11은 PowerShell에서 `irm https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/course/install-windows.ps1 | iex` 로 설치합니다.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/install.sh | sh
@@ -48,6 +48,8 @@ ilson telegram status --verify   # 봇과 받을 대화 확인 (메시지 발송
 ```
 
 Codex는 `codex`를 실행해 별도로 ChatGPT 계정에 로그인합니다. 현재 Box의 정기 업무 실행기는 Claude입니다. 설치기는 API 키나 유료 API 호출을 설정하지 않습니다.
+
+설치가 막히면 `ilson doctor --install --share`로 로컬 지원 파일을 만드세요. 라이선스와 네트워크 없이 동작하며 자동 전송하지 않습니다. 일손/Python 없는 독립 진단과 고정 SHA 설치 명령 생성, 현재 창·새 창 확인은 [설치 진단 안내](docs/install-diagnostics.md)를 참고하세요. 이 소스의 진단 기능은 공개 배포 승인 전입니다.
 
 ## 기본 웹 관리자
 

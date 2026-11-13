@@ -1,3 +1,6 @@
 .sandbox/
 .orca/
 __pycache__/
+
+# Local diagnostics test scratch (never shipped or committed).
+.scratch/
