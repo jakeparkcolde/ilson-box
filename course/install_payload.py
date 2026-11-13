@@ -22,7 +22,7 @@ def digest(data):
 def safe(path):
     for part in [path, *path.parents]:
         if (sys.platform == 'darwin' and str(part) in ('/var', '/tmp', '/etc')
-                and part.is_symlink() and os.readlink(part) == '/private' + str(part)): continue
+                and part.is_symlink() and os.readlink(part) in ('/private' + str(part), 'private' + str(part))): continue
         try: info = part.lstat()
         except FileNotFoundError: continue
         if part.is_symlink() or getattr(info, 'st_file_attributes', 0) & 0x400:
@@ -136,10 +136,21 @@ def _rollback(root, backup):
         if item['before'] is not None:
             old = backup / name; safe(old); data = old.read_bytes()
             if digest(data) != item['before']: raise ValueError('invalid helper backup')
-        changes.append((path, data))
-    for path, data in sorted(changes, key=lambda item: item[0].name == 'ilson.py'):
-        if data is None: path.unlink()
-        else: atomic_write(path, data)
+        changes.append((path, data, path.read_bytes()))
+    applied = []
+    try:
+        for path, data, installed in sorted(changes, key=lambda item: item[0].name == 'ilson.py'):
+            safe(path)
+            if path.read_bytes() != installed: raise ValueError('existing helper changed during rollback')
+            if data is None: path.unlink()
+            else: atomic_write(path, data)
+            applied.append((path, data, installed))
+    except Exception:
+        for path, data, installed in reversed(applied):
+            safe(path)
+            current = path.read_bytes() if path.exists() else None
+            if current == data: atomic_write(path, installed)
+        raise
     manifest['status'] = 'rolled_back'
     atomic_write(manifest_path, json.dumps(manifest, sort_keys=True).encode())
 

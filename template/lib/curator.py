@@ -37,7 +37,7 @@ def canonical(path):
             raise CuratorError('REMOTE_VAULT_UNSUPPORTED')
     if sys.platform == 'darwin' and len(path.parts) > 1 and path.parts[1] in ('var', 'tmp', 'etc'):
         alias = Path('/') / path.parts[1]
-        if alias.is_symlink() and os.readlink(alias) == '/private' + str(alias):
+        if alias.is_symlink() and os.readlink(alias) in ('/private' + str(alias), 'private' + str(alias)):
             path = Path('/private').joinpath(*path.parts[1:])
     return path
 
@@ -222,9 +222,9 @@ class Store:
 
 
 @contextmanager
-def vault_lock(store, blocking=False):
+def vault_lock(store, blocking=False, name='run.lock'):
     with directory(store.state, create=True, private=True) as parent:
-        path = store.state / 'run.lock'
+        path = store.state / name
         check_path(path)
         fd = os.open(path if parent is None else path.name,
                      os.O_RDWR | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0), 0o600,
@@ -266,9 +266,10 @@ def vault_lock(store, blocking=False):
 
 def set_enabled(store, enabled):
     # Write revocation before waiting: active readers check between files and at publication.
-    cfg = store.config()
-    cfg.update(enabled=bool(enabled), auto=False, changed_at=time.time())
-    save_json(store.state / 'config.json', cfg)
+    with vault_lock(store, blocking=True, name='config.lock'):
+        cfg = store.config()
+        cfg.update(enabled=bool(enabled), auto=False, changed_at=time.time())
+        save_json(store.state / 'config.json', cfg)
     with vault_lock(store, blocking=True):
         pass  # Drains our bounded local worker; no process-name/PID-based killing.
 
@@ -585,6 +586,7 @@ def main(argv=None):
     for option in ('status', 'on', 'off', 'auto-on', 'auto-off', 'addendum', 'ai-on', 'ai-off', 'tick'):
         group.add_argument('--' + option, action='store_true')
     args = parser.parse_args(argv)
+    store = None
     try:
         store = Store(args.home, args.edition, args.vault)
         if args.status:
@@ -607,8 +609,11 @@ def main(argv=None):
             if args.auto_on and not store.enabled():
                 print('OFF: 먼저 ilson curator --on 으로 동의하세요.')
                 return 2
-            with vault_lock(store):
+            with vault_lock(store, blocking=True, name='config.lock'):
                 cfg = store.config()
+                if args.auto_on and cfg.get('enabled') is not True:
+                    print('OFF: 먼저 ilson curator --on 으로 동의하세요.')
+                    return 2
                 cfg['auto'] = args.auto_on
                 save_json(store.state / 'config.json', cfg)
             print('자동 설정 저장: 현지시각 23:00 · 기존 watchdog 약 10분 간격. 실제 가동 상태는 --status 로 확인하세요.')
@@ -630,8 +635,15 @@ def main(argv=None):
         if not args.tick:
             print(code)
         return 0 if code in ('OK', 'PARTIAL', 'already_exists', 'NOT_DUE', 'OFF', 'AUTO_OFF') else 1
-    except (CuratorError, OSError, ValueError) as exc:
+    except (CuratorError, OSError, ValueError, TypeError) as exc:
         code = str(exc) if isinstance(exc, CuratorError) else 'LOCAL_IO_ERROR'
+        if store is not None and not args.status:
+            try:
+                if store.enabled():
+                    with vault_lock(store):
+                        store.record(code)
+            except (OSError, CuratorError, ValueError, TypeError):
+                pass
         print(code, file=sys.stderr)
         return 1
 

@@ -165,7 +165,7 @@ def main(argv=None):
         backup = upgrade(root, pin)
         print('UPDATE_OK: 도우미 자체 점검 완료. 기존 실행기·Python 선택·PATH·볼트 보존.' + (' 백업 있음.' if backup else ' 이미 같은 버전.'))
         return 0
-    except (UpdateError, OSError, ValueError, KeyError, subprocess.TimeoutExpired):
+    except (UpdateError, OSError, ValueError, KeyError, TypeError, AttributeError, subprocess.TimeoutExpired):
         print('UPDATE_FAILED: 코드·고정 버전·백업 상태를 확인하세요. 사용자 수정본은 덮어쓰지 않습니다.', file=sys.stderr)
         return 1
 

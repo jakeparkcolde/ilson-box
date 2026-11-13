@@ -113,6 +113,23 @@ class CourseUpdateTests(unittest.TestCase):
             with self.assertRaises(u.UpdateError):
                 u.last_backup(self.root)
 
+    def test_rollback_io_failure_recovers_already_restored_code(self):
+        self.seed_old()
+        backup = p.install(self.root, sources())
+        before = {name: (self.root/name).read_bytes() for name in p.ALLOWED_FILES}
+        original = p.atomic_write
+        def fail_entry(path, data):
+            if path.name == 'ilson.py':
+                raise OSError('fixture disk failure')
+            return original(path, data)
+        with mock.patch.object(p, 'atomic_write', side_effect=fail_entry):
+            with self.assertRaises(OSError):
+                p.rollback(self.root, backup)
+        for name, data in before.items():
+            self.assertEqual((self.root/name).read_bytes(), data)
+        p.rollback(self.root, backup)
+        self.assertFalse((self.root/'curator.py').exists())
+
     def test_cli_without_pin_does_not_download(self):
         p.install(self.root, sources())
         env = dict(os.environ, HOME=str(self.root.parent))
