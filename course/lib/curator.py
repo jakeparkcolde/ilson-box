@@ -31,7 +31,9 @@ def canonical(path):
     path = Path(os.path.abspath(os.path.expanduser(str(path))))
     if os.name == 'nt':
         import ctypes
-        if str(path).startswith('\\\\') or ctypes.windll.kernel32.GetDriveTypeW(str(path.anchor)) == 4:
+        drive_type = ctypes.windll.kernel32.GetDriveTypeW
+        drive_type.argtypes = [ctypes.c_wchar_p]
+        if str(path).startswith('\\\\') or drive_type(str(path.anchor)) == 4:
             raise CuratorError('REMOTE_VAULT_UNSUPPORTED')
     if sys.platform == 'darwin' and len(path.parts) > 1 and path.parts[1] in ('var', 'tmp', 'etc'):
         alias = Path('/') / path.parts[1]
@@ -58,19 +60,40 @@ def directory(path, create=False, private=False):
     path = canonical(path)
     check_path(path)
     if os.name == 'nt':
-        if create:
-            path.mkdir(parents=True, exist_ok=True)
-        check_path(path)
-        if not path.is_dir():
-            raise CuratorError('UNSAFE_PATH')
-        if private:
-            license_module().windows_acl(path, create=create)
-        yield None
-        check_path(path)
+        # Pin every Windows directory without FILE_SHARE_DELETE: a junction/parent
+        # cannot be swapped between validation and opening its child.
+        import ctypes
+        from ctypes import wintypes
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        open_handle = kernel.CreateFileW
+        open_handle.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                                wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+        open_handle.restype = wintypes.HANDLE
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        handles = []
+        try:
+            for part in reversed([path, *path.parents]):
+                if not part.exists() and create:
+                    part.mkdir(mode=0o700 if private else 0o755)
+                check_path(part)
+                handle = open_handle(str(part), 0x80, 3, None, 3, 0x02200000, None)
+                if handle == ctypes.c_void_p(-1).value:
+                    raise CuratorError('UNSAFE_PATH')
+                handles.append(handle)
+                check_path(part)
+            if not path.is_dir():
+                raise CuratorError('UNSAFE_PATH')
+            if private:
+                license_module().windows_acl(path, create=create)
+            yield None
+            check_path(path)
+        finally:
+            for handle in reversed(handles):
+                kernel.CloseHandle(handle)
         return
     fd = os.open(path.anchor, os.O_RDONLY | os.O_DIRECTORY)
     try:
-        for index, part in enumerate(path.parts[1:]):
+        for part in path.parts[1:]:
             try:
                 nxt = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
             except FileNotFoundError:
@@ -90,12 +113,23 @@ def directory(path, create=False, private=False):
 
 def read_file(path, limit=MAX_FILE, private=False):
     path = canonical(path)
-    with directory(path.parent) as parent:
+    with directory(path.parent, private=private) as parent:
         check_path(path)
         fd = os.open(path if parent is None else path.name, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0),
                      **({} if parent is None else {'dir_fd': parent}))
         try:
             info = os.fstat(fd)
+            if os.name == 'nt':
+                import ctypes
+                import msvcrt
+                from ctypes import wintypes
+                final_name = ctypes.windll.kernel32.GetFinalPathNameByHandleW
+                final_name.argtypes = [wintypes.HANDLE, wintypes.LPWSTR, wintypes.DWORD, wintypes.DWORD]
+                buffer = ctypes.create_unicode_buffer(32768)
+                length = final_name(msvcrt.get_osfhandle(fd), buffer, len(buffer), 0)
+                actual = buffer.value.removeprefix('\\\\?\\')
+                if not length or length >= len(buffer) or os.path.normcase(actual) != os.path.normcase(str(path)):
+                    raise CuratorError('UNSAFE_PATH')
             if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size > limit:
                 raise CuratorError('UNSAFE_OR_LARGE_FILE')
             if private and os.name != 'nt' and (info.st_uid != os.getuid() or info.st_mode & 0o077):
@@ -198,6 +232,17 @@ def vault_lock(store, blocking=False):
         locked = False
         try:
             info = os.fstat(fd)
+            if os.name == 'nt':
+                import ctypes
+                import msvcrt
+                from ctypes import wintypes
+                final_name = ctypes.windll.kernel32.GetFinalPathNameByHandleW
+                final_name.argtypes = [wintypes.HANDLE, wintypes.LPWSTR, wintypes.DWORD, wintypes.DWORD]
+                buffer = ctypes.create_unicode_buffer(32768)
+                length = final_name(msvcrt.get_osfhandle(fd), buffer, len(buffer), 0)
+                actual = buffer.value.removeprefix('\\\\?\\')
+                if not length or length >= len(buffer) or os.path.normcase(actual) != os.path.normcase(str(path)):
+                    raise CuratorError('UNSAFE_PATH')
             if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
                 raise CuratorError('UNSAFE_PATH')
             if os.name == 'nt':

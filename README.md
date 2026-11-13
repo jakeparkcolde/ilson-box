@@ -149,3 +149,15 @@ sh -n install.sh
 `ilson learn enable`로 직접 켠 뒤 새 `ilson chat`을 열면, 완료한 업무가 반복될 때 스킬 초안을 제안하고 수정·실패·성공에서 배운 기준의 변경안을 준비합니다. `ilson learn proposals`와 `ilson learn show <ID>`로 확인하고, 사람이 일반 터미널에서 `ilson learn approve <ID>`를 실행한 것만 반영합니다. `reject`는 거절, `history`와 `rollback <변경ID>`는 변경 확인과 복구입니다. [자세한 사용법](docs/사용법.md)을 참고하세요.
 
 자동 관찰은 대화 모델이 지침을 따르는 범위이며 빠뜨릴 수 있습니다. 회사·고객 이름이나 비밀은 업무 이름과 초안에서 빼고 승인 전 직접 확인하세요. 검사로 모든 개인정보를 찾을 수는 없습니다. 기록과 초안은 이 Box의 볼트 및 로컬 Git 이력에 남을 수 있고, Claude·Codex 대화는 해당 제공자의 처리를 받습니다. 이 기능은 별도 LLM 호출이나 텔레그램 발송을 추가하지 않습니다. 정기 업무와 직원 화면의 지침에는 반복 감지가 자동 연결되지 않습니다.
+
+### 로컬 지식 큐레이터
+
+`ilson curator` (`ilson diary`)는 외부 AI·네트워크 없이 하루 변경 기록·기존 태그/내부 링크로 연결된 노트·명시적인 확인 항목을 새 `vault/journal/curator/YYYY-MM-DD.md`에 모읍니다. 강의판은 선택한 볼트 바로 아래 `journal/curator/`입니다. 기존 노트·색인·기존 결과의 바이트와 mtime을 바꾸지 않습니다. 같은 날짜는 한 번만 생성하고, 수동 `--addendum`은 별도 새 파일을 만듭니다. 임시 문서는 출력 파일시스템의 비공개 `.staging/`에 두고 원자적으로 독점 게시합니다.
+
+최초 OFF입니다. 일반 터미널에서 입력 범위·저장 위치를 읽고 동의하거나 `ilson curator --on`으로 동의만 저장하세요. `--off`는 이후 읽기를 막고 진행 중인 로컬 작업의 종료를 기다립니다. `--status`와 `--off`는 라이선스 없이 쓸 수 있습니다. 정리 실행은 유효한 로컬 라이선스 캐시만 확인하며 서버 재확인이 필요하면 본문을 읽기 전에 보류합니다. 별도 `ilson license status`는 서버에 접속할 수 있습니다. AI 요약은 비활성화되어 있고 전송 구현도 없습니다.
+
+입력은 `company/**/*.md`, `journal/YYYY-MM-DD.md`, `reports/briefing/*.md`, `reports/weekly/*.md`입니다. 파일당 256 KiB·실행당 100개/2 MiB를 넘거나 읽기에 실패한 자료는 누락 개수를 표시합니다. 숨김·관리/개인 영역·미승인 학습·승인 대기·첨부·설정·대화 원문·링크/하드링크·자기 출력은 제외합니다. 현재 단일 사용자용이며 다계정 공유 볼트 권한 기능은 제공하지 않습니다.
+
+Mac 전체판은 `--auto-on`을 별도로 켜고 기존 watchdog이 실제 가동 중이어야 현지시각 23:00부터 약 10분 오차로 정리합니다. 새 launchd 작업과 jobs.conf 항목은 추가하지 않습니다. 놓친 날짜는 가장 최근 한 번만 보충하며 시계 역행·시간대 변경에는 보류합니다. `--status`가 `watchdog_compatible: false`이면 기존 watchdog을 재설치/검토해야 합니다. start 전이나 예약이 꺼진 상태를 자동 가동이라고 안내하지 않습니다. Windows·Intel 강의판은 수동 전용이며 `--auto-on`은 예약 미지원을 반환합니다.
+
+강의 도우미의 첫 갱신은 검수한 고정 버전 설치기 재실행입니다. 이후 `ilson update --manifest <검수한 고정 JSON>` 또는 `--source-ref <40자리 커밋> --sha256 <해당 판본 설치기 SHA-256>`으로 같은 설치기에서 도우미 payload만 검증·백업·교체·자체 점검합니다. 고정 정보가 없으면 갱신하지 않으며, 저장한 고정 정보는 `ilson update`에 재사용합니다. main 자동 추적은 하지 않습니다. `ilson curator --off` 후 `ilson update --rollback`은 직전 코드 백업만 복구하고 사용자 노트·설정·실행기·Python 선택·PATH는 보존합니다. 배포용 고정 JSON은 `python3 tools/build_course_update.py --source-ref <검수 커밋> --edition intel-course` (Windows는 `windows-course`)로 만들 수 있습니다. 이 작업은 파일 생성만 하며 공개·배포는 별도 승인입니다.

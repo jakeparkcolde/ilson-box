@@ -243,6 +243,30 @@ class CuratorTests(unittest.TestCase):
             self.assertNotEqual(store.state, self.store.state)
             self.assertFalse((vault / 'vault').exists())
 
+    def test_killed_owner_releases_os_lock_for_retry(self):
+        code = "import sys,time;sys.path.insert(0,sys.argv[1]);import curator as c;s=c.Store(sys.argv[2]);ctx=c.vault_lock(s);ctx.__enter__();print('READY',flush=True);time.sleep(30)"
+        child = subprocess.Popen([sys.executable, '-c', code, str(ROOT/'template/lib'), str(self.home)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            self.assertEqual(child.stdout.readline().strip(), 'READY')
+            with self.assertRaisesRegex(c.CuratorError, 'LOCKED'):
+                self.run_digest()
+        finally:
+            child.terminate()
+            child.communicate(timeout=5)
+        self.assertEqual(self.run_digest(), 'OK')
+
+    def test_killed_before_atomic_publish_leaves_no_final_and_retry_recovers(self):
+        code = "import sys,time;sys.path.insert(0,sys.argv[1]);import curator as c;s=c.Store(sys.argv[2]);c.os.link=lambda *a,**kw:(print('READY',flush=True),time.sleep(30));c.run_once(s,license_check=lambda *a:True)"
+        child = subprocess.Popen([sys.executable, '-c', code, str(ROOT/'template/lib'), str(self.home)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            self.assertEqual(child.stdout.readline().strip(), 'READY')
+            self.assertFalse(list((self.store.vault/'journal/curator').glob('*.md')))
+        finally:
+            child.terminate()
+            child.communicate(timeout=5)
+        self.assertEqual(self.run_digest(), 'OK')
+        self.assertEqual(len(list((self.store.vault/'journal/curator').glob('*.md'))), 1)
+
     def test_markdown_payload_is_literal_and_cannot_embed_remote_media(self):
         self.note('company/a.md', '- [ ] ![secret](https://example.invalid/collect) <img src="https://example.invalid/collect">')
         self.assertEqual(self.run_digest(), 'OK')

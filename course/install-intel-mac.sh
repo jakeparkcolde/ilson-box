@@ -507,8 +507,47 @@ diag_skip verify.current USER_CONFIRMATION_REQUIRED false
 diag_skip verify.new-window USER_CONFIRMATION_REQUIRED false
 if [[ "$DRY_RUN" != 1 && -f "$KIT/CLAUDE.md" ]] && ! printf '%s' "$COURSE_RULES" | base64 -D | cmp -s "$KIT/CLAUDE.md" -; then
   suggested="$HOME/.ilson-course/CLAUDE-course-suggested.md"
-  if mkdir -p "$(dirname "$suggested")" && [[ ! -e "$suggested" && ! -L "$suggested" ]]; then
-    (set -C; printf '%s' "$COURSE_RULES" | base64 -D > "$suggested") || true
+  if [[ -n "$course_python" ]]; then
+    if ! "$course_python" - "$suggested" "$COURSE_RULES" <<'PYRULES'
+import base64
+from datetime import datetime
+import os
+from pathlib import Path
+import stat
+import sys
+import tempfile
+path = Path(sys.argv[1])
+data = base64.b64decode(sys.argv[2], validate=True)
+for part in [path, *path.parents]:
+    if part.is_symlink(): raise ValueError('linked suggested-rules path')
+path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+if path.exists():
+    info = path.stat()
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1: raise ValueError('unsafe suggested rules')
+    old = path.read_bytes()
+    if old == data: sys.exit(0)
+    stamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+    for number in range(100):
+        suffix = '-' + str(number) if number else ''
+        backup = path.with_name('CLAUDE-course-suggested.' + stamp + suffix + '.bak.md')
+        try:
+            with backup.open('xb') as stream:
+                stream.write(old); stream.flush(); os.fsync(stream.fileno())
+            break
+        except FileExistsError: continue
+    else: raise ValueError('no free suggested-rules backup name')
+    print('이전 제안 규칙을 백업했습니다: ' + str(backup))
+fd, temporary = tempfile.mkstemp(prefix='.suggested-', dir=path.parent)
+with os.fdopen(fd, 'wb') as stream:
+    stream.write(data); stream.flush(); os.fsync(stream.fileno())
+os.replace(temporary, path)
+PYRULES
+    then
+      printf '%s\n' '제안 규칙 갱신 실패: 기존 파일을 검토하세요.'
+      learn_status='실패'
+    fi
+  else
+    printf '%s\n' 'Python이 없어 제안 규칙을 갱신하지 못했습니다.'
   fi
   printf '기존 CLAUDE.md를 보존했습니다. 학습 규칙을 직접 검토하고 반영하세요: %s\n' "$suggested"
 fi

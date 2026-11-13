@@ -13,7 +13,7 @@ spec=importlib.util.spec_from_file_location('course_payload',ROOT/'course/instal
 payload=importlib.util.module_from_spec(spec);spec.loader.exec_module(payload)
 
 def sources():
-    return {name:(ROOT/'course'/('' if name=='ilson.py' else 'lib')/name).read_text() for name in payload.ALLOWED_FILES}
+    return {name:(ROOT/'course'/('' if name in ('ilson.py','install_payload.py') else 'lib')/name).read_text() for name in payload.ALLOWED_FILES}
 
 
 class CourseUpgradeTests(unittest.TestCase):
@@ -21,11 +21,11 @@ class CourseUpgradeTests(unittest.TestCase):
         for entry in (None,'course-legacy-ilson.py','course-skill-share-ilson.py'):
             with self.subTest(entry=entry),tempfile.TemporaryDirectory() as temp:
                 root=Path(temp).resolve()
-                for name in payload.KNOWN_HELPER_SHA256:
+                for name in set(payload.KNOWN_HELPER_SHA256) - {'install_diagnostics.py'}:
                     old=subprocess.check_output(['git','show','49f683a:course/'+('' if name=='ilson.py' else 'lib/')+name],cwd=ROOT)
                     (root/name).write_bytes(old)
                 if entry: (root/'ilson.py').write_bytes((ROOT/'tests/fixtures'/entry).read_bytes())
-                old={p.name:p.read_bytes() for p in root.iterdir()}
+                old={p.name:p.read_bytes() for p in root.iterdir() if p.is_file() and not p.name.startswith('.')}
                 backup=payload.install(root,sources())
                 self.assertIsNotNone(backup)
                 for name,text in sources().items(): self.assertEqual((root/name).read_text(),text)
@@ -34,7 +34,7 @@ class CourseUpgradeTests(unittest.TestCase):
                 self.assertFalse((root/'install_diagnostics.py').exists())
 
     def test_all_files_have_independent_known_hashes_and_modified_files_block_atomically(self):
-        self.assertEqual(set(payload.KNOWN_HELPER_SHA256),{'ilson.py','selflearn.py','license.py','skill_share.py','weekly_summary.py'})
+        self.assertEqual(set(payload.KNOWN_HELPER_SHA256),{'ilson.py','selflearn.py','license.py','skill_share.py','weekly_summary.py','install_diagnostics.py'})
         for changed in payload.KNOWN_HELPER_SHA256:
             with self.subTest(changed=changed),tempfile.TemporaryDirectory() as temp:
                 root=Path(temp).resolve()
@@ -47,7 +47,7 @@ class CourseUpgradeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp).resolve()
             files=sources(); files['license.py'] += '\n# reviewed future version\n'
-            for name in payload.KNOWN_HELPER_SHA256:
+            for name in set(payload.KNOWN_HELPER_SHA256) - {'install_diagnostics.py'}:
                 (root/name).write_bytes(subprocess.check_output(['git','show','49f683a:course/'+('' if name=='ilson.py' else 'lib/')+name],cwd=ROOT))
             old={p.name:p.read_bytes() for p in root.iterdir()}
             original=payload.atomic_write

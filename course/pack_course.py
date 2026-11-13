@@ -12,6 +12,9 @@ files = {
     'selflearn.py': (root / 'course/lib/selflearn.py').read_text(encoding='utf-8'),
     'weekly_summary.py': (root / 'course/lib/weekly_summary.py').read_text(encoding='utf-8'),
     'install_diagnostics.py': (root / 'course/lib/install_diagnostics.py').read_text(encoding='utf-8'),
+    'curator.py': (root / 'course/lib/curator.py').read_text(encoding='utf-8'),
+    'course_update.py': (root / 'course/lib/course_update.py').read_text(encoding='utf-8'),
+    'install_payload.py': (root / 'course/install_payload.py').read_text(encoding='utf-8'),
     'skill_share.py': (root / 'course/lib/skill_share.py').read_text(encoding='utf-8'),
 }
 payload = base64.b64encode(gzip.compress(json.dumps(files, ensure_ascii=False, sort_keys=True).encode('utf-8'), mtime=0)).decode('ascii')
