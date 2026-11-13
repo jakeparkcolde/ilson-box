@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ilson offline diagnostic event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "run_id",
+    "seq",
+    "installer_version",
+    "source_ref",
+    "edition",
+    "event",
+    "step_id",
+    "attempt",
+    "started_at",
+    "result",
+    "reason_code",
+    "required"
+  ],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{32}$"
+    },
+    "parent_run_id": {},
+    "seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "installer_version": {},
+    "source_ref": {},
+    "edition": {
+      "enum": [
+        "full-mac",
+        "intel-course",
+        "unknown",
+        "windows-course"
+      ]
+    },
+    "event": {
+      "enum": [
+        "run-end",
+        "run-start",
+        "step-end",
+        "step-start"
+      ]
+    },
+    "step_id": {
+      "enum": [
+        "apps.aside",
+        "apps.herdr",
+        "apps.obsidian",
+        "apps.orca",
+        "apps.tailscale",
+        "bootstrap.start",
+        "cli.link",
+        "download.installer",
+        "finish",
+        "helper.install",
+        "kit.prepare",
+        "path.persist",
+        "preflight.arch",
+        "preflight.platform",
+        "runtime.node",
+        "runtime.python",
+        "setup.auth-pending",
+        "setup.jobs",
+        "setup.machine",
+        "setup.stage",
+        "setup.telegram",
+        "setup.web",
+        "tools.aside",
+        "tools.brew",
+        "tools.claude",
+        "tools.claude.download",
+        "tools.claude.execute",
+        "tools.codex",
+        "tools.codex.download",
+        "tools.codex.execute",
+        "tools.coreutils",
+        "tools.gh",
+        "tools.git",
+        "tools.hc",
+        "tools.herdr",
+        "tools.jq",
+        "tools.node",
+        "tools.python",
+        "tools.tvly",
+        "tools.vendor.download",
+        "tools.vendor.execute",
+        "vault.prepare",
+        "verify.absolute",
+        "verify.current",
+        "verify.new-window",
+        "verify.simulated"
+      ]
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "started_at": {},
+    "ended_at": {},
+    "elapsed_ms": {},
+    "result": {
+      "enum": [
+        "failed",
+        "ok",
+        "running",
+        "skipped-with-reason"
+      ]
+    },
+    "reason_code": {
+      "enum": [
+        "AUTH_PENDING",
+        "CLOCK_UNVERIFIED",
+        "COMMAND_CONFLICT",
+        "DEPENDENCY_FAILED",
+        "DETAIL_SUPPRESSED",
+        "DNS_FAILED",
+        "DOWNLOAD_FAILED",
+        "DRY_RUN",
+        "EXECUTE_FAILED",
+        "HASH_MISMATCH",
+        "HTTP_FAILED",
+        "INTERRUPTED",
+        "LOG_UNAVAILABLE",
+        "NOT_APPLICABLE",
+        "NOT_SELECTED",
+        "OK",
+        "OUTSIDE_VAULT",
+        "PATH_MANUAL",
+        "PYTHON_TOO_OLD",
+        "REUSED_VERIFIED",
+        "RUNTIME_MISSING",
+        "SMART_DASH",
+        "STARTED",
+        "TIMEOUT",
+        "TLS_FAILED",
+        "UNKNOWN_OPTION",
+        "UNSUPPORTED_OS",
+        "USER_CONFIRMATION_REQUIRED",
+        "USER_DECLARED",
+        "USER_MODIFIED",
+        "VERIFY_FAILED",
+        "WRONG_INSTALLER"
+      ]
+    },
+    "required": {
+      "type": "boolean"
+    },
+    "exit_code": {},
+    "exit_source": {},
+    "host": {
+      "enum": [
+        "chatgpt.com",
+        "claude.ai",
+        "codeload.github.com",
+        "custom_host",
+        "github.com",
+        "none",
+        "raw.githubusercontent.com",
+        "releases.aside.com",
+        "releases.herdr.dev",
+        "www.python.org"
+      ]
+    },
+    "http_code": {},
+    "transport_code": {},
+    "proxy": {},
+    "clock": {},
+    "error_tail": {},
+    "cwd_kind": {},
+    "cwd_display": {},
+    "environment": {},
+    "path_facts": {}
+  },
+  "description": "Runtime validate_event is authoritative for nested fields and bounded values. No free-text command output."
+}
