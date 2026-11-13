@@ -1,5 +1,6 @@
 """Offline, consent-gated Box knowledge digest. No AI or network execution path."""
 import argparse
+import errno
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 import hashlib
@@ -20,10 +21,59 @@ MAX_FILES = 100
 MAX_TOTAL = 2 * 1024 * 1024
 INPUTS = ('company/**/*.md', 'journal/YYYY-MM-DD.md', 'reports/briefing/*.md', 'reports/weekly/*.md')
 FORBIDDEN = {'management', 'people', 'pending', 'attachments', 'credentials', 'config', 'conversations', 'node_modules'}
+# Microsoft [MS-FSCC] 2.1.2.1: CLOUD and CLOUD_1 through CLOUD_F.
+# These are recognized for diagnostics, not allowed for traversal or content reads.
+CLOUD_TAGS = frozenset(0x9000001A | (index << 12) for index in range(16))
+# OFFLINE | RECALL_ON_DATA_ACCESS. RECALL_ON_OPEN shares EA's value and
+# is meaningful only in directory enumeration, so check that separately.
+UNAVAILABLE_ATTRIBUTES = 0x1000 | 0x400000
+ERROR_HELP = {
+    'CLOUD_FOLDER_UNSUPPORTED': 'OneDrive/Cloud Files 재분석 폴더는 지원하지 않습니다. 볼트와 상태 폴더는 동기화 밖의 로컬 폴더를 사용하세요. 강의판은 ILSON_COURSE_VAULT·ILSON_COURSE_STATE로 선택할 수 있습니다.',
+    'CLOUD_FILE_UNSUPPORTED': 'OneDrive/Cloud Files 재분석 파일은 읽지 않습니다. 필요한 노트는 동기화 밖의 로컬 볼트에서 사용하세요.',
+    'OFFLINE_FOLDER_UNSUPPORTED': '원격 내용이 필요한 폴더는 열거하지 않습니다. 볼트와 상태 폴더는 동기화 밖의 로컬 폴더를 사용하세요.',
+    'OFFLINE_FILE_UNSUPPORTED': '원격 내용이 필요한 파일은 읽지 않습니다. 필요한 노트는 동기화 밖의 로컬 볼트에서 사용하세요.',
+}
 
 
 class CuratorError(Exception):
     pass
+
+
+def io_code(exc):
+    """Stable diagnostics only: never expose filenames or OS exception messages."""
+    winerror = getattr(exc, 'winerror', None)
+    if winerror == 32:
+        return 'SHARING_VIOLATION'
+    if winerror == 33:
+        return 'LOCK_VIOLATION'
+    if winerror in (2, 3) or isinstance(exc, FileNotFoundError):
+        return 'PATH_MISSING'
+    if winerror == 267 or isinstance(exc, NotADirectoryError):
+        return 'PATH_NOT_DIRECTORY'
+    if winerror == 5 or isinstance(exc, PermissionError):
+        return 'ACCESS_DENIED'
+    if exc.errno == errno.ELOOP:
+        return 'PATH_SYMLINK_UNSUPPORTED'
+    return 'LOCAL_IO_ERROR'
+
+
+def check_info(info, enumerated=False):
+    attributes = getattr(info, 'st_file_attributes', 0)
+    tag = getattr(info, 'st_reparse_tag', 0)
+    if attributes & 0x400:
+        if tag in CLOUD_TAGS:
+            kind = 'FOLDER' if stat.S_ISDIR(info.st_mode) else 'FILE'
+            raise CuratorError('CLOUD_' + kind + '_UNSUPPORTED')
+        if tag == 0xA0000003:
+            raise CuratorError('PATH_MOUNT_POINT_UNSUPPORTED')  # Junctions too.
+        if tag == 0xA000000C:
+            raise CuratorError('PATH_SYMLINK_UNSUPPORTED')
+        raise CuratorError('PATH_REPARSE_UNSUPPORTED')
+    if stat.S_ISLNK(info.st_mode):
+        raise CuratorError('PATH_SYMLINK_UNSUPPORTED')
+    if attributes & (UNAVAILABLE_ATTRIBUTES | (0x40000 if enumerated else 0)):
+        kind = 'FOLDER' if stat.S_ISDIR(info.st_mode) else 'FILE'
+        raise CuratorError('OFFLINE_' + kind + '_UNSUPPORTED')
 
 
 def canonical(path):
@@ -48,10 +98,50 @@ def check_path(path):
             info = part.lstat()
         except FileNotFoundError:
             continue
-        if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
-            raise CuratorError('UNSAFE_PATH')
+        check_info(info)
         if part != path and not stat.S_ISDIR(info.st_mode):
-            raise CuratorError('UNSAFE_PATH')
+            raise CuratorError('PATH_NOT_DIRECTORY')
+
+
+@contextmanager
+def windows_directory(path, create=False, private=False):
+    """Pin ancestors without FILE_SHARE_DELETE; preserve missing and sharing errors."""
+    import ctypes
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    open_handle = kernel.CreateFileW
+    open_handle.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                            wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    open_handle.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    handles = []
+    try:
+        for part in reversed([path, *path.parents]):
+            try:
+                info = part.lstat()
+            except FileNotFoundError:
+                if not create:
+                    raise
+                part.mkdir(mode=0o700 if private else 0o755)
+                info = part.lstat()
+            check_info(info)
+            if not stat.S_ISDIR(info.st_mode):
+                raise CuratorError('PATH_NOT_DIRECTORY')
+            # BACKUP_SEMANTICS | OPEN_REPARSE_POINT, metadata access only.
+            handle = open_handle(str(part), 0x80, 3, None, 3, 0x02200000, None)
+            if handle == ctypes.c_void_p(-1).value:
+                # WinError retains winerror and maps 2/3 to FileNotFoundError,
+                # which the optional state/input readers already handle.
+                raise ctypes.WinError(ctypes.get_last_error())
+            handles.append(handle)
+            check_path(part)
+        if private:
+            license_module().windows_acl(path, create=create)
+        yield None
+        check_path(path)
+    finally:
+        for handle in reversed(handles):
+            kernel.CloseHandle(handle)
 
 
 @contextmanager
@@ -60,36 +150,8 @@ def directory(path, create=False, private=False):
     path = canonical(path)
     check_path(path)
     if os.name == 'nt':
-        # Pin every Windows directory without FILE_SHARE_DELETE: a junction/parent
-        # cannot be swapped between validation and opening its child.
-        import ctypes
-        from ctypes import wintypes
-        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
-        open_handle = kernel.CreateFileW
-        open_handle.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
-                                wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
-        open_handle.restype = wintypes.HANDLE
-        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
-        handles = []
-        try:
-            for part in reversed([path, *path.parents]):
-                if not part.exists() and create:
-                    part.mkdir(mode=0o700 if private else 0o755)
-                check_path(part)
-                handle = open_handle(str(part), 0x80, 3, None, 3, 0x02200000, None)
-                if handle == ctypes.c_void_p(-1).value:
-                    raise CuratorError('UNSAFE_PATH')
-                handles.append(handle)
-                check_path(part)
-            if not path.is_dir():
-                raise CuratorError('UNSAFE_PATH')
-            if private:
-                license_module().windows_acl(path, create=create)
-            yield None
-            check_path(path)
-        finally:
-            for handle in reversed(handles):
-                kernel.CloseHandle(handle)
+        with windows_directory(path, create=create, private=private) as handle:
+            yield handle
         return
     fd = os.open(path.anchor, os.O_RDONLY | os.O_DIRECTORY)
     try:
@@ -324,7 +386,9 @@ def candidates(vault):
                             excluded[0] += 1
                             continue
                         info = item.stat(follow_symlinks=False)
-                        if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
+                        try:
+                            check_info(info, enumerated=True)
+                        except CuratorError:
                             excluded[0] += 1
                             continue
                         if stat.S_ISDIR(info.st_mode) and recursive:
@@ -636,7 +700,7 @@ def main(argv=None):
             print(code)
         return 0 if code in ('OK', 'PARTIAL', 'already_exists', 'NOT_DUE', 'OFF', 'AUTO_OFF') else 1
     except (CuratorError, OSError, ValueError, TypeError) as exc:
-        code = str(exc) if isinstance(exc, CuratorError) else 'LOCAL_IO_ERROR'
+        code = str(exc) if isinstance(exc, CuratorError) else io_code(exc) if isinstance(exc, OSError) else 'LOCAL_IO_ERROR'
         if store is not None and not args.status:
             try:
                 if store.enabled():
@@ -644,7 +708,7 @@ def main(argv=None):
                         store.record(code)
             except (OSError, CuratorError, ValueError, TypeError):
                 pass
-        print(code, file=sys.stderr)
+        print(code + (': ' + ERROR_HELP[code] if code in ERROR_HELP else ''), file=sys.stderr)
         return 1
 
 

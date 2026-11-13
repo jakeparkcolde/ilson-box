@@ -75,6 +75,26 @@ class CourseUpdateTests(unittest.TestCase):
         for name, (old, _) in before.items():
             self.assertEqual((self.root/name).read_bytes(), old)
 
+    def test_current_curator_baseline_can_upgrade_and_rollback_without_overwriting_user_edits(self):
+        before = {}
+        for name in p.ALLOWED_FILES:
+            location = 'course/' + ('' if name in ('ilson.py', 'install_payload.py') else 'lib/') + name
+            before[name] = subprocess.check_output(['git', 'show', 'd25b333:' + location], cwd=ROOT)
+            (self.root / name).write_bytes(before[name])
+        data = installer(sources(), windows=True)
+        backup = u.upgrade(self.root, self.pin(data, 'windows-course'), installer=data)
+        self.assertIsNotNone(backup)
+        self.assertEqual((self.root / 'curator.py').read_text(), sources()['curator.py'])
+        p.rollback(self.root, backup)
+        for name, old in before.items():
+            self.assertEqual((self.root / name).read_bytes(), old)
+        edited = before['curator.py'] + b'\n# local user edit\n'
+        (self.root / 'curator.py').write_bytes(edited)
+        with self.assertRaises(ValueError):
+            u.upgrade(self.root, self.pin(data, 'windows-course'), installer=data)
+        self.assertEqual((self.root / 'curator.py').read_bytes(), edited)
+        self.assertEqual((self.root / 'install_payload.py').read_bytes(), before['install_payload.py'])
+
     def test_windows_fixture_uses_same_bundle_without_executing_powershell(self):
         files = sources()
         data = installer(files, windows=True)

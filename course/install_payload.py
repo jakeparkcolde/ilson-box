@@ -12,6 +12,11 @@ import tempfile
 
 # Only exact published/baseline bytes may be replaced. Unknown user edits stay intact.
 KNOWN_HELPER_SHA256 = {'ilson.py': {'70c922f15483534e401dccf7f7fefdea88c4be1102b32196ad00fb60f4fa4bff', 'b8491dea3dd3f9b9bf82070c0a054d669386f083a68f1380f0a44e6a141cc5e4', 'b1f72a5e2c9fcb715ce8d58560a22a076f0f126333c154ad7b28100adcdd53d2', '39d10d5e65089bc23e53c09e720e594195891ccb60438253651de6546bb83182'}, 'license.py': {'4b6e50b84073c6e8178b3c0c3c8055839a9d7d607be284ce3e0651e929e15ba9'}, 'selflearn.py': {'48b6804a599765af19f6ab35c75409986fb5bd3e52967bdd52d1386119ee528d', 'b1eabe4380dbd53cc3f35d1a0a82f511f96b04320b2bb585925478f7d8e60b68'}, 'skill_share.py': {'b233d29be73af4e7f9c63a3e948b51ee2946607ea61b71c30f9c473e82fa7412'}, 'weekly_summary.py': {'10a7935d68726ef63457014e64a2702ba0a22167a65c8aa002f3e8a994d48bf7'}, 'install_diagnostics.py': {'0666c62d3668573dbea1ae370aed1e7b9f5b2abd7737c87a8b93e95bd2803ea7', 'ec125e4c085251f010fc414fc91609933ae4da87a4c9dbb06c81d16778d20343'}}
+# Exact d25b333 bytes: permit the curator fix and bootstrap upgrade/rollback.
+KNOWN_HELPER_SHA256.update({
+    'curator.py': {'95fa87b804d129d4bb307f1d4dad97d52feb23f92c01da883aab5f111acb8567'},
+    'install_payload.py': {'b8d551e301e2f713854ef8643638764da7c464ceff369d22792b180bdbeec847'},
+})
 ALLOWED_FILES = set(KNOWN_HELPER_SHA256) | {'curator.py', 'course_update.py', 'install_payload.py'}
 
 
