@@ -17,7 +17,7 @@
 - 전체 suite: 889건 실행, 850 PASS, 39 skip, 실패 0, exit 0. skip은 기존 조건부 38건 + 새 Windows helper-stage 회귀 1건.
 - 마지막 Windows 함수 범위 수정 뒤 최종 전달 회귀 5건 OK(skip1), Windows 정적 내장본 검사와 exception schema allowlist 일치 각 1건 PASS, shell syntax 및 diff whitespace PASS. 로그: .scratch/windows-payload-fix/transport-final.log, windows-static-final.log, exception-schema-final.log.
 - Windows 설치기 SHA-256: 17effac32256c11b56f02df417e63f2fb3a87e3118da209721cad74ee6121747. 새 payload 42,264자, bootstrap 7,944자.
-- AGY 전달: /Users/koldeumaegmini/orca/projects/Studio_base/handoffs/work/2026-11-13-ilson-box-curator-installlog/agy-fix-windows-review/BRIEF.md, WINDOWS-RERUN.md, target.diff(e9e41a3..최종 HEAD). commit id는 외부 BRIEF의 완료 기록에 남김.
+- AGY 전달: Studio_base handoffs/work/2026-11-13-ilson-box-curator-installlog/agy-fix-windows-review/BRIEF.md, WINDOWS-RERUN.md, target.diff(e9e41a3..최종 HEAD). commit id는 외부 BRIEF의 완료 기록에 남김.
 - Close-out 2026-11-14: 소유 suite terminal t33t exit 0 확인 후 제거. 실행 중 테스트/preview/browser/server 없음. 다른 세션/생산 서비스 보존. 완성 매체 없음, My Book archive 해당 없음.
 - 재실행: python3 .scratch/windows-payload-fix/run-full-suite.py (stdin은 하네스에서 DEVNULL). 브라우저·preview 재시작 명령은 해당 없음.
 - 남은 일: 총괄의 AGY 읽기 전용 검토와 별도 Windows5.1 실기기 재시험, 승인 뒤 병합/배포 판단. 이 작업자는 push/Release/노트북/AGY 접근하지 않음.
