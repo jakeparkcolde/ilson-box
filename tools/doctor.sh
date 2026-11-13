@@ -1,0 +1,178 @@
+#!/bin/sh
+# Standalone offline doctor. The recorder below is generated; no Python or ilson dependency.
+# DIAGNOSTICS_BEGIN
+# Ilson diagnostic recorder v1. POSIX + OS tools only; generated into installers.
+# Raw arguments, stdout/stderr, paths, environment values and notes are never logged.
+diag_unavailable() { DIAG_AVAILABLE=0; printf '%s\n' 'LOG_UNAVAILABLE: 설치 이력을 저장할 수 없습니다. 성공 이력 생성 미확인.' >&2; }
+diag_safe() {
+    diag_p=$1
+    case "$diag_p" in /*) ;; *) return 1 ;; esac
+    while [ "$diag_p" != / ]; do
+        [ ! -L "$diag_p" ] || return 1
+        if [ -e "$diag_p" ]; then
+            diag_owner=$(stat -f %u "$diag_p" 2>/dev/null) || diag_owner=$(stat -c %u "$diag_p" 2>/dev/null) || return 1
+            [ "$diag_owner" = "$(id -u)" ] || [ "$diag_owner" = 0 ] || return 1
+        fi
+        diag_p=$(dirname "$diag_p")
+        # macOS fixed OS aliases only, never user symlinks.
+        case "$diag_p" in /var) diag_p=/private/var ;; /tmp) diag_p=/private/tmp ;; /etc) diag_p=/private/etc ;; esac
+    done
+}
+diag_private() {
+    diag_safe "$1" || return 1
+    [ -d "$1" ] || return 1
+    diag_mode=$(stat -f %Lp "$1" 2>/dev/null) || diag_mode=$(stat -c %a "$1" 2>/dev/null) || return 1
+    [ "$diag_mode" = 700 ] || return 1
+    diag_owner=$(stat -f %u "$1" 2>/dev/null) || diag_owner=$(stat -c %u "$1" 2>/dev/null) || return 1
+    [ "$diag_owner" = "$(id -u)" ]
+}
+diag_valid_id() { [ "${#1}" = 32 ] && case "$1" in *[!a-f0-9]*) return 1 ;; *) return 0 ;; esac; }
+diag_event() {
+    [ "${DIAG_AVAILABLE:-0}" = 1 ] || return 0
+    case "$1" in run-start|step-start|step-end|run-end) ;; *) return 0 ;; esac
+    case "$2" in bootstrap.start|download.installer|preflight.platform|preflight.arch|runtime.python|runtime.node|tools.brew|tools.git|tools.jq|tools.gh|tools.coreutils|tools.python|tools.node|tools.claude|tools.codex|tools.aside|tools.herdr|tools.hc|tools.tvly|tools.claude.download|tools.claude.execute|tools.codex.download|tools.codex.execute|tools.vendor.download|tools.vendor.execute|apps.orca|apps.obsidian|apps.tailscale|apps.aside|apps.herdr|kit.prepare|vault.prepare|helper.install|cli.link|path.persist|verify.absolute|verify.current|verify.new-window|verify.simulated|setup.stage|setup.machine|setup.jobs|setup.web|setup.telegram|setup.auth-pending|finish) ;; *) return 0 ;; esac
+    case "$3" in ok|failed|skipped-with-reason|running) ;; *) return 0 ;; esac
+    case "$4" in STARTED|OK|REUSED_VERIFIED|DEPENDENCY_FAILED|PYTHON_TOO_OLD|RUNTIME_MISSING|WRONG_INSTALLER|UNSUPPORTED_OS|SMART_DASH|UNKNOWN_OPTION|COMMAND_CONFLICT|OUTSIDE_VAULT|DNS_FAILED|HTTP_FAILED|TIMEOUT|TLS_FAILED|DOWNLOAD_FAILED|EXECUTE_FAILED|VERIFY_FAILED|HASH_MISMATCH|USER_MODIFIED|PATH_MANUAL|AUTH_PENDING|USER_CONFIRMATION_REQUIRED|USER_DECLARED|DRY_RUN|NOT_APPLICABLE|NOT_SELECTED|INTERRUPTED|LOG_UNAVAILABLE|DETAIL_SUPPRESSED|CLOCK_UNVERIFIED) ;; *) return 0 ;; esac
+    case "$5" in true|false) ;; *) return 0 ;; esac
+    diag_exit=${6:--}; case "$diag_exit" in ''|*[!0-9]*) diag_exit=- ;; esac
+    diag_host=${7:-none}; case "$diag_host" in none|custom_host|raw.githubusercontent.com|codeload.github.com|github.com|claude.ai|chatgpt.com|www.python.org|releases.herdr.dev|releases.aside.com) ;; *) diag_host=custom_host ;; esac
+    diag_http=${8:--}; case "$diag_http" in ''|*[!0-9]*) diag_http=- ;; esac
+    diag_transfer=${9:--}; case "$diag_transfer" in ''|*[!0-9]*) diag_transfer=- ;; esac
+    diag_now=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+    diag_end=-; [ "$1" = step-end ] || [ "$1" = run-end ] || diag_end=-
+    case "$1" in *-end) diag_end=$diag_now ;; esac
+    diag_seq=$(( $(wc -l < "$DIAG_FILE") + 1 ))
+    # Attempt increases per repeated fixed step, e.g. vendor downloads and kit members.
+    diag_attempt=$(awk -F '\t' -v step="$2" '$8=="step-start" && $9==step {n++} END {print n+0}' "$DIAG_FILE")
+    [ "$1" != step-start ] || diag_attempt=$((diag_attempt+1))
+    [ "$diag_attempt" -gt 0 ] || diag_attempt=1
+    [ "$(wc -c < "$DIAG_FILE")" -lt 1048576 ] || { diag_unavailable; return 0; }
+    if ! printf '1\t%s\t-\t%s\tILSON-DIAG-1\tILSON-DIAG-1\t%s\t%s\t%s\t%s\t%s\t%s\t-\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tunverified\n' \
+        "$ILSON_DIAG_RUN_ID" "$diag_seq" "$DIAG_EDITION" "$1" "$2" "$diag_attempt" "$diag_now" "$diag_end" "$3" "$4" "$5" "$diag_exit" "${DIAG_EXIT_SOURCE:-none}" "$diag_host" "$diag_http" "$diag_transfer" "$DIAG_PROXY" >> "$DIAG_FILE"; then diag_unavailable; fi
+}
+diag_begin() {
+    DIAG_EDITION=$1; DIAG_AVAILABLE=0; DIAG_ACTIVE=; DIAG_CHILD=0; DIAG_DRY=0
+    shift
+    for diag_arg do case "$diag_arg" in --dry-run|-DryRun) DIAG_DRY=1 ;; esac; done
+    [ "${ILSON_COURSE_DRY_RUN:-0}" != 1 ] && [ "${ILSON_DRY_RUN:-0}" != 1 ] || DIAG_DRY=1
+    [ "$DIAG_DRY" = 0 ] || { printf '%s\n' 'DIAGNOSTICS DRY_RUN: 영속 로그 없음'; return 0; }
+    DIAG_ROOT=${ILSON_DIAGNOSTICS_DIR:-$HOME/.ilson-diagnostics}
+    diag_safe "$DIAG_ROOT" || { diag_unavailable; return 0; }
+    if [ -e "$DIAG_ROOT" ]; then diag_private "$DIAG_ROOT" || { diag_unavailable; return 0; }; fi
+    (umask 077; mkdir -p "$DIAG_ROOT/runs") || { diag_unavailable; return 0; }
+    diag_private "$DIAG_ROOT/runs" || { diag_unavailable; return 0; }
+    if diag_valid_id "${ILSON_DIAG_RUN_ID:-}" && diag_private "$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID" && [ -f "$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID/events.tsv" ] && [ ! -L "$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID/events.tsv" ]; then
+        DIAG_CHILD=1
+    else
+        ILSON_DIAG_RUN_ID=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+        diag_valid_id "$ILSON_DIAG_RUN_ID" || { diag_unavailable; return 0; }
+        (umask 077; mkdir "$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID" && : > "$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID/events.tsv") || { diag_unavailable; return 0; }
+    fi
+    DIAG_FILE="$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID/events.tsv"
+    DIAG_PROXY=false
+    [ -z "${HTTPS_PROXY:-}${HTTP_PROXY:-}${ALL_PROXY:-}${https_proxy:-}${http_proxy:-}${all_proxy:-}" ] || DIAG_PROXY=true
+    DIAG_AVAILABLE=1
+    export ILSON_DIAG_RUN_ID ILSON_DIAGNOSTICS_DIR
+    [ "$DIAG_CHILD" = 1 ] || diag_event run-start bootstrap.start running STARTED true
+}
+diag_step_start() { DIAG_ACTIVE=$1; DIAG_REQUIRED=${2:-true}; diag_event step-start "$DIAG_ACTIVE" running STARTED "$DIAG_REQUIRED"; }
+diag_step_end() { diag_event step-end "$1" "$2" "$3" "${4:-true}" "${5:--}" "${6:-none}" "${7:--}" "${8:--}"; DIAG_ACTIVE=; }
+diag_skip() { diag_step_start "$1" "${3:-true}"; diag_step_end "$1" skipped-with-reason "$2" "${3:-true}"; }
+diag_finish() {
+    diag_rc=${1:-0}
+    [ "${DIAG_DRY:-0}" = 0 ] || return "$diag_rc"
+    [ "${DIAG_AVAILABLE:-0}" = 1 ] || return 3
+    if [ -n "${DIAG_ACTIVE:-}" ]; then diag_step_end "$DIAG_ACTIVE" failed INTERRUPTED "${DIAG_REQUIRED:-true}" "$diag_rc"; diag_rc=3; fi
+    if awk -F '\t' '$8=="step-end" && $16=="true" && $14!="ok" && $15!="DRY_RUN" && $15!="NOT_APPLICABLE" && $15!="NOT_SELECTED" {bad=1} END {exit !bad}' "$DIAG_FILE"; then [ "$diag_rc" != 0 ] || diag_rc=1; fi
+    diag_result=ok; diag_reason=OK
+    [ "$diag_rc" = 0 ] || { diag_result=failed; diag_reason=EXECUTE_FAILED; }
+    [ "${DIAG_CHILD:-0}" = 1 ] || diag_event run-end finish "$diag_result" "$diag_reason" true "$diag_rc"
+    return "$diag_rc"
+}
+diag_download() {
+    # URL is used for transfer only. Persist host enum/status; never curl stderr or URL text.
+    diag_url=$1; diag_out=$2; diag_step=${3:-download.installer}; diag_req=${4:-true}
+    diag_host=custom_host
+    case "$diag_url" in
+        https://raw.githubusercontent.com/*) diag_host=raw.githubusercontent.com ;;
+        https://codeload.github.com/*) diag_host=codeload.github.com ;;
+        https://github.com/*) diag_host=github.com ;;
+        https://claude.ai/install.sh) diag_host=claude.ai ;;
+        https://chatgpt.com/codex/install.sh) diag_host=chatgpt.com ;;
+        https://releases.herdr.dev/*) diag_host=releases.herdr.dev ;;
+        https://releases.aside.com/*) diag_host=releases.aside.com ;;
+    esac
+    diag_step_start "$diag_step" "$diag_req"
+    diag_rc=0
+    diag_http=$(curl -fsSL --connect-timeout 10 --max-time 120 -w '%{http_code}' "$diag_url" -o "$diag_out" 2>/dev/null) || diag_rc=$?
+    # Suppress arbitrary stdout from a fake/unexpected curl too.
+    case "$diag_http" in [0-9][0-9][0-9]) ;; *) diag_http=- ;; esac
+    diag_reason=OK; diag_result=ok
+    case "$diag_rc" in 0) ;; 5|6) diag_reason=DNS_FAILED ;; 22) diag_reason=HTTP_FAILED ;; 28) diag_reason=TIMEOUT ;; 35|51|58|60) diag_reason=TLS_FAILED ;; *) diag_reason=DOWNLOAD_FAILED ;; esac
+    [ "$diag_rc" = 0 ] || diag_result=failed
+    DIAG_EXIT_SOURCE=curl diag_step_end "$diag_step" "$diag_result" "$diag_reason" "$diag_req" "$diag_rc" "$diag_host" "$diag_http" "$diag_rc"
+    return "$diag_rc"
+}
+diag_next() {
+    diag_valid_id "${ILSON_DIAG_RUN_ID:-}" || return 0
+    printf '\n현재 창에서 직접 실행:\nexport PATH="$HOME/.local/bin:$PATH"; ilson doctor --install --confirm-shell current --run %s\n' "$ILSON_DIAG_RUN_ID"
+    printf '새 창을 연 뒤 직접 실행 (사용자 선언):\nilson doctor --install --confirm-shell new --run %s\n' "$ILSON_DIAG_RUN_ID"
+    case "$DIAG_EDITION" in full-mac) printf '명령 복구: "$HOME/.ilson-cli/ilson" doctor --install --run %s\n' "$ILSON_DIAG_RUN_ID" ;; *) printf '명령 복구: "$HOME/.local/bin/ilson" doctor --install --run %s\n' "$ILSON_DIAG_RUN_ID" ;; esac
+}
+# DIAGNOSTICS_END
+run=; share=0
+while [ $# -gt 0 ]; do
+    case "$1" in --install) ;; --share) share=1 ;; --run) shift; run=${1:-} ;; *) printf 'UNKNOWN_OPTION\n'; exit 2 ;; esac
+    shift
+done
+root=${ILSON_DIAGNOSTICS_DIR:-$HOME/.ilson-diagnostics}
+diag_safe "$root" && diag_private "$root" && diag_private "$root/runs" || { diag_unavailable; exit 3; }
+if [ -z "$run" ]; then
+    for folder in "$root"/runs/*; do
+        id=${folder##*/}; diag_valid_id "$id" || continue
+        if [ -z "$run" ] || [ "$folder" -nt "$root/runs/$run" ]; then run=$id; fi
+    done
+fi
+diag_valid_id "$run" || { printf 'NO_RUN: 구형 curl 파이프의 첫 다운로드 전 실패는 관찰할 수 없습니다.\n'; exit 3; }
+file="$root/runs/$run/events.tsv"
+diag_private "$root/runs/$run" && diag_safe "$file" && [ -f "$file" ] && [ ! -L "$file" ] || { diag_unavailable; exit 3; }
+[ "$(wc -c < "$file")" -le 1048576 ] || { diag_unavailable; exit 3; }
+# Validate and rebuild every output token. Even a tampered local TSV cannot leak free text.
+summary=$(LC_ALL=C awk -F '\t' '
+    NF!=23 {damaged=1; next}
+    $1!=1 || length($2)!=32 || $2 ~ /[^a-f0-9]/ || $4 !~ /^[0-9]+$/ {damaged=1; next}
+    $7!="full-mac" && $7!="intel-course" && $7!="windows-course" && $7!="unknown" {damaged=1; next}
+    $8=="run-start" {edition=$7; started=1}
+    $8=="step-start" {active[$9 FS $10]=1}
+    $8=="step-end" {
+        delete active[$9 FS $10]
+        if ($9=="runtime.python" && $15=="PYTHON_TOO_OLD") python=1
+        if ($9=="verify.current" && $14=="ok") current=1
+        if ($9=="verify.new-window" && $14=="ok") newwin=1
+        if ($16=="true" && $14!="ok" && $15!="NOT_APPLICABLE" && $15!="NOT_SELECTED" && $15!="DRY_RUN") failed=1
+    }
+    $8=="run-end" {ended=1; if ($14=="failed") failed=1}
+    END {
+        for (a in active) damaged=1
+        rc=(!started || !ended || damaged)?3:(failed?1:0)
+        print "edition=" (edition?edition:"unknown")
+        print "status=" (rc==3?"interrupted":rc==1?"failed":"ok")
+        print "python=" (python?"PYTHON_TOO_OLD":"unconfirmed")
+        print "current=" (current?"ok":"unconfirmed")
+        print "new_window=" (newwin?"ok":"unconfirmed")
+        print "exit_code=" rc
+    }' "$file")
+printf '일손 설치 점검 · Python/라이선스/네트워크 불필요\n%s\n' "$summary"
+[ "$(tail -c 1 "$file" | od -An -tu1 | tr -d ' ')" = 10 ] || { printf 'INTERRUPTED: 마지막 줄 불완전\n'; exit 3; }
+if [ "$share" = 1 ]; then
+    diag_safe "$root/share" || { diag_unavailable; exit 3; }
+    (umask 077; mkdir -p "$root/share") && diag_private "$root/share" || { diag_unavailable; exit 3; }
+    ref="IL-$(od -An -N6 -tx1 /dev/urandom | tr -d ' \n' | tr 'a-f' 'A-F')"
+    (umask 077; set -C; printf '%s\n%s\n' "$summary" '파일도 함께 직접 전달하세요. 자동 전송하지 않았습니다.' > "$root/share/$ref.txt") || { diag_unavailable; exit 3; }
+    printf '공유 참조: %s (share 폴더의 TXT 파일을 검토한 뒤 함께 보내 주세요)\n' "$ref"
+fi
+ILSON_DIAG_RUN_ID=$run; DIAG_EDITION=intel-course
+case "$summary" in *edition=full-mac*) DIAG_EDITION=full-mac ;; esac
+diag_next
+case "$summary" in *python=PYTHON_TOO_OLD*) printf 'Python 3.10 이상을 공식 macOS 설치기로 직접 설치한 뒤 검수된 Intel 강의판 설치 명령을 다시 실행하세요: https://www.python.org/downloads/macos/\n' ;; esac
+case "$summary" in *exit_code=3*) exit 3 ;; *exit_code=1*) exit 1 ;; *) exit 0 ;; esac

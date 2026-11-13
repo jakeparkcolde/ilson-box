@@ -80,4 +80,44 @@ class ContractTests(unittest.TestCase):
             self.assertFalse((home / 'missing').exists())
 
 
+class NativeTests(unittest.TestCase):
+    def run_native(self, code, home):
+        return subprocess.run(['bash', '-c', '. "$1"; ' + code, 'test', str(ROOT / 'tools/diagnostics.sh')],
+                              env=dict(os.environ, HOME=str(home)), capture_output=True, text=True, timeout=10)
+
+    def test_first_download_failure_and_sanitized_dns_http_timeout(self):
+        for curl_code, http, reason in [(6,'000','DNS_FAILED'),(22,'503','HTTP_FAILED'),(28,'000','TIMEOUT')]:
+            with self.subTest(curl_code=curl_code), tempfile.TemporaryDirectory() as temp:
+                home=Path(temp).resolve()
+                code=('curl() { printf "' + http + '"; printf "email@secret token serial note username" >&2; return ' + str(curl_code) + '; }; '
+                      'diag_begin intel-course; diag_download "https://claude.ai/install.sh?token=secret" "$HOME/download" tools.claude.download || :; '
+                      'diag_skip tools.claude.execute DEPENDENCY_FAILED; diag_finish 0')
+                result=self.run_native(code,home)
+                self.assertEqual(result.returncode,1,result.stderr)
+                folder=next((home/'.ilson-diagnostics/runs').iterdir())
+                events, damaged=diag.read_run(folder)
+                self.assertFalse(damaged)
+                self.assertIn(reason,[e['reason_code'] for e in events])
+                for secret in ('email@secret','token','serial','note','username'):
+                    self.assertNotIn(secret,(folder/'events.tsv').read_text())
+                doctor=subprocess.run(['sh',str(ROOT/'tools/doctor.sh'),'--share'],env=dict(os.environ,HOME=str(home)),capture_output=True,text=True,timeout=10)
+                self.assertEqual(doctor.returncode,1,doctor.stderr)
+                self.assertIn('공유 참조:',doctor.stdout)
+
+    def test_dry_run_zero_writes_and_interrupt_remains_unknown(self):
+        with tempfile.TemporaryDirectory() as temp:
+            home=Path(temp).resolve()
+            result=self.run_native('diag_begin intel-course --dry-run; diag_step_start runtime.python; diag_finish 0',home)
+            self.assertEqual(result.returncode,0,result.stderr)
+            self.assertFalse((home/'.ilson-diagnostics').exists())
+            self.run_native('diag_begin intel-course; diag_step_start runtime.python',home)
+            folder=next((home/'.ilson-diagnostics/runs').iterdir())
+            events,damaged=diag.read_run(folder)
+            self.assertEqual(diag.summarize_run(events,damaged)['status'],'interrupted')
+
+    def test_native_recorder_is_identically_embedded_in_standalone_doctor(self):
+        source=(ROOT/'tools/doctor.sh').read_text().split('# DIAGNOSTICS_BEGIN\n')[1].split('# DIAGNOSTICS_END')[0]
+        self.assertEqual(source,(ROOT/'tools/diagnostics.sh').read_text())
+
+
 if __name__ == '__main__': unittest.main()
