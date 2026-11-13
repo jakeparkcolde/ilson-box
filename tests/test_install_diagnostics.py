@@ -215,7 +215,7 @@ curl() { dest=; while [ "$#" -gt 0 ]; do if [ "$1" = -o ]; then dest=$2; shift; 
             value=re.search(prefix+r"='([^']+)'",(ROOT/file).read_text()).group(1)
             files=json.loads(gzip.decompress(base64.b64decode(value)))
             for name,content in files.items():
-                source=ROOT/'course'/('' if name=='ilson.py' else 'lib')/name
+                source=ROOT/'course'/('' if name in ('ilson.py','install_payload.py') else 'lib')/name
                 self.assertEqual(content,source.read_text())
         self.assertEqual((ROOT/'course/lib/install_diagnostics.py').read_bytes(),(ROOT/'template/lib/install_diagnostics.py').read_bytes())
 
