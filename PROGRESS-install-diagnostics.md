@@ -21,3 +21,12 @@
 - 최종 보완: full-mac OS/Rosetta 오선택을 exit2로 기록, setup preflight/web/auth 구간, Mac shell 확인을 기존 TSV에 append하여 Python 없는 doctor에서도 읽음, 원래 known wrapper의 Windows 줄바꿈 차이만 안전 갱신, 문서/내장 바이트 일치.
 - 영향 재검증: 진단17건, setup58건, course 패턴 전체 통과(Windows 등7 skip). .scratch/install-diagnostics/affected-*.log.
 - 두 번째 전체 suite: 882건 /38 skip /1 error. 출력 상한 검사 중 host가 process-group 신호를 EPERM으로 거절한 경우가 발견됨. 소유 Popen 프로세스만 종료하는 fallback을 추가하고 이 거절 경로를 합성 시험에 포함. 이 수정 뒤 최종 전체 재검증 예정.
+
+## 최종 검증 · 2026-11-14 KST
+
+- 제품 소스: 0cf2716. 최종 전체 회귀 `python3 -m unittest discover -s tests -v < /dev/null`: **882 tests, OK (skipped=38), 실패/오류 0**, 343.882초. 로그 `.scratch/install-diagnostics/final-regression.log`.
+- 전체 회귀 collection 이후 추가한 Intel wrapper 시험 1건(known Python 경로 갱신/백업 + 사용자 편집 보존)까지 포함하여 course upgrade **5건 별도 PASS** (`upgrade-wrapper-final.log`). 제품 코드는 이후 바꾸지 않았음. 현재 전체 수집 시 총883건이며, 전체882+추가1건을 검증한 상태임.
+- 신규 검증: install diagnostics17 + course upgrade5. 기존 setup58, course44/7skip, update_feed18 영향 시험 PASS. 실제 PowerShell5.1/PS7·Windows 실기기 검증은 미실행(pwsh 없음); 배포 전 별도 필요.
+- `git diff --check`, shell syntax, Python compile, native/source 및 course 내장 payload byte parity 통과. push/Release/GitHub/외부 진단 전송/실학생 설치/AGY 실행 없음.
+- AGY 자료: Studio_base 해당 handoff 폴더의 `agy-impl1-review/BRIEF.md`, `target.diff`, `install-commands.json` (현재 로컬 SHA의 검토 후보이며 공개되지 않은 URL은 실행하지 않음). 총괄 t2v5가 검토를 시작하고 병합함.
+- Close-out 2026-11-14: 매체 산출물 없음(archive 대상0). 소유한 종료된 시험 터미널 t332/t334/t338/t339/t33b/t33c/t33d/t33f 8개를 상태·PID·argv 확인 후 hc rm. 별도 브라우저/미리보기/공유 서버 기동 없음. 실행 중 작업 없음. `.scratch/install-diagnostics/` 로그·시험 자료는 검토를 위해 보존(필요 시 이 폴더만 정리 대상). 현재 구현 worker/총괄과 무관한 서비스는 유지.

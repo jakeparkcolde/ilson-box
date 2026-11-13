@@ -59,6 +59,32 @@ class CourseUpgradeTests(unittest.TestCase):
             for name,data in old.items(): self.assertEqual((root/name).read_bytes(),data)
             self.assertFalse((root/'install_diagnostics.py').exists())
 
+    def test_known_intel_wrapper_changes_python_path_and_unknown_wrapper_is_preserved(self):
+        import shlex
+        source=(ROOT/'course/install-intel-mac.sh').read_text()
+        code=source.split("<<'PYWRAP'\n",1)[1].split('\nPYWRAP',1)[0]
+        for edited in (False,True):
+            with self.subTest(edited=edited),tempfile.TemporaryDirectory() as temp:
+                home=Path(temp).resolve();lib=home/'.ilson-course/lib';lib.mkdir(parents=True)
+                bin_dir=home/'.local/bin';bin_dir.mkdir(parents=True)
+                wrapper=bin_dir/'ilson'
+                old_python="/a path/old-python/bin/python3.9"
+                new_python="/a path/with'quote/bin/python3.14"
+                old=('#!/bin/sh\nexec '+shlex.quote(old_python)+' -X utf8 '+shlex.quote(str(lib/'ilson.py'))+' "$@"\n').encode()
+                if edited: old+=b'# student wrapper customization\n'
+                wrapper.write_bytes(old)
+                result=subprocess.run([__import__('sys').executable,'-c',code,new_python,str(lib),str(home),'/bin/zsh',str(home/'notes')],capture_output=True,text=True,timeout=5)
+                if edited:
+                    self.assertNotEqual(result.returncode,0)
+                    self.assertEqual(wrapper.read_bytes(),old)
+                    self.assertFalse((home/'.ilson-course/.launcher-backups').exists())
+                else:
+                    self.assertEqual(result.returncode,0,result.stderr)
+                    tokens=shlex.split(wrapper.read_text().splitlines()[1])
+                    self.assertEqual(tokens[1],new_python)
+                    backups=list((home/'.ilson-course/.launcher-backups').iterdir())
+                    self.assertEqual(len(backups),1);self.assertEqual(backups[0].read_bytes(),old)
+
     def test_rollback_refuses_later_student_edits(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp).resolve();backup=payload.install(root,sources())
