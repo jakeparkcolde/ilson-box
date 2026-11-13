@@ -71,6 +71,8 @@ python3 tools/build_install_commands.py --source-ref <검수된40자리SHA> --ta
 
 검수된 설치 명령 재실행은 허용된 helper 파일만 검사합니다. `install_payload.py`의 파일별 알려진 SHA-256과 같은 구판만 교체하고, 사용자 변경이 하나라도 있으면 파일 목록을 안내하고 쓰기 전에 중단합니다. 기존 볼트·CLAUDE.md·PATH 설정은 보존합니다. 알려진 형식의 Intel wrapper와 Windows Python 선택은 새 Python 경로로 갱신하고 이전본을 보관합니다. 알 수 없는 wrapper는 보존하고 실패를 알립니다.
 
+Windows·Intel 강의 설치기는 내장 bootstrap과 압축 payload를 표준입력으로 전달합니다. 환경 변수·명령줄 길이 제한 없이 큰 묶음을 전달하며 payload 임시 파일은 만들지 않습니다. helper 내부 실패는 `failed / EXECUTE_FAILED`이고 네이티브 실행 실패는 실제 `exit_code`를 남깁니다. Windows에서 실행 준비·파일 처리 예외는 `exit_source=exception`, `exit_code=null`과 허용 목록으로 제한한 `exception_class`만 기록합니다. 예외 메시지는 저장하지 않습니다. Python 누락으로 실행할 수 없을 때만 helper를 `skipped-with-reason / DEPENDENCY_FAILED`로 기록합니다.
+
 코드 변경 전 `lib/.install-backups/upgrade-.../manifest.json`과 이전 코드를 남깁니다. 쓰기 실패는 이미 바꾼 코드만 자동 복구합니다. 검수본의 `course/install_payload.py`로 `python3 course/install_payload.py <설치된 lib> --rollback <upgrade-... 이름>`을 실행하면 manifest가 가리키는 이전 코드로 복구합니다. 갱신 이후 사용자가 바꾼 파일이 있으면 복구도 쓰기 전에 중단합니다. launcher 이전본은 Mac `.ilson-course/.launcher-backups/`, Windows `python-path.txt.before-diag-...`에 남으며 본인 경로를 검토해 직접 복구합니다.
 
 전체판 배포는 기존 updater가 허용하는 `template/lib/*.py`, `*.sh`를 사용합니다. 설정·볼트·jobs.conf와 새 `tools/` 경로를 updater 허용 목록에 추가하지 않습니다. schema는 개발/검수 자료이며 설치 시작 시 다운로드하지 않습니다.

@@ -79,11 +79,11 @@ class CourseLearnTest(unittest.TestCase):
         self.assertEqual(files['skill_share.py'], (ROOT / 'course/lib/skill_share.py').read_text(encoding='utf-8'))
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / '한글 폴더'
-            env = dict(os.environ, ILSON_COURSE_PAYLOAD=mac_bundle)
+            env = dict(os.environ)
             cmd = [sys.executable, str(ROOT / 'course/install_payload.py'), str(target)]
-            self.assertEqual(subprocess.run(cmd, env=env, capture_output=True).returncode, 0)
+            self.assertEqual(subprocess.run(cmd, env=env, input=mac_bundle.encode(), capture_output=True).returncode, 0)
             (target / 'ilson.py').write_text('user edit', encoding='utf-8')
-            self.assertNotEqual(subprocess.run(cmd, env=env, capture_output=True).returncode, 0)
+            self.assertNotEqual(subprocess.run(cmd, env=env, input=mac_bundle.encode(), capture_output=True).returncode, 0)
             self.assertEqual((target / 'ilson.py').read_text(encoding='utf-8'), 'user edit')
 
     def test_known_legacy_entry_point_upgrades_but_user_changes_are_preserved(self):
@@ -96,9 +96,9 @@ class CourseLearnTest(unittest.TestCase):
             for name in ('license.py', 'selflearn.py'):
                 (target / name).write_text(files[name], encoding='utf-8')
             (target / 'ilson.py').write_bytes(legacy)
-            env = dict(os.environ, ILSON_COURSE_PAYLOAD=payload)
+            env = dict(os.environ)
             cmd = [sys.executable, str(ROOT / 'course/install_payload.py'), str(target)]
-            result = subprocess.run(cmd, env=env, capture_output=True)
+            result = subprocess.run(cmd, env=env, input=payload.encode(), capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr.decode())
             self.assertEqual((target / 'ilson.py').read_text(encoding='utf-8'), files['ilson.py'])
             self.assertEqual((target / 'skill_share.py').read_text(encoding='utf-8'), files['skill_share.py'])
@@ -107,9 +107,9 @@ class CourseLearnTest(unittest.TestCase):
             for name in ('license.py', 'selflearn.py'):
                 (target / name).write_text(files[name], encoding='utf-8')
             (target / 'ilson.py').write_bytes(legacy + b'\n# user edit\n')
-            env = dict(os.environ, ILSON_COURSE_PAYLOAD=payload)
+            env = dict(os.environ)
             cmd = [sys.executable, str(ROOT / 'course/install_payload.py'), str(target)]
-            self.assertNotEqual(subprocess.run(cmd, env=env, capture_output=True).returncode, 0)
+            self.assertNotEqual(subprocess.run(cmd, env=env, input=payload.encode(), capture_output=True).returncode, 0)
             self.assertEqual((target / 'ilson.py').read_bytes(), legacy + b'\n# user edit\n')
             self.assertFalse((target / 'skill_share.py').exists())
 
@@ -123,8 +123,8 @@ class CourseLearnTest(unittest.TestCase):
             for name in ('license.py', 'selflearn.py', 'skill_share.py'):
                 (target / name).write_text(files[name], encoding='utf-8')
             (target / 'ilson.py').write_bytes(previous)
-            env = dict(os.environ, ILSON_COURSE_PAYLOAD=payload)
-            result = subprocess.run([sys.executable, str(ROOT / 'course/install_payload.py'), str(target)], env=env, capture_output=True)
+            env = dict(os.environ)
+            result = subprocess.run([sys.executable, str(ROOT / 'course/install_payload.py'), str(target)], env=env, input=payload.encode(), capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr.decode())
             self.assertEqual((target / 'ilson.py').read_text(encoding='utf-8'), files['ilson.py'])
 

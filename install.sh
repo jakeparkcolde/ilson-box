@@ -270,16 +270,20 @@ valid_feed() {
 }
 
 cleanup() { [ -n "$TMP" ] && [ -d "$TMP" ] && rm -rf "$TMP"; }
+install_interrupted=0
 installer_exit() {
     install_rc=$?
     trap - EXIT INT TERM
+    if [ "${DIAG_ACTIVE:-}" = helper.install ] && [ "$install_rc" -ne 0 ] && [ "$install_interrupted" = 0 ]; then
+        DIAG_EXIT_SOURCE=native diag_step_end helper.install failed EXECUTE_FAILED true "$install_rc"
+    fi
     diag_finish "$install_rc" || install_rc=$?
     diag_next
     cleanup
     exit "$install_rc"
 }
 trap installer_exit EXIT
-trap 'exit 3' INT TERM
+trap 'install_interrupted=1; exit 3' INT TERM
 
 while [ $# -gt 0 ]; do
     case "$1" in

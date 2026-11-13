@@ -24,6 +24,17 @@ def event(seq=1, **kw):
 
 
 class ContractTests(unittest.TestCase):
+    def test_exception_class_survives_share_validation_but_custom_names_do_not(self):
+        known = event(2, event='step-end', step_id='helper.install', result='failed',
+                      reason_code='EXECUTE_FAILED', exit_source='exception', exception_class='IOException')
+        self.assertEqual(diag.validate_event(known)['exception_class'], 'IOException')
+        schema = json.loads((ROOT / 'tools/diagnostic-schema.json').read_text())
+        self.assertEqual(set(schema['properties']['exception_class']['enum']), diag.EXCEPTION_CLASSES)
+        unknown = known | {'exception_class': 'TokenOrUserNameInACustomType'}
+        self.assertNotIn('exception_class', diag.redact_event(unknown))
+        with self.assertRaises(ValueError):
+            diag.validate_event(unknown)
+
     def test_redaction_builds_only_safe_values_before_persistence(self):
         raw = event() | {'token': 'TOKEN-secret', 'error_tail': ['serial ILSON-SECRET email@host username private note'],
                          'cwd_display': '/Users/username/note', 'environment': {'os': 'Darwin', 'python': '3.9.1 secret'},

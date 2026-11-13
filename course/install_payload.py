@@ -110,7 +110,9 @@ def main():
     root = Path(sys.argv[1]).absolute()
     if len(sys.argv) == 4 and sys.argv[2] == '--rollback':
         rollback(root, root / '.install-backups' / sys.argv[3]); return
-    files = json.loads(gzip.decompress(base64.b64decode(os.environ['ILSON_COURSE_PAYLOAD'])))
+    # The installer streams the bundle after its bootstrap line. Neither environment
+    # variables nor command-line arguments can carry arbitrarily large bundles.
+    files = json.loads(gzip.decompress(base64.b64decode(sys.stdin.buffer.read())))
     install(root, files)
 
 

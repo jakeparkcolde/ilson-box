@@ -331,6 +331,24 @@
           "type": "boolean"
         }
       }
+    },
+    "exception_class": {
+      "enum": [
+        "ArgumentException",
+        "ArgumentNullException",
+        "ArgumentOutOfRangeException",
+        "CommandNotFoundException",
+        "DirectoryNotFoundException",
+        "Exception",
+        "FileNotFoundException",
+        "IOException",
+        "InvalidOperationException",
+        "MethodInvocationException",
+        "NotSupportedException",
+        "RuntimeException",
+        "UnauthorizedAccessException",
+        "Win32Exception"
+      ]
     }
   }
 }

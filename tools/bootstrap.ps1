@@ -73,7 +73,7 @@ function Remove-IlsonExpiredDiagnostics([string]$Root, [int]$Keep=19) {
         }
     }
 }
-function Write-IlsonDiagEvent([string]$Event, [string]$Step, [string]$Result, [string]$Reason, [bool]$Required=$true, $ExitCode=$null, [string]$Source='none', [string]$HostCode='none', $Http=$null, $Transport=$null) {
+function Write-IlsonDiagEvent([string]$Event, [string]$Step, [string]$Result, [string]$Reason, [bool]$Required=$true, $ExitCode=$null, [string]$Source='none', [string]$HostCode='none', $Http=$null, $Transport=$null, [string]$ExceptionClass='') {
     if (-not $script:DiagAvailable) { return }
     # Callers pass fixed enums only. Refuse arbitrary strings at the persistence boundary.
     if ($Event -notin @('run-start','step-start','step-end','run-end') -or $Step -notmatch '^(bootstrap\.start|download\.installer|preflight\.(platform|arch)|runtime\.(python|node)|tools\.(brew|git|jq|gh|coreutils|python|node|claude|codex|aside|herdr|hc|tvly|vendor)(\.(download|execute))?|apps\.(orca|obsidian|tailscale|aside|herdr)|kit\.prepare|vault\.prepare|helper\.install|cli\.link|path\.persist|verify\.(absolute|current|new-window|simulated)|setup\.(stage|machine|jobs|web|telegram|auth-pending)|finish)$') { throw 'INVALID_EVENT' }
@@ -91,6 +91,11 @@ function Write-IlsonDiagEvent([string]$Event, [string]$Step, [string]$Result, [s
     $facts=@{bin_in_path=(@($env:Path -split ';' | Where-Object {$_.TrimEnd('\') -ieq $bin.TrimEnd('\')}).Count -gt 0);cli_exists=(Test-Path -LiteralPath (Join-Path $bin 'ilson.cmd') -PathType Leaf)}
     $environment=@{os=$osCode;arch=$archCode;shell='powershell';shell_version=$PSVersionTable.PSVersion.ToString()}
     $entry = [ordered]@{schema=1;run_id=$script:DiagRun;parent_run_id=$null;seq=$script:DiagSeq;installer_version=$script:DiagVersion;source_ref=$script:DiagVersion;edition=$script:DiagEdition;event=$Event;step_id=$Step;attempt=$attempt;started_at=$now;ended_at=$ended;elapsed_ms=$null;result=$Result;reason_code=$Reason;required=$Required;exit_code=$ExitCode;exit_source=$Source;host=$HostCode;http_code=$Http;transport_code=$Transport;proxy=$script:DiagProxy;clock='unverified';environment=$environment;path_facts=$facts}
+    if ($ExceptionClass) {
+        # An explicit allowlist prevents custom type names from carrying user data.
+        if ($ExceptionClass -notin @('ArgumentException','ArgumentNullException','ArgumentOutOfRangeException','CommandNotFoundException','DirectoryNotFoundException','Exception','FileNotFoundException','IOException','InvalidOperationException','MethodInvocationException','NotSupportedException','RuntimeException','UnauthorizedAccessException','Win32Exception')) { $ExceptionClass='Exception' }
+        $entry['exception_class']=$ExceptionClass
+    }
     try {
         if ((Get-Item -LiteralPath $script:DiagFile).Length -gt 1MB) { throw 'LOG_UNAVAILABLE' }
         [IO.File]::AppendAllText($script:DiagFile, (($entry | ConvertTo-Json -Compress -Depth 4) + "`n"), $script:DiagUtf8)
@@ -131,8 +136,8 @@ function Start-IlsonStep([string]$Step, [bool]$Required=$true) {
     $script:DiagActive=$Step; $script:DiagRequired=$Required
     Write-IlsonDiagEvent 'step-start' $Step 'running' 'STARTED' $Required
 }
-function Stop-IlsonStep([string]$Step, [string]$Result='ok', [string]$Reason='OK', [bool]$Required=$true, $ExitCode=$null, [string]$Source='none', [string]$HostCode='none', $Http=$null, $Transport=$null) {
-    Write-IlsonDiagEvent 'step-end' $Step $Result $Reason $Required $ExitCode $Source $HostCode $Http $Transport
+function Stop-IlsonStep([string]$Step, [string]$Result='ok', [string]$Reason='OK', [bool]$Required=$true, $ExitCode=$null, [string]$Source='none', [string]$HostCode='none', $Http=$null, $Transport=$null, [string]$ExceptionClass='') {
+    Write-IlsonDiagEvent 'step-end' $Step $Result $Reason $Required $ExitCode $Source $HostCode $Http $Transport $ExceptionClass
     $script:DiagActive=$null
 }
 function Get-IlsonWebFailure($Failure) {

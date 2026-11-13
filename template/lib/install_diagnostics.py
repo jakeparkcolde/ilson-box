@@ -24,7 +24,8 @@ HOSTS = {'none', 'custom_host', 'raw.githubusercontent.com', 'codeload.github.co
 EVENTS = {'run-start', 'step-start', 'step-end', 'run-end'}
 RESULTS = {'ok', 'failed', 'skipped-with-reason', 'running'}
 TSV_FIELDS = 'schema run_id parent_run_id seq installer_version source_ref edition event step_id attempt started_at ended_at elapsed_ms result reason_code required exit_code exit_source host http_code transport_code proxy clock environment path_facts cwd_kind'.split()
-EXTRA_FIELDS = {'environment', 'path_facts', 'cwd_kind', 'cwd_display', 'error_tail'}
+EXTRA_FIELDS = {'environment', 'path_facts', 'cwd_kind', 'cwd_display', 'error_tail', 'exception_class'}
+EXCEPTION_CLASSES = set('ArgumentException ArgumentNullException ArgumentOutOfRangeException CommandNotFoundException DirectoryNotFoundException Exception FileNotFoundException IOException InvalidOperationException MethodInvocationException NotSupportedException RuntimeException UnauthorizedAccessException Win32Exception'.split())
 ID = re.compile(r'^[a-f0-9]{32}$')
 STAMP = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$')
 EXIT_SOURCES = {'none', 'native', 'curl', 'exception', 'installer', 'doctor'}
@@ -40,7 +41,8 @@ def redact_event(event):
     enums = {'edition': EDITIONS, 'event': EVENTS, 'step_id': STEPS, 'reason_code': REASONS,
              'result': RESULTS, 'host': HOSTS, 'exit_source': EXIT_SOURCES,
              'proxy': {'true', 'false', 'unknown'}, 'clock': {'unverified', 'monotonic'},
-             'cwd_kind': {'inside_vault', 'outside_vault', 'unknown'}}
+             'cwd_kind': {'inside_vault', 'outside_vault', 'unknown'},
+             'exception_class': EXCEPTION_CLASSES}
     for key, allowed in enums.items():
         if isinstance(event.get(key), str) and event[key] in allowed:
             clean[key] = event[key]
