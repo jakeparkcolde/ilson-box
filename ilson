@@ -23,6 +23,12 @@
 # User-facing strings are Korean on purpose; code comments stay English.
 
 # DIAGNOSTICS_BEGIN
+DIAG_VERSION_PATTERN='^(missing|unknown|[0-9]{1,6}(\.[0-9]{1,6}){1,3})$'
+diag_version() {
+    case "$1" in *'
+'*) printf unknown; return ;; esac
+    if printf '%s' "$1" | LC_ALL=C grep -Eq "$DIAG_VERSION_PATTERN"; then printf '%s' "$1"; else printf unknown; fi
+}
 # Ilson diagnostic recorder v1. POSIX + OS tools only; generated into installers.
 # Raw arguments, stdout/stderr, paths, environment values and notes are never logged.
 diag_unavailable() { DIAG_AVAILABLE=0; printf '%s\n' 'LOG_UNAVAILABLE: 설치 이력을 저장할 수 없습니다. 성공 이력 생성 미확인.' >&2; }
@@ -108,7 +114,7 @@ diag_begin() {
     DIAG_ARCH=$(uname -m); case "$DIAG_ARCH" in arm64|x86_64) ;; *) DIAG_ARCH=unknown ;; esac
     DIAG_OS_VERSION=unknown
     if [ "$DIAG_OS" = Darwin ]; then DIAG_OS_VERSION=$(sw_vers -productVersion 2>/dev/null || printf unknown); fi
-    printf '%s' "$DIAG_OS_VERSION" | LC_ALL=C grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){1,3}$' || DIAG_OS_VERSION=unknown
+    DIAG_OS_VERSION=$(diag_version "$DIAG_OS_VERSION")
     DIAG_ROSETTA=false
     if [ "$DIAG_OS" = Darwin ] && [ "$(sysctl -in sysctl.proc_translated 2>/dev/null || :)" = 1 ]; then DIAG_ROSETTA=true; fi
     DIAG_ENVIRONMENT="{\"os\":\"$DIAG_OS\",\"os_version\":\"$DIAG_OS_VERSION\",\"arch\":\"$DIAG_ARCH\",\"rosetta\":$DIAG_ROSETTA}"

@@ -15,6 +15,12 @@ ilson doctor --install --json
 
 기본 저장 위치는 Mac `~/.ilson-diagnostics/runs/`, Windows `%LOCALAPPDATA%\ilson-diagnostics\runs\`입니다. `ILSON_DIAGNOSTICS_DIR`는 시험·명시적인 별도 저장 위치입니다. 링크/reparse point나 안전하지 않은 저장 경로는 거절합니다. `LOG_UNAVAILABLE`이면 성공 이력이 저장됐다고 해석하지 마세요. 최근 30일·최대 20 run·10 MiB 범위로 다음 실행 때 정리하며, 활성 run과 알 수 없는 파일은 자동 삭제하지 않습니다. 지원 파일도 30일 기준으로 정리합니다. 중단·마지막 줄 파손·종료 이벤트 없음은 결과 미확인입니다. 옛 설치에서 기록하지 않은 과거 실패는 복원할 수 없습니다.
 
+환경의 OS·셸·Python·Node·Claude 버전은 점으로 구분한 숫자 2~4묶음, 묶음당 ASCII 숫자 최대 6자리만 허용합니다. `5.1.26100.9818`, `10.0.26100`, `7.4.6`, `26.6.2`를 읽을 수 있습니다. `missing`·`unknown`도 허용하며 자유 문장이나 접미사, 줄바꿈, 숫자가 아닌 값은 해당 필드만 `unknown`으로 가리고 이벤트는 유지합니다. 선택 메타데이터의 잘못된 값은 읽기 단계에서 가립니다. run ID·이벤트 종류 등 필수 구조를 해석할 수 없는 줄은 정상 이벤트와 구분합니다.
+
+해석 불가·파손 로그는 `status=damaged`, `log_status=malformed`, 종료 코드 3으로 표시합니다. 읽을 수 있는 다른 이벤트와 선택한 run ID는 유지하며, 모든 줄이 깨져도 run ID와 가린 공유 요약을 남깁니다. 종료 이벤트가 없거나 단계가 진행 중인 이력은 기존 `interrupted`입니다. 정상 설치 뒤 현재 창·새 창 확인만 기다리면 `pending`, 종료 코드 4입니다.
+
+버전 규칙의 원본은 `template/lib/install_diagnostics.py`의 `VERSION_PATTERN`입니다. 변경 후 `python3 tools/pack_diagnostics.py`로 schema·네이티브 기록기·bootstrap·강의 helper 복사본을 생성하고, `python3 course/pack_course.py`로 강의 payload와 bootstrap 바이트를 갱신합니다. 표준입력 전달은 유지합니다.
+
 `--share`가 표시하는 `IL-...`은 **로컬 파일의 참조번호**입니다. 참조번호만 보내면 강사가 내용을 볼 수 없습니다. `share/`의 TXT/JSON을 직접 검토한 뒤 필요한 파일을 문의 채널에 첨부하세요. 이 명령은 아무것도 전송하지 않습니다.
 
 ## 현재 창과 새 창

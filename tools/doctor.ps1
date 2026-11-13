@@ -3,6 +3,11 @@ param([switch]$Share, [string]$Run)
 # DIAGNOSTICS_BEGIN
 # ASCII source, Windows PowerShell 5.1 and PS7. No transcript or raw exception persistence.
 $script:DiagVersion = 'ILSON-DIAG-1'
+$script:DiagVersionPattern = '^(missing|unknown|[0-9]{1,6}(\.[0-9]{1,6}){1,3})$'
+function Get-IlsonDiagVersion($Value) {
+    if ($Value -is [string] -and $Value -cmatch $script:DiagVersionPattern -and $Value -notmatch '[\r\n]') { return $Value }
+    return 'unknown'
+}
 $script:DiagUtf8 = New-Object System.Text.UTF8Encoding($false)
 function Test-IlsonDiagPath([string]$Path) {
     $current = [IO.Path]::GetFullPath($Path)
@@ -89,7 +94,7 @@ function Write-IlsonDiagEvent([string]$Event, [string]$Step, [string]$Result, [s
     $archCode=if ($env:PROCESSOR_ARCHITECTURE -in @('AMD64','arm64')) {$env:PROCESSOR_ARCHITECTURE} else {'unknown'}
     $bin=Join-Path $env:LOCALAPPDATA 'ilson-course\bin'
     $facts=@{bin_in_path=(@($env:Path -split ';' | Where-Object {$_.TrimEnd('\') -ieq $bin.TrimEnd('\')}).Count -gt 0);cli_exists=(Test-Path -LiteralPath (Join-Path $bin 'ilson.cmd') -PathType Leaf)}
-    $environment=@{os=$osCode;arch=$archCode;shell='powershell';shell_version=$PSVersionTable.PSVersion.ToString()}
+    $environment=@{os=$osCode;arch=$archCode;shell='powershell';shell_version=(Get-IlsonDiagVersion $PSVersionTable.PSVersion.ToString());os_version=(Get-IlsonDiagVersion ([Environment]::OSVersion.Version.ToString()))}
     $entry = [ordered]@{schema=1;run_id=$script:DiagRun;parent_run_id=$null;seq=$script:DiagSeq;installer_version=$script:DiagVersion;source_ref=$script:DiagVersion;edition=$script:DiagEdition;event=$Event;step_id=$Step;attempt=$attempt;started_at=$now;ended_at=$ended;elapsed_ms=$null;result=$Result;reason_code=$Reason;required=$Required;exit_code=$ExitCode;exit_source=$Source;host=$HostCode;http_code=$Http;transport_code=$Transport;proxy=$script:DiagProxy;clock='unverified';environment=$environment;path_facts=$facts}
     if ($ExceptionClass) {
         # An explicit allowlist prevents custom type names from carrying user data.
@@ -221,10 +226,27 @@ function Invoke-IlsonDoctor {
         $file=Join-Path $folder 'events.jsonl'; Test-IlsonDiagPath $file
         if ((Get-Item -LiteralPath $file).Length -gt 1MB) { throw 'LOG_UNAVAILABLE' }
         $events=@(); $damaged=$false
-        foreach ($line in [IO.File]::ReadAllLines($file, $script:DiagUtf8)) { try {$events+=@($line | ConvertFrom-Json -ErrorAction Stop)} catch {$damaged=$true} }
+        foreach ($line in [IO.File]::ReadAllLines($file, $script:DiagUtf8)) {
+            try {
+                # Do not let ConvertFrom-Json flatten arrays or erase null lines.
+                if (-not $line.TrimStart().StartsWith('{')) {throw 'INVALID_EVENT'}
+                $entry=$line | ConvertFrom-Json -ErrorAction Stop
+                if ($entry.schema -ne 1 -or $entry.run_id -ne [IO.Path]::GetFileName($folder) -or $entry.event -notin @('run-start','step-start','step-end','run-end')) {throw 'INVALID_EVENT'}
+                $events+=@($entry)
+            } catch {$damaged=$true}
+        }
         $raw=[IO.File]::ReadAllBytes($file)
         if ($raw.Length -and $raw[-1] -ne 10) {$damaged=$true}
         $active=@{}; $began=$false
+        foreach ($entry in $events) {
+            if ($entry.environment) {
+                foreach ($key in @('os_version','shell_version','python','node','claude')) {
+                    if ($entry.environment.PSObject.Properties.Name -contains $key) {
+                        $entry.environment.$key=Get-IlsonDiagVersion $entry.environment.$key
+                    }
+                }
+            }
+        }
         foreach ($entry in $events) {
             if ($entry.schema -ne 1 -or $entry.run_id -ne [IO.Path]::GetFileName($folder) -or $entry.event -notin @('run-start','step-start','step-end','run-end')) {$damaged=$true;continue}
             $key=[string]$entry.step_id+':'+[string]$entry.attempt
@@ -232,14 +254,14 @@ function Invoke-IlsonDoctor {
             if ($entry.event -eq 'step-start') {$active[$key]=$true}
             if ($entry.event -eq 'step-end') {$active.Remove($key)}
         }
-        if ($active.Count -or -not $began) {$damaged=$true}
+        $interrupted=($active.Count -gt 0 -or -not $began)
         $latest=@{}
         foreach ($entry in $events) {if ($entry.event -eq 'step-end') {$latest[[string]$entry.step_id]=$entry}}
         $observed=@($latest.Values)
         $pending=@($observed | Where-Object {$_.event -eq 'step-end' -and -not $_.required -and $_.result -ne 'ok' -and $_.reason_code -notin @('DRY_RUN','NOT_APPLICABLE','NOT_SELECTED')})
         $ended=@($events | Where-Object {$_.event -eq 'run-end'})
         $failed=@($observed | Where-Object {$_.event -eq 'step-end' -and $_.required -and $_.result -ne 'ok' -and $_.reason_code -notin @('DRY_RUN','NOT_APPLICABLE','NOT_SELECTED')})
-        $code=if ($damaged -or -not $ended.Count) {3} elseif ($failed.Count -or $ended[-1].result -eq 'failed') {1} elseif ($pending.Count) {4} else {0}
+        $code=if ($damaged -or $interrupted -or -not $ended.Count) {3} elseif ($failed.Count -or $ended[-1].result -eq 'failed') {1} elseif ($pending.Count) {4} else {0}
         # Rebuild the summary from fixed codes. Never echo arbitrary fields from disk.
         $summary='Ilson offline install diagnostics; result=' + $code + '; current/new window require separate user confirmation.'
         $reasons=@()
@@ -247,6 +269,8 @@ function Invoke-IlsonDoctor {
             if ($entry.reason_code -in @('PYTHON_TOO_OLD','RUNTIME_MISSING','WRONG_INSTALLER','DNS_FAILED','HTTP_FAILED','TIMEOUT','TLS_FAILED','DOWNLOAD_FAILED','EXECUTE_FAILED','VERIFY_FAILED','DEPENDENCY_FAILED','USER_MODIFIED')) {$reasons+=@([string]$entry.reason_code)}
             else {$reasons+=@('DETAIL_SUPPRESSED')}
         }
+        $status=if ($damaged) {'damaged'} elseif ($interrupted -or -not $ended.Count) {'interrupted'} elseif ($code -eq 1) {'failed'} elseif ($code -eq 4) {'pending'} else {'ok'}
+        $summary+='; status='+$status+'; log_status='+$(if ($damaged) {'malformed'} else {'ok'})+'; run_id='+[IO.Path]::GetFileName($folder)
         $summary+='; required_reasons='+($reasons -join ',')
         Write-Output $summary
         if ($Share) {

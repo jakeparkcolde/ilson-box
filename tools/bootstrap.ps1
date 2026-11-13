@@ -3,6 +3,11 @@ param([string]$Url,[string]$Sha256,[string]$Edition='windows-course',[switch]$Do
 # DIAGNOSTICS_BEGIN
 # ASCII source, Windows PowerShell 5.1 and PS7. No transcript or raw exception persistence.
 $script:DiagVersion = 'ILSON-DIAG-1'
+$script:DiagVersionPattern = '^(missing|unknown|[0-9]{1,6}(\.[0-9]{1,6}){1,3})$'
+function Get-IlsonDiagVersion($Value) {
+    if ($Value -is [string] -and $Value -cmatch $script:DiagVersionPattern -and $Value -notmatch '[\r\n]') { return $Value }
+    return 'unknown'
+}
 $script:DiagUtf8 = New-Object System.Text.UTF8Encoding($false)
 function Test-IlsonDiagPath([string]$Path) {
     $current = [IO.Path]::GetFullPath($Path)
@@ -89,7 +94,7 @@ function Write-IlsonDiagEvent([string]$Event, [string]$Step, [string]$Result, [s
     $archCode=if ($env:PROCESSOR_ARCHITECTURE -in @('AMD64','arm64')) {$env:PROCESSOR_ARCHITECTURE} else {'unknown'}
     $bin=Join-Path $env:LOCALAPPDATA 'ilson-course\bin'
     $facts=@{bin_in_path=(@($env:Path -split ';' | Where-Object {$_.TrimEnd('\') -ieq $bin.TrimEnd('\')}).Count -gt 0);cli_exists=(Test-Path -LiteralPath (Join-Path $bin 'ilson.cmd') -PathType Leaf)}
-    $environment=@{os=$osCode;arch=$archCode;shell='powershell';shell_version=$PSVersionTable.PSVersion.ToString()}
+    $environment=@{os=$osCode;arch=$archCode;shell='powershell';shell_version=(Get-IlsonDiagVersion $PSVersionTable.PSVersion.ToString());os_version=(Get-IlsonDiagVersion ([Environment]::OSVersion.Version.ToString()))}
     $entry = [ordered]@{schema=1;run_id=$script:DiagRun;parent_run_id=$null;seq=$script:DiagSeq;installer_version=$script:DiagVersion;source_ref=$script:DiagVersion;edition=$script:DiagEdition;event=$Event;step_id=$Step;attempt=$attempt;started_at=$now;ended_at=$ended;elapsed_ms=$null;result=$Result;reason_code=$Reason;required=$Required;exit_code=$ExitCode;exit_source=$Source;host=$HostCode;http_code=$Http;transport_code=$Transport;proxy=$script:DiagProxy;clock='unverified';environment=$environment;path_facts=$facts}
     if ($ExceptionClass) {
         # An explicit allowlist prevents custom type names from carrying user data.

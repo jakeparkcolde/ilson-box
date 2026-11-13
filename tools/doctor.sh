@@ -1,6 +1,12 @@
 #!/bin/sh
 # Standalone offline doctor. The recorder below is generated; no Python or ilson dependency.
 # DIAGNOSTICS_BEGIN
+DIAG_VERSION_PATTERN='^(missing|unknown|[0-9]{1,6}(\.[0-9]{1,6}){1,3})$'
+diag_version() {
+    case "$1" in *'
+'*) printf unknown; return ;; esac
+    if printf '%s' "$1" | LC_ALL=C grep -Eq "$DIAG_VERSION_PATTERN"; then printf '%s' "$1"; else printf unknown; fi
+}
 # Ilson diagnostic recorder v1. POSIX + OS tools only; generated into installers.
 # Raw arguments, stdout/stderr, paths, environment values and notes are never logged.
 diag_unavailable() { DIAG_AVAILABLE=0; printf '%s\n' 'LOG_UNAVAILABLE: 설치 이력을 저장할 수 없습니다. 성공 이력 생성 미확인.' >&2; }
@@ -86,7 +92,7 @@ diag_begin() {
     DIAG_ARCH=$(uname -m); case "$DIAG_ARCH" in arm64|x86_64) ;; *) DIAG_ARCH=unknown ;; esac
     DIAG_OS_VERSION=unknown
     if [ "$DIAG_OS" = Darwin ]; then DIAG_OS_VERSION=$(sw_vers -productVersion 2>/dev/null || printf unknown); fi
-    printf '%s' "$DIAG_OS_VERSION" | LC_ALL=C grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){1,3}$' || DIAG_OS_VERSION=unknown
+    DIAG_OS_VERSION=$(diag_version "$DIAG_OS_VERSION")
     DIAG_ROSETTA=false
     if [ "$DIAG_OS" = Darwin ] && [ "$(sysctl -in sysctl.proc_translated 2>/dev/null || :)" = 1 ]; then DIAG_ROSETTA=true; fi
     DIAG_ENVIRONMENT="{\"os\":\"$DIAG_OS\",\"os_version\":\"$DIAG_OS_VERSION\",\"arch\":\"$DIAG_ARCH\",\"rosetta\":$DIAG_ROSETTA}"
@@ -225,9 +231,13 @@ file="$root/runs/$run/events.tsv"
 diag_private "$root/runs/$run" && diag_safe "$file" && [ -f "$file" ] && [ ! -L "$file" ] || { diag_unavailable; exit 3; }
 [ "$(wc -c < "$file")" -le 1048576 ] || { diag_unavailable; exit 3; }
 # Validate and rebuild every output token. Even a tampered local TSV cannot leak free text.
-summary=$(LC_ALL=C awk -F '\t' '
+damaged_tail=0
+if [ -s "$file" ] && [ "$(tail -c 1 "$file" | od -An -tu1 | tr -d ' ')" != 10 ]; then damaged_tail=1; fi
+summary=$(LC_ALL=C awk -F '\t' -v run_id="$run" -v damaged_tail="$damaged_tail" '
+    BEGIN {damaged=damaged_tail}
     NF!=26 {damaged=1; next}
-    $1!=1 || length($2)!=32 || $2 ~ /[^a-f0-9]/ || $4 !~ /^[0-9]+$/ {damaged=1; next}
+    $1!=1 || $2!=run_id || $4 !~ /^[0-9]+$/ {damaged=1; next}
+    $8 !~ /^(run-start|step-start|step-end|run-end)$/ {damaged=1; next}
     $7!="full-mac" && $7!="intel-course" && $7!="windows-course" && $7!="unknown" {damaged=1; next}
     $8=="run-start" {edition=$7; started=1}
     $8=="step-start" {active[$9 FS $10]=1}
@@ -247,11 +257,13 @@ summary=$(LC_ALL=C awk -F '\t' '
     }
     $8=="run-end" {ended=1; if ($14=="failed") failed=1}
     END {
-        for (a in active) damaged=1
+        for (a in active) interrupted=1
         waiting=0; for (p in pending) if (pending[p]) waiting=1
-        rc=(!started || !ended || damaged)?3:(failed?1:waiting?4:0)
+        rc=(!started || !ended || interrupted || damaged)?3:(failed?1:waiting?4:0)
         print "edition=" (edition?edition:"unknown")
-        print "status=" (rc==3?"interrupted":rc==1?"failed":rc==4?"pending":"ok")
+        print "run_id=" run_id
+        print "status=" (damaged?"damaged":rc==3?"interrupted":rc==1?"failed":rc==4?"pending":"ok")
+        print "log_status=" (damaged?"malformed":"ok")
         print "python=" (python?"PYTHON_TOO_OLD":"unconfirmed")
         print "current=" (current?"ok":"unconfirmed")
         print "new_window=" (newwin?"ok":"unconfirmed")
@@ -259,7 +271,6 @@ summary=$(LC_ALL=C awk -F '\t' '
         print "exit_code=" rc
     }' "$file")
 printf '일손 설치 점검 · Python/라이선스/네트워크 불필요\n%s\n' "$summary"
-[ "$(tail -c 1 "$file" | od -An -tu1 | tr -d ' ')" = 10 ] || { printf 'INTERRUPTED: 마지막 줄 불완전\n'; exit 3; }
 if [ "$share" = 1 ]; then
     diag_safe "$root/share" || { diag_unavailable; exit 3; }
     (umask 077; mkdir -p "$root/share") && diag_private "$root/share" || { diag_unavailable; exit 3; }

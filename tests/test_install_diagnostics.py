@@ -63,7 +63,7 @@ class ContractTests(unittest.TestCase):
             events, damaged = diag.read_run(run)
             self.assertTrue(damaged); self.assertEqual(len(events), 1)
             reference = diag.export_share(events, root, damaged)
-            self.assertEqual(json.loads((root / 'share' / (reference + '.json')).read_text())['summary']['status'], 'interrupted')
+            self.assertEqual(json.loads((root / 'share' / (reference + '.json')).read_text())['summary']['status'], 'damaged')
 
     def test_retention_preserves_unknown_files_and_limits_completed_runs(self):
         with tempfile.TemporaryDirectory() as temp:

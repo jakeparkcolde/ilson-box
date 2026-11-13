@@ -17,6 +17,10 @@ import sys
 import time
 
 VERSION = 'ILSON-DIAG-1'
+# Canonical cross-runtime rule; pack_diagnostics.py generates shell/PS/schema copies.
+# Numeric versions only: 2-4 parts, each 1-6 ASCII digits. No arbitrary build text.
+VERSION_PATTERN = r'^(missing|unknown|[0-9]{1,6}(\.[0-9]{1,6}){1,3})$'
+VERSION_FIELDS = ('os_version', 'shell_version', 'python', 'node', 'claude')
 EDITIONS = {'full-mac', 'intel-course', 'windows-course', 'unknown'}
 STEPS = set('bootstrap.start download.installer preflight.platform preflight.arch runtime.python runtime.node tools.brew tools.git tools.jq tools.gh tools.coreutils tools.python tools.node tools.claude tools.codex tools.aside tools.herdr tools.hc tools.tvly tools.claude.download tools.claude.execute tools.codex.download tools.codex.execute tools.vendor.download tools.vendor.execute apps.orca apps.obsidian apps.tailscale apps.aside apps.herdr kit.prepare vault.prepare helper.install cli.link path.persist verify.absolute verify.current verify.new-window verify.simulated setup.stage setup.machine setup.jobs setup.web setup.telegram setup.auth-pending finish'.split())
 REASONS = set('STARTED OK REUSED_VERIFIED DEPENDENCY_FAILED PYTHON_TOO_OLD RUNTIME_MISSING WRONG_INSTALLER UNSUPPORTED_OS SMART_DASH UNKNOWN_OPTION COMMAND_CONFLICT OUTSIDE_VAULT DNS_FAILED HTTP_FAILED TIMEOUT TLS_FAILED DOWNLOAD_FAILED EXECUTE_FAILED VERIFY_FAILED HASH_MISMATCH USER_MODIFIED PATH_MANUAL AUTH_PENDING USER_CONFIRMATION_REQUIRED USER_DECLARED DRY_RUN NOT_APPLICABLE NOT_SELECTED INTERRUPTED LOG_UNAVAILABLE DETAIL_SUPPRESSED CLOCK_UNVERIFIED'.split())
@@ -82,10 +86,10 @@ def redact_event(event):
         for key, allowed in {'os': {'Darwin', 'Windows', 'Linux', 'unknown'}, 'arch': {'arm64', 'x86_64', 'AMD64', 'unknown'}, 'shell': {'sh', 'bash', 'zsh', 'powershell', 'unknown'}}.items():
             if isinstance(env.get(key), str) and env[key] in allowed:
                 safe[key] = env[key]
-        for key in ('os_version', 'shell_version', 'python', 'node', 'claude'):
-            value = env.get(key)
-            if isinstance(value, str) and (value in ('missing', 'unknown') or re.fullmatch(r'\d{1,3}(\.\d{1,3}){1,3}', value)):
-                safe[key] = value
+        for key in VERSION_FIELDS:
+            if key in env:
+                value = env[key]
+                safe[key] = value if isinstance(value, str) and re.fullmatch(VERSION_PATTERN, value) else 'unknown'
         if type(env.get('rosetta')) is bool:
             safe['rosetta'] = env['rosetta']
         clean['environment'] = safe
@@ -99,7 +103,14 @@ def validate_event(event):
     needed = {'schema', 'run_id', 'seq', 'installer_version', 'source_ref', 'edition', 'event', 'step_id', 'attempt', 'started_at', 'result', 'reason_code', 'required'}
     if not needed <= clean.keys() or clean['schema'] != 1 or clean['seq'] < 1 or clean['attempt'] < 1:
         raise ValueError('INVALID_EVENT')
-    if any(clean.get(k) != v for k, v in event.items() if k not in ('error_tail', 'cwd_display')):
+    # A descriptive version cannot invalidate the event's lifecycle information.
+    comparable = dict(event)
+    if isinstance(event.get('environment'), dict):
+        comparable['environment'] = dict(event['environment'])
+        for key in VERSION_FIELDS:
+            if key in comparable['environment']:
+                comparable['environment'][key] = clean['environment'][key]
+    if any(clean.get(k) != v for k, v in comparable.items() if k not in ('error_tail', 'cwd_display')):
         raise ValueError('INVALID_EVENT')
     if clean['event'] in ('run-start', 'step-start') and clean['result'] != 'running':
         raise ValueError('INVALID_EVENT')
@@ -169,7 +180,10 @@ def read_run(directory):
                         if event[key] == '-': event[key] = None
                 else:
                     event = json.loads(raw.decode('utf-8'))
-                events.append(validate_event(event))
+                # Optional malformed metadata is redacted field by field. Required
+                # lifecycle fields must still validate; unparseable lines are damaged.
+                if not isinstance(event, dict): raise ValueError('INVALID_EVENT')
+                events.append(validate_event(redact_event(event)))
             except (ValueError, UnicodeError, KeyError, TypeError):
                 damaged = True
     seen = set()
@@ -179,7 +193,7 @@ def read_run(directory):
     return sorted(events, key=lambda e: e['seq']), damaged
 
 
-def summarize_run(events, damaged=False):
+def summarize_run(events, damaged=False, run_id=None):
     """Failures remain visible even if a later run-end incorrectly claims success."""
     last, active = {}, set()
     for e in events:
@@ -191,10 +205,11 @@ def summarize_run(events, damaged=False):
     failures = [e for e in last.values() if e['required'] and e['result'] != 'ok' and e['reason_code'] not in ('DRY_RUN', 'NOT_APPLICABLE', 'NOT_SELECTED')]
     pending = [e for e in last.values() if not e['required'] and e['result'] != 'ok' and e['reason_code'] not in ('NOT_APPLICABLE', 'NOT_SELECTED', 'DRY_RUN')]
     end = next((e for e in reversed(events) if e['event'] == 'run-end'), None)
-    interrupted = damaged or bool(active) or not end
+    interrupted = damaged or bool(active) or not end or not any(e['event'] == 'run-start' for e in events)
     code = 3 if interrupted else 1 if failures or end['result'] == 'failed' else 4 if pending else 0
-    return {'run_id': events[0]['run_id'] if events else None, 'edition': events[0]['edition'] if events else 'unknown',
-            'status': 'interrupted' if interrupted else 'failed' if code == 1 else 'pending' if code == 4 else 'ok',
+    return {'run_id': run_id or (events[0]['run_id'] if events else None), 'edition': events[0]['edition'] if events else 'unknown',
+            'status': 'damaged' if damaged else 'interrupted' if interrupted else 'failed' if code == 1 else 'pending' if code == 4 else 'ok',
+            'log_status': 'malformed' if damaged else 'ok',
             'exit_code': code, 'first_failure': failures[0]['reason_code'] if failures else None,
             'current': last.get('verify.current', {}).get('result', 'unconfirmed'),
             'new_window': last.get('verify.new-window', {}).get('result', 'unconfirmed'),
@@ -233,10 +248,10 @@ def retain(root, now=None):
                 safe_path(file, private=True).unlink()
 
 
-def export_share(events, root, damaged=False):
+def export_share(events, root, damaged=False, run_id=None):
     clean = [validate_event(redact_event(e)) for e in events]
     for e in clean: e.pop('cwd_display', None)
-    summary = summarize_run(clean, damaged)
+    summary = summarize_run(clean, damaged, run_id)
     folder = private_dir(root / 'share')
     reference = 'IL-' + secrets.token_hex(6).upper()
     payload = {'schema': 1, 'reference': reference, 'summary': summary, 'events': clean}
@@ -388,7 +403,7 @@ def main(argv=None, edition='unknown', cli=None, vault=None):
                 except (OSError, subprocess.TimeoutExpired): matched = False
             append_confirmation(directory, events, args.confirm_shell, matched)
             events, damaged = read_run(directory)
-        summary = summarize_run(events, damaged)
+        summary = summarize_run(events, damaged, directory.name if directory else None)
         if edition != 'unknown' and events and summary['edition'] not in (edition, 'unknown'):
             summary.update(status='wrong_installer', exit_code=2, first_failure='WRONG_INSTALLER')
         selected_vault = Path(vault) if vault else Path.home() / 'Documents/일손강의-1기'
@@ -399,8 +414,8 @@ def main(argv=None, edition='unknown', cli=None, vault=None):
         summary['version'] = VERSION
         summary['edition_expected'] = edition
         if args.share:
-            if not events: raise ValueError('NO_RUN')
-            summary['reference'] = export_share(events, root, damaged)
+            if not events and not damaged: raise ValueError('NO_RUN')
+            summary['reference'] = export_share(events, root, damaged, directory.name if directory else None)
         if args.json: print(json.dumps(summary, ensure_ascii=False))
         else:
             print('일손 설치 점검 · ' + edition + ' · ' + VERSION)
