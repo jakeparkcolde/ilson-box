@@ -302,14 +302,19 @@ printf '\n일손 설치 — %s\n\n' "$(date '+%Y-%m-%d %H:%M')"
 # --- 1. preflight -----------------------------------------------------------
 printf '[1] 사전 점검\n'
 diag_step_start preflight.platform
-[ "$(uname -s)" = "Darwin" ] || { diag_step_end preflight.platform failed WRONG_INSTALLER true 2; die "이 설치기는 맥에서만 돕니다"; }
+[ "$(uname -s)" = "Darwin" ] || { diag_step_end preflight.platform failed WRONG_INSTALLER true 2; printf "이 설치기는 맥에서만 돕니다\n"; exit 2; }
 ok "맥 $(sw_vers -productVersion 2>/dev/null || echo '')"
 
 diag_step_end preflight.platform ok OK true 0
 diag_step_start preflight.arch
 case "$(uname -m)" in
     arm64) ok "애플 실리콘" ;;
-    x86_64) ok "Intel 64비트 Mac (의존 도구는 설치 후 확인)" ;;
+    x86_64)
+        if [ "$(sysctl -in sysctl.proc_translated 2>/dev/null || :)" = 1 ]; then
+            diag_step_end preflight.arch failed WRONG_INSTALLER true 2
+            printf 'Rosetta 터미널 대신 기본 터미널로 실행하세요.\n'; exit 2
+        fi
+        ok "Intel 64비트 Mac (의존 도구는 설치 후 확인)" ;;
     *) die "지원하지 않는 CPU: $(uname -m)" ;;
 esac
 

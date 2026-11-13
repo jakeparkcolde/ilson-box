@@ -228,9 +228,12 @@ function Invoke-IlsonDoctor {
             if ($entry.event -eq 'step-end') {$active.Remove($key)}
         }
         if ($active.Count -or -not $began) {$damaged=$true}
-        $pending=@($events | Where-Object {$_.event -eq 'step-end' -and -not $_.required -and $_.result -ne 'ok' -and $_.reason_code -notin @('DRY_RUN','NOT_APPLICABLE','NOT_SELECTED')})
+        $latest=@{}
+        foreach ($entry in $events) {if ($entry.event -eq 'step-end') {$latest[[string]$entry.step_id]=$entry}}
+        $observed=@($latest.Values)
+        $pending=@($observed | Where-Object {$_.event -eq 'step-end' -and -not $_.required -and $_.result -ne 'ok' -and $_.reason_code -notin @('DRY_RUN','NOT_APPLICABLE','NOT_SELECTED')})
         $ended=@($events | Where-Object {$_.event -eq 'run-end'})
-        $failed=@($events | Where-Object {$_.event -eq 'step-end' -and $_.required -and $_.result -ne 'ok' -and $_.reason_code -notin @('DRY_RUN','NOT_APPLICABLE','NOT_SELECTED')})
+        $failed=@($observed | Where-Object {$_.event -eq 'step-end' -and $_.required -and $_.result -ne 'ok' -and $_.reason_code -notin @('DRY_RUN','NOT_APPLICABLE','NOT_SELECTED')})
         $code=if ($damaged -or -not $ended.Count) {3} elseif ($failed.Count -or $ended[-1].result -eq 'failed') {1} elseif ($pending.Count) {4} else {0}
         # Rebuild the summary from fixed codes. Never echo arbitrary fields from disk.
         $summary='Ilson offline install diagnostics; result=' + $code + '; current/new window require separate user confirmation.'

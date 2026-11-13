@@ -998,8 +998,12 @@ setup() {
 }
 setup_body() {
     printf '일손 Box 기본 설치 — %s\n' "$ILSON_HOME"
-    [ "$(uname -s)" = Darwin ] || die "macOS 전용입니다"
-    check_architecture || return 1
+    diag_step_start preflight.platform
+    [ "$(uname -s)" = Darwin ] || { diag_step_end preflight.platform failed WRONG_INSTALLER true 2; return 2; }
+    diag_step_end preflight.platform ok OK true 0
+    diag_step_start preflight.arch
+    check_architecture || { diag_step_end preflight.arch failed WRONG_INSTALLER true 2; return 2; }
+    diag_step_end preflight.arch ok OK true 0
     local mac_major; mac_major=$(sw_vers -productVersion | cut -d. -f1)
     case "$mac_major" in ""|*[!0-9]*) die "macOS 버전을 확인하지 못했습니다" ;; esac
     [ "$mac_major" -ge 13 ] || die "macOS 13 이상이 필요합니다"
@@ -1035,8 +1039,13 @@ setup_body() {
     fi
     [ "$SANDBOX" = "1" ] && { echo '샌드박스: 로그인·시스템 설정·서비스 실행 생략'; [ "$tools_failed" = 0 ]; return; }
     [ "$tools_failed" = 0 ] || { printf "일부 도구 설치가 실패했습니다. 위 안내를 확인하고 ilson setup 을 다시 실행하세요.\n"; return 1; }
-    setup_web_admin || return 1
+    diag_step_start setup.web
+    setup_web_admin || { diag_step_end setup.web failed EXECUTE_FAILED true 1; return 1; }
+    diag_step_end setup.web ok OK true 0
+    diag_step_start setup.telegram false
     setup_telegram
+    diag_step_end setup.telegram ok OK false 0
+    diag_skip setup.auth-pending AUTH_PENDING false
     printf '\n사람이 마칠 단계:\n'
     printf '  • 설정 안내·업무 상태·보고서는 ilson open 으로 웹 관리자에서 확인\n'
     claude_logged_in || printf '  • claude 실행 → 본인 구독 계정으로 로그인\n'

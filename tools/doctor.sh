@@ -236,7 +236,8 @@ summary=$(LC_ALL=C awk -F '\t' '
         if ($9=="runtime.python" && $15=="PYTHON_TOO_OLD") python=1
         if ($9=="verify.current") current=($14=="ok")
         if ($9=="verify.new-window") newwin=($14=="ok")
-        if ($16=="false" && $14!="ok" && $15!="DRY_RUN" && $15!="NOT_APPLICABLE" && $15!="NOT_SELECTED") pending=1
+        if ($16=="false" && $14!="ok" && $15!="DRY_RUN" && $15!="NOT_APPLICABLE" && $15!="NOT_SELECTED") pending[$9]=1
+        else pending[$9]=0
         if ($9 ~ /^(tools[.](claude|codex|vendor)[.]download|download[.]installer)$/ && $15 ~ /^(DNS_FAILED|HTTP_FAILED|TIMEOUT|TLS_FAILED|DOWNLOAD_FAILED)$/) {
             host=($19 ~ /^(none|custom_host|raw[.]githubusercontent[.]com|codeload[.]github[.]com|github[.]com|claude[.]ai|chatgpt[.]com|www[.]python[.]org|releases[.]herdr[.]dev|releases[.]aside[.]com)$/)?$19:"custom_host"
             http=($20 ~ /^[0-9][0-9][0-9]$/)?$20:"unknown"
@@ -247,7 +248,8 @@ summary=$(LC_ALL=C awk -F '\t' '
     $8=="run-end" {ended=1; if ($14=="failed") failed=1}
     END {
         for (a in active) damaged=1
-        rc=(!started || !ended || damaged)?3:(failed?1:pending?4:0)
+        waiting=0; for (p in pending) if (pending[p]) waiting=1
+        rc=(!started || !ended || damaged)?3:(failed?1:waiting?4:0)
         print "edition=" (edition?edition:"unknown")
         print "status=" (rc==3?"interrupted":rc==1?"failed":rc==4?"pending":"ok")
         print "python=" (python?"PYTHON_TOO_OLD":"unconfirmed")

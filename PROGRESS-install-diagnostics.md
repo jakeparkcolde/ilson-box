@@ -18,3 +18,6 @@
 - 신규 진단 통합17건 PASS (.scratch/install-diagnostics/diagnostics17.log): 실제 setup_tools Claude DNS / Codex503 / execute 의존 생략 / PATH 미확인 분리, Python3.9 Intel, inline 첫 fetch 실패 및 hash 불일치 부분 실행 0, shell current/new/simulation/충돌, 링크 거절·잘못된 설치기, retention20건, 로컬/공유 정보 가림, payload parity/PS5.1 정적 제약.
 - 첫 전체 suite: 878건 / 38 skip / 16 failure. 15개는 update_feed CLI mock이 새 버전을 출력하지 않아 생긴 실패 → version fixture 보완. 1개는 scratch 실패 로그가 개인정보 repository scan 대상 → scratch gitignore 추가. 해당 update_feed18건 재시험 PASS (.scratch/install-diagnostics/update-feed.log). 기존 검사 기준은 완화하지 않음.
 - 문서: docs/install-diagnostics.md, README, docs/설치, 강의 시작 안내. 공개 배포 승인 전임을 명시. 강의 kit 내장 guide/payload 재생성.
+- 최종 보완: full-mac OS/Rosetta 오선택을 exit2로 기록, setup preflight/web/auth 구간, Mac shell 확인을 기존 TSV에 append하여 Python 없는 doctor에서도 읽음, 원래 known wrapper의 Windows 줄바꿈 차이만 안전 갱신, 문서/내장 바이트 일치.
+- 영향 재검증: 진단17건, setup58건, course 패턴 전체 통과(Windows 등7 skip). .scratch/install-diagnostics/affected-*.log.
+- 두 번째 전체 suite: 882건 /38 skip /1 error. 출력 상한 검사 중 host가 process-group 신호를 EPERM으로 거절한 경우가 발견됨. 소유 Popen 프로세스만 종료하는 fallback을 추가하고 이 거절 경로를 합성 시험에 포함. 이 수정 뒤 최종 전체 재검증 예정.

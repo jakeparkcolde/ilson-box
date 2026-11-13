@@ -251,16 +251,28 @@ def append_confirmation(directory, events, kind, matched):
     seq = max(e['seq'] for e in events)
     step = 'verify.' + {'current': 'current', 'new': 'new-window', 'simulated': 'simulated'}[kind]
     attempt = 1 + max((e['attempt'] for e in events if e['step_id'] == step), default=0)
+    native_tsv = (directory / 'events.tsv').exists()
     for event_type in ('step-start', 'step-end'):
         seq += 1
-        e = dict(base, schema=1, seq=seq, event=event_type, step_id=step, attempt=attempt, started_at=utc(), required=False,
+        e = dict(base, schema=1, seq=seq, parent_run_id=None, event=event_type, step_id=step, attempt=attempt, started_at=utc(),
+                 ended_at=utc() if event_type == 'step-end' else None, elapsed_ms=None, required=False,
                  result='running' if event_type == 'step-start' else 'ok' if matched else 'failed',
-                 reason_code='STARTED' if event_type == 'step-start' else 'USER_DECLARED' if matched else 'COMMAND_CONFLICT')
+                 reason_code='STARTED' if event_type == 'step-start' else 'USER_DECLARED' if matched else 'COMMAND_CONFLICT',
+                 exit_code=None, exit_source='doctor', host='none', http_code=None, transport_code=None, proxy='unknown',
+                 clock='unverified', environment={}, path_facts={'command_matches': matched}, cwd_kind='unknown')
         validate_event(e)
-        file = directory / 'events.jsonl'
+        file = directory / ('events.tsv' if native_tsv else 'events.jsonl')
         safe_path(file, private=True)
+        if native_tsv:
+            def value(v):
+                if v is None: return '-'
+                if isinstance(v, bool): return str(v).lower()
+                if isinstance(v, dict): return json.dumps(v, ensure_ascii=True, separators=(',', ':'))
+                return str(v)
+            line = '\t'.join(value(e[k]) for k in TSV_FIELDS)
+        else: line = json.dumps(e)
         fd = os.open(file, os.O_CREAT | os.O_APPEND | os.O_WRONLY | getattr(os, 'O_NOFOLLOW', 0), 0o600)
-        with os.fdopen(fd, 'a', encoding='utf-8') as stream: stream.write(json.dumps(e) + '\n')
+        with os.fdopen(fd, 'a', encoding='utf-8') as stream: stream.write(line + '\n')
 
 
 def probe_command(command, env=None):
@@ -274,10 +286,15 @@ def probe_command(command, env=None):
     reader = threading.Thread(target=read, daemon=True)
     reader.start()
     def stop():
+        if process.poll() is not None: return
         try:
-            if os.name != 'nt': os.killpg(process.pid, signal.SIGKILL)
+            if os.name != 'nt' and os.getpgid(process.pid) == process.pid:
+                os.killpg(process.pid, signal.SIGKILL)
             else: process.kill()
-        except ProcessLookupError: pass
+        except OSError:
+            # Some hosts deny group signals. Still bound the owned process by its Popen handle.
+            try: process.kill()
+            except OSError: pass
     try:
         data = output.get(timeout=5)
         if len(data) > 4096:

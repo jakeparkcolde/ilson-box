@@ -233,6 +233,8 @@ class ShellConfirmationTests(unittest.TestCase):
             self.assertEqual(data['current'],'ok');self.assertEqual(r.returncode,4)
             r,data=doctor('--confirm-shell','new',changed_env=current_env)
             self.assertEqual(r.returncode,0);self.assertEqual(data['new_window'],'ok')
+            native=subprocess.run(['sh',str(ROOT/'tools/doctor.sh'),'--run',run,'--share'],env=env,capture_output=True,text=True,timeout=10)
+            self.assertEqual(native.returncode,0,native.stdout+native.stderr)
             # A different command with the same name must not be accepted even if it prints our version.
             other=home/'other';other.mkdir();fake=other/'ilson'
             fd=os.open(fake,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o755)
@@ -245,6 +247,10 @@ class ShellConfirmationTests(unittest.TestCase):
 
     def test_probe_output_is_bounded_and_custom_paths_are_shell_quoted(self):
         code,output=diag.probe_command([sys.executable,'-c',"print('private note'*100000)"])
+        self.assertNotEqual(code,0);self.assertEqual(output,b'')
+        from unittest import mock
+        with mock.patch.object(diag.os, 'killpg', side_effect=PermissionError('synthetic signal restriction')):
+            code,output=diag.probe_command([sys.executable,'-c',"print('synthetic'*100000)"])
         self.assertNotEqual(code,0);self.assertEqual(output,b'')
         lines=diag.next_lines('intel-course','a'*32,cli="/a path/with'quote/ilson")
         import shlex

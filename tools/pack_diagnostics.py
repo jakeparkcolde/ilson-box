@@ -16,7 +16,7 @@ def pack():
             text, count = re.subn(r'(?ms)^# DIAGNOSTICS_BEGIN\n.*?^# DIAGNOSTICS_END$',
                                  lambda _: '# DIAGNOSTICS_BEGIN\n' + source.rstrip() + '\n# DIAGNOSTICS_END', text)
             if count != 1: raise ValueError(name)
-            path.write_text(text)
+            with path.open('w', encoding='utf-8', newline='\n') as stream: stream.write(text)
     for name in ('diagnostics.sh', 'doctor.sh'):
         (ROOT / 'template/lib' / name).write_bytes((ROOT / 'tools' / name).read_bytes())
 
