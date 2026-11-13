@@ -27,7 +27,7 @@ class SetupTests(unittest.TestCase):
         # 기존 v0 함수도 직접 시험하도록 명령 디스패치 이전까지만 읽는다.
         functions = (ROOT / "ilson").read_text().split('cmd="${1:-}"')[0]
         harness = self.base / "harness.sh"
-        harness.write_text(functions + "\n" + script)
+        harness.write_text(functions + "\n" + 'diag_verify() { return 0; };\n' + script)
         proc = subprocess.Popen(["bash", str(harness)], cwd=ROOT, env=self.env,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 text=True, start_new_session=True)

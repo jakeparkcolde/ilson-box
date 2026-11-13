@@ -20,7 +20,7 @@ REASONS = set('STARTED OK REUSED_VERIFIED DEPENDENCY_FAILED PYTHON_TOO_OLD RUNTI
 HOSTS = {'none', 'custom_host', 'raw.githubusercontent.com', 'codeload.github.com', 'github.com', 'claude.ai', 'chatgpt.com', 'www.python.org', 'releases.herdr.dev', 'releases.aside.com'}
 EVENTS = {'run-start', 'step-start', 'step-end', 'run-end'}
 RESULTS = {'ok', 'failed', 'skipped-with-reason', 'running'}
-TSV_FIELDS = 'schema run_id parent_run_id seq installer_version source_ref edition event step_id attempt started_at ended_at elapsed_ms result reason_code required exit_code exit_source host http_code transport_code proxy clock'.split()
+TSV_FIELDS = 'schema run_id parent_run_id seq installer_version source_ref edition event step_id attempt started_at ended_at elapsed_ms result reason_code required exit_code exit_source host http_code transport_code proxy clock environment'.split()
 EXTRA_FIELDS = {'environment', 'path_facts', 'cwd_kind', 'cwd_display', 'error_tail'}
 ID = re.compile(r'^[a-f0-9]{32}$')
 STAMP = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$')
@@ -151,6 +151,7 @@ def read_run(directory):
                     event = dict(zip(TSV_FIELDS, values))
                     for key in ('schema', 'seq', 'attempt', 'elapsed_ms', 'exit_code', 'http_code', 'transport_code'):
                         event[key] = None if event[key] == '-' else int(event[key])
+                    event['environment'] = json.loads(event['environment'])
                     event['required'] = {'true': True, 'false': False}[event['required']]
                     for key in ('parent_run_id', 'ended_at'):
                         if event[key] == '-': event[key] = None
@@ -238,9 +239,11 @@ def append_confirmation(directory, events, kind, matched):
     if not events: raise ValueError('NO_RUN')
     base = {k: events[0][k] for k in ('run_id', 'installer_version', 'source_ref', 'edition')}
     seq = max(e['seq'] for e in events)
+    step = 'verify.' + {'current': 'current', 'new': 'new-window', 'simulated': 'simulated'}[kind]
+    attempt = 1 + max((e['attempt'] for e in events if e['step_id'] == step), default=0)
     for event_type in ('step-start', 'step-end'):
         seq += 1
-        e = dict(base, schema=1, seq=seq, event=event_type, step_id='verify.' + ('current' if kind == 'current' else 'new-window'), attempt=1, started_at=utc(), required=False,
+        e = dict(base, schema=1, seq=seq, event=event_type, step_id=step, attempt=attempt, started_at=utc(), required=False,
                  result='running' if event_type == 'step-start' else 'ok' if matched else 'failed',
                  reason_code='STARTED' if event_type == 'step-start' else 'USER_DECLARED' if matched else 'COMMAND_CONFLICT')
         validate_event(e)
@@ -268,16 +271,34 @@ def main(argv=None, edition='unknown', cli=None, vault=None):
     parser.add_argument('--install', action='store_true')
     parser.add_argument('--share', action='store_true')
     parser.add_argument('--json', action='store_true')
+    parser.add_argument('--self-check', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--simulate-shell', choices=('zsh', 'bash'), help='명시적으로 셸 초기화 파일 실행을 허용하고 모의 점검')
     parser.add_argument('--run')
     parser.add_argument('--confirm-shell', choices=('current', 'new'))
     args = parser.parse_args(argv)
     try:
+        if args.self_check:
+            print(json.dumps({'version': VERSION, 'edition_expected': edition}))
+            return 0
         root = diagnostics_root()
         if args.run and not ID.fullmatch(args.run): raise ValueError('INVALID_RUN')
         retain(root)
         folders = sorted((root / 'runs').glob('*'), key=lambda p: p.stat().st_mtime, reverse=True) if (root / 'runs').exists() else []
         directory = root / 'runs' / args.run if args.run else next((p for p in folders if ID.fullmatch(p.name)), None)
         events, damaged = read_run(directory) if directory and directory.exists() else ([], False)
+        if args.simulate_shell:
+            if not args.run or not events: raise ValueError('RUN_REQUIRED')
+            shell = '/bin/' + args.simulate_shell
+            expected = Path(cli or str(Path.home() / '.local/bin/ilson')).resolve()
+            matched = True
+            for flags in ('-lic', '-ic'):
+                try:
+                    probe = subprocess.run([shell, flags, 'command -v ilson'], capture_output=True, timeout=5)
+                    value = probe.stdout[-4096:].decode('utf-8', errors='replace').strip().splitlines()
+                    matched = matched and probe.returncode == 0 and bool(value) and Path(value[-1]).resolve() == expected
+                except (OSError, subprocess.TimeoutExpired): matched = False
+            append_confirmation(directory, events, 'simulated', matched)
+            events, damaged = read_run(directory)
         if args.confirm_shell:
             if not args.run: raise ValueError('RUN_REQUIRED')
             expected = cli or str(Path.home() / '.local/bin/ilson')

@@ -6,6 +6,7 @@
 diag_unavailable() { DIAG_AVAILABLE=0; printf '%s\n' 'LOG_UNAVAILABLE: 설치 이력을 저장할 수 없습니다. 성공 이력 생성 미확인.' >&2; }
 diag_safe() {
     diag_p=$1
+    [ "$(printf '%s' "$diag_p" | LC_ALL=C tr -d '\000-\037\177')" = "$diag_p" ] || return 1
     case "$diag_p" in /*) ;; *) return 1 ;; esac
     while [ "$diag_p" != / ]; do
         [ ! -L "$diag_p" ] || return 1
@@ -47,8 +48,8 @@ diag_event() {
     [ "$1" != step-start ] || diag_attempt=$((diag_attempt+1))
     [ "$diag_attempt" -gt 0 ] || diag_attempt=1
     [ "$(wc -c < "$DIAG_FILE")" -lt 1048576 ] || { diag_unavailable; return 0; }
-    if ! printf '1\t%s\t-\t%s\tILSON-DIAG-1\tILSON-DIAG-1\t%s\t%s\t%s\t%s\t%s\t%s\t-\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tunverified\n' \
-        "$ILSON_DIAG_RUN_ID" "$diag_seq" "$DIAG_EDITION" "$1" "$2" "$diag_attempt" "$diag_now" "$diag_end" "$3" "$4" "$5" "$diag_exit" "${DIAG_EXIT_SOURCE:-none}" "$diag_host" "$diag_http" "$diag_transfer" "$DIAG_PROXY" >> "$DIAG_FILE"; then diag_unavailable; fi
+    if ! printf '1\t%s\t-\t%s\tILSON-DIAG-1\tILSON-DIAG-1\t%s\t%s\t%s\t%s\t%s\t%s\t-\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tunverified\t%s\n' \
+        "$ILSON_DIAG_RUN_ID" "$diag_seq" "$DIAG_EDITION" "$1" "$2" "$diag_attempt" "$diag_now" "$diag_end" "$3" "$4" "$5" "$diag_exit" "${DIAG_EXIT_SOURCE:-none}" "$diag_host" "$diag_http" "$diag_transfer" "$DIAG_PROXY" "$DIAG_ENVIRONMENT" >> "$DIAG_FILE"; then diag_unavailable; fi
 }
 diag_begin() {
     DIAG_EDITION=$1; DIAG_AVAILABLE=0; DIAG_ACTIVE=; DIAG_CHILD=0; DIAG_DRY=0
@@ -61,6 +62,7 @@ diag_begin() {
     if [ -e "$DIAG_ROOT" ]; then diag_private "$DIAG_ROOT" || { diag_unavailable; return 0; }; fi
     (umask 077; mkdir -p "$DIAG_ROOT/runs") || { diag_unavailable; return 0; }
     diag_private "$DIAG_ROOT/runs" || { diag_unavailable; return 0; }
+    diag_retain 19
     if diag_valid_id "${ILSON_DIAG_RUN_ID:-}" && diag_private "$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID" && [ -f "$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID/events.tsv" ] && [ ! -L "$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID/events.tsv" ]; then
         DIAG_CHILD=1
     else
@@ -71,6 +73,14 @@ diag_begin() {
     DIAG_FILE="$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID/events.tsv"
     DIAG_PROXY=false
     [ -z "${HTTPS_PROXY:-}${HTTP_PROXY:-}${ALL_PROXY:-}${https_proxy:-}${http_proxy:-}${all_proxy:-}" ] || DIAG_PROXY=true
+    DIAG_OS=$(uname -s); case "$DIAG_OS" in Darwin|Linux) ;; *) DIAG_OS=unknown ;; esac
+    DIAG_ARCH=$(uname -m); case "$DIAG_ARCH" in arm64|x86_64) ;; *) DIAG_ARCH=unknown ;; esac
+    DIAG_OS_VERSION=unknown
+    if [ "$DIAG_OS" = Darwin ]; then DIAG_OS_VERSION=$(sw_vers -productVersion 2>/dev/null || printf unknown); fi
+    printf '%s' "$DIAG_OS_VERSION" | LC_ALL=C grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){1,3}$' || DIAG_OS_VERSION=unknown
+    DIAG_ROSETTA=false
+    if [ "$DIAG_OS" = Darwin ] && [ "$(sysctl -in sysctl.proc_translated 2>/dev/null || :)" = 1 ]; then DIAG_ROSETTA=true; fi
+    DIAG_ENVIRONMENT="{\"os\":\"$DIAG_OS\",\"os_version\":\"$DIAG_OS_VERSION\",\"arch\":\"$DIAG_ARCH\",\"rosetta\":$DIAG_ROSETTA}"
     DIAG_AVAILABLE=1
     export ILSON_DIAG_RUN_ID ILSON_DIAGNOSTICS_DIR
     [ "$DIAG_CHILD" = 1 ] || diag_event run-start bootstrap.start running STARTED true
@@ -119,6 +129,52 @@ diag_next() {
     printf '새 창을 연 뒤 직접 실행 (사용자 선언):\nilson doctor --install --confirm-shell new --run %s\n' "$ILSON_DIAG_RUN_ID"
     case "$DIAG_EDITION" in full-mac) printf '명령 복구: "$HOME/.ilson-cli/ilson" doctor --install --run %s\n' "$ILSON_DIAG_RUN_ID" ;; *) printf '명령 복구: "$HOME/.local/bin/ilson" doctor --install --run %s\n' "$ILSON_DIAG_RUN_ID" ;; esac
 }
+diag_verify() (
+    "$@" >/dev/null 2>&1 & diag_pid=$!
+    (sleep 5; kill -TERM "$diag_pid" 2>/dev/null) >/dev/null 2>&1 & diag_timer=$!
+    diag_verify_rc=0; wait "$diag_pid" || diag_verify_rc=$?
+    kill -TERM "$diag_timer" 2>/dev/null || :
+    wait "$diag_timer" 2>/dev/null || :
+    exit "$diag_verify_rc"
+)
+diag_retain() (
+    # Root already validated. Only exact owned run files; unknown contents/links survive.
+    diag_limit=${1:-20}; diag_total=0; diag_count=0; diag_now_epoch=$(date +%s)
+    diag_inventory=$(
+        for diag_dir in "$DIAG_ROOT"/runs/*; do
+            diag_id=${diag_dir##*/}; diag_valid_id "$diag_id" || continue
+            [ -d "$diag_dir" ] && [ ! -L "$diag_dir" ] || continue
+            [ -f "$diag_dir/events.tsv" ] && [ ! -L "$diag_dir/events.tsv" ] || continue
+            diag_known=1
+            for diag_entry in "$diag_dir"/* "$diag_dir"/.[!.]*; do
+                [ -e "$diag_entry" ] || [ -L "$diag_entry" ] || continue
+                if [ "${diag_entry##*/}" = events.tsv ] || [ "${diag_entry##*/}" = events.jsonl ]; then
+                    [ ! -L "$diag_entry" ] || diag_known=0
+                else diag_known=0; fi
+            done
+            [ "$diag_known" = 1 ] || continue
+            diag_stamp=$(stat -f %m "$diag_dir/events.tsv" 2>/dev/null) || diag_stamp=$(stat -c %Y "$diag_dir/events.tsv" 2>/dev/null) || continue
+            # Recent active runs are not removed by another installer.
+            if ! awk -F '\t' '$8=="run-end" {found=1} END {exit !found}' "$diag_dir/events.tsv"; then
+                [ "$((diag_now_epoch-diag_stamp))" -ge 86400 ] || continue
+            fi
+            diag_bytes=$(wc -c < "$diag_dir/events.tsv")
+            if [ -f "$diag_dir/events.jsonl" ]; then diag_bytes=$((diag_bytes+$(wc -c < "$diag_dir/events.jsonl"))); fi
+            printf '%s %s %s\n' "$diag_stamp" "$diag_bytes" "$diag_id"
+        done | sort -rn
+    )
+    printf '%s\n' "$diag_inventory" | while read -r diag_stamp diag_bytes diag_id; do
+        diag_valid_id "${diag_id:-}" || continue
+        diag_count=$((diag_count+1)); diag_total=$((diag_total+diag_bytes))
+        if [ "$diag_count" -gt "$diag_limit" ] || [ "$diag_total" -gt 9437184 ] || [ "$((diag_now_epoch-diag_stamp))" -gt 2592000 ]; then
+            diag_dir="$DIAG_ROOT/runs/$diag_id"
+            # Exact files only, never recursive deletion or a wildcard deletion target.
+            find "$diag_dir/events.tsv" -type f -delete
+            [ ! -f "$diag_dir/events.jsonl" ] || find "$diag_dir/events.jsonl" -type f -delete
+            rmdir "$diag_dir" 2>/dev/null || :
+        fi
+    done
+)
 # DIAGNOSTICS_END
 run=; share=0
 while [ $# -gt 0 ]; do
@@ -127,6 +183,7 @@ while [ $# -gt 0 ]; do
 done
 root=${ILSON_DIAGNOSTICS_DIR:-$HOME/.ilson-diagnostics}
 diag_safe "$root" && diag_private "$root" && diag_private "$root/runs" || { diag_unavailable; exit 3; }
+DIAG_ROOT=$root; diag_retain 20
 if [ -z "$run" ]; then
     for folder in "$root"/runs/*; do
         id=${folder##*/}; diag_valid_id "$id" || continue
@@ -139,7 +196,7 @@ diag_private "$root/runs/$run" && diag_safe "$file" && [ -f "$file" ] && [ ! -L 
 [ "$(wc -c < "$file")" -le 1048576 ] || { diag_unavailable; exit 3; }
 # Validate and rebuild every output token. Even a tampered local TSV cannot leak free text.
 summary=$(LC_ALL=C awk -F '\t' '
-    NF!=23 {damaged=1; next}
+    NF!=24 {damaged=1; next}
     $1!=1 || length($2)!=32 || $2 ~ /[^a-f0-9]/ || $4 !~ /^[0-9]+$/ {damaged=1; next}
     $7!="full-mac" && $7!="intel-course" && $7!="windows-course" && $7!="unknown" {damaged=1; next}
     $8=="run-start" {edition=$7; started=1}

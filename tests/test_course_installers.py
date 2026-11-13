@@ -160,7 +160,7 @@ function Invoke-WebRequest { throw 'simulated download failure' }
         if not pwsh:
             self.skipTest('pwsh required for mocked PowerShell tests')
         source = (ROOT / 'course/install-windows.ps1').read_text(encoding='ascii')
-        self.assertEqual(source.count('New-Object Net.WebClient'), 2)
+        self.assertEqual(source.count('New-Object Net.WebClient'), 1)
         source = source.replace('New-Object Net.WebClient', 'New-TestClient')
         source = source.replace('[IO.Path]::GetPathRoot($env:USERPROFILE).Substring(0,1)', "'T'")
         mocks = r'''
@@ -406,7 +406,7 @@ class BoxInstallerPathTests(unittest.TestCase):
         self.src = self.base / 'src'
         (self.src / 'template').mkdir(parents=True)
         (self.src / 'tools').mkdir()
-        (self.src / 'ilson').write_text('#!/bin/sh\necho "ilson test"\n')
+        (self.src / 'ilson').write_text('#!/bin/sh\necho "ilson full-mac ILSON-DIAG-1"\n')
         (self.src / 'template/CLAUDE.md').write_text('# test\n')
         (self.src / 'tools/update.py').write_bytes((ROOT / 'tools/update.py').read_bytes())
         self.line = 'export PATH="' + str(self.bin) + ':$PATH"'

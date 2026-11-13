@@ -5,8 +5,8 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 
 def pack():
-    for suffix, paths in [('sh', ['install.sh', 'course/install-intel-mac.sh', 'tools/doctor.sh']),
-                          ('ps1', ['course/install-windows.ps1', 'tools/doctor.ps1'])]:
+    for suffix, paths in [('sh', ['ilson', 'install.sh', 'course/install-intel-mac.sh', 'tools/doctor.sh', 'tools/bootstrap.sh']),
+                          ('ps1', ['course/install-windows.ps1', 'tools/doctor.ps1', 'tools/bootstrap.ps1'])]:
         source = (ROOT / ('tools/diagnostics.' + suffix)).read_text()
         for name in paths:
             path = ROOT / name

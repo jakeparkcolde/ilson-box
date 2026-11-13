@@ -22,6 +22,182 @@
 # Design: coldbyte-vault wiki/plans/2026-09-05-ilson-init-원커맨드-온보딩-설계.md
 # User-facing strings are Korean on purpose; code comments stay English.
 
+# DIAGNOSTICS_BEGIN
+# Ilson diagnostic recorder v1. POSIX + OS tools only; generated into installers.
+# Raw arguments, stdout/stderr, paths, environment values and notes are never logged.
+diag_unavailable() { DIAG_AVAILABLE=0; printf '%s\n' 'LOG_UNAVAILABLE: 설치 이력을 저장할 수 없습니다. 성공 이력 생성 미확인.' >&2; }
+diag_safe() {
+    diag_p=$1
+    [ "$(printf '%s' "$diag_p" | LC_ALL=C tr -d '\000-\037\177')" = "$diag_p" ] || return 1
+    case "$diag_p" in /*) ;; *) return 1 ;; esac
+    while [ "$diag_p" != / ]; do
+        [ ! -L "$diag_p" ] || return 1
+        if [ -e "$diag_p" ]; then
+            diag_owner=$(stat -f %u "$diag_p" 2>/dev/null) || diag_owner=$(stat -c %u "$diag_p" 2>/dev/null) || return 1
+            [ "$diag_owner" = "$(id -u)" ] || [ "$diag_owner" = 0 ] || return 1
+        fi
+        diag_p=$(dirname "$diag_p")
+        # macOS fixed OS aliases only, never user symlinks.
+        case "$diag_p" in /var) diag_p=/private/var ;; /tmp) diag_p=/private/tmp ;; /etc) diag_p=/private/etc ;; esac
+    done
+}
+diag_private() {
+    diag_safe "$1" || return 1
+    [ -d "$1" ] || return 1
+    diag_mode=$(stat -f %Lp "$1" 2>/dev/null) || diag_mode=$(stat -c %a "$1" 2>/dev/null) || return 1
+    [ "$diag_mode" = 700 ] || return 1
+    diag_owner=$(stat -f %u "$1" 2>/dev/null) || diag_owner=$(stat -c %u "$1" 2>/dev/null) || return 1
+    [ "$diag_owner" = "$(id -u)" ]
+}
+diag_valid_id() { [ "${#1}" = 32 ] && case "$1" in *[!a-f0-9]*) return 1 ;; *) return 0 ;; esac; }
+diag_event() {
+    [ "${DIAG_AVAILABLE:-0}" = 1 ] || return 0
+    case "$1" in run-start|step-start|step-end|run-end) ;; *) return 0 ;; esac
+    case "$2" in bootstrap.start|download.installer|preflight.platform|preflight.arch|runtime.python|runtime.node|tools.brew|tools.git|tools.jq|tools.gh|tools.coreutils|tools.python|tools.node|tools.claude|tools.codex|tools.aside|tools.herdr|tools.hc|tools.tvly|tools.claude.download|tools.claude.execute|tools.codex.download|tools.codex.execute|tools.vendor.download|tools.vendor.execute|apps.orca|apps.obsidian|apps.tailscale|apps.aside|apps.herdr|kit.prepare|vault.prepare|helper.install|cli.link|path.persist|verify.absolute|verify.current|verify.new-window|verify.simulated|setup.stage|setup.machine|setup.jobs|setup.web|setup.telegram|setup.auth-pending|finish) ;; *) return 0 ;; esac
+    case "$3" in ok|failed|skipped-with-reason|running) ;; *) return 0 ;; esac
+    case "$4" in STARTED|OK|REUSED_VERIFIED|DEPENDENCY_FAILED|PYTHON_TOO_OLD|RUNTIME_MISSING|WRONG_INSTALLER|UNSUPPORTED_OS|SMART_DASH|UNKNOWN_OPTION|COMMAND_CONFLICT|OUTSIDE_VAULT|DNS_FAILED|HTTP_FAILED|TIMEOUT|TLS_FAILED|DOWNLOAD_FAILED|EXECUTE_FAILED|VERIFY_FAILED|HASH_MISMATCH|USER_MODIFIED|PATH_MANUAL|AUTH_PENDING|USER_CONFIRMATION_REQUIRED|USER_DECLARED|DRY_RUN|NOT_APPLICABLE|NOT_SELECTED|INTERRUPTED|LOG_UNAVAILABLE|DETAIL_SUPPRESSED|CLOCK_UNVERIFIED) ;; *) return 0 ;; esac
+    case "$5" in true|false) ;; *) return 0 ;; esac
+    diag_exit=${6:--}; case "$diag_exit" in ''|*[!0-9]*) diag_exit=- ;; esac
+    diag_host=${7:-none}; case "$diag_host" in none|custom_host|raw.githubusercontent.com|codeload.github.com|github.com|claude.ai|chatgpt.com|www.python.org|releases.herdr.dev|releases.aside.com) ;; *) diag_host=custom_host ;; esac
+    diag_http=${8:--}; case "$diag_http" in ''|*[!0-9]*) diag_http=- ;; esac
+    diag_transfer=${9:--}; case "$diag_transfer" in ''|*[!0-9]*) diag_transfer=- ;; esac
+    diag_now=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+    diag_end=-; [ "$1" = step-end ] || [ "$1" = run-end ] || diag_end=-
+    case "$1" in *-end) diag_end=$diag_now ;; esac
+    diag_seq=$(( $(wc -l < "$DIAG_FILE") + 1 ))
+    # Attempt increases per repeated fixed step, e.g. vendor downloads and kit members.
+    diag_attempt=$(awk -F '\t' -v step="$2" '$8=="step-start" && $9==step {n++} END {print n+0}' "$DIAG_FILE")
+    [ "$1" != step-start ] || diag_attempt=$((diag_attempt+1))
+    [ "$diag_attempt" -gt 0 ] || diag_attempt=1
+    [ "$(wc -c < "$DIAG_FILE")" -lt 1048576 ] || { diag_unavailable; return 0; }
+    if ! printf '1\t%s\t-\t%s\tILSON-DIAG-1\tILSON-DIAG-1\t%s\t%s\t%s\t%s\t%s\t%s\t-\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\tunverified\t%s\n' \
+        "$ILSON_DIAG_RUN_ID" "$diag_seq" "$DIAG_EDITION" "$1" "$2" "$diag_attempt" "$diag_now" "$diag_end" "$3" "$4" "$5" "$diag_exit" "${DIAG_EXIT_SOURCE:-none}" "$diag_host" "$diag_http" "$diag_transfer" "$DIAG_PROXY" "$DIAG_ENVIRONMENT" >> "$DIAG_FILE"; then diag_unavailable; fi
+}
+diag_begin() {
+    DIAG_EDITION=$1; DIAG_AVAILABLE=0; DIAG_ACTIVE=; DIAG_CHILD=0; DIAG_DRY=0
+    shift
+    for diag_arg do case "$diag_arg" in --dry-run|-DryRun) DIAG_DRY=1 ;; esac; done
+    [ "${ILSON_COURSE_DRY_RUN:-0}" != 1 ] && [ "${ILSON_DRY_RUN:-0}" != 1 ] || DIAG_DRY=1
+    [ "$DIAG_DRY" = 0 ] || { printf '%s\n' 'DIAGNOSTICS DRY_RUN: 영속 로그 없음'; return 0; }
+    DIAG_ROOT=${ILSON_DIAGNOSTICS_DIR:-$HOME/.ilson-diagnostics}
+    diag_safe "$DIAG_ROOT" || { diag_unavailable; return 0; }
+    if [ -e "$DIAG_ROOT" ]; then diag_private "$DIAG_ROOT" || { diag_unavailable; return 0; }; fi
+    (umask 077; mkdir -p "$DIAG_ROOT/runs") || { diag_unavailable; return 0; }
+    diag_private "$DIAG_ROOT/runs" || { diag_unavailable; return 0; }
+    diag_retain 19
+    if diag_valid_id "${ILSON_DIAG_RUN_ID:-}" && diag_private "$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID" && [ -f "$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID/events.tsv" ] && [ ! -L "$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID/events.tsv" ]; then
+        DIAG_CHILD=1
+    else
+        ILSON_DIAG_RUN_ID=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+        diag_valid_id "$ILSON_DIAG_RUN_ID" || { diag_unavailable; return 0; }
+        (umask 077; mkdir "$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID" && : > "$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID/events.tsv") || { diag_unavailable; return 0; }
+    fi
+    DIAG_FILE="$DIAG_ROOT/runs/$ILSON_DIAG_RUN_ID/events.tsv"
+    DIAG_PROXY=false
+    [ -z "${HTTPS_PROXY:-}${HTTP_PROXY:-}${ALL_PROXY:-}${https_proxy:-}${http_proxy:-}${all_proxy:-}" ] || DIAG_PROXY=true
+    DIAG_OS=$(uname -s); case "$DIAG_OS" in Darwin|Linux) ;; *) DIAG_OS=unknown ;; esac
+    DIAG_ARCH=$(uname -m); case "$DIAG_ARCH" in arm64|x86_64) ;; *) DIAG_ARCH=unknown ;; esac
+    DIAG_OS_VERSION=unknown
+    if [ "$DIAG_OS" = Darwin ]; then DIAG_OS_VERSION=$(sw_vers -productVersion 2>/dev/null || printf unknown); fi
+    printf '%s' "$DIAG_OS_VERSION" | LC_ALL=C grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){1,3}$' || DIAG_OS_VERSION=unknown
+    DIAG_ROSETTA=false
+    if [ "$DIAG_OS" = Darwin ] && [ "$(sysctl -in sysctl.proc_translated 2>/dev/null || :)" = 1 ]; then DIAG_ROSETTA=true; fi
+    DIAG_ENVIRONMENT="{\"os\":\"$DIAG_OS\",\"os_version\":\"$DIAG_OS_VERSION\",\"arch\":\"$DIAG_ARCH\",\"rosetta\":$DIAG_ROSETTA}"
+    DIAG_AVAILABLE=1
+    export ILSON_DIAG_RUN_ID ILSON_DIAGNOSTICS_DIR
+    [ "$DIAG_CHILD" = 1 ] || diag_event run-start bootstrap.start running STARTED true
+}
+diag_step_start() { DIAG_ACTIVE=$1; DIAG_REQUIRED=${2:-true}; diag_event step-start "$DIAG_ACTIVE" running STARTED "$DIAG_REQUIRED"; }
+diag_step_end() { diag_event step-end "$1" "$2" "$3" "${4:-true}" "${5:--}" "${6:-none}" "${7:--}" "${8:--}"; DIAG_ACTIVE=; }
+diag_skip() { diag_step_start "$1" "${3:-true}"; diag_step_end "$1" skipped-with-reason "$2" "${3:-true}"; }
+diag_finish() {
+    diag_rc=${1:-0}
+    [ "${DIAG_DRY:-0}" = 0 ] || return "$diag_rc"
+    [ "${DIAG_AVAILABLE:-0}" = 1 ] || return 3
+    if [ -n "${DIAG_ACTIVE:-}" ]; then diag_step_end "$DIAG_ACTIVE" failed INTERRUPTED "${DIAG_REQUIRED:-true}" "$diag_rc"; diag_rc=3; fi
+    if awk -F '\t' '$8=="step-end" && $16=="true" && $14!="ok" && $15!="DRY_RUN" && $15!="NOT_APPLICABLE" && $15!="NOT_SELECTED" {bad=1} END {exit !bad}' "$DIAG_FILE"; then [ "$diag_rc" != 0 ] || diag_rc=1; fi
+    diag_result=ok; diag_reason=OK
+    [ "$diag_rc" = 0 ] || { diag_result=failed; diag_reason=EXECUTE_FAILED; }
+    [ "${DIAG_CHILD:-0}" = 1 ] || diag_event run-end finish "$diag_result" "$diag_reason" true "$diag_rc"
+    return "$diag_rc"
+}
+diag_download() {
+    # URL is used for transfer only. Persist host enum/status; never curl stderr or URL text.
+    diag_url=$1; diag_out=$2; diag_step=${3:-download.installer}; diag_req=${4:-true}
+    diag_host=custom_host
+    case "$diag_url" in
+        https://raw.githubusercontent.com/*) diag_host=raw.githubusercontent.com ;;
+        https://codeload.github.com/*) diag_host=codeload.github.com ;;
+        https://github.com/*) diag_host=github.com ;;
+        https://claude.ai/install.sh) diag_host=claude.ai ;;
+        https://chatgpt.com/codex/install.sh) diag_host=chatgpt.com ;;
+        https://releases.herdr.dev/*) diag_host=releases.herdr.dev ;;
+        https://releases.aside.com/*) diag_host=releases.aside.com ;;
+    esac
+    diag_step_start "$diag_step" "$diag_req"
+    diag_rc=0
+    diag_http=$(curl -fsSL --connect-timeout 10 --max-time 120 -w '%{http_code}' "$diag_url" -o "$diag_out" 2>/dev/null) || diag_rc=$?
+    # Suppress arbitrary stdout from a fake/unexpected curl too.
+    case "$diag_http" in [0-9][0-9][0-9]) ;; *) diag_http=- ;; esac
+    diag_reason=OK; diag_result=ok
+    case "$diag_rc" in 0) ;; 5|6) diag_reason=DNS_FAILED ;; 22) diag_reason=HTTP_FAILED ;; 28) diag_reason=TIMEOUT ;; 35|51|58|60) diag_reason=TLS_FAILED ;; *) diag_reason=DOWNLOAD_FAILED ;; esac
+    [ "$diag_rc" = 0 ] || diag_result=failed
+    DIAG_EXIT_SOURCE=curl diag_step_end "$diag_step" "$diag_result" "$diag_reason" "$diag_req" "$diag_rc" "$diag_host" "$diag_http" "$diag_rc"
+    return "$diag_rc"
+}
+diag_next() {
+    diag_valid_id "${ILSON_DIAG_RUN_ID:-}" || return 0
+    printf '\n현재 창에서 직접 실행:\nexport PATH="$HOME/.local/bin:$PATH"; ilson doctor --install --confirm-shell current --run %s\n' "$ILSON_DIAG_RUN_ID"
+    printf '새 창을 연 뒤 직접 실행 (사용자 선언):\nilson doctor --install --confirm-shell new --run %s\n' "$ILSON_DIAG_RUN_ID"
+    case "$DIAG_EDITION" in full-mac) printf '명령 복구: "$HOME/.ilson-cli/ilson" doctor --install --run %s\n' "$ILSON_DIAG_RUN_ID" ;; *) printf '명령 복구: "$HOME/.local/bin/ilson" doctor --install --run %s\n' "$ILSON_DIAG_RUN_ID" ;; esac
+}
+diag_verify() (
+    "$@" >/dev/null 2>&1 & diag_pid=$!
+    (sleep 5; kill -TERM "$diag_pid" 2>/dev/null) >/dev/null 2>&1 & diag_timer=$!
+    diag_verify_rc=0; wait "$diag_pid" || diag_verify_rc=$?
+    kill -TERM "$diag_timer" 2>/dev/null || :
+    wait "$diag_timer" 2>/dev/null || :
+    exit "$diag_verify_rc"
+)
+diag_retain() (
+    # Root already validated. Only exact owned run files; unknown contents/links survive.
+    diag_limit=${1:-20}; diag_total=0; diag_count=0; diag_now_epoch=$(date +%s)
+    diag_inventory=$(
+        for diag_dir in "$DIAG_ROOT"/runs/*; do
+            diag_id=${diag_dir##*/}; diag_valid_id "$diag_id" || continue
+            [ -d "$diag_dir" ] && [ ! -L "$diag_dir" ] || continue
+            [ -f "$diag_dir/events.tsv" ] && [ ! -L "$diag_dir/events.tsv" ] || continue
+            diag_known=1
+            for diag_entry in "$diag_dir"/* "$diag_dir"/.[!.]*; do
+                [ -e "$diag_entry" ] || [ -L "$diag_entry" ] || continue
+                if [ "${diag_entry##*/}" = events.tsv ] || [ "${diag_entry##*/}" = events.jsonl ]; then
+                    [ ! -L "$diag_entry" ] || diag_known=0
+                else diag_known=0; fi
+            done
+            [ "$diag_known" = 1 ] || continue
+            diag_stamp=$(stat -f %m "$diag_dir/events.tsv" 2>/dev/null) || diag_stamp=$(stat -c %Y "$diag_dir/events.tsv" 2>/dev/null) || continue
+            # Recent active runs are not removed by another installer.
+            if ! awk -F '\t' '$8=="run-end" {found=1} END {exit !found}' "$diag_dir/events.tsv"; then
+                [ "$((diag_now_epoch-diag_stamp))" -ge 86400 ] || continue
+            fi
+            diag_bytes=$(wc -c < "$diag_dir/events.tsv")
+            if [ -f "$diag_dir/events.jsonl" ]; then diag_bytes=$((diag_bytes+$(wc -c < "$diag_dir/events.jsonl"))); fi
+            printf '%s %s %s\n' "$diag_stamp" "$diag_bytes" "$diag_id"
+        done | sort -rn
+    )
+    printf '%s\n' "$diag_inventory" | while read -r diag_stamp diag_bytes diag_id; do
+        diag_valid_id "${diag_id:-}" || continue
+        diag_count=$((diag_count+1)); diag_total=$((diag_total+diag_bytes))
+        if [ "$diag_count" -gt "$diag_limit" ] || [ "$diag_total" -gt 9437184 ] || [ "$((diag_now_epoch-diag_stamp))" -gt 2592000 ]; then
+            diag_dir="$DIAG_ROOT/runs/$diag_id"
+            # Exact files only, never recursive deletion or a wildcard deletion target.
+            find "$diag_dir/events.tsv" -type f -delete
+            [ ! -f "$diag_dir/events.jsonl" ] || find "$diag_dir/events.jsonl" -type f -delete
+            rmdir "$diag_dir" 2>/dev/null || :
+        fi
+    done
+)
+# DIAGNOSTICS_END
 set -u
 
 # ~/.local/bin/ilson is a symlink. Templates belong beside the real CLI.
@@ -37,6 +213,7 @@ ILSON_HOME="${ILSON_HOME:-$HOME/ilson}"
 TS_BIN="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
 [ -x "$TS_BIN" ] || TS_BIN="$HOME/Applications/Tailscale.app/Contents/MacOS/Tailscale"
 LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
+ILSON_CALLER_PATH=$PATH
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 PROBE_TCC=0; PROBE_SEARCH=0; SANDBOX=0; CODE=""; PAIRING_FILE=""
@@ -137,7 +314,7 @@ check_preflight() {
     free=$(df -g / | awk 'NR==2 {print $4}')
     if [ "${free:-0}" -ge 20 ]; then ok "디스크 여유" "${free}GB"; elif [ "${free:-0}" -ge 10 ]; then warn "디스크 여유" "${free}GB (20GB 이상 권장)"; else bad "디스크 여유" "${free}GB"; fi
     curl -fsI --max-time 5 https://gitbap.com >/dev/null 2>&1 && ok "네트워크(gitbap.com)" || bad "네트워크(gitbap.com)" "연결 실패"
-    dseditgroup -o checkmember -m "$USER" admin >/dev/null 2>&1 && ok "관리자 계정" "$USER" || bad "관리자 계정" "$USER 는 관리자가 아님"
+    dseditgroup -o checkmember -m "$USER" admin >/dev/null 2>&1 && ok "관리자 계정" || bad "관리자 계정" "현재 계정은 관리자가 아님"
     fdesetup status 2>/dev/null | grep -q "Off" && ok "FileVault 꺼짐" || warn "FileVault 상태" "암호화 유지 가능 — 재부팅 후 사람이 잠금 해제"
     if has claude; then
         ok "Claude Code 설치" "v$(claude --version 2>/dev/null | awk '{print $1}')"
@@ -155,7 +332,7 @@ check_machine() {
     [ "$(_pm autorestart)" = "1" ] && ok "정전 후 자동 재시작"    || bad "정전 후 자동 재시작" "sudo pmset -a autorestart 1"
     [ "$(_pm womp)" = "1" ]        && ok "네트워크로 깨우기(WOL)"  || warn "네트워크로 깨우기(WOL)" "sudo pmset -a womp 1"
     local al; al=$(defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser 2>/dev/null)
-    [ -n "$al" ] && ok "자동 로그인" "$al" || warn "재부팅 후 로그인" "로그인 후 예약 업무 재개 — 자동 로그인은 선택"
+    [ -n "$al" ] && ok "자동 로그인" "설정 있음" || warn "재부팅 후 로그인" "로그인 후 예약 업무 재개 — 자동 로그인은 선택"
     nc -z -G 1 localhost 22 >/dev/null 2>&1 && ok "SSH 켜짐" "포트 22" || warn "SSH 꺼짐" "Orca 원격 연결만 쓰면 불필요"
     local tz; tz=$(readlink /etc/localtime | sed 's#.*/zoneinfo/##')
     [ "$tz" = "Asia/Seoul" ] && ok "시간대" "$tz" || warn "시간대" "$tz"
@@ -369,7 +546,9 @@ check_safety() {
 }
 
 doctor() {
-    printf 'ilson doctor v0 — %s · %s\n' "$(hostname -s)" "$(date '+%Y-%m-%d %H:%M')"
+    printf '설치 요약은 ilson doctor --install (오프라인). 기본 doctor에는 기존 네트워크 점검이 포함됩니다.\n'
+    PATH="$ILSON_CALLER_PATH" python3 "$TEMPLATE/lib/install_diagnostics.py" --install || true
+    printf 'ilson doctor v0 — %s · %s\n' "[기기]" "$(date '+%Y-%m-%d %H:%M')"
     check_preflight; check_machine; check_tools; check_search; check_remote; check_box; check_tcc; check_jobs; check_safety
     printf '\n결과: ✅ %d · ⚠️ %d · ❌ %d\n' "$PASS" "$WARN" "$FAIL"
     if [ -f "$ILSON_HOME/state/setup-pending" ] || is_sandbox_box; then
@@ -614,8 +793,23 @@ setup_search_tools() {
 # Every item reports its own result so one failure does not hide later work.
 TOOL_FAILURES=0
 TOOL_RESULTS=""
+tool_step() {
+    case "$1" in
+        Homebrew) printf tools.brew ;; git|jq|gh|coreutils|python|node|claude|codex|hc) printf 'tools.%s' "$1" ;;
+        'Aside CLI') printf tools.aside ;; 'Herdr 앱') printf apps.herdr ;;
+        'Tavily CLI') printf tools.tvly ;; Obsidian) printf apps.obsidian ;; Tailscale) printf apps.tailscale ;; Aside) printf apps.aside ;;
+        *) printf tools.vendor.execute ;;
+    esac
+}
 tool_result() {
     local state="$1" name="$2" advice="${3:-}"
+    local step; step=$(tool_step "$name")
+    # Start exists before checks in setup_tools; direct callers still produce a complete pair.
+    case "$state" in
+        설치|재사용) diag_step_end "$step" ok REUSED_VERIFIED true 0 ;;
+        실패) diag_step_end "$step" failed EXECUTE_FAILED true 1 ;;
+        *) diag_step_end "$step" skipped-with-reason DRY_RUN false ;;
+    esac
     TOOL_RESULTS="${TOOL_RESULTS}  ${state} ${name}${advice:+ — $advice}
 "
     [ "$state" != 실패 ] || TOOL_FAILURES=$((TOOL_FAILURES+1))
@@ -629,17 +823,23 @@ herdr_state_present() { [ -e "$HOME/.local/share/herdr-core" ] || [ -L "$HOME/.l
 app_present() { [ -d "$HOME/Applications/$1.app" ] || [ -d "/Applications/$1.app" ]; }
 app_path_in_use() { [ -e "$HOME/Applications/$1.app" ] || [ -L "$HOME/Applications/$1.app" ] || [ -e "/Applications/$1.app" ] || [ -L "/Applications/$1.app" ]; }
 install_official_script() {
-    local url="$1" file rc
+    local url="$1" file rc step=tools.vendor
+    case "$url" in https://claude.ai/install.sh) step=tools.claude ;; https://chatgpt.com/codex/install.sh) step=tools.codex ;; esac
     file=$(mktemp) || return 1
-    if ! curl -fsSL --connect-timeout 10 --max-time 120 "$url" -o "$file"; then
-        rm -f "$file"; return 1
+    if diag_download "$url" "$file" "$step.download"; then :
+    else
+        rc=$?; diag_skip "$step.execute" DEPENDENCY_FAILED true; return "$rc"
     fi
+    diag_step_start "$step.execute"
     case "$url" in
         *herdr.dev/*) HERDR_RELEASES_URL=https://releases.herdr.dev HC_INSTALL_DIR="$HOME/.local/bin" HC_VERSION="" HC_BUNDLE_ONLY=0 /bin/sh "$file" ;;
         https://releases.aside.com/*) ASIDE_CLI_BASE_URL=https://releases.aside.com/cli ASIDE_CLI_VERSION=latest /bin/bash "$file" ;;
         *) /bin/bash "$file" ;;
     esac
-    rc=$?; rm -f "$file"; return "$rc"
+    rc=$?
+    if [ "$rc" = 0 ]; then diag_step_end "$step.execute" ok OK true "$rc"
+    else diag_step_end "$step.execute" failed EXECUTE_FAILED true "$rc"; fi
+    return "$rc"
 }
 setup_tools() {
     sec 2 "필수 도구 자동 설치"
@@ -647,6 +847,7 @@ setup_tools() {
     export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
     local dry="${ILSON_DRY_RUN:-0}" formula executable url installer rc brew_ready=1
     TOOL_FAILURES=0; TOOL_RESULTS=""
+    diag_step_start tools.brew
     if has brew; then tool_result 재사용 Homebrew
     elif [ "$dry" = 1 ]; then tool_result 예정 Homebrew; brew_ready=0
     elif [ ! -t 0 ]; then tool_result 실패 Homebrew "대화형 터미널에서 ilson setup 을 다시 실행하세요"; brew_ready=0
@@ -663,21 +864,24 @@ setup_tools() {
     for formula in git jq gh coreutils python node; do
         executable="$formula"; [ "$formula" = coreutils ] && executable=gtimeout
         [ "$formula" = python ] && executable=python3
-        if has "$executable"; then tool_result 재사용 "$formula"
+        diag_step_start "$(tool_step "$formula")"
+        if has "$executable" && diag_verify "$executable" --version; then tool_result 재사용 "$formula"
         elif [ "$dry" = 1 ]; then tool_result 예정 "$formula"
         elif [ "$brew_ready" = 1 ] && brew install "$formula" && has "$executable"; then tool_result 설치 "$formula"
         else tool_result 실패 "$formula" "Homebrew 확인 후 ilson setup 을 다시 실행하세요"; fi
     done
     for executable in claude codex; do
-        if has "$executable"; then tool_result 재사용 "$executable"; continue; fi
+        diag_step_start "tools.$executable"
+        if has "$executable" && diag_verify "$executable" --version; then tool_result 재사용 "$executable"; continue; fi
         if [ "$dry" = 1 ]; then tool_result 예정 "$executable"; continue; fi
         case "$executable" in claude) url=https://claude.ai/install.sh ;; codex) url=https://chatgpt.com/codex/install.sh ;; esac
-        if install_official_script "$url" && has "$executable"; then tool_result 설치 "$executable"
+        if install_official_script "$url" && has "$executable" && diag_verify "$executable" --version; then tool_result 설치 "$executable"
         else tool_result 실패 "$executable" "인터넷 연결을 확인하고 ilson setup 을 다시 실행하세요"; fi
     done
     local app cask
     for app in Obsidian Tailscale Aside; do
         case "$app" in Obsidian) cask=obsidian ;; Tailscale) cask=tailscale-app ;; Aside) cask=aside ;; esac
+        diag_step_start "$(tool_step "$app")"
         if app_present "$app"; then tool_result 재사용 "$app"
         elif [ "$dry" = 1 ]; then tool_result 예정 "$app" "앱 설치 생략 (시험)"
         elif app_path_in_use "$app"; then
@@ -691,6 +895,7 @@ setup_tools() {
     # old files, so preserve even broken or non-PATH installations for review.
     local aside_bin="${ASIDE_CLI_BIN_DIR:-$HOME/.local/bin}/aside"
     local aside_app="${ASIDE_CLI_INSTALL_DIR:-$HOME/.aside/cli}/Aside CLI.app"
+    diag_step_start tools.aside
     if has aside; then tool_result 재사용 "Aside CLI"
     elif [ "$dry" = 1 ]; then tool_result 예정 "Aside CLI"
     elif [ -e "$aside_bin" ] || [ -L "$aside_bin" ] || [ -e "$aside_app" ] || [ -L "$aside_app" ]; then
@@ -699,6 +904,7 @@ setup_tools() {
     else tool_result 실패 "Aside CLI" "https://aside.com/download 에서 확인 후 ilson setup 을 다시 실행하세요"; fi
     # The vendor app installer replaces ~/Applications/Herdr.app. Never run it
     # when either standard app location already contains a copy.
+    diag_step_start apps.herdr
     if app_present Herdr; then tool_result 재사용 "Herdr 앱"
     elif [ "$dry" = 1 ]; then tool_result 예정 "Herdr 앱" "앱 설치 생략 (시험)"
     elif app_path_in_use Herdr || [ -e "$HOME/.local/bin/herdr-app" ] || [ -L "$HOME/.local/bin/herdr-app" ]; then
@@ -720,6 +926,7 @@ setup_tools() {
         else tool_result 실패 "Herdr 앱" "https://herdr.dev/download/ 에서 설치하세요"; fi
     fi
     # The app installer may install core itself. Don't overwrite any existing hc.
+    diag_step_start tools.hc
     if has hc; then tool_result 재사용 hc
     elif [ "$dry" = 1 ]; then tool_result 예정 hc
     elif has herdr-core || herdr_state_present || [ -e "$HOME/.local/bin/herdr-core" ] || [ -L "$HOME/.local/bin/herdr-core" ] || [ -e "$HOME/.local/bin/hc" ] || [ -L "$HOME/.local/bin/hc" ]; then
@@ -728,6 +935,7 @@ setup_tools() {
     else tool_result 실패 hc "https://herdr.dev/core/ 에서 설치하세요"; fi
     TS_BIN=/Applications/Tailscale.app/Contents/MacOS/Tailscale
     [ -x "$TS_BIN" ] || TS_BIN="$HOME/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+    diag_step_start tools.tvly
     if has tvly; then tool_result 재사용 "Tavily CLI"
     elif [ "$dry" = 1 ]; then tool_result 예정 "Tavily CLI"
     elif [ "$brew_ready" = 1 ] && setup_search_tools; then tool_result 설치 "Tavily CLI"
@@ -737,7 +945,25 @@ setup_tools() {
     if [ "$dry" = 1 ]; then ok "도구 설치 계획 확인 (시험)"; else ok "도구 설치 확인"; fi
 }
 
+setup_exit() {
+    local rc=$?
+    trap - EXIT
+    diag_finish "$rc" || rc=$?
+    exit "$rc"
+}
 setup() {
+    diag_begin full-mac
+    trap setup_exit EXIT
+    diag_step_start setup.stage
+    local rc=0
+    setup_body || rc=$?
+    if [ "$rc" = 0 ]; then diag_step_end setup.stage ok OK true 0
+    else diag_step_end setup.stage failed EXECUTE_FAILED true "$rc"; fi
+    diag_finish "$rc" || rc=$?
+    trap - EXIT
+    return "$rc"
+}
+setup_body() {
     printf '일손 Box 기본 설치 — %s\n' "$ILSON_HOME"
     [ "$(uname -s)" = Darwin ] || die "macOS 전용입니다"
     check_architecture || return 1
@@ -756,7 +982,9 @@ setup() {
         init_step_machine
         [ "$FAIL" -eq 0 ] || return 1
     fi
-    init_step_box || return 1
+    diag_step_start vault.prepare
+    init_step_box || { diag_step_end vault.prepare failed EXECUTE_FAILED true 1; return 1; }
+    diag_step_end vault.prepare ok OK true 0
     # Re-running setup preserves the identity and credentials already on this box.
     if [ -n "$CODE" ] || [ -n "$PAIRING_FILE" ]; then
         [ ! -e "$ILSON_HOME/state/pairing.json" ] || die "연결 설정이 이미 있습니다 — 변경은 ilson pair 에서 명시하세요"
@@ -764,7 +992,9 @@ setup() {
     fi
     if [ ! -f "$ILSON_HOME/state/setup-complete" ]; then touch "$ILSON_HOME/state/setup-pending"; fi
     STAGE_ONLY=1
-    init_step_jobs || return 1
+    diag_step_start setup.jobs
+    init_step_jobs || { diag_step_end setup.jobs failed EXECUTE_FAILED true 1; return 1; }
+    diag_step_end setup.jobs ok OK true 0
     if [ "$tools_failed" = 0 ]; then
         printf '\n기본 설치 완료. 예약 업무는 아직 새로 시작하지 않았습니다.\n'
     else
@@ -847,6 +1077,17 @@ EOF
 }
 
 cmd="${1:-}"; shift || true
+case "$cmd" in --version) printf 'ilson full-mac ILSON-DIAG-1\n'; exit 0 ;; esac
+for argument in "$cmd" "$@"; do
+    case "$argument" in *—*|*–*) printf 'SMART_DASH: --help / --version처럼 ASCII 하이픈 두 개를 사용하세요.\n'; exit 2 ;; esac
+done
+export ILSON_DOCTOR_CLI="$SELF" ILSON_DOCTOR_VAULT="$ILSON_HOME/vault"
+if [ "$cmd" = doctor ]; then
+    case " $* " in
+        *' --install '*|*' --share '*)
+            PATH="$ILSON_CALLER_PATH" exec python3 -c 'import sys;sys.path.insert(0,sys.argv.pop(1));import install_diagnostics as d;sys.exit(d.main(sys.argv[1:],edition="full-mac",cli=__import__("os").environ["ILSON_DOCTOR_CLI"],vault=__import__("os").environ["ILSON_DOCTOR_VAULT"]))' "$TEMPLATE/lib" "$@" ;;
+    esac
+fi
 # Help is always read-only, regardless of position or command implementation.
 case "$cmd" in help|--help|-h) usage; exit 0 ;; esac
 for argument in "$@"; do
