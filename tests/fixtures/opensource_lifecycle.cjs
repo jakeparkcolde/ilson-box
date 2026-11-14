@@ -100,7 +100,7 @@ async function component(){
   h.ctx.IlsonOpensource.leave();assert.equal(h.timers.size,0);
   // Aborted responses deliberately ignore their signal and must not replace newer views.
   h.ctx.IlsonOpensource.mount(h.host);const stale=h.requests[3];h.ctx.IlsonOpensource.leave();
-  assert.equal(stale.options.signal.aborted,true);h.ctx.IlsonOpensource.mount(h.host);
+  assert.equal(stale.options.signal.aborted,true);assert.equal(h.timers.size,0,'leave also clears request deadline');h.ctx.IlsonOpensource.mount(h.host);
   await respond(stale,listing([{...row(),full_name:'STALE_RESPONSE'}]));assert.doesNotMatch(h.root().textContent,/STALE_RESPONSE/);
   await respond(h.requests[4],listing());
   h.ctx.IlsonOpensource.leave();assert.equal(h.timers.size,0);
@@ -126,7 +126,9 @@ async function expiry(){
   h.fire(30000);assert.equal(h.requests.length,2);
   assert.ok([...h.timers.values()].some(t=>t.ms===60000),'deadline remains armed during stalled refresh');
   h.now+=60000;h.fire(60000);assert.match(h.root().textContent,/資料|자료가 만료/);assert.equal(h.doc.querySelectorAll('a').length,0);
-  await respond(h.requests[1],{state:'expired',repos:[]});assert.equal(h.doc.querySelectorAll('a').length,0);
+  assert.equal(h.requests[1].options.signal.aborted,true,'expiry aborts pending refresh');
+  await respond(h.requests[1],listing());assert.equal(h.doc.querySelectorAll('a').length,0,'late stale body cannot reopen expired links');
+  assert.equal(h.timers.size,0);
   h.ctx.IlsonOpensource.leave();
 }
 async function shell(){

@@ -19,9 +19,9 @@
   const link = (url,label) => `<a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(label)} ↗</a>`;
   const date = value => value ? `${escape(value.slice(0,10))} (UTC)` : '확인 중';
   const state = {search:'',category:'all',filter:'all',id:null,scroll:0,windowScroll:0,focus:null};
-  let host=null, root=null, data=null, detail=null, status='loading', sequence=0, controller=null, refreshTimer=null, expiryTimer=null;
+  let host=null, root=null, data=null, detail=null, status='loading', sequence=0, controller=null, refreshTimer=null, expiryTimer=null, requestTimer=null;
   const clearTimers = () => {clearTimeout(refreshTimer);clearTimeout(expiryTimer);};
-  function cancel() {sequence++;controller?.abort();controller=null;clearTimers();}
+  function cancel() {sequence++;controller?.abort();controller=null;clearTimeout(requestTimer);requestTimer=null;clearTimers();}
   function active() {return host && root && host.contains(root);}
   function chrome() {
     root.innerHTML = `<header><h1 tabindex="-1" id="os-title">오픈소스</h1><p>내 일에 맞는 도구를 찾아보세요</p><p class="os-muted">결과 미리보기 · 설치 없이 설명과 검토된 예시를 살펴봅니다</p></header><div id="os-body"></div>`;
@@ -61,18 +61,19 @@
     if(detail?.review?.metadata_checked_at)dates.push(new Date(Date.parse(detail.review.metadata_checked_at)+72*3600000).toISOString());
     if(detail?.video)dates.push(detail.video.valid_until);
     const ends=dates.filter(Boolean).map(Date.parse).filter(Number.isFinite);
-    if(ends.length)expiryTimer=setTimeout(()=>{data=null;detail=null;status='expired';render();},Math.max(0,Math.min(...ends)-Date.now()));
+    if(ends.length)expiryTimer=setTimeout(()=>{cancel();data=null;detail=null;status='expired';render();},Math.max(0,Math.min(...ends)-Date.now()));
   }
   function schedule(){
     if(!active())return;
     clearTimers();armExpiry();
-    refreshTimer=setTimeout(()=>load(false),30000);
+    if(['ready','empty','under_review'].includes(status))refreshTimer=setTimeout(()=>load(false),30000);
   }
   async function load(showLoading=true,restore=false){
     cancel();const request=sequence;
     controller=new AbortController();const signal=controller.signal;
     if(showLoading){status='loading';detail=null;render();}else armExpiry();
-    const timeout=setTimeout(()=>controller?.abort(),15000);
+    const requestController=controller;
+    const timeout=requestTimer=setTimeout(()=>requestController.abort(),15000);
     try{
       const path=state.id?'/api/opensource/repos/'+encodeURIComponent(state.id):'/api/opensource/catalog';
       const response=await fetch(path,{signal,credentials:'same-origin',cache:'no-store'});
@@ -91,7 +92,7 @@
     }catch(error){
       if(request!==sequence||!active())return;
       data=null;detail=null;status='load_failed';render();
-    }finally{clearTimeout(timeout);}
+    }finally{clearTimeout(timeout);if(requestTimer===timeout)requestTimer=null;}
   }
   function click(event){
     const button=event.target.closest('button');if(!button||!root.contains(button))return;

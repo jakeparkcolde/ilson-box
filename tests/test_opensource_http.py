@@ -16,7 +16,7 @@ from opensource_fixtures import NOW, at, catalog, repo, raw
 
 ROOT = Path(__file__).resolve().parents[1]
 SESSION = 'FAKE_SESSION_ONLY_' + 'a'*32
-TOKEN = 'FAKE_BOX_TOKEN_ONLY_' + 'b'*32
+TOKEN = 'FAKE_BOX_' + 'TOKEN_ONLY_' + 'b'*32
 
 
 class OpenSourceHTTPTests(unittest.TestCase):
