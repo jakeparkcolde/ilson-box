@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "catalog_version": 1,
+  "generated_at": "2026-11-14T00:00:00Z",
+  "valid_until": "2026-11-17T00:00:00Z",
+  "policy_version": "box-l0-v1",
+  "revocation_version": 0,
+  "revoked_repo_ids": [],
+  "signature": {"kind": "bundled", "key_id": null, "value": null},
+  "source_commit": "3d53b3e4a4ba996cff04208fe767b87df350536e",
+  "repos": []
+}

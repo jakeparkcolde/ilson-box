@@ -62,6 +62,8 @@ STATIC = {"/dashboard": ("web/dashboard.html", "text/html; charset=utf-8"),
 
 STATIC['/approval'] = ('web/approval.html', 'text/html; charset=utf-8')
 STATIC['/approval.js'] = ('web/approval.js', 'application/javascript; charset=utf-8')
+STATIC['/current/opensource.js'] = ('web/current/opensource.js', 'application/javascript; charset=utf-8')
+STATIC['/current/opensource.css'] = ('web/current/opensource.css', 'text/css; charset=utf-8')
 STATIC['/current/replies.js'] = ('web/current/replies.js', 'application/javascript; charset=utf-8')
 
 STATIC['/people'] = ('web/people.html', 'text/html; charset=utf-8')
@@ -489,6 +491,8 @@ class Box:
         self.secret_lock = threading.Lock()
         self._workspace = None
         self.workspace_lock = threading.Lock()
+        from opensource_catalog import Catalog
+        self.opensource_catalog = Catalog(self.files.read, clock=self.clock, redact=self.redact)
 
     def workspace(self):
         with self.workspace_lock:
@@ -1009,6 +1013,19 @@ class Handler(BaseHTTPRequestHandler):
                 raise AdminError("관리자 화면 파일이 없습니다. ilson setup으로 갱신해주세요.", 404) from None
             return self.reply(200, raw, kind)
         self.require_session()
+        if path == '/api/opensource/catalog' or path.startswith('/api/opensource/repos/'):
+            from access_policy import require_owner, AccessDenied
+            try:
+                require_owner(self.server.box.home)
+            except AccessDenied:
+                raise AdminError('오픈소스 메뉴는 회사 대표만 사용할 수 있습니다.', 403) from None
+            repo_id = None
+            if path != '/api/opensource/catalog':
+                repo_id = path.removeprefix('/api/opensource/repos/')
+                if not re.fullmatch(r'[a-f0-9]{32}', repo_id):
+                    raise AdminError('자료를 찾을 수 없습니다.', 404)
+            result = self.server.box.opensource_catalog.snapshot(repo_id)
+            return self.reply(404 if result['state'] == 'unavailable' else 200, result)
         if path == '/api/inbox-files':
             from inbox_files import list_files
             return self.reply(200, {'files':list_files(self.server.box.home)})
