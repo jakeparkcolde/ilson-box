@@ -36,3 +36,26 @@
 
 복사용 재개 프롬프트:
 > 이 worktree의 HANDOFF-impl3.md와 PROGRESS-company-multi-user.md를 읽고 IMPL-3 구현을 이어가라. mode 결정됨(단독 구현/AGY 나중). t2v5 추가 AI 격리 결정을 유지하고, 실행 중 company-tests 결과를 먼저 확인하라. 실제 ACL·사용자 변경/push/Release/Mac mini/.env 금지. 최종 full suite와 agy-impl3-review 번들을 완성하여 hc send t2v5로 한국어 보고하라.
+
+## 최신 체크포인트 (2026-11-14, 앞의 진행 중 상태를 대체)
+- 제품·문서 구현은 커밋됨: 338ec29 → ce4922d → 8044944 → 00e8d4e → 2c397ed.
+- 작업 트리: 코드/문서 clean, agy-impl3-review/ 전달 자료만 untracked(초안 BRIEF, diff는 최종 생성 필요).
+- 새 회사 테스트 21개 단독 통과. 관리자 41개, weekly 8개 재통과.
+- t36c 첫 suite 952개 failures8/errors23/skip40 → 원인 수정 후 제거.
+- t36g 두 번째 suite 958개 failure1/skip40. 기존943개 모두 통과, 새 selflearn 테스트만 course 모듈 캐시를 참조한 문제. Box 파일을 명시 로드하도록 2c397ed에서 수정 후 t36g 제거.
+- **현재 실행**: hc `company-regression` 주소 **t36j**, 부모 t366, 로그 `.scratch/company-regression.log`. `python3 -B -m unittest discover -s tests -v </dev/null` 최종 전체(943+21 예상). 완료 결과 수집/실패 수정, 소유 터미널 제거가 다음 행동.
+- 승인 actor 실제 person ID, offboard cached group 새 경로 deny, shared parent root755/nonlink+원자 mkdir, 모델 timeout/pause 그룹종료, 직원 명령 고정 원인 안내까지 반영됨.
+- 남음: 최종 전체 확인→PROGRESS/HANDOFF 최종 기록 커밋→AGY BRIEF 대상 HEAD/결과 확정→`git diff --binary e67f806..HEAD > agy-impl3-review/target.diff`→hc send t2v5 한국어 보고. AGY 실행 금지.
+- 최종 실기는 여전히 승인된 시험 Mac에서 후속. 회사 selflearn 별도 private 산출물의 사용성과 공유 client 갱신 흐름은 BRIEF 중점 검토 항목에 명시.
+
+## 총괄 중단 경계 (2026-11-14)
+총괄이 세션 컨텍스트 약 73%(189k/258k)를 알려 주며 **새 구현 금지, 진행 중 회귀 결과 수집과 검토 번들만 마무리**하도록 지시했다. 이후 제품 코드·테스트는 수정하지 않았다. 마지막 제품/테스트 커밋은 2c397ed이다. 회귀가 실패하면 다음 작업자가 재현·수정한다.
+
+추가 검토 메모(미재현, 확정 결함 판정 아님): `template/lib/curator.py`의 collect_notes는 company 경로에서도 policy.read 전에 path.lstat()로 크기/링크 수를 본다. 본문 읽기는 FD 정책을 거치지만, 열거 이후 부모를 바꾸는 경쟁에서 외부 메타데이터를 먼저 조회할 가능성은 다음 작업자가 검토할 것. 회사 경로는 metadata도 FD로만 조회하는 보강 여부를 판단한다. 새 구현 금지 지시 이후라 이 부분은 수정/추가 재현하지 않았다.
+
+## 최종 결과 · 2026-11-14
+- t36j 종료 0: **964 tests / 362.146s / OK (skipped=40)**. 실패 목록 없음. `.scratch/company-regression.log`에 전체 로그. 마지막 제품/테스트 커밋 2c397ed.
+- t36j 소유 terminal 제거. 기록한 테스트 PID 56659 및 자식 90327 모두 종료 확인. 남긴 작업 프로세스 없음. 별도 서버/브라우저/미디어 없음, 기존 타 세션은 보존.
+- shell 구문·변경 Python AST·diff 공백 검사 통과. 실제 권한 적용·기기/모델·출하 검증은 미실행.
+- 다음 작업자는 agy-impl3-review/BRIEF.md의 검토 항목, 특히 실제 ACL·Claude restricted 경계와 미재현 curator metadata 경쟁을 검토한다. AGY는 총괄이 실행. 이 작업자는 제품 변경을 멈추고 검토 전달만 완료했다.
+- 재검증 명령: `python3 -B -m unittest discover -s tests -v </dev/null`. 새 경계만: `python3 -B -m unittest discover -s tests -p test_company_access.py -v </dev/null`.

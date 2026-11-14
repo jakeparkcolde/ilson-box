@@ -42,3 +42,11 @@
 ### 두 번째 전체 회귀
 - 958개/358.939초, 실패 1개/skip 40. 기존 943개는 모두 통과했고 새 learning 테스트가 강의판 `selflearn` 모듈 캐시를 잘못 참조했다. 테스트가 Box 원본을 명시 로드하도록 수정했다(제품 실패로 숨기지 않고 원인을 구분).
 - 새 검사 21개와 이후 보강을 포함한 현재 HEAD로 최종 전체 회귀를 다시 실행한다. t36g는 결과 수집 후 제거.
+
+## 최종 전달 체크포인트 · 2026-11-14
+- 제품/테스트 기준 커밋: 2c397ed. 최종 `python3 -B -m unittest discover -s tests -v </dev/null`: **964개, 실패/오류 0, skip 40, 362.146초**, exit 0. 로그 `.scratch/company-regression.log`.
+- 기존 baseline 943개 + 새 회사 경계 21개. 변경 Python AST·shell syntax·git diff --check 통과. 개인 절대경로 literal 간이 점검 통과(공개 Release 검사의 대체가 아님).
+- 실제 macOS 계정/그룹/ACL, 실제 모델/두 UID/SSH/GUI/재부팅, push/Release·Mac mini 반영·학생 안내는 미실행. AGY가 독립 검토하고 총괄이 merge/출하 절차를 진행한다.
+- 총괄의 약73% 컨텍스트 중지 지시 이후 새 제품 코드는 작성하지 않았다. 미재현 curator lstat/parent-swap metadata 검토 항목은 HANDOFF·AGY BRIEF에 명시했다.
+- 검토 자료: agy-impl3-review/BRIEF.md와 target.diff (e67f806..전달 HEAD). 자료는 Git 추적 밖에 보관하여 diff가 자기 자신을 포함하지 않는다.
+- Close-out 2026-11-14: t36c/t36g/t36j 결과 수집 후 소유 테스트 터미널 제거. 최종 PID 56659와 기록한 자식 90327 종료 확인. 직접 시작한 브라우저·미리보기·공유 서버 없음. 기존 서비스/타 세션 유지. 미디어 산출물 없으므로 My Book 이동 대상 0. 테스트 재실행 명령은 위와 같음.
