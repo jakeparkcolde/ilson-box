@@ -251,7 +251,12 @@ class ConsumerTests(CompanyFixture):
             api.assert_not_called()
 
     def test_learning_storage_is_private_and_legacy_notes_preserved(self):
-        import selflearn
+        import importlib.util
+        # Other suites load the course module as selflearn; select the Box source
+        # explicitly so this assertion cannot accidentally exercise the course edition.
+        spec = importlib.util.spec_from_file_location('company_selflearn_test', LIB / 'selflearn.py')
+        selflearn = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(selflearn)
         legacy = self.runtime / 'vault/lessons'
         legacy.mkdir(parents=True)
         (legacy / 'approved-learning.md').write_text('LEGACY_PRIVATE')
