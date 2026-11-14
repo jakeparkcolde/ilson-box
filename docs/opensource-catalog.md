@@ -1,6 +1,6 @@
 # L0 catalog contract — schema 1, box-l0-v1
 
-Stage B consumes only `data/opensource/catalog.json` from the trusted installed
+Stage B consumes only `web/current/opensource-catalog.json` from the trusted installed
 Box distribution. It never fetches, updates or writes a catalog. The distributed
 catalog is deliberately empty. Candidate research is not publication approval.
 
@@ -99,4 +99,5 @@ The existing session, licence, Host/Origin and runtime-update lock guards remain
 in force. Company owner checks run on both reads. No workspace/AI/tool/installer
 is initialized by these endpoints. Existing authentication/config reads and the
 shared runtime lock are infrastructure; the only content read is the fixed
-catalog. The raw catalog is not registered as a public static asset.
+catalog. The file lives under web/current so the existing installer and update
+allow-list include it, but is not registered as a public static asset.

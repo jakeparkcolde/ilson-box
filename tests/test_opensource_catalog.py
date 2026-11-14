@@ -90,7 +90,7 @@ class CatalogTests(unittest.TestCase):
 
     def test_text_is_data_not_html_commands_paths_or_secrets(self):
         for value in ['한국어 <script>alert(1)</script>', '한국어 `명령`', '한국어 curl https://fake.example',
-                      '한국어 npm install fake', '한국어 token=FAKE_SECRET', '한국어 /Users/fake/private', '한국어 sk-FAKE_ONLY']:
+                      '한국어 npm install fake', '한국어 token=FAKE_SECRET', '한국어 /Users/' + 'fake/private', '한국어 sk-FAKE_ONLY']:
             row=repo();row['mild_md']=value
             store=oc.Catalog(lambda *_:(raw(catalog(row)),None),clock=lambda:NOW)
             self.assertEqual(store.snapshot()['repos'],[])
@@ -172,6 +172,9 @@ class CatalogTests(unittest.TestCase):
             self.assertEqual(self.snapshot(doc)['repos'],[])
             self.assertIsNone(self.store.snapshot('a'*32)['repo'])
         self.assertEqual(self.store.revocation_version,3)
+        newer=catalog(repo(),repo('e'*32,2),version=7,revocation=2)
+        self.assertEqual(self.snapshot(newer)['catalog_version'],6)
+        self.assertEqual(self.store.snapshot()['warning'],'older_version')
 
     def test_valid_empty_replaces_good_and_does_not_extend_old_version(self):
         self.snapshot();result=self.snapshot(catalog(version=2))

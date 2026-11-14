@@ -13,7 +13,7 @@ import re
 import threading
 import time
 
-CATALOG_PATH = 'data/opensource/catalog.json'
+CATALOG_PATH = 'web/current/opensource-catalog.json'
 MAX_BYTES = 1024 * 1024
 MAX_REPOS = 500
 POLICY_VERSION = 'box-l0-v1'
@@ -262,7 +262,7 @@ class Catalog:
                     self.revoked.update(doc['revoked_repo_ids'])
                     self.revocation_version = doc['revocation_version']
                 if self.good and (doc['catalog_version'] < self.good['catalog_version'] or
-                    doc['revocation_version'] < self.good['revocation_version'] or
+                    doc['revocation_version'] < self.revocation_version or
                     (doc['catalog_version'] == self.good['catalog_version'] and digest != self.digest)):
                     failure = 'older_version'
                 else:

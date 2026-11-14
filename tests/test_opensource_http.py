@@ -116,7 +116,7 @@ class OpenSourceHTTPTests(unittest.TestCase):
             self.assertEqual(self.request()[0],200)
             self.assertEqual(self.request('/api/opensource/repos/'+'a'*32)[0],200)
         self.box.workspace.assert_not_called()
-        self.assertTrue(all(c.args==('data/opensource/catalog.json',1024*1024) for c in self.reader.call_args_list))
+        self.assertTrue(all(c.args==('web/current/opensource-catalog.json',1024*1024) for c in self.reader.call_args_list))
 
     def test_static_assets_registered_without_raw_catalog_access(self):
         page=(ROOT/'template/web/current/index.html').read_text()
@@ -126,8 +126,15 @@ class OpenSourceHTTPTests(unittest.TestCase):
             self.assertTrue(mime.startswith(kind));self.assertTrue((ROOT/'template'/relative).is_file())
             self.assertIn(name,page)
         self.assertLess(page.index('src="opensource.js"'),page.index('src="shell.js"'))
-        self.assertFalse(any('data/opensource' in k or 'data/opensource' in v[0] for k,v in admin.STATIC.items()))
-        self.assertEqual(self.request('/data/opensource/catalog.json')[0],404)
+        self.assertFalse(any('opensource-catalog.json' in k or 'opensource-catalog.json' in v[0] for k,v in admin.STATIC.items()))
+        self.assertEqual(self.request('/current/opensource-catalog.json')[0],404)
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('opensource_update_allowlist',ROOT/'tools/update.py')
+        updater=importlib.util.module_from_spec(spec);spec.loader.exec_module(updater)
+        self.assertTrue(updater.allowed('cli','template/web/current/opensource-catalog.json'))
+        self.assertTrue(updater.allowed('box','web/current/opensource-catalog.json'))
+        installer=(ROOT/'ilson').read_text()
+        self.assertIn('cp -R "$TEMPLATE/web/." "$ILSON_HOME/web/"',installer)
         response=self.request()
         self.assertIn("connect-src 'self'",response[1]);self.assertIn('Cache-Control: no-store',response[1])
 
