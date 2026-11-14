@@ -38,3 +38,16 @@
 - 로컬 변경 파일 개인정보/키/호스트 패턴 검사: 초기에는 경로 차단 정규식 리터럴 자체가 external-drive 패턴에 걸림. 동등한 그룹 정규식으로 표현해 오탐을 없앴고 hard/soft 0건 확인. 실제 개인 절대 경로·호스트·키 없음.
 
 - 화면 자체 점검에서 30초 로컬 재조회 중 입력 초점이 사라질 수 있는 점을 보완. 검색의 초점/선택 영역과 목록 스크롤을 유지하며, 합성 DOM 회귀에 추가해 전용 23개 PASS. 완료 실행 `t38p`의 화면 회귀는 이 최종 JS/fixture를 읽어 검증한다.
+
+## 최종 검증·검수 인계
+
+2026-11-14 · 구현 코드 `353681f0ddb3513aa9827f5ebc708280c09f652b` 검증 완료.
+
+- 최종 전체 명령: `python3 -m unittest discover -s tests </dev/null` (TMPDIR은 승인된 Studio scratch로 지정, 결과는 무시된 `.scratch/stage-b-unittest-complete.log`). **987개 / 434.865초 / OK / skipped=40 / exit=0**. 기준 964개에 전용 23개 추가, skip 수 동일.
+- 최종 로그 SHA-256: `0908d892feb6b6495ff1d32329f9523e45866923b3a4b1e61a95d4b16ab2e2bd`.
+- 앞선 보완 중간 실행도 987개/skip40 PASS(421.580초, 437.580초). 처음의 1 failure+1 error는 위 기록의 TMPDIR 경계/실행 중 경로 이동에서 발생했으며 최종 실행에서 해결 확인.
+- 전용 23개, Node 합성 DOM, JS/Python 구문, diff 공백, 개인정보 hard/soft 0건, course 무변경 확인. 실제 브라우저/시각 QA·실서비스 링크 확인·원격 서명 검증은 수행하지 않음.
+- 최종 계약: `docs/opensource-catalog.md`; 출하 데이터: `template/web/current/opensource-catalog.json`의 빈 목록. 조사 후보 15개 미포함. Stage A의 실제 승인 자료와 Stage C의 서명/영속 anti-rollback은 후속.
+- AGY 대상: 기준 `3d53b3e4a4ba996cff04208fe767b87df350536e`부터 이 기록을 포함한 최종 HEAD까지. Studio 인계 폴더 `agy-impl-review/BRIEF.md` + `target.diff`로 전달하며 AGY는 실행하지 않는다. 총괄 t2v5가 검수·근거 대조 후 로컬 병합을 결정한다.
+- 승인 경계 준수: push/Release/deploy/학생 전달/운영 접속/외부 네트워크/실제 비밀 조회 없음. 설치·실행·명령 복사·새 운영 잡 없음. 다른 메뉴와 course 변경 없음.
+- Close-out 2026-11-14: 미디어 0건으로 아카이브 대상 없음. 새 브라우저/프리뷰/자동화 에이전트 없음. 테스트 helper t38g/t38k/t38n/t38p는 전부 종료·자동 정리, 기록된 PID 58818/18799/92684/37074 부재 확인. 기존 서비스/사용자 세션 미변경. 검수용 브랜치와 워크트리 보존, 재시작할 미리보기 없음.
