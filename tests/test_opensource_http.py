@@ -60,6 +60,8 @@ class OpenSourceHTTPTests(unittest.TestCase):
                     before=self.reader.call_count
                     response=self.request(path,**options)
                     self.assertEqual(response[0],code,response)
+                    self.assertNotIn('ilson open',str(response))
+                    self.assertNotIn('ilson license activate',str(response))
                     self.assertEqual(self.reader.call_count,before,'refused requests never read catalog')
                 self.assertEqual(self.request(path,role='owner')[0],200)
                 self.now+=3601

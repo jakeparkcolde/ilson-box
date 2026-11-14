@@ -32,6 +32,7 @@ LICENSES = {'MIT', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 'ISC',
 UNSAFE = re.compile(
     r'<|>|`|\$\(|(?:^|\s)(?:curl|wget|sudo|npx|bash|sh|chmod|chown)\s|'
     r'\b(?:pip3?|npm|brew)\s+install\b|\bgit\s+clone\b|\bdocker\s+run\b|'
+    r'(?:^|\n)\s*(?:[$#]\s*)?(?:python3?|node|deno|bun|npm|pnpm|yarn|pip3?|uv|brew|git|docker|podman|echo|printf|cat|cp|mv|rm|mkdir|rmdir)\b|'
     r'/Users/|/Volumes/|\.env\b|-----BEGIN|\b(?:sk-|ghp_|github_pat_)[A-Za-z0-9_-]+|'
     r'\b\d{5,15}:[A-Za-z0-9_-]{20,200}\b|\b(?:api[_ -]?key|token|secret)\s*[:=]', re.I)
 

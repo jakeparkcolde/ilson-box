@@ -935,9 +935,9 @@ class Handler(BaseHTTPRequestHandler):
             raise AdminError("요청 주소를 확인해주세요.", 404)
         return unquote(parsed.path)
 
-    def require_session(self):
+    def require_session(self, message=None):
         if not self.server.box.authenticated(self.session()):
-            raise AdminError("연결이 필요합니다. 터미널에서 ilson open으로 열어주세요.", 401)
+            raise AdminError(message or "연결이 필요합니다. 터미널에서 ilson open으로 열어주세요.", 401)
 
     def body(self, limit=BODY_LIMIT):
         if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
@@ -966,6 +966,8 @@ class Handler(BaseHTTPRequestHandler):
             if not licensed and approval_path not in ('/health', '/api/health') and not approval_safe:
                 if self.command in ('GET', 'HEAD') and not urlsplit(self.path).path.startswith('/api/'):
                     return self.reply(200, '<!doctype html><meta charset="utf-8"><title>일손 라이선스</title><h1>일손 라이선스가 필요합니다</h1><p>터미널에서 ilson license activate 를 실행하세요.</p><p><a id="approval" href="/approval">승인 대기함 보기·취소</a></p><script>document.getElementById("approval").href+=location.hash</script>'.encode(), 'text/html; charset=utf-8')
+                if approval_path.startswith('/api/opensource/'):
+                    return self.reply(403, {'error':'일손 라이선스가 필요합니다. 이용 권한을 확인해 주세요.'})
                 return self.reply(403, {'error':'라이선스가 필요합니다. ilson license activate를 실행하세요.'})
             if urlsplit(self.path).path in ('/health','/api/health'):callback()
             else:
@@ -1012,7 +1014,7 @@ class Handler(BaseHTTPRequestHandler):
             except (FileNotFoundError, Unreadable):
                 raise AdminError("관리자 화면 파일이 없습니다. ilson setup으로 갱신해주세요.", 404) from None
             return self.reply(200, raw, kind)
-        self.require_session()
+        self.require_session('접속이 만료되었습니다. 다시 연결해 주세요.' if path.startswith('/api/opensource/') else None)
         if path == '/api/opensource/catalog' or path.startswith('/api/opensource/repos/'):
             from access_policy import require_owner, AccessDenied
             try:

@@ -90,7 +90,7 @@ class CatalogTests(unittest.TestCase):
 
     def test_text_is_data_not_html_commands_paths_or_secrets(self):
         for value in ['한국어 <script>alert(1)</script>', '한국어 `명령`', '한국어 curl https://fake.example',
-                      '한국어 npm install fake', '한국어 token=FAKE_SECRET', '한국어 /Users/' + 'fake/private', '한국어 sk-FAKE_ONLY']:
+                      '한국어 npm install fake', '한국어\npython3 -c fake', '한국어\n$ npm run fake', '한국어 token=FAKE_SECRET', '한국어 /Users/' + 'fake/private', '한국어 sk-FAKE_ONLY']:
             row=repo();row['mild_md']=value
             store=oc.Catalog(lambda *_:(raw(catalog(row)),None),clock=lambda:NOW)
             self.assertEqual(store.snapshot()['repos'],[])
