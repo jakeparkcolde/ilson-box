@@ -12,16 +12,21 @@ import access_policy as access
 
 # D-e is deliberately an on-site checklist, not automated machine configuration.
 RIGHTS = 'read,write,append,execute,delete_child,readattr,writeattr,readextattr,writeextattr,readsecurity,file_inherit,directory_inherit'
+READ_RIGHTS = 'read,execute,readattr,readextattr,readsecurity,file_inherit,directory_inherit'
+
+class CompanyError(ValueError):
+    pass
+
 CLIENT_FILES = ('access_policy.py', 'company.py', 'curator.py', 'company_runtime.py', 'install_diagnostics.py')
 
 
 def account(value, role):
     fields = value.split(':')
     if len(fields) != 2 or not all(access.ID.fullmatch(f) for f in fields):
-        raise ValueError('사람은 변경하지 않을 ID:macOS계정 형식으로 지정하세요.')
+        raise CompanyError('사람은 변경하지 않을 ID:macOS계정 형식으로 지정하세요.')
     entry = pwd.getpwnam(fields[1])
     if entry.pw_uid < 501:
-        raise ValueError('일반 사용자 계정만 연결하세요.')
+        raise CompanyError('일반 사용자 계정만 연결하세요.')
     return dict(id=fields[0], account=entry.pw_name, uid=entry.pw_uid, role=role, active=True)
 
 
@@ -45,12 +50,13 @@ def init_plan(config, source):
         ['/usr/bin/install', '-d', '-m', '755', str(vault / 'people')],
         ['/usr/bin/install', '-d', '-m', '700', str(vault / 'company'), str(vault / 'management')],
         ['/usr/bin/chgrp', group, str(vault / 'company')],
-        ['/bin/chmod', '+a', f'group:{group} allow {RIGHTS}', str(vault / 'company')]]
+        ['/bin/chmod', '+a', f"group:{group} allow {RIGHTS if config['defaults']['company_staff_write'] else READ_RIGHTS}", str(vault / 'company')]]
     for p in config['people']:
         commands += [['/usr/sbin/dseditgroup', '-o', 'edit', '-a', p['account'], '-t', 'user', group],
             ['/usr/bin/install', '-d', '-m', '700', str(vault / 'people' / p['id'])],
             ['/bin/chmod', '+a', f"user:{p['account']} allow {RIGHTS}", str(vault / 'people' / p['id'])]]
         if p['role'] == 'owner':
+            commands.append(['/bin/chmod', '+a', f"user:{p['account']} allow {RIGHTS}", str(vault / 'company')])
             commands.append(['/bin/chmod', '+a', f"user:{p['account']} allow {RIGHTS}", str(vault / 'management')])
     for name in CLIENT_FILES:
         commands.append(['/usr/bin/install', '-m', '644', str(Path(source) / name), str(base / 'client' / name)])
@@ -63,7 +69,7 @@ def init_plan(config, source):
 def offboard_plan(config, person):
     p = next((p for p in config['people'] if p['id'] == person and p['role'] == 'staff' and p['active']), None)
     if p is None:
-        raise ValueError('활성 직원 ID를 확인하세요.')
+        raise CompanyError('활성 직원 ID를 확인하세요.')
     vault = Path(config['vault'])
     dest = vault / 'management/offboarding' / person
     # Move and revoke ACL before marking inactive. Root owns the anchor; preserving
@@ -80,12 +86,22 @@ def offboard_plan(config, person):
         ['/bin/chmod', '+a', f"user:{owner['account']} allow {RIGHTS}", str(dest.parent)]]
 
 
+def anchor_script():
+    # mkdir is atomic under macOS's root-owned sticky /Users/Shared. If another
+    # user pre-created Ilson, reject it before install/chmod can follow anything.
+    shared = shlex.quote(str(access.SHARED))
+    return (f'if ! /bin/mkdir -m 755 {shared} 2>/dev/null; then\n'
+            f'  /bin/test ! -L {shared}\n'
+            f'  /bin/test "$(/usr/bin/stat -f %u:%Lp {shared})" = "0:755"\n'
+            'fi')
+
+
 def apply_plan(commands, config):
     # No sudo, shell password reading or credentials in argv. Standard macOS GUI prompt.
     if sys.platform != 'darwin':
-        raise ValueError('ACL 적용은 macOS에서만 지원합니다.')
+        raise CompanyError('ACL 적용은 macOS에서만 지원합니다.')
     base = access.SHARED / config['id']
-    text = 'set -eu\numask 077\n' + '\n'.join(shlex.join(c) for c in commands)
+    text = 'set -eu\numask 077\n' + anchor_script() + '\n' + '\n'.join(shlex.join(c) for c in commands)
     payload = json.dumps(config, ensure_ascii=False, indent=2) + '\n'
     text += '\nprintf %s ' + shlex.quote(payload) + ' > ' + shlex.quote(str(base / 'company.json.next'))
     text += '\n/bin/chmod 644 ' + shlex.quote(str(base / 'company.json.next'))
@@ -120,7 +136,7 @@ def join(ident, user_home=None):
     config = access.validate(access._trusted_config(access.SHARED / ident / 'company.json'))
     actor = access.resolve_actor(config)
     if actor.role != 'staff':
-        raise ValueError('대표는 기존 Box를 사용하세요. join은 직원 연결 명령입니다.')
+        raise CompanyError('대표는 기존 Box를 사용하세요. join은 직원 연결 명령입니다.')
     user_home = Path(user_home or Path.home())
     local = user_home / '.ilson-company' / ident
     if user_home.stat().st_uid != os.geteuid():
@@ -140,7 +156,7 @@ def join(ident, user_home=None):
         with access.directory(binary.parent) as fd:
             prior, _ = access.read_regular(fd, binary.name, 10000)
         if prior != wrapper.encode():
-            raise ValueError('기존 ilson 명령을 보존했습니다. 별도 계정/기존 설치를 확인하세요.')
+            raise CompanyError('기존 ilson 명령을 보존했습니다. 별도 계정/기존 설치를 확인하세요.')
     else:
         private_write(binary, wrapper.encode(), 0o700)
     print(f'직원 연결 준비 완료: {workspace}\n이 폴더에서 본인 Claude 로그인·신뢰 확인을 마치세요. 자동 업무는 설치하지 않았습니다.')
@@ -163,7 +179,7 @@ def client(home, args):
     if command == 'company' and args[1:] == ['status']:
         print('회사 연결 활성 · 직원 · 웹 로그인 미지원')
         return 0
-    raise ValueError('회사 런타임은 대표 전용입니다. 직원은 본인 Claude·curator·doctor를 사용하세요.')
+    raise CompanyError('회사 런타임은 대표 전용입니다. 직원은 본인 Claude·curator·doctor를 사용하세요.')
 
 
 def main(argv=None):
@@ -212,17 +228,17 @@ def main(argv=None):
                 print('계획만 표시했습니다. 본문을 검토한 뒤 --apply로 명시적으로 공개하세요.')
                 return 0
             if not sys.stdin.isatty() or input('검토한 본문을 직원에게 공개합니까? [yes/N] ').strip() != 'yes':
-                raise ValueError('공개 취소')
+                raise CompanyError('공개 취소')
             policy.create(args.to, raw)
             print('공용 새 문서 저장 완료. 원본 관리 문서는 보존했습니다.')
             return 0
         if args.action == 'init':
             home = Path(args.home).absolute()
             if home.is_symlink() or home.stat().st_uid != os.geteuid() or not (home / 'lib').is_dir():
-                raise ValueError('대표의 기존 Box 설치를 먼저 확인하세요.')
+                raise CompanyError('대표의 기존 Box 설치를 먼저 확인하세요.')
             config = configuration(args.id, home, account(args.owner, 'owner'), [account(p, 'staff') for p in args.staff])
             if (access.SHARED / args.id).exists():
-                raise ValueError('기존 회사 폴더를 보존했습니다. 재실행으로 ACL을 초기화하지 않습니다.')
+                raise CompanyError('기존 회사 폴더를 보존했습니다. 재실행으로 ACL을 초기화하지 않습니다.')
             commands = init_plan(config, Path(__file__).parent)
             print('기존 vault 노트: 자동 이관 0. 대표가 파일별 공개 범위·백업·목적지를 검토한 이관 목록을 먼저 작성하세요.')
         else:
@@ -235,18 +251,23 @@ def main(argv=None):
             for p in config['people']:
                 if p['id'] == args.person:
                     p['active'] = False
+        print('공유 상위 폴더: root 소유·755·링크 아님을 확인, 없을 때만 원자적으로 생성')
+        print(anchor_script())
         print('\n'.join(shlex.join(c) for c in commands))
         print('설정 저장: 회사 ID·UID·역할·기본 정책 (root 소유, 직원 수정 불가)')
         if not args.apply or args.dry_run:
             print('계획만 표시했습니다. 변경 0. --apply로 계획을 확인하고 macOS 관리자 인증 후 적용합니다.')
             return 0
         if not sys.stdin.isatty() or input('위 계획을 적용합니까? [yes/N] ').strip() != 'yes':
-            raise ValueError('계획 적용을 취소했습니다.')
+            raise CompanyError('계획 적용을 취소했습니다.')
         apply_plan(commands, config)
         if args.action == 'init':
             connection(args.home, config['id'])
         print('설정 적용 완료. 두 사용자 실기·SSH·재부팅 복구 점검은 현장 체크리스트로 확인하세요.')
         return 0
+    except (CompanyError, access.AccessDenied) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     except (OSError, ValueError, KeyError, subprocess.SubprocessError):
         print('회사 설정 미완료: 계정·경로·기존 설치·권한을 확인하세요. 기존 데이터는 자동 이관하지 않습니다.', file=sys.stderr)
         return 1

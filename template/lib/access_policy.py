@@ -132,6 +132,11 @@ def can_access(config, actor, resource, action='read', *, company_only=False):
 
 
 def _trusted_config(path):
+    # A root-owned config inside an employee-writable parent is not authoritative.
+    with directory(SHARED) as shared:
+        anchor = os.fstat(shared)
+        if anchor.st_uid != 0 or anchor.st_mode & 0o022:
+            deny()
     with directory(path.parent) as fd:
         parent = os.fstat(fd)
         raw, info = read_regular(fd, path.name, 65536)
