@@ -1089,7 +1089,11 @@ start_jobs() {
     jq -e --arg p "$ILSON_HOME" '.projects[$p].hasTrustDialogAccepted == true' "$HOME/.claude.json" >/dev/null 2>&1 ||
         die "박스 폴더에서 claude 를 열어 폴더 신뢰를 확인하세요"
     local company
-    company=$(sed -n 's/^- 회사명: *//p' "$ILSON_HOME/vault/CONTEXT.md" | head -1)
+    local context="$ILSON_HOME/vault/CONTEXT.md"
+    if [ -e "$ILSON_HOME/state/company.json" ]; then
+        context="$(python3 "$TEMPLATE/lib/access_policy.py" --home "$ILSON_HOME" vault)/company/CONTEXT.md"
+    fi
+    company=$(sed -n 's/^- 회사명: *//p' "$context" | head -1)
     case "$company" in ''|'('* ) die "회사 정보가 비어 있습니다 — 박스 폴더에서 claude /onboard 를 실행하세요" ;; esac
     STAGE_ONLY=0
     init_step_jobs || return 1
@@ -1112,6 +1116,7 @@ usage() {
   license activate | status                    시리얼 활성화·상태 확인
   chat                                        설치·관리까지 가능한 대화 (auto 자동 심사)
   learn                                       반복 업무 제안·학습 기준 관리
+  company init|join|status|offboard             회사 구성·직원 연결 (company --help)
   curator | diary [--status|--on|--off]         로컬 지식 정리 (새 노트만, 최초 OFF)
   curator --auto-on | --auto-off              전체판 23:00 정리 설정 (watchdog 필요)
   skill share|list|get|withdraw                 승인형 스킬 나눔
@@ -1135,6 +1140,20 @@ case "$cmd" in --version) printf 'ilson full-mac ILSON-DIAG-1\n'; exit 0 ;; esac
 for argument in "$cmd" "$@"; do
     case "$argument" in *—*|*–*) printf 'SMART_DASH: --help / --version처럼 ASCII 하이픈 두 개를 사용하세요.\n'; exit 2 ;; esac
 done
+# Company membership is checked before licence, service or update dispatch.
+if [ "$cmd" = company ]; then
+    exec python3 "$TEMPLATE/lib/company.py" --home "$ILSON_HOME" "$@"
+fi
+case "$cmd" in
+    doctor|curator|diary|help|--help|-h|'') ;;
+    *) if [ -e "$ILSON_HOME/state/company.json" ] || [ -L "$ILSON_HOME/state/company.json" ]; then
+           python3 "$TEMPLATE/lib/access_policy.py" --home "$ILSON_HOME" guard || exit 1
+       fi ;;
+esac
+if [ "$cmd" = doctor ] && [ -e "$ILSON_HOME/state/company.json" ]; then
+    python3 "$TEMPLATE/lib/access_policy.py" --home "$ILSON_HOME" doctor || exit 1
+    case " $* " in *' --install '*|*' --share '*) ;; *) exit 0 ;; esac
+fi
 export ILSON_DOCTOR_CLI="$SELF" ILSON_DOCTOR_VAULT="$ILSON_HOME/vault"
 if [ "$cmd" = doctor ]; then
     case " $* " in

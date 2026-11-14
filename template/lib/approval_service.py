@@ -13,6 +13,8 @@ LABEL = 'com.ilson.approval'
 def manage(command, home, *, agents=None, launchctl='launchctl'):
     if sys.platform != 'darwin':
         raise ValueError('맥 Box 전용 기능입니다.')
+    from access_policy import require_owner
+    require_owner(home)
     home = Path(home).resolve()
     if (home / 'state/sandbox').exists():
         raise ValueError('샌드박스에서는 수신기를 설치하지 않습니다.')

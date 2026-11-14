@@ -166,8 +166,22 @@ def approval_entries(start, end):
         return [], {}, True
 
 
+def company_policy(vault):
+    home = Path(os.environ.get('ILSON_HOME', Path(vault).parent))
+    if not os.path.lexists(home / 'state/company.json'):
+        return None
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent))
+    from access_policy import load
+    return load(home)
+
+
 def build(vault, end, flat_vault=False):
     vault = Path(vault)
+    company = company_policy(vault)
+    if company:
+        from company_runtime import weekly
+        return weekly(company, end)
     start = end - timedelta(days=6)
     settings_path = vault / 'reports' / 'weekly-input.json'
     settings = read_json(settings_path) if safe_inside(vault, settings_path) else None
@@ -305,6 +319,12 @@ def main(argv=None):
     args = parser.parse_args(argv)
     end = date.fromisoformat(args.end) if args.end else datetime.now(KST).date()
     vault = Path(args.vault)
+    company = company_policy(vault)
+    if company:
+        from company_runtime import weekly
+        company.create('company/reports/weekly/' + str(end) + '-ilson.md', weekly(company, end).encode())
+        print('회사 공용 주간 보고서 저장 완료')
+        return 0
     target_dir = vault / 'reports' / 'weekly'
     if not safe_inside(vault, target_dir):
         raise ValueError('보고서 폴더 경로가 링크입니다')

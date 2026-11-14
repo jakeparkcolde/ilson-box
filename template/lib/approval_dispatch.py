@@ -17,6 +17,11 @@ def note_path(req):
     name = req.target['object_id']
     if name in ('.', '..') or Path(name).name != name or not name.endswith('.md'):
         raise store.ApprovalStale('invalid target')
+    from access_policy import require_owner
+    policy = require_owner(home)
+    if policy:
+        policy.read('management/reports/pending/' + name, 256000)
+        return policy.vault / 'management/reports/pending' / name
     pending = home / 'vault/reports/pending'
     for path in (home / 'vault', home / 'vault/reports', pending):
         if path.is_symlink():
@@ -29,10 +34,12 @@ def note_path(req):
 
 def verify_note(req):
     path = note_path(req)
-    content = path.read_text(encoding='utf-8')
+    from access_policy import require_owner
+    policy = require_owner(_ACTIVE_HOME.get())
+    content = policy.read('management/reports/pending/' + path.name, 256000)[0].decode('utf-8') if policy else path.read_text(encoding='utf-8')
     if store.digest(content) != req.body_sha256 or content != req.body:
         raise store.ApprovalStale('draft changed')
-    dest = _ACTIVE_HOME.get() / 'vault/reports/approved'
+    dest = (policy.vault / 'management/reports/approved') if policy else _ACTIVE_HOME.get() / 'vault/reports/approved'
     if dest.is_symlink() or (dest / path.name).exists() or (dest / path.name).is_symlink():
         raise store.ApprovalStale('destination unavailable')
 
@@ -40,6 +47,15 @@ def verify_note(req):
 def execute_note(req):
     path = note_path(req)
     home = _ACTIVE_HOME.get()
+    from access_policy import require_owner
+    policy = require_owner(home)
+    if policy:
+        raw, _ = policy.read('management/reports/pending/' + path.name, 256000)
+        if store.digest(raw.decode('utf-8')) != req.body_sha256:
+            raise store.ApprovalStale('draft changed')
+        policy.create('management/reports/approved/' + path.name, raw)
+        policy.create('management/journal/approval-' + req.id + '.md', ('승인 번호: ' + req.id + '\n').encode())
+        return store.ActionResult()
     dest = home / 'vault/reports/approved'
     dest.mkdir(parents=True, exist_ok=True)
     destination = dest / path.name

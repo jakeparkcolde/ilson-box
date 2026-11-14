@@ -7,7 +7,16 @@ set -u
 # Absolute lib dir — callers cd elsewhere, so never build sibling paths from $0.
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ILSON_HOME="${ILSON_HOME:-$HOME/ilson}"
+# Guard before creating state/logs or touching representative credentials.
 VAULT="$ILSON_HOME/vault"
+COMPANY_MODE=single
+if [ -e "$ILSON_HOME/state/company.json" ] || [ -L "$ILSON_HOME/state/company.json" ]; then
+    python3 "$LIB_DIR/access_policy.py" --home "$ILSON_HOME" guard || exit 1
+    VAULT=$(python3 "$LIB_DIR/access_policy.py" --home "$ILSON_HOME" vault) || exit 1
+    COMPANY_MODE=company
+fi
+COMPANY_CONTEXT_PREFIX=""
+[ "$COMPANY_MODE" != company ] || COMPANY_CONTEXT_PREFIX="company/"
 STATE="$ILSON_HOME/state"
 LOGS="$ILSON_HOME/logs"
 PAIRING="$STATE/pairing.json"
@@ -21,7 +30,7 @@ pairing_get() { [ -f "$PAIRING" ] && jq -r --arg k "$1" '.[$k] // empty' "$PAIRI
 
 # company_name — from CONTEXT.md, falls back to "우리 회사"
 company_name() {
-    local n; n=$(grep -m1 '^- 회사명:' "$VAULT/CONTEXT.md" 2>/dev/null | sed 's/^- 회사명: *//')
+    local n; n=$(grep -m1 '^- 회사명:' "$VAULT/${COMPANY_CONTEXT_PREFIX:-}CONTEXT.md" 2>/dev/null | sed 's/^- 회사명: *//')
     case "$n" in ""|"("*) echo "우리 회사" ;; *) echo "$n" ;; esac
 }
 

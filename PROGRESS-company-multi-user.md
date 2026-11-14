@@ -13,3 +13,16 @@
 - `access_policy.py`: EUID→불변 ID/역할, 미등록·철회 거절, FD 기반 링크/하드링크 방어, 회사/개인/관리 범위.
 - `company.py`: init 계획/명시 적용(macOS 관리자 프롬프트), 직원 join(개인 workspace/CLI), 명시 offboard 계획.
 - 검증: 새 정책 테스트 9개 통과. 실제 ACL·사용자·그룹 적용 0회. 소비자 연결과 전체 회귀는 아직 진행 전.
+
+## 단계 2 — 진행 중
+- 회사 소비자 연결: 큐레이터, 비공개 company 전용 Git, 보고서, 관리 영역 승인/서류함, 대표 전용 서비스 가드.
+- 회사 모드 학습은 대표 runtime/state/company-learning에 별도 보관, 공용 주간 집계에서 제외.
+- 2기 파일 접근 범위에서는 회사 briefing/weekly는 로컬 정형 보고, tidy는 동의된 큐레이터. 대표 UID 모델에 범용 파일 도구를 주지 않으며 사용자 지정 예약은 안전한 어댑터 검토 전 거절. 단일 사용자 자동화는 종전 경로 유지.
+- 전체 회귀: hc company-tests(t36c) 실행 중, .scratch/company-full-suite.log. 실행 시작 뒤 발견한 단독 curator fixture의 모듈 의존/기존 watchdog fixture 누락은 조건부 로딩으로 수정 중.
+
+### 2026-11-14 단계 2 결과 및 총괄 추가 결정
+- 총괄 요청에 따라 대표 AI 예약을 유지. Claude 2.1.325의 로컬 `--help`에서 restricted/safe-mode 경계를 확인했다. 회사·관리 .md의 검증된 복사본만 private temp에 두고 Read/Glob/Grep만 제공. people 입력 0, Bash/MCP/쓰기 도구 0, 결과 management/reports, 알림 고정 문장. 구형 옵션 미지원은 거절. `company publish`만 명시 공용 복사.
+- 기존 실행의 넓은 Read/Glob/Grep와 Bash 허용은 `job-settings.json`, 실제 호출은 `run-job.sh`에 있다. 원래 프로필만으로 회사 경계를 보증하지 않고 회사 전용 어댑터로 분리했다. 실제 유료 모델·OS 두 UID 검증은 아직 하지 않았다.
+- 새 정책/파생물/AI 격리 테스트 15개 통과.
+- 첫 전체 회귀: 952개, failures=8/errors=23/skipped=40, 364.524초. 당시 코드의 ①Box.company 메서드 속성 충돌 ②회사 미설정 fixture에 새 모듈을 무조건 호출 ③미재생성 course payload가 원인. 모두 수정했고 재검증 중. 이 실패 결과를 완료 판정으로 쓰지 않는다.
+- t36c company-tests 결과 수집 후 terminal 제거 완료. 기존/타 세션 서비스 유지.

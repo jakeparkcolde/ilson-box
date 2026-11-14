@@ -11,6 +11,11 @@ if ! python3 "$LIB_DIR/license.py" --home "$ILSON_HOME" check >/dev/null 2>&1; t
     log "$name" 'skipped: license required'
     exit 0
 fi
+if [ "$COMPANY_MODE" = company ]; then
+    python3 "$LIB_DIR/company_runtime.py" --home "$ILSON_HOME" job "$name" || exit 1
+    mark_run "$name"
+    exit 0
+fi
 today=$(date '+%Y-%m-%d')
 out="$LOGS/$name.$today.out"
 MAX_TURNS="${ILSON_MAX_TURNS:-12}"

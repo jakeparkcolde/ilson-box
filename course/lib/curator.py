@@ -256,7 +256,11 @@ def resolve_vault(home, edition, vault=None):
     if edition == 'full-mac':
         if vault is not None:
             raise CuratorError('VAULT_OVERRIDE_UNSUPPORTED')
-        return canonical(Path(home) / 'vault')
+        if not os.path.lexists(Path(home) / 'state/company.json'):
+            return canonical(Path(home) / 'vault')
+        sys.path.insert(0, str(Path(__file__).parent))
+        from access_policy import vault_path
+        return canonical(vault_path(home))
     return canonical(vault or os.environ.get('ILSON_COURSE_VAULT', Path.home() / 'Documents/일손강의-1기'))
 
 
@@ -265,6 +269,12 @@ class Store:
         self.home = canonical(home)
         self.edition = edition
         self.vault = resolve_vault(self.home, edition, vault)
+        self.policy = None
+        if edition == 'full-mac' and os.path.lexists(self.home / 'state/company.json'):
+            from access_policy import load
+            self.policy = load(self.home)
+        self.output = ('company/journal/curator' if self.policy.actor.role == 'owner' else self.policy.personal() + '/journal/curator') if self.policy else 'journal/curator'
+        self.auto_supported = edition == 'full-mac' and (not self.policy or self.policy.actor.role == 'owner')
         ident = hashlib.sha256(os.fsencode(os.path.normcase(str(self.vault)))).hexdigest()[:32]
         self.state = self.home / 'state/curator' / ident
 
@@ -411,7 +421,11 @@ def candidates(vault):
 
 def collect_notes(store, start, end):
     notes, counts = [], {'read': 0, 'excluded': 0, 'limited': 0, 'failed': 0}
-    paths, excluded = candidates(store.vault)
+    if store.policy:
+        from company_runtime import curator_candidates
+        paths, excluded = curator_candidates(store)
+    else:
+        paths, excluded = candidates(store.vault)
     total = 0
     for path in paths:
         if not store.enabled():
@@ -424,7 +438,10 @@ def collect_notes(store, start, end):
             if info.st_size > MAX_FILE or counts['read'] >= MAX_FILES or total + info.st_size > MAX_TOTAL:
                 counts['limited'] += 1
                 continue
-            data, info = read_file(path, min(MAX_FILE, MAX_TOTAL - total))
+            if store.policy:
+                data, info = store.policy.read(path.relative_to(store.vault).as_posix(), min(MAX_FILE, MAX_TOTAL - total))
+            else:
+                data, info = read_file(path, min(MAX_FILE, MAX_TOTAL - total))
             total += len(data)
             counts['read'] += 1
             text = data.decode('utf-8')
@@ -510,9 +527,14 @@ def build_local_digest(notes, counts, start, end, target):
 
 
 def write_new_note(store, filename, content):
-    folder = store.vault / 'journal/curator'
+    folder = store.vault / store.output
     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}(?:\.addendum-\d{2,})?\.md', filename):
         raise CuratorError('INVALID_OUTPUT')
+    if store.policy:
+        if not store.enabled():
+            raise CuratorError('OFF')
+        store.policy.create(store.output + '/' + filename, content.encode('utf-8'))
+        return
     # Staging is private and on the destination filesystem, including external course vaults.
     with directory(folder, create=True) as output:
         staging = folder / '.staging'
@@ -570,7 +592,7 @@ def run_once(store, now=None, addendum=False, automatic=False, license_check=Non
     with vault_lock(store):
         if not store.enabled():
             return 'OFF'
-        if automatic and (store.edition != 'full-mac' or store.config().get('auto') is not True or not watchdog_active(store)):
+        if automatic and (not store.auto_supported or store.config().get('auto') is not True or not watchdog_active(store)):
             return 'AUTO_OFF'
         target = due_run(store, now) if automatic else str(datetime.fromtimestamp(now).date())
         if target is None:
@@ -580,7 +602,7 @@ def run_once(store, now=None, addendum=False, automatic=False, license_check=Non
         if result.get('zone', zone) != zone or now < result.get('observed', 0) - 300 or target < result.get('last_date', ''):
             raise CuratorError('CLOCK_REVIEW_REQUIRED')
         filename = target + '.md'
-        folder = store.vault / 'journal/curator'
+        folder = store.vault / store.output
         check_path(folder)
         if addendum:
             for number in range(1, 1000):
@@ -591,7 +613,10 @@ def run_once(store, now=None, addendum=False, automatic=False, license_check=Non
                 raise CuratorError('ADDENDUM_LIMIT')
         elif os.path.lexists(folder / filename) or result.get('last_date') == target:
             return 'already_exists'
-        if not (license_check or local_license)(store.home, now):
+        # Joined staff use the configured company device entitlement; never copy
+        # or open the representative's private licence/device-id from their UID.
+        entitled_staff = store.policy and store.policy.actor.role == 'staff'
+        if not entitled_staff and not (license_check or local_license)(store.home, now):
             store.record('LICENSE_LOCAL_REQUIRED', observed=now, zone=zone)
             return 'LICENSE_LOCAL_REQUIRED'
         end = now
@@ -599,6 +624,10 @@ def run_once(store, now=None, addendum=False, automatic=False, license_check=Non
         start = previous if isinstance(previous, (int, float)) else datetime.combine(datetime.fromisoformat(target).date() - timedelta(days=1), datetime.min.time()).replace(hour=23).timestamp()
         notes, counts = collect_notes(store, start, end)
         content = build_local_digest(notes, counts, start, end, target)
+        if store.policy:
+            content = content.replace('(../../', '(' + '../' * len(Path(store.output).parts))
+            if store.policy.actor.role == 'staff':
+                content = content.replace('관리·개인 영역,', '관리·타인 개인 영역,')
         if not store.enabled():
             return 'OFF'
         try:
@@ -611,7 +640,7 @@ def run_once(store, now=None, addendum=False, automatic=False, license_check=Non
 
 
 def watchdog_active(store):
-    if store.edition != 'full-mac' or sys.platform != 'darwin':
+    if not store.auto_supported or sys.platform != 'darwin':
         return False
     marker = store.home / 'state/enabled.watchdog'
     check_path(marker)
@@ -624,6 +653,12 @@ def watchdog_active(store):
         return False
 
 
+def company_inputs(store):
+    if not store.policy:
+        return INPUTS
+    return ('company/**/*.md',) + ((store.policy.personal() + '/**/*.md',) if store.policy.actor.role == 'staff' else ())
+
+
 def status(store):
     cfg, result = store.config(), store.result()
     active = watchdog_active(store)
@@ -633,8 +668,8 @@ def status(store):
     except (OSError, CuratorError):
         compatible = False
     return {'schema': SCHEMA, 'enabled': cfg.get('enabled') is True, 'mode': 'local', 'ai': 'disabled',
-            'inputs': INPUTS, 'output': 'journal/curator/YYYY-MM-DD.md',
-            'auto_supported': store.edition == 'full-mac', 'auto_enabled': cfg.get('auto') is True,
+            'inputs': company_inputs(store), 'output': store.output + '/YYYY-MM-DD.md',
+            'auto_supported': store.auto_supported, 'auto_enabled': cfg.get('auto') is True,
             'watchdog_active': active, 'watchdog_compatible': compatible,
             'schedule_running': bool(active and compatible and cfg.get('enabled') and cfg.get('auto')),
             'clock_review_required': bool(result.get('zone', timezone_id()) != timezone_id() or time.time() < result.get('observed', 0) - 300),
@@ -667,7 +702,7 @@ def main(argv=None):
             print('OFF: 이후 수동·자동 읽기를 중단했습니다. 기존 결과는 보존합니다.')
             return 0
         if args.auto_on or args.auto_off:
-            if store.edition != 'full-mac':
+            if not store.auto_supported:
                 print('AUTO_UNSUPPORTED: 강의판은 수동 명령만 제공합니다. 예약 미지원.')
                 return 2
             if args.auto_on and not store.enabled():
@@ -685,7 +720,7 @@ def main(argv=None):
         if args.on or not store.enabled():
             if args.tick:
                 return 0
-            print('로컬 규칙으로 정리 · AI 요약 없음 · 네트워크 호출 없음\n입력: ' + ', '.join(INPUTS) + '\n출력: journal/curator/YYYY-MM-DD.md (새 노트만)\n기능 동의와 자동 실행 동의는 별개입니다.')
+            print('로컬 규칙으로 정리 · AI 요약 없음 · 네트워크 호출 없음\n입력: ' + ', '.join(company_inputs(store)) + '\n출력: ' + store.output + '/YYYY-MM-DD.md (새 노트만)\n기능 동의와 자동 실행 동의는 별개입니다.')
             if not sys.stdin.isatty():
                 print('CONSENT_REQUIRED: 일반 터미널에서 설명을 읽고 직접 선택하세요.')
                 return 2

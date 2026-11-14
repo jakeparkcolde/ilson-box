@@ -456,7 +456,12 @@ def main():
     parser.add_argument('--check',action='store_true');parser.add_argument('--rollback',action='store_true')
     parser.add_argument('--feed',default=None)
     parser.add_argument('--manifest',type=Path);parser.add_argument('--archive',type=Path)
-    args=parser.parse_args();roots={'box':args.home.resolve(),'cli':args.cli.resolve()}
+    args=parser.parse_args()
+    if os.path.lexists(args.home / 'state/company.json'):
+        sys.path.insert(0, str(args.cli / 'template/lib'))
+        from access_policy import require_owner
+        require_owner(args.home)
+    roots={'box':args.home.resolve(),'cli':args.cli.resolve()}
     if roots['box']==roots['cli'] or roots['cli'].is_relative_to(roots['box']) or roots['box'].is_relative_to(roots['cli']):raise ValueError('CLI와 운영 폴더를 분리해야 합니다')
     if not (roots['box']/'lib/common.sh').is_file() or not (roots['cli']/'ilson').is_file():raise ValueError('기존 일손 설치를 확인하세요')
     if args.rollback:

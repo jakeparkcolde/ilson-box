@@ -5,6 +5,11 @@
 
 source "$(dirname "$0")/common.sh"
 
+if [ "$COMPANY_MODE" = company ]; then
+    python3 "$LIB_DIR/company_runtime.py" --home "$ILSON_HOME" snapshot || exit 1
+    mark_run snapshot
+    exit 0
+fi
 cd "$ILSON_HOME" || exit 1
 [ -d .git ] || { git init -q && printf 'logs/\nstate/pairing.json\n' > .gitignore; } || exit 1
 # 2026-10-06: 로컬 웹 관리자의 접속 비밀은 복구용 Git에도 담지 않는다.

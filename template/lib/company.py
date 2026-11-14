@@ -12,7 +12,7 @@ import access_policy as access
 
 # D-e is deliberately an on-site checklist, not automated machine configuration.
 RIGHTS = 'read,write,append,execute,delete_child,readattr,writeattr,readextattr,writeextattr,readsecurity,file_inherit,directory_inherit'
-CLIENT_FILES = ('access_policy.py', 'company.py', 'curator.py', 'install_diagnostics.py')
+CLIENT_FILES = ('access_policy.py', 'company.py', 'curator.py', 'company_runtime.py', 'install_diagnostics.py')
 
 
 def account(value, role):
@@ -42,7 +42,7 @@ def init_plan(config, source):
         ['/usr/sbin/dseditgroup', '-o', 'create', group],
         ['/usr/bin/install', '-d', '-m', '755', str(access.SHARED)],
         ['/usr/bin/install', '-d', '-m', '755', str(base), str(vault), str(base / 'client')],
-        ['/usr/bin/install', '-d', '-m', '711', str(vault / 'people')],
+        ['/usr/bin/install', '-d', '-m', '755', str(vault / 'people')],
         ['/usr/bin/install', '-d', '-m', '700', str(vault / 'company'), str(vault / 'management')],
         ['/usr/bin/chgrp', group, str(vault / 'company')],
         ['/bin/chmod', '+a', f'group:{group} allow {RIGHTS}', str(vault / 'company')]]
@@ -54,6 +54,7 @@ def init_plan(config, source):
             commands.append(['/bin/chmod', '+a', f"user:{p['account']} allow {RIGHTS}", str(vault / 'management')])
     for name in CLIENT_FILES:
         commands.append(['/usr/bin/install', '-m', '644', str(Path(source) / name), str(base / 'client' / name)])
+    commands.append(['/usr/bin/install', '-m', '755', str(Path(source) / 'company-client.sh'), str(base / 'client/ilson')])
     # The owner home is not a shared code or secrets directory. Parent traversal stops staff.
     commands += [['/bin/chmod', '-N', config['runtime']], ['/bin/chmod', '700', config['runtime']]]
     return commands
@@ -181,6 +182,10 @@ def main(argv=None):
     off.add_argument('person')
     off.add_argument('--apply', action='store_true')
     off.add_argument('--dry-run', action='store_true')
+    publish = subs.add_parser('publish')
+    publish.add_argument('source', help='management 안의 검토한 보고서 상대 경로')
+    publish.add_argument('--to', required=True, help='company 안의 새 상대 경로')
+    publish.add_argument('--apply', action='store_true')
     subs.add_parser('status')
     cli = subs.add_parser('client')
     cli.add_argument('--home', required=True, dest='client_home')
@@ -195,6 +200,20 @@ def main(argv=None):
         if args.action == 'status':
             policy = access.load(args.home)
             print('회사 모드 · ' + policy.actor.role if policy else '단일 사용자 모드')
+            return 0
+        if args.action == 'publish':
+            policy = access.require_owner(args.home)
+            if not policy or not args.source.startswith('management/reports/') or not args.to.startswith('company/'):
+                access.deny()
+            raw, _ = policy.read(args.source, 256 * 1024)
+            print('대표 전용 보고서 → 공용 새 문서: ' + args.to)
+            if not args.apply:
+                print('계획만 표시했습니다. 본문을 검토한 뒤 --apply로 명시적으로 공개하세요.')
+                return 0
+            if not sys.stdin.isatty() or input('검토한 본문을 직원에게 공개합니까? [yes/N] ').strip() != 'yes':
+                raise ValueError('공개 취소')
+            policy.create(args.to, raw)
+            print('공용 새 문서 저장 완료. 원본 관리 문서는 보존했습니다.')
             return 0
         if args.action == 'init':
             home = Path(args.home).absolute()

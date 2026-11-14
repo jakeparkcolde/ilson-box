@@ -21,7 +21,7 @@ def config(root):
             dict(id='bob', account='bob', uid=503, role='staff', active=True)])
 
 
-class AccessTests(unittest.TestCase):
+class CompanyFixture(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -34,6 +34,8 @@ class AccessTests(unittest.TestCase):
         (self.root / 'vault/people/bob/secret.md').write_text('BOB_SECRET')
         (self.root / 'vault/management/secret.md').write_text('MANAGEMENT_SECRET')
 
+
+class AccessTests(CompanyFixture):
     def test_actor_deny_by_default_and_no_name_impersonation(self):
         with patch.dict(os.environ, USER='boss', ILSON_PERSON='boss'), patch.object(os, 'geteuid', return_value=502):
             self.assertEqual(a.resolve_actor(self.config), self.actor)
@@ -131,6 +133,133 @@ class AccessTests(unittest.TestCase):
             for command in ('start', 'pause', 'update', 'admin', 'setup', 'license'):
                 with self.assertRaises(ValueError):
                     company.client(self.root, [command])
+
+
+class ConsumerTests(CompanyFixture):
+    def setUp(self):
+        super().setUp()
+        self.runtime = self.root / 'runtime'
+        (self.runtime / 'state').mkdir(parents=True)
+        (self.runtime / 'state/company.json').write_text('{"company":"acme"}')
+        self.config['owner_uid'] = os.geteuid()
+        self.config['people'][0]['uid'] = os.geteuid()
+        self.config['people'][1]['uid'] = os.geteuid() + 10
+        self.config['people'][2]['uid'] = os.geteuid() + 11
+        self.owner = a.Policy(self.config, a.resolve_actor(self.config, uid=os.geteuid()))
+        self.staff = a.Policy(self.config, a.resolve_actor(self.config, uid=os.geteuid() + 10))
+        self.load = patch.object(a, 'load', return_value=self.owner)
+        self.load.start()
+        self.addCleanup(self.load.stop)
+
+    # AccessTests run separately; only consumer methods belong in this class.
+    def test_company_curator_and_staff_output_never_mix(self):
+        import curator as c
+        import time
+        shared = self.root / 'vault/company/work.md'
+        shared.write_text('- [x] SHARED_DONE\n')
+        (self.root / 'vault/people/alice/own.md').write_text('- [x] ALICE_PRIVATE\n')
+        (self.root / 'vault/people/bob/secret.md').write_text('- [x] BOB_PRIVATE\n')
+        (self.root / 'vault/management/secret.md').write_text('- [x] MANAGEMENT_PRIVATE\n')
+        store = c.Store(self.runtime)
+        c.set_enabled(store, True)
+        self.assertEqual(c.run_once(store, license_check=lambda *_: True), 'OK')
+        output = next((self.root / 'vault/company/journal/curator').glob('*.md')).read_text()
+        self.assertIn('SHARED_DONE', output.replace('\\', ''))
+        self.assertNotIn('PRIVATE', output)
+        with patch.object(a, 'load', return_value=self.staff):
+            local = self.root / 'employee'
+            (local / 'state').mkdir(parents=True)
+            (local / 'state/company.json').write_text('{"company":"acme"}')
+            store = c.Store(local)
+            c.set_enabled(store, True)
+            self.assertFalse(store.auto_supported)
+            self.assertEqual(c.run_once(store, license_check=lambda *_: False), 'OK')
+        output = next((self.root / 'vault/people/alice/journal/curator').glob('*.md')).read_text()
+        self.assertIn('ALICE_PRIVATE', output.replace('\\', ''))
+        self.assertNotIn('BOB_PRIVATE', output)
+        self.assertNotIn('MANAGEMENT_PRIVATE', output)
+
+    def test_company_git_objects_and_weekly_do_not_contain_private_data(self):
+        import company_runtime as r
+        from datetime import date
+        import subprocess
+        journal = self.root / 'vault/company/journal'
+        journal.mkdir()
+        (journal / (date.today().isoformat() + '.md')).write_text('- [x] SHARED_DONE\n')
+        (self.root / 'vault/company/linked.md').symlink_to(self.root / 'vault/management/secret.md')
+        history = r.snapshot(self.runtime, self.owner)
+        tracked = subprocess.check_output(['git', 'ls-files'], cwd=history).decode()
+        self.assertIn('company/journal/', tracked)
+        self.assertNotIn('management', tracked)
+        self.assertNotIn('people', tracked)
+        objects = subprocess.check_output(['git', 'log', '-p', '--all'], cwd=history).decode()
+        self.assertNotIn('SECRET', objects)
+        result = r.weekly(self.owner, date.today())
+        self.assertIn('완료 표시: 1건', result)
+        self.assertNotIn('SECRET', result)
+
+    def test_restricted_ai_projection_and_private_output(self):
+        import company_runtime as r
+        from types import SimpleNamespace
+        commands = self.runtime / '.claude/commands'
+        commands.mkdir(parents=True)
+        (commands / 'briefing.md').write_text('업무를 보고하세요')
+        (self.root / 'vault/company/work.md').write_text('PUBLIC')
+        (self.root / 'vault/people/alice/own.md').write_text('PERSONAL_SENTINEL')
+        calls = []
+        def run(argv, **kwargs):
+            calls.append((argv, kwargs))
+            if argv == ['claude', '--help']:
+                return SimpleNamespace(stdout='--restricted --safe-mode --tools --no-session-persistence --strict-mcp-config')
+            if argv[0] == 'claude':
+                stage = Path(kwargs['cwd'])
+                files = [p for p in stage.rglob('*') if p.is_file()]
+                all_text = '\n'.join(p.read_text() for p in files)
+                self.assertIn('MANAGEMENT_SECRET', all_text)
+                self.assertIn('PUBLIC', all_text)
+                self.assertNotIn('BOB_SECRET', all_text)
+                self.assertNotIn('PERSONAL_SENTINEL', all_text)
+                self.assertFalse((stage / 'vault/people').exists())
+                self.assertIn('--restricted', argv)
+                self.assertIn('--safe-mode', argv)
+                self.assertEqual(argv[argv.index('--tools') + 1], 'Read,Glob,Grep')
+                self.assertNotIn('--add-dir', argv)
+                return SimpleNamespace(stdout=json.dumps(dict(is_error=False, result='MANAGEMENT_SECRET processed')))
+            self.assertNotIn('SECRET', kwargs.get('input', ''))
+            return SimpleNamespace(returncode=0)
+        with patch.object(r.subprocess, 'run', side_effect=run):
+            self.assertTrue(r.run_job(self.runtime, self.owner, 'briefing'))
+        self.assertFalse((self.root / 'vault/company/reports').exists())
+        self.assertIn('MANAGEMENT_SECRET', next((self.root / 'vault/management/reports/briefing').glob('*.md')).read_text())
+        stage = Path(next(k['cwd'] for av, k in calls if '--restricted' in av))
+        self.assertFalse(stage.exists())
+
+    def test_old_cli_fails_before_note_collection_or_model_call(self):
+        import company_runtime as r
+        from types import SimpleNamespace
+        with patch.object(r.subprocess, 'run', return_value=SimpleNamespace(stdout='old help')) as run, patch.object(self.owner, 'files') as files:
+            with self.assertRaises(ValueError):
+                r.ai_report(self.runtime, self.owner, 'briefing')
+            self.assertEqual(run.call_count, 1)
+            files.assert_not_called()
+
+    def test_private_approval_cannot_go_to_telegram(self):
+        import approval_telegram as t
+        with patch.object(t, 'api') as api:
+            with self.assertRaises(t.TelegramError):
+                t.send_card(self.runtime, 'a' * 32, consent=True)
+            api.assert_not_called()
+
+    def test_learning_storage_is_private_and_legacy_notes_preserved(self):
+        import selflearn
+        legacy = self.runtime / 'vault/lessons'
+        legacy.mkdir(parents=True)
+        (legacy / 'approved-learning.md').write_text('LEGACY_PRIVATE')
+        store = selflearn.Store(self.runtime)
+        self.assertEqual(store.home, self.runtime / 'state/company-learning')
+        self.assertEqual((legacy / 'approved-learning.md').read_text(), 'LEGACY_PRIVATE')
+        self.assertFalse((self.root / 'vault/company/lessons').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

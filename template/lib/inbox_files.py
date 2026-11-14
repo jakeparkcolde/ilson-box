@@ -18,6 +18,16 @@ class InboxError(ValueError):
 @contextmanager
 def safe_dir(home, *parts, create=False):
     """모든 경로 구성요소를 링크를 따르지 않는 디렉터리 FD로 연다."""
+    from access_policy import require_owner
+    policy = require_owner(home)
+    if policy and parts and parts[0] == 'vault':
+        tail = parts[1:]
+        relative = ('company' if tail and tail[0] == 'company' else 'management')
+        rest = tail[1:] if tail and tail[0] == 'company' else tail
+        relative += ('/' + '/'.join(rest)) if rest else ''
+        with policy.folder(relative, create=create) as fd:
+            yield fd
+        return
     fd = os.open(str(home), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         if os.fstat(fd).st_uid != os.geteuid():
@@ -43,7 +53,9 @@ def safe_dir(home, *parts, create=False):
 def inbox_dir(home, create=False):
     with safe_dir(home, 'vault', 'inbox', create=create):
         pass
-    return Path(home) / 'vault' / 'inbox'
+    from access_policy import load
+    policy = load(home)
+    return policy.vault / 'management/inbox' if policy else Path(home) / 'vault/inbox'
 
 def _safe_name(name):
     return isinstance(name, str) and name not in ('', '.', '..') and '/' not in name and '\\' not in name and '\x00' not in name
@@ -56,7 +68,7 @@ def read_file(home, name):
             fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dfd)
             try:
                 info = os.fstat(fd)
-                if info.st_uid != os.geteuid() or not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= MAX_BYTES:
+                if info.st_uid != os.geteuid() or info.st_nlink != 1 or not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= MAX_BYTES:
                     raise InboxError('빈 파일이거나 10MB를 넘는 파일입니다.')
                 chunks = bytearray()
                 while len(chunks) <= MAX_BYTES:

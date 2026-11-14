@@ -314,6 +314,8 @@ def await_health(port, instance, *, wait=12):
 
 
 def install(home, port_override=None):
+    from access_policy import require_owner
+    require_owner(home)
     check_mutation(home)
     snapshot_protected(home)
     private = paths(home)
@@ -378,6 +380,8 @@ def open_browser(home, port):
 
 
 def status(home, port_override=None):
+    from access_policy import require_owner
+    require_owner(home)
     paths(home)
     if (home / "state/sandbox").exists():
         print("샌드박스입니다. 실제 관리 웹 상태는 확인하지 않습니다.")
@@ -395,6 +399,8 @@ def status(home, port_override=None):
 
 
 def stop(home):
+    from access_policy import require_owner
+    require_owner(home)
     check_mutation(home)
     marker = paths(home) / "enabled"
     regular(marker)

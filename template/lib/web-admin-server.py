@@ -465,6 +465,8 @@ class Box:
         self.home = Path(home).resolve()
         release=self.home/'.updates/installed.json'
         self.release_info={k:v for k,v in json.loads(release.read_text()).items() if k in ('version','research_version')} if release.is_file() else {}
+        from access_policy import require_owner
+        self.company_policy = require_owner(self.home)
         self.files = Files(self.home)
         self.user_files = Files(user_home or Path.home())
         self.clock = clock
@@ -541,7 +543,10 @@ class Box:
 
     def company(self):
         try:
-            text, _ = self.files.text("vault/CONTEXT.md", 65536)
+            if self.company_policy:
+                text = self.company_policy.read('company/CONTEXT.md', 65536, company_only=True)[0].decode('utf-8')
+            else:
+                text, _ = self.files.text("vault/CONTEXT.md", 65536)
             match = re.search(r"^- 회사명:[ \t]*([^\r\n]*)", text, re.MULTILINE)
             name = match[1].strip() if match else ""
             if not name or name.startswith("("):
@@ -549,7 +554,7 @@ class Box:
             return name[:120], "ok", "회사 이름이 기록되어 있습니다."
         except FileNotFoundError:
             return "우리 회사", "attention", "회사 소개가 없습니다. ilson setup 후 회사 인터뷰를 진행하세요."
-        except Unreadable:
+        except (OSError, ValueError, UnicodeError, Unreadable):
             return "우리 회사", "unknown", "회사 정보 파일을 확인하지 못했습니다."
 
     def trust(self):
@@ -689,6 +694,9 @@ class Box:
                                                        "리서치·지식·SNS·서류함은 각 메뉴에서 처리합니다. 기존 예약 업무 설정은 ilson chat에서 변경하세요."]})
 
     def report_candidates(self):
+        if self.company_policy:
+            return (self.company_policy.files('company/reports', suffix='.md', limit=REPORT_LIMIT + 1) +
+                    self.company_policy.files('management/reports', suffix='.md', limit=REPORT_LIMIT + 1)), False
         rows, limited, visited = [], False, 0
 
         def scan(parts, depth):
@@ -730,8 +738,12 @@ class Box:
         rows = []
         for relative in candidates:
             try:
-                text, info = self.files.text(relative, REPORT_BYTES)
-            except (FileNotFoundError, Unreadable):
+                if self.company_policy:
+                    raw, info = self.company_policy.read(relative, REPORT_BYTES)
+                    text = raw.decode('utf-8')
+                else:
+                    text, info = self.files.text(relative, REPORT_BYTES)
+            except (OSError, ValueError, UnicodeError, Unreadable):
                 limited = True
                 continue
             path = Path(relative)
@@ -761,8 +773,12 @@ class Box:
         for metadata, relative in rows:
             if hmac.compare_digest(metadata["id"], identity):
                 try:
-                    text, _ = self.files.text(relative, REPORT_BYTES)
-                except (FileNotFoundError, Unreadable):
+                    if self.company_policy:
+                        raw, _ = self.company_policy.read(relative, REPORT_BYTES)
+                        text = raw.decode('utf-8')
+                    else:
+                        text, _ = self.files.text(relative, REPORT_BYTES)
+                except (OSError, ValueError, UnicodeError, Unreadable):
                     raise AdminError("보고서를 읽지 못했습니다. 목록을 새로 확인해주세요.", 404) from None
                 return self.redact({**metadata, "text": text, "truncated": False})
         raise AdminError("보고서를 찾을 수 없습니다.", 404)
@@ -1145,6 +1161,13 @@ class Handler(BaseHTTPRequestHandler):
             name = data.get('name')
             if not isinstance(name, str) or not name.endswith('.md') or Path(name).name != name:
                 raise AdminError('대기 중인 초안 파일 이름을 확인해 주세요.')
+            if self.server.box.company_policy:
+                try:
+                    body = self.server.box.company_policy.read('management/reports/pending/' + name, 256000)[0].decode('utf-8')
+                    request_id = store.request_approval('local_note', {'channel': 'local_note', 'account': 'local', 'object_id': name}, name, body, home=home)
+                except (OSError, ValueError):
+                    raise AdminError('초안을 읽지 못했습니다.') from None
+                return self.reply(200, {'id': request_id})
             pending = home / 'vault/reports/pending'
             if any(p.is_symlink() for p in (home / 'vault', home / 'vault/reports', pending, pending / name)):
                 raise AdminError('초안 경로를 확인해 주세요.')

@@ -106,6 +106,12 @@ def transaction_path(path):
 
 class Store:
     def __init__(self, home):
+        from access_policy import require_owner
+        policy = require_owner(home)
+        if policy:
+            # New company learning state is separate from legacy single-user notes.
+            home = Path(home) / 'state/company-learning'
+            Path(home).mkdir(mode=0o700, parents=True, exist_ok=True)
         self.home = Path(home).absolute()
         if not self.home.is_dir() or self.home.is_symlink():
             raise Problem('Box 폴더를 확인하세요')
@@ -131,7 +137,7 @@ class Store:
                 info = current.lstat()
             except FileNotFoundError:
                 continue
-            if stat.S_ISLNK(info.st_mode) or info.st_uid != os.getuid():
+            if stat.S_ISLNK(info.st_mode) or info.st_uid != os.getuid() or (stat.S_ISREG(info.st_mode) and info.st_nlink != 1):
                 raise Problem('소유자 또는 연결 경로를 확인하세요')
             if current != path and not stat.S_ISDIR(info.st_mode):
                 raise Problem('상위 폴더를 확인하세요')

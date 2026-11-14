@@ -160,7 +160,9 @@ def load(home):
     actor = resolve_actor(config)
     if actor.role == 'owner' and Path(config['runtime']) != home.absolute():
         deny()
-    return Policy(config, actor)
+    policy = Policy(config, actor)
+    policy.config_path = SHARED / ident / 'company.json'
+    return policy
 
 
 class Policy:
@@ -168,8 +170,14 @@ class Policy:
         self.config = validate(config)
         self.actor = actor or resolve_actor(config)
         self.vault = Path(config['vault'])
+        self.config_path = None
 
     def require(self, relative, action='read', company_only=False):
+        if self.config_path is not None:
+            current = validate(_trusted_config(self.config_path))
+            if current['vault'] != str(self.vault) or resolve_actor(current) != self.actor:
+                deny()
+            self.config = current
         if not can_access(self.config, self.actor, relative, action, company_only=company_only):
             deny()
         return parts(relative)

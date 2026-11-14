@@ -86,6 +86,9 @@ def save_config(home, token, chat_id, user_id):
 
 
 def send_card(home, request_id, *, consent=False, transport=api, license_check=None):
+    from access_policy import require_owner
+    if require_owner(home):
+        raise TelegramError('회사 모드 승인 본문은 관리 영역에 보관합니다. 대표 웹 관리자에서 확인하세요.')
     if (store.home_path(home) / 'state/sandbox').exists():
         raise TelegramError('샌드박스에서는 텔레그램에 보내지 않습니다.')
     if not consent:
