@@ -36,11 +36,13 @@ class Element {
   addEventListener(type,fn){if(!this.events.has(type))this.events.set(type,new Set());this.events.get(type).add(fn);}
   dispatch(type,extra={}){const event={target:this,preventDefault(){this.prevented=true;},...extra};let n=this;while(n){for(const fn of n.events.get(type)||[])fn(event);n=n.parentNode;}return event;}
   focus(){Element.focused=this;}
+  setSelectionRange(start,end){this.selectionStart=start;this.selectionEnd=end;}
 }
 const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
 function setup(search='?tab=opensource'){
   const doc=new Element('document'),body=new Element('body');doc.append(body);doc.body=body;body.dataset={};
   body.innerHTML='<nav id="sidebar"></nav><main id="main"></main><button id="mNavBtn"></button><div id="mNavBackdrop"></div>';
+  Object.defineProperty(doc,'activeElement',{get:()=>Element.focused});
   doc.getElementById=id=>doc.querySelector('#'+id);doc.createElement=t=>new Element(t);
   const timers=new Map(),requests=[],now=Date.parse('2026-11-14T00:00:00Z');let serial=0;
   class Clock extends Date {static now(){return h.now;}}
@@ -97,12 +99,17 @@ async function component(){
   assert.equal(h.get('os-tab-data').attrs['aria-selected'],'true');
   h.get('os-tab-data').dispatch('keydown',{key:'Home'});assert.equal(h.get('os-tab-all').attrs['aria-selected'],'true');
   h.get('os-tab-all').dispatch('keydown',{key:'End'});assert.equal(h.get('os-tab-sites').attrs['aria-selected'],'true');
+  h.get('os-tab-sites').dispatch('keydown',{key:'Home'});
+  h.get('os-search').focus();h.get('os-search').setSelectionRange(2,4);h.host.scrollTop=224;
+  h.fire(30000);await respond(h.requests[3],listing());
+  assert.equal(Element.focused,h.get('os-search'),'background refresh retains typing focus');
+  assert.equal(h.get('os-search').selectionStart,2);assert.equal(h.get('os-search').selectionEnd,4);assert.equal(h.host.scrollTop,224);
   h.ctx.IlsonOpensource.leave();assert.equal(h.timers.size,0);
   // Aborted responses deliberately ignore their signal and must not replace newer views.
-  h.ctx.IlsonOpensource.mount(h.host);const stale=h.requests[3];h.ctx.IlsonOpensource.leave();
+  h.ctx.IlsonOpensource.mount(h.host);const stale=h.requests[4];h.ctx.IlsonOpensource.leave();
   assert.equal(stale.options.signal.aborted,true);assert.equal(h.timers.size,0,'leave also clears request deadline');h.ctx.IlsonOpensource.mount(h.host);
   await respond(stale,listing([{...row(),full_name:'STALE_RESPONSE'}]));assert.doesNotMatch(h.root().textContent,/STALE_RESPONSE/);
-  await respond(h.requests[4],listing());
+  await respond(h.requests[5],listing());
   h.ctx.IlsonOpensource.leave();assert.equal(h.timers.size,0);
 }
 async function failures(){

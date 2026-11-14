@@ -86,7 +86,17 @@
       else status=next.state;
       if(!['ready','empty','under_review','expired'].includes(status)){data=null;detail=null;}
       else {data=next;detail=next.repo||null;}
-      render();schedule();
+      const focused=!showLoading&&root.contains(document.activeElement)?document.activeElement:null;
+      const focusId=focused?.id,focusRepo=focused?.dataset.repo;
+      const start=focused?.selectionStart,end=focused?.selectionEnd,scroll=host.scrollTop;
+      render();
+      if(!showLoading){
+        const nextFocus=focusId?root.querySelector('#'+focusId):focusRepo?root.querySelector(`[data-repo="${focusRepo}"]`):null;
+        nextFocus?.focus({preventScroll:true});
+        if(nextFocus&&Number.isInteger(start))try{nextFocus.setSelectionRange(start,end);}catch{}
+        host.scrollTop=scroll;
+      }
+      schedule();
       if(restore){host.scrollTop=state.scroll;window.scrollTo(0,state.windowScroll);root.querySelector(`[data-repo="${state.focus}"]`)?.focus({preventScroll:true});}
       else if(showLoading && detail)root.querySelector('#os-detail-title')?.focus({preventScroll:true});
     }catch(error){
