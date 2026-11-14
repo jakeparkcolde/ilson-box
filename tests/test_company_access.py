@@ -227,7 +227,7 @@ class ConsumerTests(CompanyFixture):
                 return SimpleNamespace(stdout=json.dumps(dict(is_error=False, result='MANAGEMENT_SECRET processed')))
             self.assertNotIn('SECRET', kwargs.get('input', ''))
             return SimpleNamespace(returncode=0)
-        with patch.object(r.subprocess, 'run', side_effect=run):
+        with patch.object(r.subprocess, 'run', side_effect=run), patch.object(r, 'model_run', side_effect=run):
             self.assertTrue(r.run_job(self.runtime, self.owner, 'briefing'))
         self.assertFalse((self.root / 'vault/company/reports').exists())
         self.assertIn('MANAGEMENT_SECRET', next((self.root / 'vault/management/reports/briefing').glob('*.md')).read_text())
@@ -259,6 +259,99 @@ class ConsumerTests(CompanyFixture):
         self.assertEqual(store.home, self.runtime / 'state/company-learning')
         self.assertEqual((legacy / 'approved-learning.md').read_text(), 'LEGACY_PRIVATE')
         self.assertFalse((self.root / 'vault/company/lessons').exists())
+
+
+    def test_representative_report_list_has_no_personal_paths_or_aliases(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('company_web_test', LIB / 'web-admin-server.py')
+        web = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(web)
+        for relative, body in (('company/reports/briefing/public.md', '# PUBLIC'),
+                               ('management/reports/briefing/owner.md', '# OWNER_ONLY'),
+                               ('people/alice/reports/hidden.md', '# PRIVATE_TITLE')):
+            file = self.root / 'vault' / relative
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text(body)
+        (self.root / 'vault/company/reports/alias').symlink_to(self.root / 'vault/people/alice/reports', target_is_directory=True)
+        box = web.Box.__new__(web.Box)
+        box.company_policy = self.owner
+        box.token = 'fake-token'
+        box.telegram = lambda: None
+        rows, limited = box.report_index()
+        serialized = json.dumps(rows)
+        self.assertIn('PUBLIC', serialized)
+        self.assertIn('OWNER_ONLY', serialized)  # representative-only HTTP session
+        self.assertNotIn('PRIVATE_TITLE', serialized)
+        self.assertNotIn('people', serialized)
+
+    def test_inbox_reads_management_only_and_rejects_hardlinks(self):
+        import inbox_files as inbox
+        self.owner.create('management/inbox/photo.jpg', b'private-original')
+        self.assertEqual(inbox.read_file(self.runtime, 'photo.jpg'), b'private-original')
+        source = self.root / 'vault/management/inbox/photo.jpg'
+        os.link(source, source.parent / 'copy.jpg')
+        with self.assertRaises(inbox.InboxError):
+            inbox.read_file(self.runtime, 'photo.jpg')
+        with patch.object(a, 'load', return_value=self.staff):
+            with self.assertRaises(a.AccessDenied):
+                inbox.list_files(self.runtime)
+
+    def test_employee_join_has_no_installer_or_service_calls_and_preserves_wrapper(self):
+        c = copy.deepcopy(self.config)
+        c['owner_uid'] = os.geteuid() + 20
+        c['people'][0]['uid'] = os.geteuid() + 20
+        c['people'][1]['uid'] = os.geteuid()
+        employee = self.root / 'employee-home'
+        employee.mkdir()
+        with patch.object(a, '_trusted_config', return_value=c), patch.object(company.subprocess, 'run') as external:
+            company.join('acme', employee)
+            binary = employee / '.local/bin/ilson'
+            before = binary.read_bytes()
+            company.join('acme', employee)
+            self.assertEqual(binary.read_bytes(), before)
+            self.assertEqual(json.loads((employee / '.ilson-company/acme/state/company.json').read_text()), {'company': 'acme'})
+            external.assert_not_called()
+            self.assertFalse((employee / 'Library/LaunchAgents').exists())
+            self.assertFalse((employee / '.ilson-company/acme/state/license').exists())
+            binary.write_text('existing CLI')
+            with self.assertRaises(ValueError):
+                company.join('acme', employee)
+            self.assertEqual(binary.read_text(), 'existing CLI')
+
+    def test_open_policy_refresh_denies_removed_actor_before_read(self):
+        policy = self.staff
+        policy.config_path = self.root / 'company.json'
+        removed = copy.deepcopy(self.config)
+        removed['people'][1]['active'] = False
+        with patch.object(a, '_trusted_config', return_value=removed), patch.object(os, 'geteuid', return_value=self.staff.actor.uid):
+            with self.assertRaises(a.AccessDenied):
+                policy.read('company/work.md')
+
+    def test_diagnostic_other_uid_run_denied(self):
+        import install_diagnostics as diagnostics
+        private = self.root / 'diagnostics'
+        private.mkdir(mode=0o700)
+        company.private_write(private / 'events.jsonl', b'{"note":"PRIVATE_SENTINEL"}\n')
+        with patch.object(diagnostics.os, 'getuid', return_value=os.geteuid() + 10):
+            with self.assertRaises(ValueError):
+                diagnostics.read_run(private)
+        events, damaged = diagnostics.read_run(private)
+        self.assertTrue(damaged)
+        self.assertNotIn('PRIVATE_SENTINEL', json.dumps(events))
+
+    def test_model_timeout_stops_process_group(self):
+        import company_runtime as r
+        import subprocess
+        import time
+        pidfile = self.root / 'child.pid'
+        script = ('import os,time; from pathlib import Path; '
+                  + 'Path(' + repr(str(pidfile)) + ').write_text(str(os.getpid())); time.sleep(30)')
+        with self.assertRaises(subprocess.TimeoutExpired):
+            r.model_run([sys.executable, '-c', script], stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, input='', text=True, timeout=0.1)
+        pid = int(pidfile.read_text())
+        with self.assertRaises(ProcessLookupError):
+            os.kill(pid, 0)
 
 
 if __name__ == '__main__':

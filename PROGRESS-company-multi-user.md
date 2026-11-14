@@ -26,3 +26,10 @@
 - 새 정책/파생물/AI 격리 테스트 15개 통과.
 - 첫 전체 회귀: 952개, failures=8/errors=23/skipped=40, 364.524초. 당시 코드의 ①Box.company 메서드 속성 충돌 ②회사 미설정 fixture에 새 모듈을 무조건 호출 ③미재생성 course payload가 원인. 모두 수정했고 재검증 중. 이 실패 결과를 완료 판정으로 쓰지 않는다.
 - t36c company-tests 결과 수집 후 terminal 제거 완료. 기존/타 세션 서비스 유지.
+
+## 단계 3 — 운영 안내와 경계 검증 보강
+- README·course/company-mac.md: 대표/직원 설치, 명시 이관 목록, 사람별 SSH/Claude, Remote Login 허용 사용자, 회사 tailnet, GUI/TCC/Keychain, 재부팅·퇴사 현장 리허설 추가.
+- 퇴사 계획은 회사 루트에 해당 사용자 deny ACL을 먼저 추가해 기존 그룹 멤버십 캐시를 통한 새 경로 접근도 차단한다. 열린 핸들/이미 복사한 데이터의 회수는 보장하지 않으며 세션 종료는 현장 점검 항목이다.
+- 대표 승인 actor를 실제 EUID에서 얻은 person ID로 기록. 회사 예약 pause/timeout에서 소유 CLI 프로세스 그룹과 파이프를 정리하도록 연결.
+- 새 경계 테스트 총 21개 통과: 직원 가입 외부 명령 0회/재실행/기존 wrapper 보존, report 후보·서류함 hardlink, 철회된 actor 재검사, 타 UID 진단 읽기 거절, 모델 timeout 종료 포함.
+- 관리자 41개·주간 요약 8개 단독 재검증 통과. 전체 재회귀 t36g 진행 중(이후 추가한 승인 actor/프로세스 정리와 테스트는 최종 전체를 다시 실행해 확인 예정).

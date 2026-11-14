@@ -70,6 +70,7 @@ def offboard_plan(config, person):
     # employee ACLs after mv would expose the archive, so normalize the moved tree.
     owner = next(p for p in config['people'] if p['role'] == 'owner')
     return [['/bin/test', '!', '-e', str(dest)],
+        ['/bin/chmod', '+a#', '0', f"user:{p['account']} deny read,write,execute,delete,delete_child,readattr,writeattr,readextattr,writeextattr,readsecurity,file_inherit,directory_inherit", str(vault / 'company')],
         ['/usr/sbin/dseditgroup', '-o', 'edit', '-d', p['account'], '-t', 'user', 'ilson_' + config['id']],
         ['/usr/bin/install', '-d', '-m', '700', str(dest.parent)],
         ['/bin/mv', str(vault / 'people' / person), str(dest)],

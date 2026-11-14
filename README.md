@@ -161,3 +161,20 @@ sh -n install.sh
 Mac 전체판은 `--auto-on`을 별도로 켜고 기존 watchdog이 실제 가동 중이어야 현지시각 23:00부터 약 10분 오차로 정리합니다. 새 launchd 작업과 jobs.conf 항목은 추가하지 않습니다. 놓친 날짜는 가장 최근 한 번만 보충하며 시계 역행·시간대 변경에는 보류합니다. `--status`가 `watchdog_compatible: false`이면 기존 watchdog을 재설치/검토해야 합니다. start 전이나 예약이 꺼진 상태를 자동 가동이라고 안내하지 않습니다. Windows·Intel 강의판은 수동 전용이며 `--auto-on`은 예약 미지원을 반환합니다.
 
 강의 도우미의 첫 갱신은 검수한 고정 버전 설치기 재실행입니다. 이후 `ilson update --manifest <검수한 고정 JSON>` 또는 `--source-ref <40자리 커밋> --sha256 <해당 판본 설치기 SHA-256>`으로 같은 설치기에서 도우미 payload만 검증·백업·교체·자체 점검합니다. 고정 정보가 없으면 갱신하지 않으며, 저장한 고정 정보는 `ilson update`에 재사용합니다. main 자동 추적은 하지 않습니다. `ilson curator --off` 후 `ilson update --rollback`은 직전 코드 백업만 복구하고 사용자 노트·설정·실행기·Python 선택·PATH는 보존합니다. 배포용 고정 JSON은 `python3 tools/build_course_update.py --source-ref <검수 커밋> --edition intel-course` (Windows는 `windows-course`)로 만들 수 있습니다. 이 작업은 파일 생성만 하며 공개·배포는 별도 승인입니다.
+
+## 회사 Mac 한 대를 대표·직원이 함께 쓰기
+
+회사 모드는 **회사 Box 런타임 하나 + 사람별 macOS 계정·SSH 키·Claude 계정**입니다. 대표가 설치·라이선스·예약·웹 관리자·Telegram을 관리하고 직원은 파일을 사용합니다. 기존 Box는 `company init`을 실행하기 전까지 단일 사용자로 그대로 동작합니다.
+
+| 위치 | 접근과 기록 |
+|---|---|
+| `/Users/Shared/Ilson/<회사ID>/vault/company/` | 대표·직원 공용, 직원 직접 쓰기 허용. 대표의 회사 전용 Git 스냅샷으로 복구 |
+| `people/<불변ID>/` | 본인만. 대표의 일반 세션·회사 큐레이터는 읽지 않음 |
+| `management/` | 대표만. AI 예약 보고·승인 문서·서류함 원본 |
+| 기존 대표 Box | 코드·라이선스·관리자 token·승인 DB·로그·이력·학습 상태. 직원 공유 금지 |
+
+대표는 기존 Box 설치 후 `ilson company init --id acme --owner owner:대표계정 --staff worker:직원계정 --dry-run`으로 계획을 먼저 확인합니다. `--apply`는 계획 확인과 macOS 관리자 인증 창을 거칩니다. 사용자 계정 자체는 만들지 않습니다. 직원은 공유된 `/Users/Shared/Ilson/acme/client/ilson company join --id acme`를 자기 계정에서 실행합니다. 직원 연결은 brew·sudo·launchctl·라이선스 등록을 호출하지 않습니다.
+
+기존 노트는 자동 이관하지 않습니다. [회사 Mac 운영 안내](course/company-mac.md)의 이관 목록을 대표가 검토하고 공용 자료를 골라 복사하세요. 직원 웹 로그인은 이번 범위에 없으며 대표 token을 공유하지 않습니다. 대표 AI 예약은 제한된 읽기 도구로 공용·관리 자료만 사용하고 결과를 `management/reports/`에 보관합니다. `ilson company publish management/reports/briefing/날짜.md --to company/reports/공개본.md`로 계획을 확인한 뒤 `--apply`와 직접 확인으로 새 공용 문서를 만듭니다.
+
+회사는 Mac 한 대의 기존 라이선스를 사용하며 현재 사람 수를 좌석으로 세지 않습니다. root/시스템 관리자에게까지 개인 자료 비밀을 보장하거나 사용자의 의도적인 재공유를 막는 기능은 아닙니다. 실제 두 macOS 계정의 ACL·SSH·GUI·재부팅 복구 검증은 승인된 시험 Mac에서 완료한 뒤 운영에 적용해야 합니다.

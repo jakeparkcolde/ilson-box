@@ -12,7 +12,12 @@ if ! python3 "$LIB_DIR/license.py" --home "$ILSON_HOME" check >/dev/null 2>&1; t
     exit 0
 fi
 if [ "$COMPANY_MODE" = company ]; then
-    python3 "$LIB_DIR/company_runtime.py" --home "$ILSON_HOME" job "$name" || exit 1
+    python3 "$LIB_DIR/company_runtime.py" --home "$ILSON_HOME" job "$name" &
+    company_child=$!
+    trap 'kill -TERM "$company_child" 2>/dev/null; wait "$company_child"; exit 143' TERM INT HUP
+    wait "$company_child"; company_rc=$?
+    trap - TERM INT HUP
+    [ "$company_rc" -eq 0 ] || exit "$company_rc"
     mark_run "$name"
     exit 0
 fi

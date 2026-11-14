@@ -193,6 +193,10 @@ def list_requests(home=None):
 
 
 def decide(request_id, decision, actor, *, home=None):
+    from access_policy import require_owner
+    policy = require_owner(home_path(home))
+    if policy:
+        actor = 'person:' + policy.actor.person
     if decision not in ('approved', 'changed', 'rejected'):
         raise ValueError('invalid decision')
     with connect(home) as db:
