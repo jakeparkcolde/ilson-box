@@ -1,0 +1,30 @@
+.ilson-opensource{color:var(--ink);line-height:1.65}
+.ilson-opensource h1{font-size:26px;margin:0 0 8px}
+.ilson-opensource h2{font-size:20px;overflow-wrap:anywhere}
+.ilson-opensource h3{font-size:17px;margin-top:28px}
+.ilson-opensource h4{margin:16px 0 6px}
+.ilson-opensource .os-muted{color:var(--ink2);font-size:13px}
+.ilson-opensource .os-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 18px}
+.ilson-opensource button,.ilson-opensource input,.ilson-opensource select{font:inherit;color:var(--ink);background:var(--s2);border:1px solid var(--hair2);border-radius:var(--radius-sm);min-height:44px;padding:9px 12px}
+.ilson-opensource button{cursor:pointer}
+.ilson-opensource button[aria-selected=true]{background:var(--accent-soft);border-color:var(--link)}
+.ilson-opensource :focus-visible{outline:2px solid var(--link);outline-offset:3px}
+.ilson-opensource .os-tools{display:flex;gap:16px;flex-wrap:wrap}
+.ilson-opensource label{display:flex;flex:1;min-width:200px;flex-direction:column;gap:6px}
+.ilson-opensource .os-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.ilson-opensource .os-card,.ilson-opensource .os-notice,.ilson-opensource .os-preview{padding:20px;border:1px solid var(--hair2);border-radius:var(--radius-md);background:var(--s1)}
+.ilson-opensource .os-card h2{margin:0}
+.ilson-opensource .os-card h2 button{font-weight:600;text-align:left;max-width:100%;overflow-wrap:anywhere}
+.ilson-opensource .os-card>button{display:block;margin-top:16px}
+.ilson-opensource dt{color:var(--ink2);margin-top:10px;font-size:13px}
+.ilson-opensource dd{margin-left:0}
+.ilson-opensource .os-prose{white-space:pre-wrap;overflow-wrap:anywhere}
+.ilson-opensource a{text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.ilson-opensource section{border-bottom:1px solid var(--hair);padding-bottom:20px}
+@media(max-width:720px){
+  .ilson-opensource.screen{padding:12px 0 40px}
+  .ilson-opensource .os-grid{grid-template-columns:1fr}
+  .ilson-opensource .os-tools{flex-direction:column}
+  .ilson-opensource label{min-width:0}
+  .ilson-opensource .os-card{padding:16px}
+}
