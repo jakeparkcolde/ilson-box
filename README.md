@@ -178,3 +178,9 @@ Mac 전체판은 `--auto-on`을 별도로 켜고 기존 watchdog이 실제 가�
 기존 노트는 자동 이관하지 않습니다. [회사 Mac 운영 안내](course/company-mac.md)의 이관 목록을 대표가 검토하고 공용 자료를 골라 복사하세요. 직원 웹 로그인은 이번 범위에 없으며 대표 token을 공유하지 않습니다. 대표 AI 예약은 제한된 읽기 도구로 공용·관리 자료만 사용하고 결과를 `management/reports/`에 보관합니다. `ilson company publish management/reports/briefing/날짜.md --to company/reports/공개본.md`로 계획을 확인한 뒤 `--apply`와 직접 확인으로 새 공용 문서를 만듭니다.
 
 회사는 Mac 한 대의 기존 라이선스를 사용하며 현재 사람 수를 좌석으로 세지 않습니다. root/시스템 관리자에게까지 개인 자료 비밀을 보장하거나 사용자의 의도적인 재공유를 막는 기능은 아닙니다. 실제 두 macOS 계정의 ACL·SSH·GUI·재부팅 복구 검증은 승인된 시험 Mac에서 완료한 뒤 운영에 적용해야 합니다.
+
+### 내 AI 사용 기록 (로컬 구현 검증본)
+
+개인 실습 폴더의 Claude Code 날짜·세션·본인 대화·모델·토큰을 기본 OFF로 집계합니다. 전체판 관리자의 **자동화·컴퓨터 현황 → 내 AI 사용 기록**, 강의판의 `ilson usage on|off|status|export|link|unlink|sync`를 사용합니다. 통합 탭은 도구 중립 숫자, Claude 탭은 토큰과 목록가 추정 비용을 표시합니다. F8 계정 한도와 별개이고 Codex는 준비 중입니다. 별도 동의/일회 코드로 연결한 경우에만 일별 숫자를 강의 사이트로 동기화하며 기본 서버 주소는 없습니다. 공개 릴리스·사이트 운영 반영은 별도 승인입니다.
+
+[수강생 보는 법](docs/내-AI-사용-기록-보는-법.md) · [강사 보는 법 초안](docs/강사용-수강생-AI-사용-기록-보는-법.md) · [설계·개인정보](docs/usage-timeline/DESIGN-v2.md) · [동기화 계약](docs/usage-timeline/SYNC-CONTRACT.md)
