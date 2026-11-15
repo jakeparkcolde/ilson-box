@@ -20,8 +20,7 @@ p = u.payload_module()
 SCRATCH = ROOT / '.scratch'
 
 
-def sources():
-    return {name: (ROOT / 'course' / ('' if name in ('ilson.py', 'install_payload.py') else 'lib') / name).read_text() for name in p.ALLOWED_FILES}
+from course_bundle import sources, target_path
 
 
 def installer(files, windows=False):
@@ -77,7 +76,7 @@ class CourseUpdateTests(unittest.TestCase):
 
     def test_current_curator_baseline_can_upgrade_and_rollback_without_overwriting_user_edits(self):
         before = {}
-        for name in p.ALLOWED_FILES - {'usage_timeline.py', 'usage_sync.py'}:
+        for name in ('ilson.py','license.py','selflearn.py','skill_share.py','weekly_summary.py','install_diagnostics.py','curator.py','course_update.py','install_payload.py'):
             location = 'course/' + ('' if name in ('ilson.py', 'install_payload.py') else 'lib/') + name
             before[name] = subprocess.check_output(['git', 'show', 'd25b333:' + location], cwd=ROOT)
             (self.root / name).write_bytes(before[name])
@@ -145,7 +144,7 @@ class CourseUpdateTests(unittest.TestCase):
     def test_rollback_io_failure_recovers_already_restored_code(self):
         self.seed_old()
         backup = p.install(self.root, sources())
-        before = {name: (self.root/name).read_bytes() for name in p.ALLOWED_FILES}
+        before = {name: target_path(self.root,name).read_bytes() for name in p.ALLOWED_FILES}
         original = p.atomic_write
         def fail_entry(path, data):
             if path.name == 'ilson.py':
@@ -155,7 +154,7 @@ class CourseUpdateTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 p.rollback(self.root, backup)
         for name, data in before.items():
-            self.assertEqual((self.root/name).read_bytes(), data)
+            self.assertEqual(target_path(self.root,name).read_bytes(), data)
         p.rollback(self.root, backup)
         self.assertFalse((self.root/'curator.py').exists())
 

@@ -92,7 +92,7 @@ class CourseLearnTest(unittest.TestCase):
         files = json.loads(gzip.decompress(base64.b64decode(payload)))
         legacy = (ROOT / 'tests/fixtures/course-legacy-ilson.py').read_bytes()
         with tempfile.TemporaryDirectory() as tmp:
-            target = Path(tmp)
+            target = Path(tmp)/'lib';target.mkdir()
             for name in ('license.py', 'selflearn.py'):
                 (target / name).write_text(files[name], encoding='utf-8')
             (target / 'ilson.py').write_bytes(legacy)
@@ -103,7 +103,7 @@ class CourseLearnTest(unittest.TestCase):
             self.assertEqual((target / 'ilson.py').read_text(encoding='utf-8'), files['ilson.py'])
             self.assertEqual((target / 'skill_share.py').read_text(encoding='utf-8'), files['skill_share.py'])
         with tempfile.TemporaryDirectory() as tmp:
-            target = Path(tmp)
+            target = Path(tmp)/'lib';target.mkdir()
             for name in ('license.py', 'selflearn.py'):
                 (target / name).write_text(files[name], encoding='utf-8')
             (target / 'ilson.py').write_bytes(legacy + b'\n# user edit\n')
@@ -119,7 +119,7 @@ class CourseLearnTest(unittest.TestCase):
         files = json.loads(gzip.decompress(base64.b64decode(payload)))
         previous = (ROOT / 'tests/fixtures/course-skill-share-ilson.py').read_bytes()
         with tempfile.TemporaryDirectory() as tmp:
-            target = Path(tmp)
+            target = Path(tmp)/'lib';target.mkdir()
             for name in ('license.py', 'selflearn.py', 'skill_share.py'):
                 (target / name).write_text(files[name], encoding='utf-8')
             (target / 'ilson.py').write_bytes(previous)

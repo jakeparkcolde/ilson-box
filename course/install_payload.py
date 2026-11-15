@@ -22,7 +22,12 @@ KNOWN_HELPER_SHA256.update({
     'curator.py': {'9d31913c714350581527d1d14e5083b65ab830cb3f687dfc486a701933a40b92', '95fa87b804d129d4bb307f1d4dad97d52feb23f92c01da883aab5f111acb8567'},
     'install_payload.py': {'99ab46f43a2dbaae7299e356d8ecb93a2cbe178ae46e2cb8927bc9506ebe0469', 'b8d551e301e2f713854ef8643638764da7c464ceff369d22792b180bdbeec847'},
 })
-ALLOWED_FILES = set(KNOWN_HELPER_SHA256) | {'curator.py', 'course_update.py', 'install_payload.py', 'usage_timeline.py', 'usage_sync.py'}
+# Reviewed parent/published course bytes, plus the first admin baseline.
+for _name, _hashes in {'ilson.py': {'b659e309797637e4a7f6c9548985d82f72ed0afa6ab8ca6467d1ea2519612feb', '752358c3547b3d3e46924b95916de06b239d8153df4bf262ff096d3255392aa3'}, 'install_payload.py': {'5435341cddb4497461306c097283fbb0f2e356ed98998e482c9710d89db841cb', '36c53aec20c4648959093926368dc5ca56dcec8b8831838b9b127ae232ce42f5'}, 'curator.py': {'486fc5e208dec33559ca5540cd0ec07883affde170b8fef54b50d8e6c251d454', '9d31913c714350581527d1d14e5083b65ab830cb3f687dfc486a701933a40b92'}, 'course_update.py': {'9d3c1fbd03cb085f80afbf17310306c1a9fecea866f45b99015911a876aace60'}, 'usage_timeline.py': {'dc78d0f469cfbb79135090589d8f8c291de14a6634a82186824e6f744014c917'}, 'usage_sync.py': {'c9836b0fd69ce30526d281378035b9c8c9b1648cb07a228ff55b17cc606cbcbf'}, 'license.py': {'4b6e50b84073c6e8178b3c0c3c8055839a9d7d607be284ce3e0651e929e15ba9'}, 'selflearn.py': {'b1eabe4380dbd53cc3f35d1a0a82f511f96b04320b2bb585925478f7d8e60b68'}, 'weekly_summary.py': {'10a7935d68726ef63457014e64a2702ba0a22167a65c8aa002f3e8a994d48bf7'}, 'skill_share.py': {'b233d29be73af4e7f9c63a3e948b51ee2946607ea61b71c30f9c473e82fa7412'}, 'install_diagnostics.py': {'96caadd67e95272b6a46688f6f38aa1eb684b6ed6b826cdbc1318fe45ecdf806'}, 'web-admin-server.py': {'4d3c041fa13dd2010fc0cf63402e57ce8bc6ede3afcd39ef260f52ba28772039'}, 'web-admin.py': {'cb804fcae7e16a889286a3e5175d8bfc60100c4b8abc9195dcd33e0eeef13b77'}, 'course_admin.py': {'eeaf8b25f0e68cfc37d0d877f52f1b977fa385d32395d4a594e30ae3eedb66e7'}, 'ilson_platform.py': {'4f944d6eecc3dba4576de30bec3b67656a3bb8d551ac9f5051fb79a9a6cddf2a'}, 'access_policy.py': {'fa675442435bd1098ae6dbc2c0ed26076b24c0c1a1ec288172a2012ecd0957d7'}, 'approval_store.py': {'1d669cf478414c184a6c180aa6251da6e02cab0474efe210ee4240e1a7400698'}, 'approval_dispatch.py': {'7acc7fbf932ed686599c8f6195425e511d07438dc4ed14c7f783b37fe7b6431a'}, 'approval_actions.py': {'1fa80c0867beccae68fc31c29d7e1dc9fe5c5661a2074e082b12ce056eebde83'}, 'runtime_gate.py': {'02b3dcee689c8442eeed56370899c2d252f1c3c5f44a18cbe07edbd50e23348d'}, 'replies_draft.py': {'4a35668cbcecb4145d6900bec737fe4c7dd1ed3acfbb84cd77b8bf2df9592025'}, 'web/course.html': {'3422ad9638fe10e7b3346e26a48ecba6f953e6c0ba197c359795c0631ffb839f'}, 'web/course.js': {'19291cf19369aad4f903a5eb83be47bb890c81a6e96288dbbfa8072c20cae23a'}, 'web/course.css': {'fe27bc91bfdabb5c2f4b7a00af3bb1d216c9fa525c25a45f0d9590a5a1e3f94d'}, 'web/current/base.css': {'f91b260c336d23c788435b94ac3fb03a665c3a0e7adb235ff8a4259fe689955d'}, 'web/current/shell.css': {'fdb8d1ec1fd034bee739a7e95e681b95b65d62fb28e5a550fe48e43090472b9d'}, 'web/usage-history.js': {'86dc602a1a03691090abbe12ec92ad1129e8c392a06e1540eb85ff887d47fc5d'}, 'web/usage-history.css': {'da8c6732c858435bfec5bf28c29709b99710ac823c1eb97002c905d396106ea2'}}.items():
+    KNOWN_HELPER_SHA256.setdefault(_name, set()).update(_hashes)
+ADMIN_FILES = {'web-admin-server.py', 'web-admin.py', 'runtime_gate.py', 'ilson_platform.py', 'replies_draft.py', 'access_policy.py', 'course_admin.py', 'approval_actions.py', 'approval_store.py', 'approval_dispatch.py'}
+WEB_FILES = {'web/course.js', 'web/usage-history.css', 'web/current/base.css', 'web/current/shell.css', 'web/usage-history.js', 'web/course.html', 'web/course.css'}
+ALLOWED_FILES = set(KNOWN_HELPER_SHA256) | ADMIN_FILES | WEB_FILES | {'course_update.py'}
 
 
 def digest(data):
@@ -65,9 +70,42 @@ def update_lock(root):
         else:
             import fcntl
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        yield
+        with admin_stopped():
+            yield
     finally:
         os.close(fd)
+
+
+@contextmanager
+def admin_stopped():
+    """Bootstrap cannot import a helper that has not been installed yet."""
+    state = Path(os.environ.get('ILSON_COURSE_STATE', Path.home() / '.ilson-course'))
+    path = state / 'state/web-admin/server.lock'
+    safe(path)
+    if not path.exists():
+        yield
+        return
+    fd = os.open(path, os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0))
+    try:
+        if os.fstat(fd).st_nlink != 1: raise ValueError('invalid admin lock')
+        try:
+            if os.name == 'nt':
+                import msvcrt
+                if not os.fstat(fd).st_size: os.write(fd, b'0')
+                os.lseek(fd, 0, 0)
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            raise ValueError('관리 화면을 먼저 끄세요: ilson admin stop') from None
+        yield
+    finally: os.close(fd)
+
+
+def target(root, name):
+    if name not in ALLOWED_FILES: raise ValueError('invalid helper file')
+    return root.parent / name if name in WEB_FILES else root / name
 
 
 def install(root, files, verify=None):
@@ -77,42 +115,45 @@ def install(root, files, verify=None):
         raise ValueError('invalid helper bundle')
     changes = []
     for name, content in files.items():
-        data = content.encode('utf-8'); compile(content, name, 'exec')
-        path = root / name; safe(path)
+        data = content.encode('utf-8')
+        if name.endswith('.py'): compile(content, name, 'exec')
+        path = target(root, name); safe(path)
         if path.exists() and not path.is_file(): raise ValueError('existing helper differs; ask the instructor')
         old = path.read_bytes() if path.exists() else None
         if old == data: continue
         if old is not None and digest(old) not in KNOWN_HELPER_SHA256.get(name, set()):
             raise ValueError('existing helper differs; ask the instructor: ' + name)
-        changes.append((path, old, data))
-    root.mkdir(parents=True, exist_ok=True)
-    if not changes:
-        if verify: verify()
-        return None
+        changes.append((name, path, old, data))
     with update_lock(root):
+        if not changes:
+            if verify: verify()
+            return None
         base = root / '.install-backups'; safe(base); base.mkdir(mode=0o700, exist_ok=True)
         backup = Path(tempfile.mkdtemp(prefix='upgrade-', dir=base))
         manifest = {'schema': 1, 'status': 'pending', 'files': []}
-        for path, old, data in changes:
-            if old is not None: (backup / path.name).write_bytes(old)
-            manifest['files'].append({'name': path.name, 'before': digest(old) if old is not None else None, 'after': digest(data)})
+        for name, path, old, data in changes:
+            if old is not None:
+                saved = backup / name; safe(saved); saved.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+                saved.write_bytes(old)
+            manifest['files'].append({'name': name, 'before': digest(old) if old is not None else None, 'after': digest(data)})
         (backup / 'manifest.json').write_text(json.dumps(manifest, sort_keys=True), encoding='utf-8')
         applied = []
         try:
-            # Dependencies first, entry point last. Validate every target again before replacing.
-            for path, old, data in sorted(changes, key=lambda item: item[0].name == 'ilson.py'):
+            # Dependencies/assets first, entry point last. Validate targets again under lock.
+            for name, path, old, data in sorted(changes, key=lambda item: item[0] == 'ilson.py'):
                 safe(path)
                 current = path.read_bytes() if path.exists() else None
                 if current != old: raise ValueError('existing helper changed; ask the instructor')
+                path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
                 if old is None:
                     with path.open('xb') as stream: stream.write(data)
                 else: atomic_write(path, data)
-                applied.append((path, old, data))
-            for path, _, data in changes:
+                applied.append((name, path, old, data))
+            for name, path, _, data in changes:
                 if path.read_bytes() != data: raise ValueError('helper verification failed')
             if verify: verify()
         except Exception:
-            for path, old, data in reversed(applied):
+            for name, path, old, data in reversed(applied):
                 safe(path)
                 if path.read_bytes() != data: continue
                 if old is None: path.unlink()
@@ -139,17 +180,17 @@ def _rollback(root, backup):
         name = item['name']
         if name not in ALLOWED_FILES or name in seen: raise ValueError('invalid helper backup')
         seen.add(name)
-        path = root / name; safe(path)
+        path = target(root, name); safe(path)
         if not path.is_file() or digest(path.read_bytes()) != item['after']:
             raise ValueError('existing helper changed; rollback preserved user edits')
         data = None
         if item['before'] is not None:
             old = backup / name; safe(old); data = old.read_bytes()
             if digest(data) != item['before']: raise ValueError('invalid helper backup')
-        changes.append((path, data, path.read_bytes()))
+        changes.append((name, path, data, path.read_bytes()))
     applied = []
     try:
-        for path, data, installed in sorted(changes, key=lambda item: item[0].name == 'ilson.py'):
+        for name, path, data, installed in sorted(changes, key=lambda item: item[0] == 'ilson.py'):
             safe(path)
             if path.read_bytes() != installed: raise ValueError('existing helper changed during rollback')
             if data is None: path.unlink()

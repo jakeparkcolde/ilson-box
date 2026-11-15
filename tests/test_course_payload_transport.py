@@ -13,6 +13,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+from course_bundle import target_path
 BOOT = 'import base64,sys;exec(base64.b64decode(sys.stdin.buffer.readline()))'
 spec = importlib.util.spec_from_file_location('transport_diagnostics', ROOT / 'template/lib/install_diagnostics.py')
 diag = importlib.util.module_from_spec(spec)
@@ -39,7 +40,7 @@ class PayloadTransportTests(unittest.TestCase):
             root = Path(temp).resolve() / 'lib'
             root.mkdir()
             for name in files:
-                if name in ('install_diagnostics.py', 'curator.py', 'course_update.py', 'install_payload.py', 'usage_timeline.py', 'usage_sync.py'):
+                if name not in ('ilson.py','license.py','selflearn.py','weekly_summary.py','skill_share.py'):
                     continue
                 old = subprocess.check_output(['git', 'show', '6002abb:course/' + ('' if name == 'ilson.py' else 'lib/') + name], cwd=ROOT)
                 (root / name).write_bytes(old)
@@ -52,7 +53,7 @@ class PayloadTransportTests(unittest.TestCase):
             result = run_with_windows_limit(cmd, env, data)
             self.assertEqual(result.returncode, 0, result.stderr)
             for name, content in files.items():
-                self.assertEqual((root / name).read_text(), content)
+                self.assertEqual(target_path(root,name).read_text(), content)
             self.assertEqual(run_with_windows_limit(cmd, env, data).returncode, 0)
             backup = next((root / '.install-backups').iterdir())
             rollback = subprocess.run([sys.executable, str(ROOT / 'course/install_payload.py'), str(root), '--rollback', backup.name],
