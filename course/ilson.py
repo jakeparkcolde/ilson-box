@@ -5,7 +5,9 @@ import subprocess
 import sys
 
 
-def main(argv):
+def _main(argv):
+    os.environ['ILSON_HOME'] = os.environ.get('ILSON_COURSE_STATE', str(Path.home() / '.ilson-course'))
+    os.environ['ILSON_PROFILE'] = 'course'
     if any('—' in arg or '–' in arg for arg in argv):
         print('SMART_DASH: --help / --version처럼 ASCII 하이픈 두 개를 사용하세요.')
         return 2
@@ -69,6 +71,16 @@ def main(argv):
                                 '--home', str(vault), '--license-home', str(home), '--flat-vault'] + argv[1:])
     return subprocess.call([sys.executable, '-X', 'utf8', str(lib / 'selflearn.py'),
                             '--home', str(vault), '--flat-vault'] + argv[1:])
+
+
+def main(argv):
+    previous = {name: os.environ.get(name) for name in ('ILSON_HOME', 'ILSON_PROFILE')}
+    try:
+        return _main(argv)
+    finally:
+        for name, value in previous.items():
+            if value is None: os.environ.pop(name, None)
+            else: os.environ[name] = value
 
 
 if __name__ == '__main__':

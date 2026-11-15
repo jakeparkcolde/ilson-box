@@ -149,6 +149,12 @@ def load(home):
     """A private connection holds only company ID, never a user/role/UID assertion."""
     home = Path(home)
     marker = home / 'state/company.json'
+    if os.name == 'nt':
+        # Company mode is macOS-only. Course editions have no company marker.
+        from ilson_platform import safe_path
+        safe_path(marker)
+        if marker.exists(): deny()
+        return None
     try:
         with directory(marker.parent) as fd:
             raw, info = read_regular(fd, marker.name, 1024)

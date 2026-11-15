@@ -2,12 +2,18 @@
 from __future__ import annotations
 from contextvars import ContextVar
 from datetime import datetime
-import fcntl
+import ilson_platform as platform
+from ilson_platform import vault_root
 import os
 from pathlib import Path
 import approval_store as store
 
 _ACTIVE_HOME = ContextVar('approval_home')
+_ACTIVE_VAULT = ContextVar('approval_vault', default=None)
+
+
+def active_vault(home):
+    return vault_root(home, _ACTIVE_VAULT.get())
 
 
 def note_path(req):
@@ -22,8 +28,9 @@ def note_path(req):
     if policy:
         policy.read('management/reports/pending/' + name, 256000)
         return policy.vault / 'management/reports/pending' / name
-    pending = home / 'vault/reports/pending'
-    for path in (home / 'vault', home / 'vault/reports', pending):
+    vault = active_vault(home)
+    pending = vault / 'reports/pending'
+    for path in (vault, vault / 'reports', pending):
         if path.is_symlink():
             raise store.ApprovalStale('linked path')
     path = pending / name
@@ -39,7 +46,7 @@ def verify_note(req):
     content = policy.read('management/reports/pending/' + path.name, 256000)[0].decode('utf-8') if policy else path.read_text(encoding='utf-8')
     if store.digest(content) != req.body_sha256 or content != req.body:
         raise store.ApprovalStale('draft changed')
-    dest = (policy.vault / 'management/reports/approved') if policy else _ACTIVE_HOME.get() / 'vault/reports/approved'
+    dest = (policy.vault / 'management/reports/approved') if policy else active_vault(_ACTIVE_HOME.get()) / 'reports/approved'
     if dest.is_symlink() or (dest / path.name).exists() or (dest / path.name).is_symlink():
         raise store.ApprovalStale('destination unavailable')
 
@@ -56,7 +63,7 @@ def execute_note(req):
         policy.create('management/reports/approved/' + path.name, raw)
         policy.create('management/journal/approval-' + req.id + '.md', ('승인 번호: ' + req.id + '\n').encode())
         return store.ActionResult()
-    dest = home / 'vault/reports/approved'
+    dest = active_vault(home) / 'reports/approved'
     dest.mkdir(parents=True, exist_ok=True)
     destination = dest / path.name
     os.link(path, destination, follow_symlinks=False)
@@ -75,7 +82,7 @@ def execute_note(req):
         os.unlink(destination)
         raise
     os.unlink(path)
-    journal = home / 'vault/journal'
+    journal = active_vault(home) / 'journal'
     if journal.is_symlink():
         raise OSError('journal unavailable')
     journal.mkdir(parents=True, exist_ok=True)
@@ -94,16 +101,18 @@ def execution_lock(home):
     with store.connect(home):
         pass
     fd = os.open(store.home_path(home) / '.approval/execute.lock', os.O_RDWR | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0), 0o600)
-    fcntl.flock(fd, fcntl.LOCK_EX)
+    platform.lock(fd)
     return fd
 
 
-def dispatch(request_id, home=None, *, license_check=None):
+def dispatch(request_id, home=None, *, license_check=None, vault=None):
     home = store.home_path(home)
     fd = execution_lock(home)
+    vault_token = _ACTIVE_VAULT.set(vault)
     try:
         return _dispatch(request_id, home, license_check=license_check)
     finally:
+        _ACTIVE_VAULT.reset(vault_token)
         os.close(fd)
 
 

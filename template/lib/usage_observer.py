@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
-import fcntl
+import ilson_platform as platform
 from contextlib import contextmanager
 
 MAX_INPUT = 1024 * 1024
@@ -135,7 +135,7 @@ def preview(home, settings=None):
 def settings_lock(settings):
     settings.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     with open(settings.parent / '.ilson-usage.lock', 'a') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        platform.lock(lock.fileno())
         yield
 
 
@@ -198,7 +198,7 @@ def observe(home, raw, now=None, notify=None, authorized=None):
     folder = state_dir(home)
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)
     with open(folder / 'lock', 'a') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        platform.lock(lock.fileno())
         write_json(folder / 'latest.json', sample)
         options = read_json(folder / 'alerts.json', {})
         sent = read_json(folder / 'sent.json', {})

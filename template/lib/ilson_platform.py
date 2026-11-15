@@ -4,6 +4,7 @@ import errno
 import os
 from pathlib import Path, PureWindowsPath
 import stat
+import threading
 import time
 
 IS_WINDOWS = os.name == 'nt'
@@ -222,3 +223,20 @@ class WindowsFiles(PosixFiles):
 
 def files(home):
     return WindowsFiles(home) if IS_WINDOWS else PosixFiles(home)
+
+
+_private_cache = set()
+_private_lock = threading.Lock()
+
+
+def cached_private(path, *, directory=False, create=False):
+    """ACL check once per file identity; lstat still runs on every access."""
+    path = safe_path(path)
+    info = path.lstat()
+    valid = stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode)
+    if not valid or (not directory and info.st_nlink != 1): raise ValueError('개인 파일 형식을 확인하세요.')
+    key = (str(path), info.st_dev, info.st_ino)
+    with _private_lock:
+        if key not in _private_cache:
+            private(path, directory=directory, create=create)
+            _private_cache.add(key)

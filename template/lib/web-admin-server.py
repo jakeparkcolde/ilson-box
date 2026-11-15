@@ -29,6 +29,8 @@ LIBRARY = str(Path(__file__).resolve().parent)
 if LIBRARY not in sys.path:
     sys.path.insert(0, LIBRARY)
 
+import ilson_platform as platform
+
 SERVICE = "ilson-box-admin"
 SESSION_SECONDS = 8 * 3600
 REPORT_LIMIT = 100
@@ -266,84 +268,14 @@ class AdminError(ValueError):
         self.status = status
 
 
-class Unreadable(ValueError):
-    pass
+Unreadable = platform.Unreadable
 
 
 def stamp(value=None):
     return datetime.fromtimestamp(time.time() if value is None else value, timezone.utc).isoformat(timespec="seconds")
 
 
-class Files:
-    """허용한 루트 아래 일반 파일만 연다. 모든 경로 요소에서 링크를 거부한다."""
-    def __init__(self, home):
-        self.home = Path(home).resolve()
-
-    def open_dir(self, parts=()):
-        descriptor = os.open(self.home, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-        try:
-            for part in parts:
-                if part in {"", ".", ".."} or "/" in part:
-                    raise Unreadable("경로를 확인할 수 없습니다.")
-                child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=descriptor)
-                os.close(descriptor)
-                descriptor = child
-            return descriptor
-        except Exception:
-            os.close(descriptor)
-            raise
-
-    def read(self, relative, limit, private=False):
-        parts = Path(relative).parts
-        if not parts or Path(relative).is_absolute() or any(p in {"", ".", ".."} for p in parts):
-            raise Unreadable("경로를 확인할 수 없습니다.")
-        directory = None
-        descriptor = None
-        try:
-            directory = self.open_dir(parts[:-1])
-            descriptor = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
-            info = os.fstat(descriptor)
-            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size > limit:
-                raise Unreadable("파일 형식 또는 크기를 확인해주세요.")
-            if private and (stat.S_IMODE(info.st_mode) != 0o600 or info.st_uid != os.getuid()):
-                raise Unreadable("관리자 연결 파일의 소유자·권한을 확인해주세요.")
-            pieces = []
-            remaining = limit + 1
-            while remaining:
-                chunk = os.read(descriptor, min(remaining, 65536))
-                if not chunk:
-                    break
-                pieces.append(chunk)
-                remaining -= len(chunk)
-            raw = b"".join(pieces)
-            if len(raw) > limit:
-                raise Unreadable("파일이 너무 큽니다.")
-            return raw, info
-        except FileNotFoundError:
-            raise
-        except (OSError, ValueError):
-            raise Unreadable("파일을 안전하게 읽지 못했습니다.") from None
-        finally:
-            if descriptor is not None:
-                os.close(descriptor)
-            if directory is not None:
-                os.close(directory)
-
-    def text(self, relative, limit, private=False):
-        raw, info = self.read(relative, limit, private)
-        try:
-            return raw.decode("utf-8"), info
-        except UnicodeError:
-            raise Unreadable("문서 인코딩을 확인해주세요.") from None
-
-    def marker(self, relative):
-        try:
-            self.read(relative, 100)
-            return True
-        except FileNotFoundError:
-            return False
-        except Unreadable:
-            return None
+Files = platform.files
 
 
 class Probe:
@@ -463,16 +395,20 @@ def plist_schedule(data):
 
 
 class Box:
-    def __init__(self, home, *, probe=None, user_home=None, clock=time.time):
+    def __init__(self, home, *, probe=None, user_home=None, clock=time.time, profile="box", vault=None):
         # Claude와 ilson doctor는 사용자가 진입한 경로를 신뢰 키로 기록한다.
         # macOS /var와 /private/var처럼 같은 폴더의 원래 경로도 확인한다.
         self.project_paths = {str(Path(home).absolute()), str(Path(home).resolve())}
         self.home = Path(home).resolve()
+        self.profile = profile
+        self.vault = platform.vault_root(self.home, vault)
+        if profile == "course": self.project_paths = {str(self.vault.absolute()), str(self.vault.resolve())}
         release=self.home/'.updates/installed.json'
         self.release_info={k:v for k,v in json.loads(release.read_text()).items() if k in ('version','research_version')} if release.is_file() else {}
         from access_policy import require_owner
         self.company_policy = require_owner(self.home)
         self.files = Files(self.home)
+        self.vault_files = Files(self.vault) if profile == "course" else self.files
         self.user_files = Files(user_home or Path.home())
         self.clock = clock
         self.probe = probe or Probe(self.home)
@@ -553,7 +489,7 @@ class Box:
             if self.company_policy:
                 text = self.company_policy.read('company/CONTEXT.md', 65536, company_only=True)[0].decode('utf-8')
             else:
-                text, _ = self.files.text("vault/CONTEXT.md", 65536)
+                text, _ = self.vault_files.text("CONTEXT.md" if self.profile == "course" else "vault/CONTEXT.md", 65536)
             match = re.search(r"^- 회사명:[ \t]*([^\r\n]*)", text, re.MULTILINE)
             name = match[1].strip() if match else ""
             if not name or name.startswith("("):
@@ -713,7 +649,7 @@ class Box:
                 return
             descriptor = None
             try:
-                descriptor = self.files.open_dir(parts)
+                descriptor = self.vault_files.open_dir(parts)
                 with os.scandir(descriptor) as entries:
                     names = []
                     for entry in entries:
@@ -736,7 +672,7 @@ class Box:
             finally:
                 if descriptor is not None:
                     os.close(descriptor)
-        scan(("vault", "reports"), 0)
+        scan(("reports",) if self.profile == "course" else ("vault", "reports"), 0)
         return rows, limited
 
     def report_index(self):
@@ -749,7 +685,7 @@ class Box:
                     raw, info = self.company_policy.read(relative, REPORT_BYTES)
                     text = raw.decode('utf-8')
                 else:
-                    text, info = self.files.text(relative, REPORT_BYTES)
+                    text, info = self.vault_files.text(relative, REPORT_BYTES)
             except (OSError, ValueError, UnicodeError, Unreadable):
                 limited = True
                 continue
@@ -760,7 +696,7 @@ class Box:
                 if line.startswith("# ") and line[2:].strip():
                     title = line[2:].strip()[:120]
                     break
-            category = {"briefing": "아침 브리핑", "weekly": "주간 보고", "pending": "승인 대기 초안"}.get(path.parts[2] if len(path.parts) > 3 else "", "업무 보고")
+            category = {"briefing": "아침 브리핑", "weekly": "주간 보고", "pending": "승인 대기 초안"}.get(path.parts[-2] if len(path.parts) > (2 if self.profile == "course" else 3) else "", "업무 보고")
             identity = hmac.new(self.token.encode(), relative.encode(), hashlib.sha256).hexdigest()[:32]
             rows.append(({"id": identity, "title": title, "category": category, "updated_at": stamp(info.st_mtime), "size_bytes": info.st_size}, relative))
         rows.sort(key=lambda row: row[0]["updated_at"], reverse=True)
@@ -784,7 +720,7 @@ class Box:
                         raw, _ = self.company_policy.read(relative, REPORT_BYTES)
                         text = raw.decode('utf-8')
                     else:
-                        text, _ = self.files.text(relative, REPORT_BYTES)
+                        text, _ = self.vault_files.text(relative, REPORT_BYTES)
                 except (OSError, ValueError, UnicodeError, Unreadable):
                     raise AdminError("보고서를 읽지 못했습니다. 목록을 새로 확인해주세요.", 404) from None
                 return self.redact({**metadata, "text": text, "truncated": False})
@@ -1255,8 +1191,9 @@ class Handler(BaseHTTPRequestHandler):
                 except (OSError, ValueError):
                     raise AdminError('초안을 읽지 못했습니다.') from None
                 return self.reply(200, {'id': request_id})
-            pending = home / 'vault/reports/pending'
-            if any(p.is_symlink() for p in (home / 'vault', home / 'vault/reports', pending, pending / name)):
+            vault = self.server.box.vault
+            pending = vault / 'reports/pending'
+            if any(p.is_symlink() for p in (vault, vault / 'reports', pending, pending / name)):
                 raise AdminError('초안 경로를 확인해 주세요.')
             try:
                 if not (pending / name).is_file() or (pending / name).stat().st_size > 256000:
@@ -1270,7 +1207,7 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(request_id, str) or not re.fullmatch('[a-f0-9]{32}', request_id):
             raise AdminError('승인 요청을 확인해 주세요.')
         if path == '/api/approvals/run':
-            return self.reply(200, {'status': dispatch.dispatch(request_id, home)})
+            return self.reply(200, {'status': dispatch.dispatch(request_id, home, vault=self.server.box.vault)})
         if path == '/api/approvals/send':
             try:
                 req = store.get(request_id, home)
@@ -1289,7 +1226,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise AdminError('숨겨진 내용이 있어 승인할 수 없습니다. 초안을 수정한 뒤 다시 요청하세요.')
         if not store.decide(request_id, decisions[path], 'local', home=home):
             raise AdminError('이미 처리되었거나 만료된 요청입니다.', 409)
-        status = dispatch.dispatch(request_id, home) if decisions[path] == 'approved' else decisions[path]
+        status = dispatch.dispatch(request_id, home, vault=self.server.box.vault) if decisions[path] == 'approved' else decisions[path]
         return self.reply(200, {'status': status})
 
     def post(self):

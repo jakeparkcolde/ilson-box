@@ -10,6 +10,7 @@ import secrets
 import sqlite3
 import stat
 import time
+import ilson_platform as platform
 
 _ACTIONS = {}
 
@@ -90,15 +91,21 @@ def connect(home=None):
     root = home_path(home) / '.approval'
     if root.is_symlink():
         raise ValueError('invalid approval directory')
+    existed = root.exists()
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     info = root.stat()
-    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+    if platform.IS_WINDOWS:
+        platform.cached_private(root, directory=True, create=not existed)
+    elif not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
         raise ValueError('approval directory permissions')
     path = root / 'approvals.sqlite3'
+    if platform.IS_WINDOWS: platform.safe_path(path)
     fd = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0), 0o600)
     try:
         info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        if platform.IS_WINDOWS:
+            platform.cached_private(path)
+        elif not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
             raise ValueError('approval database permissions')
     finally:
         os.close(fd)
