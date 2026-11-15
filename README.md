@@ -8,7 +8,7 @@
 
 ## 새 맥미니 설치
 
-macOS 13 이상에서 Apple Silicon과 Intel을 구분해 점검합니다. Intel 전체판은 Homebrew 의존 도구 지원을 별도로 확인해야 하며, 강의에서는 강의판(Claude Code + Orca + Obsidian + 위키 + 자동 스킬)을 권장합니다. Intel 강의판은 터미널에서 `curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/course/install-intel-mac.sh | bash` 로 설치합니다(macOS 13 이상). Windows 10·11은 PowerShell에서 `irm https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/course/install-windows.ps1 | iex` 로 설치합니다.
+macOS 13 이상에서 Apple Silicon과 Intel을 구분해 점검합니다. Intel 전체판은 Homebrew 의존 도구 지원을 별도로 확인해야 하며, 강의에서는 강의판(Claude Code + Orca + Obsidian + 위키 + 자동 스킬)을 권장합니다. Intel 강의판은 터미널에서 `curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/course/install-intel-mac.sh | bash` 로 설치합니다(macOS 13 이상). Windows 미공개 검증본은 Claude Code · Herdr · Obsidian을 사용하며 이미 있는 Orca는 보존합니다(Intel 강의판은 공식 Herdr 빌드 미지원으로 Orca 유지). Windows 10·11은 PowerShell에서 `irm https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/course/install-windows.ps1 | iex` 로 설치합니다.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/install.sh | sh
@@ -189,3 +189,6 @@ Mac 전체판은 `--auto-on`을 별도로 켜고 기존 watchdog이 실제 가�
 ### Windows·Intel Mac 관리자 1단계 (미공개 검증본)
 
 강의판도 `ilson open`으로 Mac과 같은 디자인의 **홈 · 승인함 · 주간 리포트 · 내 AI 사용 기록 · 수동 답글 초안**을 엽니다. `ilson admin status|stop`으로 확인·종료하며 마지막 인증 요청부터 유휴 2시간 뒤 자동 종료됩니다. 새 서비스나 예약 작업은 등록하지 않습니다. 초안은 Claude 대화에서 `reports/pending/`에 저장하고 사람이 승인하며, 주간 리포트 화면은 읽기 전용입니다. 설치·업데이트·롤백 전에 관리자를 중지해야 합니다. [강의판 관리자 안내](docs/강의판-관리자.md)를 참고하세요. 실제 Windows·Intel Mac 검증, 독립 검토·AGY 검수와 공개 배포는 별도입니다.
+
+
+Windows 강의판 Herdr 전환도 미공개 검증본입니다. [공식 배포 안내](https://herdr.dev/download/)와 [공식 설치 스크립트](https://releases.herdr.dev/app/install.ps1)를 확인해 `0.1.15` Windows x86_64 URL·SHA-256을 고정했습니다. 설치는 사용자 폴더·시작 메뉴만 준비하고 core 초기 설정·로그인·원격 연결은 앱에서 직접 확인합니다. 기존 Herdr 버전은 확인 후 재사용하고 기존 Orca는 제거하지 않습니다. 실제 Windows 설치·서명·PS5.1 검증은 대기 중입니다. Intel Mac은 [공식 설치 스크립트](https://releases.herdr.dev/app/install.sh)가 미지원으로 거절하므로 Orca를 유지합니다. Mac Box의 기존 Herdr 설치 동작은 그대로입니다.

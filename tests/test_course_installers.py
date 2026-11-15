@@ -80,7 +80,8 @@ class PowerShellTests(unittest.TestCase):
 function Get-CimInstance { param($ClassName) if ($ClassName -eq 'Win32_OperatingSystem') { [pscustomobject]@{ BuildNumber='26300'; ProductType=1; Caption='test Windows' } } else { [pscustomobject]@{ SystemType='x64-based PC' } } }
 function Get-PSDrive { param($Name) [pscustomobject]@{Free=10GB} }
 function Find-Claude { [pscustomobject]@{ Source='/usr/bin/true' } }
-function Find-Orca { '/fake/Orca.exe' }
+function Find-Herdr { '/fake/herdr-app.exe' }
+function Get-HerdrCourseVersion { '0.1.15' }
 function Get-Command {
     [CmdletBinding()] param([string]$Name)
     if ($Name -eq 'python.exe') { return [pscustomobject]@{Source=$env:ILSON_TEST_PYTHON} }
@@ -129,10 +130,11 @@ Write-Output ('ENV_BOOTSTRAP=' + $env:ILSON_COURSE_BOOTSTRAP)
 function Get-CimInstance { param($ClassName) if ($ClassName -eq 'Win32_OperatingSystem') { [pscustomobject]@{ BuildNumber='26300'; ProductType=1; Caption='test Windows' } } else { [pscustomobject]@{ SystemType='x64-based PC' } } }
 function Get-PSDrive { param($Name) [pscustomobject]@{Free=10GB} }
 function Find-Claude { CLAUDE_MOCK }
-function Find-Orca { ORCA_MOCK }
+function Find-Herdr { ORCA_MOCK }
+function Get-HerdrCourseVersion { '0.1.15' }
 function Invoke-RestMethod { throw 'simulated Claude failure' }
 function Invoke-WebRequest { throw 'simulated download failure' }
-'''.replace('CLAUDE_MOCK', "[pscustomobject]@{ Source='/usr/bin/true' }" if mode == 'installed' else '$null').replace('ORCA_MOCK', "'/fake/Orca.exe'" if mode == 'installed' else '$null')
+'''.replace('CLAUDE_MOCK', "[pscustomobject]@{ Source='/usr/bin/true' }" if mode == 'installed' else '$null').replace('ORCA_MOCK', "'/fake/herdr-app.exe'" if mode == 'installed' else '$null')
                 kit = home / 'Documents/일손강의-1기'
                 if mode == 'failure':
                     kit.mkdir(parents=True)
@@ -167,7 +169,8 @@ function Invoke-WebRequest { throw 'simulated download failure' }
 function Get-CimInstance { param($ClassName) if ($ClassName -eq 'Win32_OperatingSystem') { [pscustomobject]@{ BuildNumber='26300'; ProductType=1; Caption='test Windows' } } else { [pscustomobject]@{ SystemType='x64-based PC' } } }
 function Get-PSDrive { param($Name) [pscustomobject]@{Free=10GB} }
 function Find-Claude { [pscustomobject]@{ Source='/usr/bin/true' } }
-function Find-Orca { '/fake/Orca.exe' }
+function Find-Herdr { '/fake/herdr-app.exe' }
+function Get-HerdrCourseVersion { '0.1.15' }
 function New-TestClient {
     $client = [pscustomobject]@{}
     $client | Add-Member ScriptMethod DownloadData {
@@ -229,7 +232,8 @@ function New-TestClient {
 function Get-CimInstance { param($ClassName) if ($ClassName -eq 'Win32_OperatingSystem') { [pscustomobject]@{ BuildNumber='26300'; ProductType=1; Caption='test Windows' } } else { [pscustomobject]@{ SystemType='x64-based PC' } } }
 function Get-PSDrive { param($Name) [pscustomobject]@{Free=10GB} }
 function Find-Claude { [pscustomobject]@{ Source='/usr/bin/true' } }
-function Find-Orca { '/fake/Orca.exe' }
+function Find-Herdr { '/fake/herdr-app.exe' }
+function Get-HerdrCourseVersion { '0.1.15' }
 function Get-Command {
     [CmdletBinding()] param([string]$Name)
     if ($Name -eq 'python.exe') { return [pscustomobject]@{Source=$env:ILSON_TEST_PYTHON} }

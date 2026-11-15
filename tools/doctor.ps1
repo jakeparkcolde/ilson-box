@@ -210,6 +210,14 @@ function Complete-IlsonDiagnostics([int]$Code=0) {
     return $Code
 }
 # DIAGNOSTICS_END
+function Get-IlsonHerdrStatus {
+    if ($env:OS -ne 'Windows_NT') { return @('unverified','unknown') }
+    $app = Join-Path $env:LOCALAPPDATA 'Programs\herdr-app\herdr-app.exe'
+    if (-not (Test-Path -LiteralPath $app -PathType Leaf)) { return @('missing','missing') }
+    try { Test-IlsonDiagPath $app; return @('present',(Get-IlsonDiagVersion (Get-Item -LiteralPath $app).VersionInfo.ProductVersion)) }
+    catch { return @('unknown','unknown') }
+}
+
 function Invoke-IlsonDoctor {
     try {
         $root=if ($env:ILSON_DIAGNOSTICS_DIR) {$env:ILSON_DIAGNOSTICS_DIR} else {Join-Path $env:LOCALAPPDATA 'ilson-diagnostics'}
@@ -262,6 +270,8 @@ function Invoke-IlsonDoctor {
         $ended=@($events | Where-Object {$_.event -eq 'run-end'})
         $failed=@($observed | Where-Object {$_.event -eq 'step-end' -and $_.required -and $_.result -ne 'ok' -and $_.reason_code -notin @('DRY_RUN','NOT_APPLICABLE','NOT_SELECTED')})
         $code=if ($damaged -or $interrupted -or -not $ended.Count) {3} elseif ($failed.Count -or $ended[-1].result -eq 'failed') {1} elseif ($pending.Count) {4} else {0}
+        $herdr = Get-IlsonHerdrStatus
+        if ($herdr[0] -in @('missing','unknown') -and $code -in @(0,4)) { $code=1 }
         # Rebuild the summary from fixed codes. Never echo arbitrary fields from disk.
         $summary='Ilson offline install diagnostics; result=' + $code + '; current/new window require separate user confirmation.'
         $reasons=@()
@@ -272,6 +282,7 @@ function Invoke-IlsonDoctor {
         $status=if ($damaged) {'damaged'} elseif ($interrupted -or -not $ended.Count) {'interrupted'} elseif ($code -eq 1) {'failed'} elseif ($code -eq 4) {'pending'} else {'ok'}
         $summary+='; status='+$status+'; log_status='+$(if ($damaged) {'malformed'} else {'ok'})+'; run_id='+[IO.Path]::GetFileName($folder)
         $summary+='; required_reasons='+($reasons -join ',')
+        $summary+='; workspace_app=Herdr; workspace_app_state='+$herdr[0]+'; workspace_app_version='+$herdr[1]
         Write-Output $summary
         if ($Share) {
             $dest=Join-Path $root 'share'; New-IlsonDiagDirectory $dest

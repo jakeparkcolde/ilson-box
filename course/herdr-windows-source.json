@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "checked_at": "2026-11-15",
+  "version": "0.1.15",
+  "architecture": "windows-x86_64",
+  "url": "https://releases.herdr.dev/app/0.1.15/herdr-app-windows-x86_64.tar.gz",
+  "sha256": "62ddf27ee9acc13d9b3421389817d1cabdc906c23f9ff1363f6cdbc8af3da39c",
+  "manifest_source": "https://releases.herdr.dev/app/latest.json",
+  "installation_source": "https://releases.herdr.dev/app/install.ps1",
+  "installation_source_sha256": "c973f34ec58fff5448d639da48f7a0a97a0cbb4f156d390cab141e9df889d59e",
+  "intel_macos_supported": false,
+  "intel_evidence": "https://releases.herdr.dev/app/install.sh",
+  "core_setup": "Herdr offers core setup on first open if missing; no course service is registered."
+}

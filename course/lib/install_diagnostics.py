@@ -345,6 +345,25 @@ def next_lines(edition, run_id, cli=None, vault=None):
             shlex.quote(target) + ' doctor --install --run ' + run_id]
 
 
+def course_workspace_app():
+    if os.name != 'nt': return {'name': 'Herdr', 'state': 'unverified', 'version': 'unknown'}
+    candidates = [Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs/herdr-app/herdr-app.exe',
+                  Path(os.environ.get('ProgramFiles', '')) / 'Herdr/herdr-app.exe']
+    found = shutil.which('herdr-app')
+    if found: candidates.append(Path(found))
+    try:
+        path = next((p for p in candidates if p.is_file()), None)
+        if path is None: return {'name': 'Herdr', 'state': 'missing', 'version': 'missing'}
+        safe_path(path)
+        code, output = probe_command([str(path), '--version'])
+        text = output.decode('ascii').strip()
+        match = re.fullmatch(r'herdr-app ([0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6})', text)
+        if code or not match: raise ValueError('VERIFY_FAILED')
+        return {'name': 'Herdr', 'state': 'present', 'version': match[1]}
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return {'name': 'Herdr', 'state': 'unknown', 'version': 'unknown'}
+
+
 def main(argv=None, edition='unknown', cli=None, vault=None):
     parser = argparse.ArgumentParser(description='일손 로컬 설치 점검 · 네트워크 연결 없음')
     parser.add_argument('--install', action='store_true')
@@ -413,6 +432,10 @@ def main(argv=None, edition='unknown', cli=None, vault=None):
         summary['vault_exists'] = selected_vault.is_dir()
         summary['version'] = VERSION
         summary['edition_expected'] = edition
+        if edition == 'windows-course':
+            summary['workspace_app'] = course_workspace_app()
+            if summary['workspace_app']['state'] in ('missing', 'unknown') and summary['exit_code'] in (0, 4):
+                summary.update(status='failed', exit_code=1, first_failure='RUNTIME_MISSING')
         if args.share:
             if not events and not damaged: raise ValueError('NO_RUN')
             summary['reference'] = export_share(events, root, damaged, directory.name if directory else None)

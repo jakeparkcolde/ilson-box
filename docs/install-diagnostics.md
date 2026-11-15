@@ -84,3 +84,8 @@ Windows·Intel 강의 설치기는 내장 bootstrap과 압축 payload를 표준�
 전체판 배포는 기존 updater가 허용하는 `template/lib/*.py`, `*.sh`를 사용합니다. 설정·볼트·jobs.conf와 새 `tools/` 경로를 updater 허용 목록에 추가하지 않습니다. schema는 개발/검수 자료이며 설치 시작 시 다운로드하지 않습니다.
 
 Windows 5.1 실기기 검증은 배포 전 별도 필요합니다. 이 구현의 Mac 검증 결과를 Windows 5.1 통과로 해석하지 않습니다.
+
+
+### Windows Herdr 점검 (미공개 검증본)
+
+Windows 설치 기록은 `apps.herdr`를 사용하며 Orca 설치나 존재를 요구하지 않습니다. 기존 Orca는 보존하고 이전 run의 `apps.orca` 기록은 역사적 근거로 계속 읽습니다. `ilson doctor --install --json`의 `workspace_app`은 Herdr의 현재 존재와 제한된 `--version` 실행 결과를 보여 줍니다. standalone `doctor.ps1`은 사용자 설치 경로와 PE 버전 정보를 확인합니다. Mac에서 Windows 프로필을 모의 점검한 경우 `unverified`이며 실제 Windows 성공이 아닙니다. Intel 강의판은 공식 Herdr 빌드가 없어 Orca를 유지합니다.
