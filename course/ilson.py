@@ -14,6 +14,18 @@ def _main(argv):
     if argv == ['--version']:
         print('ilson ' + ('windows-course' if os.name == 'nt' else 'intel-course') + ' ILSON-DIAG-1')
         return 0
+    if argv and argv[0] in ('open', 'admin'):
+        lib = Path(__file__).resolve().parent
+        if (lib / 'lib/web-admin.py').is_file(): lib /= 'lib'
+        home = os.environ['ILSON_HOME']
+        vault = os.environ.get('ILSON_COURSE_VAULT', str(Path.home() / 'Documents/일손강의-1기'))
+        command = 'open' if argv[0] == 'open' else (argv[1] if len(argv) > 1 else 'status')
+        extra = argv[1:] if argv[0] == 'open' else argv[2:]
+        if command not in ('open', 'status', 'stop') or (extra and not (command == 'stop' and extra == ['--force'])):
+            print('사용법: ilson open | ilson admin status|stop [--force]')
+            return 2
+        return subprocess.call([sys.executable, '-X', 'utf8', str(lib / 'web-admin.py'), command,
+                                '--home', home, '--vault', vault, '--profile', 'course'] + extra)
     if argv and argv[0] == 'doctor':
         if (Path(__file__).resolve().parent / 'lib/install_diagnostics.py').is_file():
             sys.path.insert(0, str(Path(__file__).resolve().parent / 'lib'))
@@ -51,7 +63,7 @@ def _main(argv):
         return subprocess.call([sys.executable, '-X', 'utf8', str(lib / 'curator.py'),
                                 '--home', str(home), '--edition', edition, '--vault', vault] + argv[1:])
     if not argv or argv[0] not in ('learn', 'license', 'skill', 'report'):
-        print('사용법: ilson doctor --install [--share] | ilson --version | ilson usage | ilson curator|diary [--on|--off|--status|--addendum] | ilson update [--rollback] | ilson report weekly | ilson learn ... | ilson skill share|list|get|withdraw | ilson license activate|status')
+        print('사용법: ilson open | ilson admin status|stop | ilson doctor --install [--share] | ilson --version | ilson usage | ilson curator|diary [--on|--off|--status|--addendum] | ilson update [--rollback] | ilson report weekly | ilson learn ... | ilson skill share|list|get|withdraw | ilson license activate|status')
         return 0 if not argv or argv[0] in ('-h', '--help') else 2
     lib = Path(__file__).resolve().parent
     home = Path(os.environ.get('ILSON_COURSE_STATE', Path.home() / '.ilson-course'))

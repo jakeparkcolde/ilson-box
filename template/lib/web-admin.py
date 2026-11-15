@@ -1,7 +1,6 @@
 # coding: utf-8
 """일손 Box의 로컬 관리 화면만 설치·열기·점검·중지한다."""
 import argparse
-import fcntl
 import hashlib
 import json
 import os
@@ -18,6 +17,9 @@ import time
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, build_opener
 
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ilson_platform as platform
 
 LABEL = "com.ilson.admin"
 SERVICE = "ilson-box-admin"
@@ -327,7 +329,7 @@ def install(home, port_override=None):
     with os.fdopen(descriptor, "a") as lock:
         os.fchmod(lock.fileno(), 0o600)
         try:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            platform.lock(lock.fileno(), blocking=False)
         except BlockingIOError:
             raise AdminError("다른 창에서 관리 웹을 준비하고 있습니다. 잠시 뒤 다시 시도해 주세요.") from None
         config = read_config(home)
@@ -439,7 +441,13 @@ def main(argv=None):
     parser.add_argument("command", choices=("install", "open", "status", "stop"))
     parser.add_argument("--home", type=Path, required=True)
     parser.add_argument("--port", type=int)
+    parser.add_argument("--profile", choices=("box", "course"), default="box")
+    parser.add_argument("--vault", type=Path)
+    parser.add_argument("--force", action="store_true")
     args = parser.parse_args(argv)
+    if args.profile == "course":
+        from course_admin import main as course_main
+        return course_main(args)
     try:
         if args.command == "status":
             return status(args.home, args.port)

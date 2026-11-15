@@ -964,7 +964,7 @@ class Handler(BaseHTTPRequestHandler):
             approval_path = urlsplit(self.path).path
             usage_safe = ((self.command in ('GET', 'HEAD') and approval_path in ('/usage-history', '/usage-history.js', '/usage-history.css', '/api/usage-history/summary')) or
                           (self.command == 'POST' and approval_path in ('/api/usage-history/off', '/api/usage-history/export', '/api/usage-history/delete-local', '/api/usage-history/unlink')))
-            session_safe = approval_path == '/api/session'
+            session_safe = approval_path == '/api/session' or (self.server.box.profile == 'course' and approval_path in ('/api/admin/shutdown', '/api/logout'))
             # The offline privacy page uses the same shell assets. Static UI
             # code/styles/fonts carry no account data; APIs keep their license gates.
             shell_asset = (self.command in ('GET', 'HEAD') and approval_path in self.server.box.static
