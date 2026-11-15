@@ -398,6 +398,7 @@ def plist_schedule(data):
 
 
 class Box:
+    profile = "box"
     def __init__(self, home, *, probe=None, user_home=None, clock=time.time, profile="box", vault=None):
         # Claude와 ilson doctor는 사용자가 진입한 경로를 신뢰 키로 기록한다.
         # macOS /var와 /private/var처럼 같은 폴더의 원래 경로도 확인한다.

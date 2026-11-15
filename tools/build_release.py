@@ -57,6 +57,8 @@ def build(output,version,pack,feed=None,preserve_from=None):
     carried=load_preserve(preserve_from) if preserve_from else {}
     files=[];members={}
     accepted=json.loads((ROOT/'tools/manager-baseline.json').read_text())
+    history_path=ROOT/'tools/manager-history.json'
+    reviewed_history=json.loads(history_path.read_text()) if history_path.is_file() else {}
     with zipfile.ZipFile(pack) as z:
         pack_data={i.filename:z.read(i) for i in z.infolist() if not i.is_dir()}
     # 관리자와 독립 실행 팩은 같은 검증된 ZIP에서 조립한다. 예전 사본이 다시 배포되지 않는다.
@@ -98,6 +100,7 @@ def build(output,version,pack,feed=None,preserve_from=None):
             compile(body,rel,'exec')
         if rel in accepted:accepted_hash=accepted[rel];accepted_history=[accepted_hash]
         else:accepted_history=[]
+        accepted_history += reviewed_history.get(rel, [])
         add('cli',rel,body,baseline)
         files[-1]['previous_sha256']=list(dict.fromkeys(history_hashes+accepted_history))
         if rel.startswith('template/lib/') or rel=='template/CLAUDE.md':

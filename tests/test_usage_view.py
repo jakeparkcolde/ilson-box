@@ -65,6 +65,7 @@ class UsageTests(unittest.TestCase):
         installed_lib = self.home / 'lib'
         installed_lib.mkdir(parents=True)
         shutil.copyfile(u.__file__, installed_lib / 'usage_observer.py')
+        shutil.copyfile(Path(u.__file__).with_name('ilson_platform.py'), installed_lib / 'ilson_platform.py')
         env = dict(os.environ, HOME=str(userhome), ILSON_HOME=str(self.home), PYTHONPATH=str(installed_lib))
         code = 'import sys, usage_observer as u; u.enable(sys.argv[1])'
         subprocess.run([str(other_python), '-c', code, str(self.home)], env=env, check=True, capture_output=True)

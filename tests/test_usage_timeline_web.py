@@ -120,5 +120,5 @@ class UsageWebTests(BoxFixture):
             encoded=re.search(r"(?:COURSE_PAYLOAD|\$CoursePayload)='([^']+)'",source).group(1)
             files=json.loads(gzip.decompress(base64.b64decode(encoded)))
             self.assertEqual(files['usage_timeline.py'],(ROOT/'course/lib/usage_timeline.py').read_text())
-            self.assertNotIn('web-admin-server.py',files)
+            self.assertIn('web-admin-server.py',files)
             self.assertFalse(any('instructor' in p for p in files))

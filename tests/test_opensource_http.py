@@ -25,9 +25,10 @@ class OpenSourceHTTPTests(unittest.TestCase):
         self.document=raw(catalog(repo()))
         self.reader=Mock(side_effect=lambda path,limit:(self.document,None))
         self.redact=lambda value: json.loads(json.dumps(value).replace(TOKEN,'MASKED').replace(SESSION,'MASKED'))
-        self.box=SimpleNamespace(home=ROOT/'.scratch',cookie_name='synthetic_cookie',
+        self.box=SimpleNamespace(home=ROOT/'.scratch',cookie_name='synthetic_cookie',profile='box',static=admin.STATIC,static_files=None,
             clock=lambda:self.now,session_lock=threading.Lock(),
             sessions={hashlib.sha256(SESSION.encode()).hexdigest():NOW+3600},redact=self.redact)
+        self.box.licensed=lambda:admin.Box.licensed(self.box)
         self.box.authenticated=lambda session:admin.Box.authenticated(self.box,session)
         self.box.opensource_catalog=Catalog(self.reader,clock=lambda:self.now,redact=self.redact)
         self.server=SimpleNamespace(box=self.box,hosts={'local.test'},origins={'http://local.test'})
