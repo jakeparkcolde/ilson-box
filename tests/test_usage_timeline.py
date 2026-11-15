@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import threading
 import unittest
 from unittest.mock import patch
@@ -85,6 +86,22 @@ class CollectorTests(Fixture):
         self.on(backfill=None)
         self.assertEqual(self.ledger.collect()['totals']['turns'], 0)
         self.assertFalse(self.ledger.config()['sync_enabled'])
+
+    def test_off_is_one_action_while_a_short_collection_holds_lock(self):
+        self.on(); entered = threading.Event()
+        def hold():
+            with self.ledger.locked():
+                entered.set(); time.sleep(.1)
+        thread = threading.Thread(target=hold); thread.start(); entered.wait(2)
+        self.ledger.off(); thread.join(2)
+        self.assertFalse(self.ledger.config()['enabled'])
+
+    def test_replayed_older_stream_chunk_cannot_rewind_final_usage(self):
+        source = self.on(); path = self.fixture(source)
+        self.assertEqual(self.ledger.collect()['totals']['output_tokens'], 30)
+        old_chunk = path.read_text().splitlines()[1]
+        (source/'replayed-old.jsonl').write_text(old_chunk+'\n')
+        self.assertEqual(self.ledger.collect()['totals']['output_tokens'], 30)
 
     def test_incremental_scan_does_not_starve_later_files(self):
         source = self.on()

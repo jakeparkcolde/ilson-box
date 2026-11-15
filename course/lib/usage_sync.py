@@ -137,7 +137,7 @@ class Client:
         cfg = self.ledger.config()
         if not cfg.get('consent_id'):
             return self.ledger.summary()
-        with self.ledger.locked():
+        with self.ledger.locked(wait=True):
             cfg = self.ledger.config()
             cfg.update(sync_enabled=False, revoke_pending=True, sync_state='revoke_pending', next_sync_at=0)
             self.ledger.save(cfg)

@@ -130,21 +130,29 @@ class Ledger:
                 stream.write('\n/state/usage-timeline/\n')
 
     @contextmanager
-    def locked(self):
+    def locked(self, *, wait=False):
         self.prepare()
         path = self.root / 'lock'
         safe(path, private=True)
         fd = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0), 0o600)
         try:
-            if os.name == 'nt':
-                import msvcrt
-                if not os.fstat(fd).st_size:
-                    os.write(fd, b'0')
-                os.lseek(fd, 0, 0)
-                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            deadline = time.monotonic() + (3 if wait else 0)
+            while True:
+                try:
+                    if os.name == 'nt':
+                        import msvcrt
+                        if not os.fstat(fd).st_size:
+                            os.write(fd, b'0')
+                        os.lseek(fd, 0, 0)
+                        msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                    else:
+                        import fcntl
+                        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise UsageError('사용 기록 처리 중입니다. 잠시 후 다시 시도하세요.') from None
+                    time.sleep(0.02)
             yield
         finally:
             os.close(fd)
@@ -163,9 +171,11 @@ class Ledger:
           CREATE TABLE IF NOT EXISTS events (
             key TEXT PRIMARY KEY, session TEXT, at REAL, kind TEXT, model TEXT,
             input_tokens INTEGER, output_tokens INTEGER, cache_read_tokens INTEGER,
-            cache_creation_tokens INTEGER, quality TEXT);
+            cache_creation_tokens INTEGER, quality TEXT, seen_at REAL);
           CREATE TABLE IF NOT EXISTS cursors (key TEXT PRIMARY KEY, inode TEXT, offset INTEGER);
         ''')
+        if 'seen_at' not in {r['name'] for r in db.execute('PRAGMA table_info(events)')}:
+            db.execute('ALTER TABLE events ADD COLUMN seen_at REAL DEFAULT 0')
         return db
 
     def on(self, workspace, zone, *, backfill=None):
@@ -210,7 +220,7 @@ class Ledger:
     def off(self):
         if not self.root.exists():
             return
-        with self.locked():
+        with self.locked(wait=True):
             cfg = self.config()
             if cfg.get('enabled') and cfg.get('windows'):
                 cfg['windows'][-1][1] = self.clock()
@@ -270,7 +280,7 @@ class Ledger:
             counters = [count(usage.get(k)) for k in ('input_tokens', 'output_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens')]
             model = model_id(message.get('model'))
             quality = 'partial' if None in counters or model is None else 'observed'
-        return (self.key(cfg, kind + ':' + session + ':' + ident), self.key(cfg, session), at, kind, model, *counters, quality)
+        return (self.key(cfg, kind + ':' + session + ':' + ident), self.key(cfg, session), at, kind, model, *counters, quality, at)
 
     def collect(self):
         cfg = self.config()
@@ -337,11 +347,18 @@ class Ledger:
                                     if event:
                                         existing = db.execute('SELECT * FROM events WHERE key=?', (event[0],)).fetchone()
                                         if existing:
-                                            # Streaming records replace only when counters change; stable first timestamp.
-                                            event = (event[0], event[1], existing['at'], *event[3:])
+                                            # Replayed/rotated old chunks cannot rewind a final message's usage.
+                                            first_at = min(existing['at'], event[2])
+                                            if event[-1] < (existing['seen_at'] or existing['at']):
+                                                event = tuple(existing)
+                                            elif event[-1] == existing['seen_at']:
+                                                # Equal timestamps with conflicting usage cannot establish a final value.
+                                                if tuple(existing)[5:9] != event[5:9]:
+                                                    event = (*event[:5], None, None, None, None, 'partial', event[-1])
+                                            event = (event[0], event[1], first_at, *event[3:])
                                             if tuple(existing) == event:
                                                 continue
-                                        db.execute('INSERT OR REPLACE INTO events VALUES (?,?,?,?,?,?,?,?,?,?)', event)
+                                        db.execute('INSERT OR REPLACE INTO events VALUES (?,?,?,?,?,?,?,?,?,?,?)', event)
                                 except (ValueError, TypeError, KeyError, OverflowError):
                                     partial = format_partial = True
                             if offset < info.st_size:
@@ -424,7 +441,7 @@ class Ledger:
         if not self.root.exists():
             return
         self.off()
-        with self.locked():
+        with self.locked(wait=True):
             cfg = self.config()
             db = self.connect()
             try:
