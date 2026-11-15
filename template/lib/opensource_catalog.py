@@ -21,7 +21,8 @@ SCHEMA_VERSION = 2
 BUNDLE_TTL = 30 * 86400
 SOURCE_CHECK_WINDOW = 72 * 3600
 MANUAL_PATH = 'reference-manual-20261115'
-# This editorial exception is restricted to the unambiguous reference repos.
+# This editorial exception is restricted to the reviewed reference repos and
+# Round 2 repo-level introductions (including two explicit skill collections).
 # GitHub numeric IDs also bind identity if a name is transferred or reused.
 REFERENCE_REPOS = {
     'cli/cli': (212613049, 'MIT', 'LICENSE'),
@@ -36,6 +37,16 @@ REFERENCE_REPOS = {
     'python/cpython': (81598961, 'PSF-2.0', 'LICENSE'),
     'nodejs/node': (27193779, 'MIT', 'LICENSE'),
     'ollama/ollama': (658928958, 'MIT', 'LICENSE'),
+    'obra/superpowers': (1073224795, 'MIT', 'LICENSE'),
+    'garrytan/gstack': (1179264259, 'MIT', 'LICENSE'),
+    'Graphify-Labs/graphify': (1200597263, 'Apache-2.0', 'LICENSE'),
+    'jarrodwatts/claude-hud': (1126473386, 'MIT', 'LICENSE'),
+    'pbakaus/impeccable': (1097346685, 'Apache-2.0', 'LICENSE'),
+    'Leonxlnx/taste-skill': (1162099055, 'MIT', 'LICENSE'),
+    'mvanhorn/last30days-skill': (1140843380, 'MIT', 'LICENSE'),
+    'blader/humanizer': (1136666433, 'MIT', 'LICENSE'),
+    'vercel-labs/skills': (1134543109, 'MIT', 'LICENSE'),
+    'emilkowalski/skills': (1183325896, 'MIT', 'LICENSE'),
 }
 CATEGORIES = (
     ('build', '만들고 점검하기'), ('design', '디자인'),

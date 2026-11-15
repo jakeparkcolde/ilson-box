@@ -108,7 +108,15 @@ allow-list include it, but is not registered as a public static asset.
 ## Reference-only manual approval (lead decision 2026-11-15)
 
 The BRIEF manual path is restricted by the consumer's REFERENCE_REPOS allowlist
-of 12 full names and GitHub numeric identities. Categories are 만들고 점검하기 /
+of 22 full names and GitHub numeric identities. Round 2 adds ten reviewed
+repo-level introductions, including the vercel-labs/skills and
+emilkowalski/skills collections; find-skills and emil-design-eng are examples
+inside those collections, not independent repository cards. The cards do not
+claim these repositories were the carousel author's exact choices.
+JuliusBrussee/caveman remains excluded while its skill/proxy scope needs review.
+AI skills/plugins change the host agent's behavior; their descriptions explain
+real requirements, external processing and costs and recommend a practice folder.
+Categories are 만들고 점검하기 /
 디자인 / 찾고 알리기 / 콘텐츠 만들기 / 운영·연결; empty categories remain available.
 The bundled opaque IDs are the first 32 hex of SHA-256 of github:<numeric-id>.
 Official identity, pinned README and licence text are reviewed; ambiguous names

@@ -27,12 +27,13 @@ class CatalogTests(unittest.TestCase):
 
     def test_shipped_reference_catalog_is_all_visible_and_explanation_only(self):
         document=oc.validate((ROOT/'template'/oc.CATALOG_PATH).read_bytes())
-        self.assertEqual(len(document['repos']), 12)
+        self.assertEqual(len(document['repos']), 22)
+        self.assertEqual(document['catalog_version'], 3)
         generated=oc.timestamp(document['generated_at'])
         self.assertEqual(oc.timestamp(document['valid_until'])-generated, 30*86400)
         self.assertEqual(document['signature']['kind'], 'bundled')
         store=oc.Catalog(lambda *_:(raw(document),None),clock=lambda:generated)
-        self.assertEqual(len(store.snapshot()['repos']), 12)
+        self.assertEqual(len(store.snapshot()['repos']), 22)
         self.assertEqual({r['full_name'] for r in document['repos']}, set(oc.REFERENCE_REPOS))
         self.assertEqual({c['id'] for c in store.snapshot()['categories']}, {'build','design','grow','make','run'})
         for row in document['repos']:
@@ -40,6 +41,23 @@ class CatalogTests(unittest.TestCase):
             self.assertIsNone(row['preview']);self.assertIsNone(row['video'])
             self.assertEqual(row['approval_path'],oc.MANUAL_PATH)
             self.assertEqual(store.snapshot(row['id'])['repo'],row)
+
+    def test_round_two_identities_are_bound_and_caveman_stays_out(self):
+        document=oc.validate((ROOT/'template'/oc.CATALOG_PATH).read_bytes())
+        self.assertNotIn('JuliusBrussee/caveman',oc.REFERENCE_REPOS)
+        generated=oc.timestamp(document['generated_at'])
+        for original in document['repos']:
+            for field,value in [('github_id',original['github_id']+1),
+                                ('full_name','JuliusBrussee/caveman'),
+                                ('license.spdx','BSD-3-Clause'),('runnable',True)]:
+                with self.subTest(repo=original['full_name'],field=field):
+                    row=copy.deepcopy(original)
+                    target,key=(row['license'],'spdx') if field=='license.spdx' else (row,field)
+                    target[key]=value
+                    doc={**document,'repos':[row]}
+                    store=oc.Catalog(lambda *_:(raw(doc),None),clock=lambda:generated)
+                    self.assertEqual(store.snapshot()['repos'],[])
+                    self.assertIsNone(store.snapshot(row['id'])['repo'])
 
     def test_curated_order_and_detail_source_dates_stay_distinct(self):
         first, second = repo(), repo('e'*32, 2)

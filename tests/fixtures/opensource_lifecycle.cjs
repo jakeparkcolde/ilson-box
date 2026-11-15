@@ -152,11 +152,11 @@ async function referenceCatalog(){
   const h=setup();h.now=Date.parse(data.generated_at);h.ctx.IlsonOpensource.mount(h.host);
   const response={...data,state:'ready',repos:rows,visible_until:data.valid_until};
   await respond(h.requests[0],response);
-  assert.match(h.root().textContent,/12개 도구/);
+  assert.match(h.root().textContent,/22개 도구/);
   assert.match(h.root().textContent,/깃밥 점검 전 · 소개만/);
   assert.match(h.root().textContent,/주의:.*라이선스/);
   assert.ok(h.doc.querySelectorAll('a').every(a=>a.attrs.href!=='null'&&a.attrs.href!=='undefined'));
-  for(const [category,count] of [['build',3],['design',3],['grow',1],['make',3],['run',2]]){
+  for(const [category,count] of [['build',7],['design',6],['grow',3],['make',3],['run',3]]){
     h.click(`[data-category="${category}"]`);assert.match(h.get('os-results').textContent,new RegExp(count+'개 도구'));
   }
   h.click('[data-category="all"]');
