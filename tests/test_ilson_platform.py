@@ -100,3 +100,18 @@ class WindowsMoveTests(unittest.TestCase):
                 self.assertFalse((pending/'draft.md').exists());self.assertEqual((vault/'reports/approved/draft.md').read_text(),body)
             finally:
                 dispatch._ACTIVE_HOME.reset(home_token);dispatch._ACTIVE_VAULT.reset(vault_token)
+
+
+    def test_windows_crlf_draft_hash_is_preserved_when_hard_link_succeeds(self):
+        import approval_dispatch as dispatch
+        import approval_store as store
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve();vault=root/'notes';pending=vault/'reports/pending';pending.mkdir(parents=True)
+            body='# 합성 초안\r\nWindows 줄바꿈\r\n';raw=body.encode();(pending/'draft.md').write_bytes(raw)
+            req=SimpleNamespace(target={'channel':'local_note','account':'local','object_id':'draft.md'},body=body,body_sha256=store.digest(body),id='b'*32)
+            home_token=dispatch._ACTIVE_HOME.set(root);vault_token=dispatch._ACTIVE_VAULT.set(vault)
+            try:
+                with patch.object(platform,'IS_WINDOWS',True): self.assertEqual(dispatch.execute_note(req).status,'success')
+                self.assertEqual((vault/'reports/approved/draft.md').read_bytes(),raw)
+            finally: dispatch._ACTIVE_HOME.reset(home_token);dispatch._ACTIVE_VAULT.reset(vault_token)

@@ -154,12 +154,17 @@ class PosixFiles:
         except Unreadable:
             return None
 
-    def listdir(self, parts=()):
+    def listdir(self, parts=(), limit=1001):
         descriptor = self.open_dir(parts)
         try:
+            rows = []
             with os.scandir(descriptor) as entries:
-                return [(e.name, e.is_dir(follow_symlinks=False), e.is_file(follow_symlinks=False))
-                        for e in entries if not e.is_symlink()]
+                for index, entry in enumerate(entries):
+                    if index >= limit: break
+                    linked = entry.is_symlink()
+                    rows.append((entry.name, not linked and entry.is_dir(follow_symlinks=False),
+                                 not linked and entry.is_file(follow_symlinks=False)))
+            return rows
         finally:
             os.close(descriptor)
 
@@ -210,11 +215,12 @@ class WindowsFiles(PosixFiles):
         finally:
             if fd is not None: os.close(fd)
 
-    def listdir(self, parts=()):
+    def listdir(self, parts=(), limit=1001):
         path = self.checked(parts)
         with os.scandir(path) as entries:
             rows = []
-            for entry in entries:
+            for index, entry in enumerate(entries):
+                if index >= limit: break
                 info = entry.stat(follow_symlinks=False)
                 if not is_link(info):
                     rows.append((entry.name, stat.S_ISDIR(info.st_mode), stat.S_ISREG(info.st_mode)))

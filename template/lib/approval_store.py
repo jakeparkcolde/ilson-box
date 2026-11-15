@@ -89,6 +89,7 @@ def connect(home=None):
     from access_policy import require_owner
     require_owner(home_path(home))
     root = home_path(home) / '.approval'
+    if platform.IS_WINDOWS: platform.safe_path(root)
     if root.is_symlink():
         raise ValueError('invalid approval directory')
     existed = root.exists()

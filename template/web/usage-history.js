@@ -5,7 +5,7 @@
   const num=v=>v===null||v===undefined?'확인 불가':Number(v).toLocaleString('ko-KR');
   const labels={off:'꺼짐',on_no_data:'켜짐 · 아직 관측된 기록 없음',on:'켜짐',partial:'일부 기록 · 누락/지원하지 않는 형식이 있습니다'};
   const syncLabels={disabled:'자동 공유 꺼짐',ready:'연결됨 · 전송 대기',synced:'연결됨 · 동기화됨',retry_pending:'연결됨 · 전송 재시도 대기',revoke_pending:'연결 해제·서버 삭제 대기',deleted:'연결 해제·서버 삭제 확인',needs_attention:'전송 중지 · 연결/버전 확인 필요'};
-  async function mount(host){
+  async function mount(host,{course=false}={}){
     const root=node('section',undefined,'screen wide usage-history');root.setAttribute('aria-label','내 AI 사용 기록');host.replaceChildren(root);
     let data,tool='combined',year=new Date().getFullYear(),busy=false;
     const run=async(action,body)=>{if(busy)return;busy=true;try{data=await api(action,body);render();}catch(e){status.textContent=e.message;status.className='callout callout-danger';}finally{busy=false;}};
@@ -15,7 +15,7 @@
     function render(){
       root.replaceChildren();
       const heading=node('header',undefined,'h1row uh-heading'),titles=node('div');
-      titles.append(node('div','일 · 자동화·컴퓨터 현황','eyebrow'),node('h1','내 AI 사용 기록','title'));
+      titles.append(node('div',course?'내 일손 · 강의판':'일 · 자동화·컴퓨터 현황','eyebrow'),node('h1','내 AI 사용 기록','title'));
       const refresh=button('새로 수집',()=>run('collect',{}));refresh.className='btn btn-primary';heading.append(titles,refresh);root.append(heading,status);
       status.textContent=`로컬 기록 ${labels[data.state]} · ${syncLabels[data.sync_state]||'공유 상태 확인 필요'} · 시간대 ${data.timezone}`;
       status.className='chip uh-status';

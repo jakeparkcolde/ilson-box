@@ -47,7 +47,7 @@ def verify_note(req):
     path = note_path(req)
     from access_policy import require_owner
     policy = require_owner(_ACTIVE_HOME.get())
-    content = policy.read('management/reports/pending/' + path.name, 256000)[0].decode('utf-8') if policy else path.read_text(encoding='utf-8')
+    content = policy.read('management/reports/pending/' + path.name, 256000)[0].decode('utf-8') if policy else (platform.WindowsFiles(path.parent).text(path.name, 256000)[0] if platform.IS_WINDOWS else path.read_text(encoding='utf-8'))
     if store.digest(content) != req.body_sha256 or content != req.body:
         raise store.ApprovalStale('draft changed')
     dest = (policy.vault / 'management/reports/approved') if policy else active_vault(_ACTIVE_HOME.get()) / 'reports/approved'
@@ -105,7 +105,10 @@ def _finish_link(path, destination, req):
         linked = os.stat(destination, follow_symlinks=False)
         if path.is_symlink() or destination.is_symlink() or (before.st_dev, before.st_ino) != (linked.st_dev, linked.st_ino):
             raise store.ApprovalStale('draft changed')
-        content = destination.read_text(encoding='utf-8')
+        if platform.IS_WINDOWS:
+            with destination.open('rb') as stream: content = stream.read(256001).decode('utf-8')
+        else:
+            content = destination.read_text(encoding='utf-8')
         after = os.stat(path, follow_symlinks=False)
         if store.digest(content) != req.body_sha256 or (before.st_ino, before.st_size, before.st_mtime_ns) != (after.st_ino, after.st_size, after.st_mtime_ns):
             raise store.ApprovalStale('draft changed')

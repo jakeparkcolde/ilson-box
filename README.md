@@ -184,3 +184,8 @@ Mac 전체판은 `--auto-on`을 별도로 켜고 기존 watchdog이 실제 가�
 개인 실습 폴더의 Claude Code 날짜·세션·본인 대화·모델·토큰을 기본 OFF로 집계합니다. 전체판 관리자의 **자동화·컴퓨터 현황 → 내 AI 사용 기록**, 강의판의 `ilson usage on|off|status|export|link|unlink|sync`를 사용합니다. 통합 탭은 도구 중립 숫자, Claude 탭은 토큰과 목록가 추정 비용을 표시합니다. F8 계정 한도와 별개이고 Codex는 준비 중입니다. 별도 동의/일회 코드로 연결한 경우에만 일별 숫자를 강의 사이트로 동기화하며 기본 서버 주소는 없습니다. 공개 릴리스·사이트 운영 반영은 별도 승인입니다.
 
 [수강생 보는 법](docs/내-AI-사용-기록-보는-법.md) · [강사 보는 법 초안](docs/강사용-수강생-AI-사용-기록-보는-법.md) · [설계·개인정보](docs/usage-timeline/DESIGN-v2.md) · [동기화 계약](docs/usage-timeline/SYNC-CONTRACT.md)
+
+
+### Windows·Intel Mac 관리자 1단계 (미공개 검증본)
+
+강의판도 `ilson open`으로 Mac과 같은 디자인의 **홈 · 승인함 · 주간 리포트 · 내 AI 사용 기록 · 수동 답글 초안**을 엽니다. `ilson admin status|stop`으로 확인·종료하며 마지막 인증 요청부터 유휴 2시간 뒤 자동 종료됩니다. 새 서비스나 예약 작업은 등록하지 않습니다. 초안은 Claude 대화에서 `reports/pending/`에 저장하고 사람이 승인하며, 주간 리포트 화면은 읽기 전용입니다. 설치·업데이트·롤백 전에 관리자를 중지해야 합니다. [강의판 관리자 안내](docs/강의판-관리자.md)를 참고하세요. 실제 Windows·Intel Mac 검증, 독립 검토·AGY 검수와 공개 배포는 별도입니다.

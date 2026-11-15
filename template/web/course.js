@@ -19,7 +19,7 @@
   async function render(){
     const own=++epoch,[id,title]=pages.find(p=>p[2]===location.pathname)||pages[0];navigation(id);document.body.classList.remove('m-nav-open');
     if(!features.includes(id)){main.textContent='이 화면은 현재 강의판에서 사용할 수 없습니다.';return;}
-    if(id==='usage-history'){await window.IlsonUsage.mount(main);return;}
+    if(id==='usage-history'){await window.IlsonUsage.mount(main,{course:true});return;}
     const root=page(title,({home:'실습 준비 상태와 저장된 문서를 확인하세요.',approvals:'Claude 대화에서 reports/pending 폴더에 Markdown 초안을 저장한 뒤, 여기에서 내용을 읽고 승인하거나 수정을 요청하세요.',reports:'저장된 주간 리포트를 읽는 화면입니다. 새 리포트는 터미널에서 ilson report weekly로 만드세요.',replies:'고객 글을 직접 붙여 넣어 답글 초안을 만듭니다. 내용을 확인한 뒤 판매자센터에서 직접 게시하세요.'})[id]),status=notice(root);
     const action=async(fn)=>{try{await fn();}catch(e){status.textContent=e.message;status.classList.add('course-error');}};
     if(id==='home'){

@@ -101,3 +101,22 @@ class CourseLauncherTests(unittest.TestCase):
         port=launch.start(self.home,self.vault)
         with self.assertRaises(launch.CourseAdminError): launch.request(port,'/api/admin/shutdown',body={})
         _,private=launch.private_home(self.home);self.assertTrue(launch.locked(private))
+
+
+    def test_code_install_lock_prevents_starting_partial_upgrade(self):
+        fd=platform.acquire_lock(self.library/'.install.lock')
+        try:
+            with patch.object(launch.subprocess,'Popen') as popen:
+                with self.assertRaises(BlockingIOError):launch.start(self.home,self.vault)
+                popen.assert_not_called()
+        finally:os.close(fd)
+
+    def test_expired_license_keeps_shutdown_and_local_privacy_api_available(self):
+        (self.library/'license.py').write_text("def evaluate(home): return False, 'EXPIRED'\n")
+        shutil.copy2(ROOT/'course/lib/usage_timeline.py',self.library/'usage_timeline.py')
+        port=launch.start(self.home,self.vault)
+        _,private=launch.private_home(self.home);info=launch.record(private);cookie=launch.authenticate(private,info)
+        with self.assertRaises(launch.CourseAdminError):launch.request(port,'/api/overview',cookie=cookie)
+        data,_=launch.request(port,'/api/usage-history/summary',cookie=cookie)
+        self.assertEqual(data['state'],'off')
+        launch.stop(self.home);self.assertFalse(launch.locked(private))

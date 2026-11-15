@@ -411,7 +411,7 @@ class Box:
         self.license_cache = None
         self.license_clock = time.monotonic
         self.last_activity = time.monotonic()
-        self.vault = platform.vault_root(self.home, vault)
+        self.vault = platform.vault_root(self.home, vault) if profile == "course" else self.home / "vault"
         if profile == "course": self.project_paths = {str(self.vault.absolute()), str(self.vault.resolve())}
         release=self.home/'.updates/installed.json'
         self.release_info={k:v for k,v in json.loads(release.read_text()).items() if k in ('version','research_version')} if release.is_file() else {}

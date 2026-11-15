@@ -27,7 +27,8 @@ def draft(text, *, consent, home, runner=subprocess.run):
         result = runner([executable, '--safe-mode', '-p', '--max-turns', '1', '--output-format', 'json',
                          '--tools', '', '--setting-sources', '', '--strict-mcp-config', '--mcp-config',
                          '{"mcpServers":{}}', '--disable-slash-commands', '--no-session-persistence'],
-                        input=prompt, text=True, capture_output=True, timeout=180, cwd=home)
+                        input=prompt, text=True, capture_output=True, timeout=180, cwd=home,
+                        **({"encoding": "utf-8", "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)} if platform.IS_WINDOWS else {}))
         if result.returncode:
             raise ValueError()
         envelope = json.loads(result.stdout)
