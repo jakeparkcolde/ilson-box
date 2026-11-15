@@ -77,7 +77,7 @@ class CourseUpdateTests(unittest.TestCase):
 
     def test_current_curator_baseline_can_upgrade_and_rollback_without_overwriting_user_edits(self):
         before = {}
-        for name in p.ALLOWED_FILES:
+        for name in p.ALLOWED_FILES - {'usage_timeline.py', 'usage_sync.py'}:
             location = 'course/' + ('' if name in ('ilson.py', 'install_payload.py') else 'lib/') + name
             before[name] = subprocess.check_output(['git', 'show', 'd25b333:' + location], cwd=ROOT)
             (self.root / name).write_bytes(before[name])

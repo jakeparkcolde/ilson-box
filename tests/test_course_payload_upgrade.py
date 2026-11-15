@@ -35,7 +35,7 @@ class CourseUpgradeTests(unittest.TestCase):
                 self.assertFalse((root/'install_diagnostics.py').exists())
 
     def test_all_files_have_independent_known_hashes_and_modified_files_block_atomically(self):
-        self.assertEqual(set(payload.KNOWN_HELPER_SHA256), BASELINE_FILES | {'install_diagnostics.py', 'curator.py', 'install_payload.py'})
+        self.assertEqual(set(payload.KNOWN_HELPER_SHA256), BASELINE_FILES | {'install_diagnostics.py', 'curator.py', 'install_payload.py', 'usage_timeline.py', 'usage_sync.py'})
         for changed in payload.KNOWN_HELPER_SHA256:
             with self.subTest(changed=changed),tempfile.TemporaryDirectory() as temp:
                 root=Path(temp).resolve()

@@ -19,7 +19,21 @@ def main(argv):
         edition = 'windows-course' if os.name == 'nt' else 'intel-course'
         cli = str(Path(os.environ.get('LOCALAPPDATA', '')) / 'ilson-course/bin/ilson.cmd') if os.name == 'nt' else str(Path.home() / '.local/bin/ilson')
         vault = os.environ.get('ILSON_COURSE_VAULT', str(Path.home() / 'Documents/일손강의-1기'))
+        # No new daemon in course editions. Doctor opportunistically runs a bounded tick.
+        if not any(arg in ('--share', '--install') for arg in argv[1:]):
+            lib = Path(__file__).resolve().parent
+            if (lib / 'lib/usage_timeline.py').is_file(): lib /= 'lib'
+            if (lib / 'usage_timeline.py').is_file():
+                subprocess.Popen([sys.executable, '-X', 'utf8', str(lib / 'usage_timeline.py'), '--home',
+                                  os.environ.get('ILSON_COURSE_STATE', str(Path.home() / '.ilson-course')), 'tick'],
+                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return install_diagnostics.main(argv[1:], edition=edition, cli=cli, vault=vault)
+    if argv and argv[0] == 'usage' and len(argv) > 1:
+        lib = Path(__file__).resolve().parent
+        if (lib / 'lib/usage_timeline.py').is_file():
+            lib /= 'lib'
+        home = os.environ.get('ILSON_COURSE_STATE', str(Path.home() / '.ilson-course'))
+        return subprocess.call([sys.executable, '-X', 'utf8', str(lib / 'usage_timeline.py'), '--home', home] + argv[1:])
     if argv and argv[0] == 'usage':
         print('Claude Code에서 /usage를 입력하거나 Claude 설정의 Usage에서 계정 한도를 확인하세요. 강의판은 자동 경고를 제공하지 않습니다.')
         return 0

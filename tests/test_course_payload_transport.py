@@ -39,7 +39,7 @@ class PayloadTransportTests(unittest.TestCase):
             root = Path(temp).resolve() / 'lib'
             root.mkdir()
             for name in files:
-                if name in ('install_diagnostics.py', 'curator.py', 'course_update.py', 'install_payload.py'):
+                if name in ('install_diagnostics.py', 'curator.py', 'course_update.py', 'install_payload.py', 'usage_timeline.py', 'usage_sync.py'):
                     continue
                 old = subprocess.check_output(['git', 'show', '6002abb:course/' + ('' if name == 'ilson.py' else 'lib/') + name], cwd=ROOT)
                 (root / name).write_bytes(old)

@@ -7,6 +7,8 @@ import re
 
 root = Path(__file__).resolve().parents[1]
 files = {
+    'usage_timeline.py': (root / 'course/lib/usage_timeline.py').read_text(encoding='utf-8'),
+    'usage_sync.py': (root / 'course/lib/usage_sync.py').read_text(encoding='utf-8'),
     'ilson.py': (root / 'course/ilson.py').read_text(encoding='utf-8'),
     'license.py': (root / 'course/lib/license.py').read_text(encoding='utf-8'),
     'selflearn.py': (root / 'course/lib/selflearn.py').read_text(encoding='utf-8'),
