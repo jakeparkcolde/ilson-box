@@ -1389,9 +1389,11 @@ def course_server(args):
     platform.safe_path(args.vault)
     os.environ.update(ILSON_HOME=str(home), ILSON_PROFILE='course', ILSON_COURSE_VAULT=str(args.vault))
     fd = platform.acquire_lock(private / 'server.lock')
+    code_lock = None
     server = None
     stopped = threading.Event()
     try:
+        code_lock = platform.acquire_lock(Path(LIBRARY) / '.admin.lock')
         from approval_actions import load_all
         load_all(profile='course')
         box = Box(home, profile='course', vault=args.vault)
@@ -1421,6 +1423,7 @@ def course_server(args):
             if value.get('pid') == os.getpid() and value.get('instance') == box.instance:
                 platform.safe_path(private / 'server.json').unlink()
         except (OSError, ValueError, UnboundLocalError): pass
+        if code_lock is not None: os.close(code_lock)
         os.close(fd)
 
 

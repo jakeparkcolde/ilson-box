@@ -120,3 +120,12 @@ class CourseLauncherTests(unittest.TestCase):
         data,_=launch.request(port,'/api/usage-history/summary',cookie=cookie)
         self.assertEqual(data['state'],'off')
         launch.stop(self.home);self.assertFalse(launch.locked(private))
+
+
+    def test_one_code_bundle_cannot_start_a_second_state_while_active(self):
+        launch.start(self.home,self.vault)
+        _,private=launch.private_home(self.home);first=launch.record(private)
+        with self.assertRaises(launch.CourseAdminError):launch.start(self.root/'other-state',self.vault)
+        self.assertTrue(launch.health(first))
+        launch.stop(self.home)
+        fd=platform.acquire_lock(self.library/'.admin.lock');os.close(fd)

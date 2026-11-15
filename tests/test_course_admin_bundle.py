@@ -92,3 +92,14 @@ class AdminBundleTests(unittest.TestCase):
                 fake.locking.side_effect=OSError('busy')
                 with self.assertRaisesRegex(ValueError,'ilson admin stop'):
                     with payload.admin_stopped():pass
+
+
+    def test_code_lock_blocks_update_even_when_install_uses_another_state_home(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve()/'lib';root.mkdir()
+            fd=platform.acquire_lock(root/'.admin.lock')
+            try:
+                with patch.dict(os.environ,{'ILSON_COURSE_STATE':str(root.parent/'different-state')}):
+                    with self.assertRaisesRegex(ValueError,'ilson admin stop'):payload.install(root,sources())
+                self.assertFalse((root/'ilson.py').exists())
+            finally:os.close(fd)

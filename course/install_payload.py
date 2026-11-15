@@ -34,6 +34,8 @@ KNOWN_HELPER_SHA256.setdefault('install_payload.py', set()).add('237aa891c9a37e0
 for _name, _hashes in {'access_policy.py': {'fa675442435bd1098ae6dbc2c0ed26076b24c0c1a1ec288172a2012ecd0957d7'}, 'approval_actions.py': {'1fa80c0867beccae68fc31c29d7e1dc9fe5c5661a2074e082b12ce056eebde83'}, 'approval_dispatch.py': {'eee61a806a90ccfcf195364c20cf643c82add672a801e20d969ad1751ec497d2'}, 'approval_store.py': {'5491fa48da41b40a4abc9eb14ce874a149b3d817857e6a11eff35f529ad92048'}, 'course_admin.py': {'eeaf8b25f0e68cfc37d0d877f52f1b977fa385d32395d4a594e30ae3eedb66e7'}, 'course_update.py': {'9d3c1fbd03cb085f80afbf17310306c1a9fecea866f45b99015911a876aace60'}, 'curator.py': {'486fc5e208dec33559ca5540cd0ec07883affde170b8fef54b50d8e6c251d454'}, 'ilson.py': {'d48cf75eeebab0d29f7094be45729fcd47a1491c85382833f2e86c0b676e35ec'}, 'ilson_platform.py': {'6d3835f42250e297ecfeda3352ad25ee3f6b1d415577d9b69189611ede7d09cc'}, 'install_diagnostics.py': {'96caadd67e95272b6a46688f6f38aa1eb684b6ed6b826cdbc1318fe45ecdf806'}, 'install_payload.py': {'237aa891c9a37e078a540c44312e8b1ad8e4cd0c31313d2ddfb56a454efba678'}, 'license.py': {'4b6e50b84073c6e8178b3c0c3c8055839a9d7d607be284ce3e0651e929e15ba9'}, 'replies_draft.py': {'8d59488998de4364acfd21d3505c4e60be7a785403c9c9ff1c9d76e881f6ed0f'}, 'runtime_gate.py': {'02b3dcee689c8442eeed56370899c2d252f1c3c5f44a18cbe07edbd50e23348d'}, 'selflearn.py': {'b1eabe4380dbd53cc3f35d1a0a82f511f96b04320b2bb585925478f7d8e60b68'}, 'skill_share.py': {'b233d29be73af4e7f9c63a3e948b51ee2946607ea61b71c30f9c473e82fa7412'}, 'usage_sync.py': {'c9836b0fd69ce30526d281378035b9c8c9b1648cb07a228ff55b17cc606cbcbf'}, 'usage_timeline.py': {'dc78d0f469cfbb79135090589d8f8c291de14a6634a82186824e6f744014c917'}, 'web-admin-server.py': {'1c193e88743bc14ad9ee4cf4d28d233538139aae0028917d479d32e3896f6483', '83832091b21535b90a858e5717a48a47d6f3b1296f1ed0d4c4501def69e29164'}, 'web-admin.py': {'cb804fcae7e16a889286a3e5175d8bfc60100c4b8abc9195dcd33e0eeef13b77'}, 'web/course.css': {'fe27bc91bfdabb5c2f4b7a00af3bb1d216c9fa525c25a45f0d9590a5a1e3f94d'}, 'web/course.html': {'3422ad9638fe10e7b3346e26a48ecba6f953e6c0ba197c359795c0631ffb839f'}, 'web/course.js': {'d68aa4c66e17847b4a516c0afd3b4ad42312492a1ab08042ca9f6bac9f215931'}, 'web/current/base.css': {'f91b260c336d23c788435b94ac3fb03a665c3a0e7adb235ff8a4259fe689955d'}, 'web/current/shell.css': {'fdb8d1ec1fd034bee739a7e95e681b95b65d62fb28e5a550fe48e43090472b9d'}, 'web/usage-history.css': {'da8c6732c858435bfec5bf28c29709b99710ac823c1eb97002c905d396106ea2'}, 'web/usage-history.js': {'3ee1907859b237358346a7a3ee95f0a39d6e7d9145daf57e61f29eea971372e2'}, 'weekly_summary.py': {'10a7935d68726ef63457014e64a2702ba0a22167a65c8aa002f3e8a994d48bf7'}}.items():
     KNOWN_HELPER_SHA256.setdefault(_name, set()).update(_hashes)
 
+KNOWN_HELPER_SHA256.setdefault('install_payload.py', set()).add('ecbb6520eac95e7a144425169fb0c920e377caf084e46af77db47010574b5645')
+
 ADMIN_FILES = {'web-admin-server.py', 'web-admin.py', 'runtime_gate.py', 'ilson_platform.py', 'replies_draft.py', 'access_policy.py', 'course_admin.py', 'approval_actions.py', 'approval_store.py', 'approval_dispatch.py'}
 WEB_FILES = {'web/course.js', 'web/usage-history.css', 'web/current/base.css', 'web/current/shell.css', 'web/usage-history.js', 'web/course.html', 'web/course.css'}
 ALLOWED_FILES = set(KNOWN_HELPER_SHA256) | ADMIN_FILES | WEB_FILES | {'course_update.py'}
@@ -79,37 +81,39 @@ def update_lock(root):
         else:
             import fcntl
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        with admin_stopped():
+        with admin_stopped(root):
             yield
     finally:
         os.close(fd)
 
 
 @contextmanager
-def admin_stopped():
-    """Bootstrap cannot import a helper that has not been installed yet."""
+def admin_stopped(root=None):
+    """Use code identity as well as state, including a custom course state home."""
     state = Path(os.environ.get('ILSON_COURSE_STATE', Path.home() / '.ilson-course'))
-    path = state / 'state/web-admin/server.lock'
-    safe(path)
-    if not path.exists():
-        yield
-        return
-    fd = os.open(path, os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0))
+    paths = ([Path(root) / '.admin.lock'] if root is not None else []) + [state / 'state/web-admin/server.lock']
+    held = []
     try:
-        if os.fstat(fd).st_nlink != 1: raise ValueError('invalid admin lock')
-        try:
-            if os.name == 'nt':
-                import msvcrt
-                if not os.fstat(fd).st_size: os.write(fd, b'0')
-                os.lseek(fd, 0, 0)
-                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
-            raise ValueError('관리 화면을 먼저 끄세요: ilson admin stop') from None
+        for path in paths:
+            safe(path)
+            if not path.exists(): continue
+            fd = os.open(path, os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0))
+            held.append(fd)
+            if os.fstat(fd).st_nlink != 1: raise ValueError('invalid admin lock')
+            try:
+                if os.name == 'nt':
+                    import msvcrt
+                    if not os.fstat(fd).st_size: os.write(fd, b'0')
+                    os.lseek(fd, 0, 0)
+                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                raise ValueError('관리 화면을 먼저 끄세요: ilson admin stop') from None
         yield
-    finally: os.close(fd)
+    finally:
+        for fd in reversed(held): os.close(fd)
 
 
 def target(root, name):
