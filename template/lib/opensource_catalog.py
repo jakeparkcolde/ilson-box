@@ -16,11 +16,31 @@ import time
 CATALOG_PATH = 'web/current/opensource-catalog.json'
 MAX_BYTES = 1024 * 1024
 MAX_REPOS = 500
-POLICY_VERSION = 'box-l0-v1'
+POLICY_VERSION = 'box-l0-bundle-30d-v2'
+SCHEMA_VERSION = 2
+BUNDLE_TTL = 30 * 86400
+SOURCE_CHECK_WINDOW = 72 * 3600
+MANUAL_PATH = 'reference-manual-20261115'
+# This editorial exception is restricted to the unambiguous reference repos.
+# GitHub numeric IDs also bind identity if a name is transferred or reused.
+REFERENCE_REPOS = {
+    'cli/cli': (212613049, 'MIT', 'LICENSE'),
+    'microsoft/playwright': (221981891, 'Apache-2.0', 'LICENSE'),
+    'openai/codex': (965415649, 'Apache-2.0', 'LICENSE'),
+    'nextlevelbuilder/ui-ux-pro-max-skill': (1106996539, 'MIT', 'LICENSE'),
+    'heygen-com/hyperframes': (1177402105, 'Apache-2.0', 'LICENSE'),
+    'FFmpeg/FFmpeg': (1614410, 'LGPL-2.1-or-later', 'LICENSE.md'),
+    'firecrawl/firecrawl': (787076358, 'AGPL-3.0-only', 'LICENSE'),
+    'puppeteer/puppeteer': (90796663, 'Apache-2.0', 'LICENSE'),
+    'openai/whisper': (537603333, 'MIT', 'LICENSE'),
+    'python/cpython': (81598961, 'PSF-2.0', 'LICENSE'),
+    'nodejs/node': (27193779, 'MIT', 'LICENSE'),
+    'ollama/ollama': (658928958, 'MIT', 'LICENSE'),
+}
 CATEGORIES = (
-    ('automation', '업무 자동화'), ('documents', '문서·발표자료'),
-    ('data', '데이터 정리·분석'), ('design', '디자인·이미지'),
-    ('sites', '사이트·상점 만들기'),
+    ('build', '만들고 점검하기'), ('design', '디자인'),
+    ('grow', '찾고 알리기'), ('make', '콘텐츠 만들기'),
+    ('run', '운영·연결'),
 )
 ID = re.compile(r'[a-f0-9]{32}\Z')
 COMMIT = re.compile(r'[a-f0-9]{40}\Z')
@@ -113,12 +133,12 @@ def validate(raw):
         keys(doc, ('schema_version', 'catalog_version', 'generated_at', 'valid_until',
                    'policy_version', 'revocation_version', 'revoked_repo_ids',
                    'signature', 'source_commit', 'repos'))
-        exact(doc['schema_version'], 1)
+        exact(doc['schema_version'], SCHEMA_VERSION)
         exact(doc['policy_version'], POLICY_VERSION)
         integer(doc['catalog_version'], 1)
         integer(doc['revocation_version'])
         generated, until = timestamp(doc['generated_at']), timestamp(doc['valid_until'])
-        if not generated < until <= generated + 72 * 3600 or not isinstance(doc['source_commit'], str) or not COMMIT.fullmatch(doc['source_commit']):
+        if not generated < until <= generated + BUNDLE_TTL or not isinstance(doc['source_commit'], str) or not COMMIT.fullmatch(doc['source_commit']):
             raise InvalidCatalog()
         revoked = doc['revoked_repo_ids']
         if not isinstance(revoked, list) or len(revoked) > 10000 or any(not isinstance(v, str) or not ID.fullmatch(v) for v in revoked) or len(set(revoked)) != len(revoked):
@@ -144,7 +164,10 @@ def visible_repo(row, doc, now):
                'one_liner', 'mild_md', 'use_cases', 'prerequisites', 'limitations',
                'difficulty', 'box_burden', 'preparation', 'cost', 'data_processing',
                'license', 'gitbap_url', 'official_url', 'source', 'review',
-               'catalog_approved', 'runnable', 'preview', 'video'))
+               'catalog_approved', 'runnable', 'preview', 'video', 'approval_path'))
+    manual = row['approval_path'] == MANUAL_PATH
+    if not manual:
+        exact(row['approval_path'], 'gitbap-reviewed')
     if not isinstance(row['id'], str) or not ID.fullmatch(row['id']):
         raise InvalidCatalog()
     integer(row['github_id'], 1)
@@ -153,6 +176,17 @@ def visible_repo(row, doc, now):
         raise InvalidCatalog()
     if row['category'] not in dict(CATEGORIES):
         raise InvalidCatalog()
+    if not isinstance(row['license'], dict) or not isinstance(row['review'], dict):
+        raise InvalidCatalog()
+    license_file = 'LICENSE'
+    if manual:
+        if name not in REFERENCE_REPOS:
+            raise InvalidCatalog()
+        github_id, spdx, license_file = REFERENCE_REPOS[name]
+        exact(row['github_id'], github_id)
+        exact(row['license'].get('spdx'), spdx)
+        exact(row['preview'], None)
+        exact(row['video'], None)
     integer(row['curated_order'], 0, 10000)
     exact(row['catalog_approved'], True)
     exact(row['runnable'], False)
@@ -169,47 +203,76 @@ def visible_repo(row, doc, now):
     if row['box_burden'] not in ('browse', 'guided', 'expert', 'unknown'):
         raise InvalidCatalog()
     gitbap = 'https://www.gitbap.com/r/' + name
-    exact(row['gitbap_url'], gitbap)
+    if manual and row['review'].get('metadata_verdict') == 'not_curated':
+        exact(row['gitbap_url'], None)
+    else:
+        exact(row['gitbap_url'], gitbap)
     exact(row['official_url'], 'https://github.com/' + name)
     source = keys(row['source'], ('summary_id', 'summary_revision', 'lang', 'readme_hash',
                                   'summary_readme_hash', 'model', 'summary_created_at',
-                                  'synced_at', 'status_checked_at', 'commit'))
-    text(source['summary_id'], 100)
+                                  'synced_at', 'status_checked_at', 'commit', 'copy_origin'))
+    if manual:
+        exact(source['summary_id'], None)
+        exact(source['summary_revision'], None)
+        exact(source['model'], None)
+        exact(source['summary_readme_hash'], None)
+        if source['copy_origin'] not in ('official-readme', 'gitbap-adapted'):
+            raise InvalidCatalog()
+    else:
+        text(source['summary_id'], 100)
+        text(source['model'], 100)
+        exact(source['copy_origin'], 'gitbap')
     if source['summary_revision'] is not None:
         integer(source['summary_revision'], 1)
-    text(source['model'], 100)
     exact(source['lang'], 'ko')
     if not isinstance(source['readme_hash'], str) or not HASH.fullmatch(source['readme_hash']):
         raise InvalidCatalog()
-    exact(source['summary_readme_hash'], source['readme_hash'])
+    if not manual:
+        exact(source['summary_readme_hash'], source['readme_hash'])
     if not isinstance(source['commit'], str) or not COMMIT.fullmatch(source['commit']):
         raise InvalidCatalog()
     for field in ('summary_created_at', 'synced_at', 'status_checked_at'):
         if timestamp(source[field]) > timestamp(doc['generated_at']):
             raise InvalidCatalog()
-    if timestamp(source['status_checked_at']) + 72 * 3600 <= now:
+    generated = timestamp(doc['generated_at'])
+    # At release, sources must be recent. After release, this is a pinned
+    # introduction, not a claim that upstream is still less than 72h old.
+    if timestamp(source['status_checked_at']) + SOURCE_CHECK_WINDOW <= generated:
         raise InvalidCatalog()
     lic = keys(row['license'], ('spdx', 'conditions', 'url', 'reviewed'))
-    if lic['spdx'] not in LICENSES:
+    if lic['spdx'] not in LICENSES and not manual:
         raise InvalidCatalog()
     text(lic['conditions'], ko=True)
     exact(lic['reviewed'], True)
-    exact(lic['url'], 'https://github.com/' + name + '/blob/' + source['commit'] + '/LICENSE')
+    exact(lic['url'], 'https://github.com/' + name + '/blob/' + source['commit'] + '/' + license_file)
     review = keys(row['review'], ('hidden', 'review_status', 'metadata_verdict',
         'content_scan', 'policy', 'rights', 'maintenance', 'archived', 'prohibited',
         'requirements_confirmed', 'key_required', 'paid_api_required',
         'reviewed_at', 'valid_until', 'target_commit', 'policy_version',
-        'past_safety_pass', 'past_alive_pass', 'past_evaluated_at', 'metadata_checked_at'))
-    for field, expected in dict(hidden=False, review_status='approved', metadata_verdict='ok',
+        'past_safety_pass', 'past_alive_pass', 'past_evaluated_at', 'metadata_checked_at',
+        'metadata_warning', 'disabled'))
+    if manual:
+        if review['metadata_verdict'] not in ('ok', 'review', 'caution', 'not_curated'):
+            raise InvalidCatalog()
+        if review['metadata_verdict'] == 'caution':
+            text(review['metadata_warning'], 1000, ko=True)
+        else:
+            exact(review['metadata_warning'], None)
+        if source['copy_origin'] == 'gitbap-adapted' and review['metadata_verdict'] == 'not_curated':
+            raise InvalidCatalog()
+    else:
+        exact(review['metadata_verdict'], 'ok')
+        exact(review['metadata_warning'], None)
+    for field, expected in dict(hidden=False, review_status='approved',
         content_scan='ok', policy='approved', rights='approved', maintenance='active',
-        archived=False, prohibited=False, requirements_confirmed=True,
+        archived=False, disabled=False, prohibited=False, requirements_confirmed=True,
         key_required=False, paid_api_required=False, policy_version=POLICY_VERSION).items():
         exact(review[field], expected)
     exact(review['target_commit'], source['commit'])
     reviewed, until = timestamp(review['reviewed_at']), timestamp(review['valid_until'])
-    if not reviewed <= timestamp(doc['generated_at']) or not reviewed < until <= reviewed + 7 * 86400 or now >= until:
+    if not reviewed <= generated < until <= reviewed + BUNDLE_TTL or now >= until:
         raise InvalidCatalog()
-    if timestamp(review['metadata_checked_at']) > timestamp(doc['generated_at']) or timestamp(review['metadata_checked_at']) + 72 * 3600 <= now:
+    if not timestamp(review['metadata_checked_at']) <= generated < timestamp(review['metadata_checked_at']) + SOURCE_CHECK_WINDOW:
         raise InvalidCatalog()
     for field in ('past_safety_pass', 'past_alive_pass'):
         if review[field] is not None and type(review[field]) is not bool:
@@ -280,6 +343,8 @@ class Catalog:
                 return self.status('load_failed')
             doc = self.good
             metadata = {k: doc[k] for k in ('catalog_version', 'generated_at', 'valid_until', 'policy_version')}
+            if now < timestamp(doc['generated_at']):
+                return {**self.status('verification_failed'), **metadata}
             if now >= timestamp(doc['valid_until']):
                 return {**self.status('expired'), **metadata}
             rows = []
@@ -293,11 +358,8 @@ class Catalog:
                 except (InvalidCatalog, TypeError, KeyError):
                     continue
             rows.sort(key=lambda r: (r['curated_order'], r['id']))
-            visible_until = min([timestamp(doc['valid_until'])] + [min(
-                timestamp(r['review']['valid_until']),
-                timestamp(r['source']['status_checked_at']) + 72 * 3600,
-                timestamp(r['review']['metadata_checked_at']) + 72 * 3600
-            ) for r in rows])
+            visible_until = min([timestamp(doc['valid_until'])] + [
+                timestamp(r['review']['valid_until']) for r in rows])
             result = {**self.status('ready' if rows else ('under_review' if doc['repos'] else 'empty')),
                       **metadata, 'warning': failure, 'revocation_version': self.revocation_version,
                       'visible_until': datetime.fromtimestamp(visible_until, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}
@@ -309,6 +371,10 @@ class Catalog:
             fields = ('id', 'full_name', 'category', 'curated_order', 'one_liner', 'use_cases',
                       'difficulty', 'box_burden', 'preparation', 'cost', 'license', 'gitbap_url')
             result['repos'] = [{**{k: r[k] for k in fields}, 'reviewed_at': r['review']['reviewed_at'],
+                                'approval_path': r['approval_path'],
+                                'official_url': r['official_url'],
+                                'metadata_verdict': r['review']['metadata_verdict'],
+                                'metadata_warning': r['review']['metadata_warning'],
                                 'runnable': False} for r in rows]
             return result
 

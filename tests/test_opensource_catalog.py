@@ -25,11 +25,21 @@ class CatalogTests(unittest.TestCase):
             self.document = raw(document)
         return self.store.snapshot(ident)
 
-    def test_shipped_catalog_is_valid_empty_not_candidates(self):
+    def test_shipped_reference_catalog_is_all_visible_and_explanation_only(self):
         document=oc.validate((ROOT/'template'/oc.CATALOG_PATH).read_bytes())
-        self.assertEqual(document['repos'], [])
-        self.assertGreater(oc.timestamp(document['valid_until']), NOW)
+        self.assertEqual(len(document['repos']), 12)
+        generated=oc.timestamp(document['generated_at'])
+        self.assertEqual(oc.timestamp(document['valid_until'])-generated, 30*86400)
         self.assertEqual(document['signature']['kind'], 'bundled')
+        store=oc.Catalog(lambda *_:(raw(document),None),clock=lambda:generated)
+        self.assertEqual(len(store.snapshot()['repos']), 12)
+        self.assertEqual({r['full_name'] for r in document['repos']}, set(oc.REFERENCE_REPOS))
+        self.assertEqual({c['id'] for c in store.snapshot()['categories']}, {'build','design','grow','make','run'})
+        for row in document['repos']:
+            self.assertFalse(row['runnable'])
+            self.assertIsNone(row['preview']);self.assertIsNone(row['video'])
+            self.assertEqual(row['approval_path'],oc.MANUAL_PATH)
+            self.assertEqual(store.snapshot(row['id'])['repo'],row)
 
     def test_curated_order_and_detail_source_dates_stay_distinct(self):
         first, second = repo(), repo('e'*32, 2)
@@ -108,15 +118,15 @@ class CatalogTests(unittest.TestCase):
             self.assertEqual(result['repos'],[])
             self.assertNotIn('https:',json.dumps(result))
 
-    def test_row_review_expiry_and_source_freshness_close_earlier(self):
+    def test_row_review_expiry_closes_earlier_and_source_check_is_at_generation(self):
         row=repo();row['review']['valid_until']=at(1)
         self.snapshot(catalog(row));self.now+=1
         result=self.store.snapshot(row['id'])
         self.assertEqual(result['state'],'unavailable');self.assertIsNone(result['repo'])
         row=repo();row['source']['status_checked_at']=at(-72*3600+2)
         self.now=NOW;self.snapshot(catalog(row,version=2))
-        self.assertEqual(self.store.snapshot()['visible_until'],at(2))
-        self.now+=2;self.assertEqual(self.store.snapshot()['repos'],[])
+        self.assertEqual(self.store.snapshot()['visible_until'],at(72*3600))
+        self.now+=2;self.assertEqual(len(self.store.snapshot()['repos']),1)
 
     def test_corrupt_oversize_unreadable_and_older_keep_good_without_extending_ttl(self):
         good=self.snapshot(catalog(repo(),version=4))
@@ -139,8 +149,8 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(self.store.snapshot()['state'],'expired')
 
     def test_invalid_envelope_and_no_good_copy_are_load_failure(self):
-        for field,value in [('schema_version',2),('schema_version',True),('catalog_version',True),('catalog_version',-1),
-            ('policy_version','unknown'),('generated_at',at(1)),('valid_until',at(72*3600+1)),('repos',{}),
+        for field,value in [('schema_version',1),('schema_version',True),('catalog_version',True),('catalog_version',-1),
+            ('policy_version','unknown'),('generated_at',at(1)),('valid_until',at(30*86400+1)),('repos',{}),
             ('revoked_repo_ids',['invalid']),('revocation_version','1'),('source_commit','bad'),('unknown','FAKE_SECRET')]:
             with self.subTest(field=field):
                 doc=catalog(repo());doc[field]=value
@@ -193,6 +203,84 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(len(self.read.call_args_list),2)
         self.assertNotIn('import subprocess',(ROOT/'template/lib/opensource_catalog.py').read_text())
         self.assertNotIn('import socket',(ROOT/'template/lib/opensource_catalog.py').read_text())
+
+    def test_30_days_is_absolute_and_does_not_restart_on_late_install(self):
+        row=repo();row['review']['valid_until']=at(30*86400)
+        doc=catalog(row);doc['valid_until']=at(30*86400)
+        # Reopening the app 29 days later still ends at the original UTC instant.
+        store=oc.Catalog(lambda *_:(raw(doc),None),clock=lambda:self.now)
+        self.now=NOW+29*86400
+        self.assertEqual(store.snapshot()['state'],'ready')
+        self.assertEqual(store.snapshot()['visible_until'],at(30*86400))
+        self.now=NOW+30*86400-1;self.assertEqual(store.snapshot()['state'],'ready')
+        self.now+=1
+        self.assertEqual(store.snapshot()['state'],'expired')
+        self.assertNotIn('https:',json.dumps(store.snapshot(row['id'])))
+        # Neither a corrupt refresh nor a repeated version restarts its TTL.
+        with patch.object(store,'read',side_effect=OSError()):
+            self.assertEqual(store.snapshot()['state'],'expired')
+
+    def test_source_window_and_review_bounds_do_not_extend_with_new_envelope(self):
+        for field in ('source.status_checked_at','review.metadata_checked_at'):
+            for offset,visible in [(-72*3600,False),(-72*3600+1,True),(1,False)]:
+                with self.subTest(field=field,offset=offset):
+                    row=repo();section,key=field.split('.');row[section][key]=at(offset)
+                    store=oc.Catalog(lambda *_:(raw(catalog(row)),None),clock=lambda:NOW)
+                    self.assertEqual(bool(store.snapshot()['repos']),visible)
+        for review_start,review_end,visible in [(-86400,29*86400,True),(-86400,30*86400,False),
+                                               (1,30*86400,False),(0,30*86400+1,False)]:
+            row=repo();row['review'].update(reviewed_at=at(review_start),valid_until=at(review_end))
+            doc=catalog(row);doc['valid_until']=at(30*86400)
+            store=oc.Catalog(lambda *_:(raw(doc),None),clock=lambda:NOW)
+            self.assertEqual(bool(store.snapshot()['repos']),visible)
+            if visible:self.assertEqual(store.snapshot()['visible_until'],at(review_end))
+
+    def test_shorter_review_and_clock_before_generation_fail_closed(self):
+        row=repo();row['review']['valid_until']=at(86400)
+        doc=catalog(row);doc['valid_until']=at(30*86400)
+        result=self.snapshot(doc)
+        self.assertEqual(result['visible_until'],at(86400))
+        self.now=NOW+86400
+        self.assertEqual(self.store.snapshot(row['id'])['state'],'unavailable')
+        self.now=NOW-1
+        self.assertEqual(self.store.snapshot()['state'],'verification_failed')
+        self.assertNotIn('https:',json.dumps(self.store.snapshot()))
+
+    def test_manual_path_never_relabels_metadata_or_accepts_other_repos(self):
+        shipped=oc.validate((ROOT/'template'/oc.CATALOG_PATH).read_bytes())
+        original=next(r for r in shipped['repos'] if r['full_name']=='FFmpeg/FFmpeg')
+        now=oc.timestamp(shipped['generated_at'])
+        for verdict in ('ok','review','caution','not_curated'):
+            row=copy.deepcopy(original)
+            row['review']['metadata_verdict']=verdict
+            row['review']['metadata_warning']='라이선스와 빌드 조건을 확인해야 합니다.' if verdict=='caution' else None
+            row['gitbap_url']=None if verdict=='not_curated' else 'https://www.gitbap.com/r/'+row['full_name']
+            row['source']['copy_origin']='official-readme'
+            doc={**shipped,'repos':[row]}
+            store=oc.Catalog(lambda *_:(raw(doc),None),clock=lambda:now)
+            self.assertEqual(store.snapshot()['repos'][0]['metadata_verdict'],verdict)
+        for field,value in [('full_name','unlisted/example'),('github_id',1),('runnable',True),
+                            ('approval_path','manual'),('preview',repo()['preview']),('video',repo()['video']),
+                            ('review.disabled',True),('review.metadata_verdict','unknown'),
+                            ('review.metadata_warning',None),('license.spdx','MIT'),
+                            ('license.url',original['license']['url'].replace('LICENSE.md','LICENSE')),
+                            ('source.summary_readme_hash',original['source']['readme_hash'])]:
+            with self.subTest(field=field):
+                row=copy.deepcopy(original);parts=field.split('.');target=row
+                for part in parts[:-1]:target=target[part]
+                target[parts[-1]]=value
+                doc={**shipped,'repos':[row]}
+                store=oc.Catalog(lambda *_:(raw(doc),None),clock=lambda:now)
+                self.assertEqual(store.snapshot()['repos'],[])
+                self.assertIsNone(store.snapshot(row['id'])['repo'])
+
+    def test_original_review_path_still_requires_ok_and_matching_summary_hash(self):
+        for field,value in [('review.metadata_verdict','not_curated'),('review.metadata_verdict','review'),
+                            ('review.metadata_verdict','caution'),('source.summary_readme_hash',None),
+                            ('source.copy_origin','official-readme'),('source.summary_id',None)]:
+            row=repo();section,key=field.split('.');row[section][key]=value
+            store=oc.Catalog(lambda *_:(raw(catalog(row)),None),clock=lambda:NOW)
+            self.assertEqual(store.snapshot()['repos'],[])
 
 
 if __name__=='__main__':unittest.main()
