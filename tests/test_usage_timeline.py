@@ -87,6 +87,15 @@ class CollectorTests(Fixture):
         self.assertEqual(self.ledger.collect()['totals']['turns'], 0)
         self.assertFalse(self.ledger.config()['sync_enabled'])
 
+    def test_windows_without_system_timezone_database_supports_utc_and_korea(self):
+        with patch.object(usage, 'ZoneInfo', side_effect=KeyError('no tzdata')):
+            self.assertEqual(self.ledger.summary()['state'], 'off')
+            source = self.on(); self.fixture(source)
+            self.assertEqual(self.ledger.collect()['totals']['active_days'], 2)
+            sync.validate_payload(self.ledger.payload(),date(2026,11,15),linked=False)
+            self.assertEqual(usage.local_zone('Asia/Seoul').utcoffset(None).total_seconds(),32400)
+            with self.assertRaises(usage.UsageError):usage.local_zone('America/New_York')
+
     def test_off_is_one_action_while_a_short_collection_holds_lock(self):
         self.on(); entered = threading.Event()
         def hold():

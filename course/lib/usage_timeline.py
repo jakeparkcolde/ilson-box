@@ -53,6 +53,19 @@ def stamp(value):
     return dt.timestamp()
 
 
+def local_zone(name):
+    # Windows CPython commonly has no IANA database. Modern Korea has no DST;
+    # these explicit fallbacks cover all retained dates without an install.
+    if name in ('UTC', 'Etc/UTC'):
+        return timezone.utc
+    try:
+        return ZoneInfo(name)
+    except (ValueError, KeyError):
+        if name == 'Asia/Seoul':
+            return timezone(timedelta(hours=9), name='Asia/Seoul')
+        raise UsageError('이 기기의 IANA 시간대 자료가 없습니다. UTC 또는 Asia/Seoul을 사용하세요.') from None
+
+
 def count(value):
     return value if type(value) is int and 0 <= value <= MAX_INT else None
 
@@ -182,7 +195,7 @@ class Ledger:
         if (self.home / 'state/company.json').exists():
             raise UsageError('회사 모드 사용 기록은 준비 중입니다. 개인 실습 기기에서 사용하세요.')
         try:
-            ZoneInfo(zone)
+            local_zone(zone)
         except (ValueError, KeyError):
             raise UsageError('IANA 시간대를 확인하세요.') from None
         workspace = safe(Path(workspace).expanduser())
@@ -201,7 +214,7 @@ class Ledger:
             if backfill:
                 try:
                     day = date.fromisoformat(backfill)
-                    start = datetime.combine(day, datetime.min.time(), ZoneInfo(zone)).timestamp()
+                    start = datetime.combine(day, datetime.min.time(), local_zone(zone)).timestamp()
                 except ValueError:
                     raise UsageError('불러올 시작 날짜를 확인하세요.') from None
                 if not now - 366 * 86400 <= start <= now:
@@ -383,7 +396,7 @@ class Ledger:
     def rows(self, db, cfg):
         events = list(db.execute('SELECT * FROM events ORDER BY at,key'))
         rows, sessions = {}, set()
-        zone = ZoneInfo(cfg['timezone'])
+        zone = local_zone(cfg['timezone'])
         for event in events:
             day = datetime.fromtimestamp(event['at'], zone).date().isoformat()
             def row(model):
@@ -427,7 +440,7 @@ class Ledger:
     def summary(self):
         cfg = self.config()
         rows = self._ledger_rows() if cfg.get('device_id') else []
-        today = datetime.fromtimestamp(self.clock(), ZoneInfo(cfg.get('timezone', 'UTC'))).date()
+        today = datetime.fromtimestamp(self.clock(), local_zone(cfg.get('timezone', 'UTC'))).date()
         state = 'off' if not cfg.get('enabled') else 'partial' if cfg.get('partial') or any(r['quality'] == 'partial' for r in rows) else 'on' if rows else 'on_no_data'
         return dict(state=state, enabled=cfg.get('enabled', False), timezone=cfg.get('timezone', 'UTC'),
                     linked=bool(cfg.get('consent_id')), sync_enabled=cfg.get('sync_enabled', False),

@@ -8,9 +8,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, ProxyHandler, HTTPRedirectHandler
 import uuid
-from zoneinfo import ZoneInfo
 
-from usage_timeline import UsageError, COUNTERS, MODELS, MAX_INT, safe, stamp, write_json
+from usage_timeline import UsageError, COUNTERS, MODELS, MAX_INT, safe, stamp, write_json, local_zone
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -35,7 +34,7 @@ def validate_payload(payload, today=None, *, linked=True):
     zone = payload['timezone']
     if not isinstance(zone, str) or len(zone) > 64:
         raise UsageError('시간대를 확인하세요.')
-    zone = ZoneInfo(zone)
+    zone = local_zone(zone)
     today = today or datetime.now(zone).date()
     if type(payload['revision']) is not int or not 1 <= payload['revision'] <= MAX_INT or not isinstance(payload['daily'], list) or len(payload['daily']) > 4096:
         raise UsageError('전송 범위를 확인하세요.')
