@@ -86,6 +86,41 @@ class CollectorTests(Fixture):
         self.assertEqual(self.ledger.collect()['totals']['turns'], 0)
         self.assertFalse(self.ledger.config()['sync_enabled'])
 
+    def test_incremental_scan_does_not_starve_later_files(self):
+        source = self.on()
+        for i in range(257): (source / ('%03d.jsonl' % i)).write_text('')
+        self.fixture(source)
+        self.assertEqual(self.ledger.collect()['totals']['turns'], 0)
+        self.assertEqual(self.ledger.collect()['totals']['turns'], 2)
+        with patch.object(self.ledger, 'parse', side_effect=AssertionError('reparsed unchanged source')):
+            self.assertEqual(self.ledger.collect()['totals']['turns'], 2)
+
+    def test_snapshot_excludes_ledger_and_refuses_already_tracked_usage(self):
+        source = self.on(); self.fixture(source); self.ledger.collect()
+        (self.home/'lib').mkdir(); (self.home/'vault').mkdir()
+        for name in ('common.sh','snapshot.sh'):
+            shutil.copyfile(ROOT/'template/lib'/name,self.home/'lib'/name)
+        env = dict(os.environ, ILSON_HOME=str(self.home))
+        cmd = ['bash',str(self.home/'lib/snapshot.sh')]
+        result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+        tracked = subprocess.check_output(['git','ls-files'],cwd=self.home,text=True)
+        self.assertNotIn('usage-timeline',tracked)
+        subprocess.run(['git','add','-f','state/usage-timeline/settings.json'],cwd=self.home,check=True,capture_output=True)
+        self.assertNotEqual(subprocess.run(cmd,env=env,capture_output=True).returncode,0)
+
+    def test_new_workspace_has_its_own_consent_window(self):
+        source = self.on(); self.fixture(source); self.ledger.collect()
+        self.ledger.off()
+        self.now[0] += 86400
+        other = self.user / 'new-practice'; other.mkdir()
+        self.ledger.on(other, 'Asia/Seoul')
+        new_source = self.ledger.source(self.ledger.config()); new_source.mkdir()
+        text = (ROOT / 'tests/fixtures/usage-timeline/claude.jsonl').read_text().replace('WORKSPACE', str(other)).replace('synthetic-session', 'different-session')
+        (new_source/'new.jsonl').write_text(text)
+        self.assertEqual(self.ledger.collect()['totals']['turns'], 2)
+        self.assertEqual(len(self.ledger.config()['windows']), 1)
+
     def test_unknown_partial_no_guessed_counts(self):
         source = self.on(); self.fixture(source, 'unknown.jsonl')
         result = self.ledger.collect()

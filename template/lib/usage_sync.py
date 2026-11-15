@@ -146,6 +146,8 @@ class Client:
     def sync(self):
         cfg = self.ledger.config()
         deleting = cfg.get('revoke_pending', False)
+        if not deleting and (self.ledger.home / 'state/company.json').exists():
+            return self.ledger.summary()
         if not deleting and not (cfg.get('enabled') and cfg.get('sync_enabled') and cfg.get('base_url') and cfg.get('consent_id')):
             return self.ledger.summary()
         if cfg.get('next_sync_at', 0) > self.ledger.clock():

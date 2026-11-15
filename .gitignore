@@ -4,3 +4,6 @@ __pycache__/
 
 # Local diagnostics test scratch (never shipped or committed).
 .scratch/
+
+# Private local usage ledger and scoped sync credential.
+/state/usage-timeline/

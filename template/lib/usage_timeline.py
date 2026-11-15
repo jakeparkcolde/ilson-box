@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 import hashlib
 import hmac
+import itertools
 import json
 import os
 from pathlib import Path
@@ -117,8 +118,6 @@ class Ledger:
             return json.load(stream)
 
     def prepare(self):
-        if (self.home / 'state/company.json').exists():
-            raise UsageError('회사 모드 사용 기록은 준비 중입니다. 개인 실습 기기에서 사용하세요.')
         safe(self.root)
         self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         safe(self.root, private=True)
@@ -170,6 +169,8 @@ class Ledger:
         return db
 
     def on(self, workspace, zone, *, backfill=None):
+        if (self.home / 'state/company.json').exists():
+            raise UsageError('회사 모드 사용 기록은 준비 중입니다. 개인 실습 기기에서 사용하세요.')
         try:
             ZoneInfo(zone)
         except (ValueError, KeyError):
@@ -198,6 +199,8 @@ class Ledger:
             cfg.setdefault('device_id', str(uuid.uuid4()))
             cfg.setdefault('salt', os.urandom(32).hex())
             cfg.setdefault('revision', 1)
+            if cfg.get('workspace') != str(workspace):
+                cfg['windows'] = []  # Old folder consent never authorizes a new folder's past logs.
             cfg.setdefault('windows', [])
             cfg['windows'].append([start, None])
             cfg.update(enabled=True, workspace=str(workspace), timezone=zone,
@@ -271,7 +274,7 @@ class Ledger:
 
     def collect(self):
         cfg = self.config()
-        if not cfg.get('enabled'):
+        if not cfg.get('enabled') or (self.home / 'state/company.json').exists():
             return self.summary()
         with self.locked():
             cfg = self.config()
@@ -283,15 +286,27 @@ class Ledger:
             source = self.source(cfg)
             try:
                 safe(source)
-                files = sorted(source.glob('*.jsonl'))[:256] if source.is_dir() else []
-                if not files:
-                    partial = False
+                files = list(itertools.islice(source.glob('*.jsonl'), 4097)) if source.is_dir() else []
+                if len(files) > 4096:
+                    files = files[:4096]
+                    partial = True
             except (OSError, UsageError):
                 files, partial = [], True
             db = self.connect()
             try:
-                before = db.total_changes
-                for path in files:
+                cursors = {r['key']: r for r in db.execute('SELECT * FROM cursors')}
+                def priority(path):
+                    try:
+                        info = path.lstat()
+                        old = cursors.get(self.key(cfg, str(path)))
+                        inode = str(info.st_dev) + ':' + str(info.st_ino)
+                        return (bool(old and old['inode'] == inode and old['offset'] == info.st_size), path.name)
+                    except OSError:
+                        return (False, path.name)
+                files.sort(key=priority)
+                if len(files) > 256 and any(not priority(p)[0] for p in files[256:]):
+                    partial = True
+                for path in files[:256]:
                     if time.monotonic() - started > 2:
                         partial = True
                         break
@@ -335,7 +350,6 @@ class Ledger:
                     except (OSError, ValueError):
                         partial = True
                 db.execute('DELETE FROM events WHERE at < ?', (now - 366 * 86400,))
-                changed = db.total_changes > before
                 db.commit()
                 rows = self.rows(db, cfg)
                 old_rows = self._ledger_rows()
@@ -498,6 +512,9 @@ def main(argv=None, *, home=None, user_home=None):
             ledger.off(); result = ledger.summary()
         elif args.action in ('status', 'export'):
             result = ledger.summary() if args.action == 'status' else ledger.payload()
+            if args.action == 'export' and result is not None:
+                from usage_sync import validate_payload
+                validate_payload(result, date.fromisoformat(ledger.summary()['today']), linked=False)
         elif args.action == 'delete-local':
             ledger.delete_local(); result = ledger.summary()
         elif args.action in ('link', 'unlink', 'sync'):
