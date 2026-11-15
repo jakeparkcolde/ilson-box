@@ -250,9 +250,22 @@ function Get-HerdrCourseVersion([string]$Executable) {
         if (-not $process.Start()) { throw 'VERIFY_FAILED' }
         if (-not $process.WaitForExit(5000)) { $process.Kill(); $process.WaitForExit(); throw 'VERIFY_FAILED' }
         $value = $process.StandardOutput.ReadToEnd().Trim()
-        if ($process.ExitCode -ne 0 -or $value.Length -gt 128 -or $value -cnotmatch '^herdr-app ([0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6})$') { throw 'VERIFY_FAILED' }
-        return $Matches[1]
+        if ($process.ExitCode -ne 0 -or $value.Length -gt 128) { throw 'VERIFY_FAILED' }
+        if ($value -cmatch '^herdr-app ([0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6})$') { return $Matches[1] }
+        throw 'VERIFY_FAILED'
     } finally { $process.Dispose() }
+}
+function Add-HerdrCoursePath([string]$Directory) {
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $true)
+    if (-not $key) { throw 'VERIFY_FAILED' }
+    try {
+        $raw = [string]$key.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+        $kind = if ($key.GetValueNames() -contains 'Path') { $key.GetValueKind('Path') } else { [Microsoft.Win32.RegistryValueKind]::ExpandString }
+        if ($kind -notin @([Microsoft.Win32.RegistryValueKind]::String,[Microsoft.Win32.RegistryValueKind]::ExpandString)) { throw 'USER_MODIFIED' }
+        $listed = @($raw -split ';' | Where-Object { $_.Trim().TrimEnd('\') -ieq $Directory.TrimEnd('\') })
+        if (-not $listed.Count) { $key.SetValue('Path', $(if ($raw) { $raw.TrimEnd(';')+';'+$Directory } else { $Directory }), $kind) }
+    } finally { $key.Close() }
+    if (-not @($env:Path -split ';' | Where-Object { $_.Trim().TrimEnd('\') -ieq $Directory.TrimEnd('\') }).Count) { $env:Path += ';'+$Directory }
 }
 function Install-HerdrCourse([bool]$Plan, [string]$Architecture) {
     $existing = Find-Herdr
@@ -300,6 +313,7 @@ function Install-HerdrCourse([bool]$Plan, [string]$Architecture) {
             $shortcut.Description = 'Herdr'
             $shortcut.Save()
         }
+        Add-HerdrCoursePath $destination
         return [pscustomobject]@{ Mode='Installed'; Version=$script:CourseHerdrVersion }
     } finally {
         # Only this newly created staging directory; existing apps are never removed.

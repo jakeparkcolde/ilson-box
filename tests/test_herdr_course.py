@@ -34,6 +34,8 @@ class HerdrContractTests(unittest.TestCase):
         self.assertNotIn('Orca',helper)
         self.assertIn('Get-FileHash',helper);self.assertIn('Get-AuthenticodeSignature',helper)
         self.assertIn('WaitForExit(5000)',helper)
+        self.assertIn('DoNotExpandEnvironmentNames',helper)
+        self.assertIn("$key.GetValueKind('Path')",helper)
         self.assertIn('[IO.Directory]::Move',helper)
         self.assertIn('if ($Plan)',helper)
         intel=(ROOT/'course/install-intel-mac.sh').read_text()
