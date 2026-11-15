@@ -175,7 +175,7 @@ function Invoke-IlsonStep([string]$Step, [scriptblock]$Action, [bool]$Required=$
 function Get-IlsonDownload([string]$Url, [string]$Step, [string]$OutFile='') {
     $script:DiagLastDownloadFailed=$false
     $hostCode='custom_host'; $uri=[uri]$Url
-    if ($uri.Host -in @('raw.githubusercontent.com','codeload.github.com','github.com','claude.ai','chatgpt.com','www.python.org')) { $hostCode=$uri.Host }
+    if ($uri.Host -in @('raw.githubusercontent.com','codeload.github.com','github.com','claude.ai','chatgpt.com','www.python.org','releases.herdr.dev')) { $hostCode=$uri.Host }
     Start-IlsonStep $Step
     try {
         # Do not disable certificate validation or change TLS settings. TLS errors advise OS updates.
@@ -233,6 +233,19 @@ function Find-Claude { Get-Command claude -ErrorAction SilentlyContinue | Select
 $script:CourseHerdrVersion = '0.1.15'
 $script:CourseHerdrUrl = 'https://releases.herdr.dev/app/0.1.15/herdr-app-windows-x86_64.tar.gz'
 $script:CourseHerdrSha256 = '62ddf27ee9acc13d9b3421389817d1cabdc906c23f9ff1363f6cdbc8af3da39c'
+function Invoke-IlsonCourseNative([string]$Executable, [string[]]$Arguments) {
+    # Windows PowerShell 5.1 promotes redirected native stderr to ErrorRecord.
+    # A warning must not hide the actual exit code or escape into diagnostics.
+    $savedPreference = $ErrorActionPreference
+    $global:LASTEXITCODE = $null
+    try {
+        $ErrorActionPreference = 'Continue'
+        $output = @(& $Executable @Arguments 2>$null)
+        $nativeCode = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $savedPreference }
+    if ($null -eq $nativeCode) { throw 'EXECUTE_FAILED' }
+    return [pscustomobject]@{ Output=$output; ExitCode=$nativeCode }
+}
 function Find-Herdr {
     $candidates = @((Join-Path $env:LOCALAPPDATA 'Programs\herdr-app\herdr-app.exe'), (Join-Path $env:ProgramFiles 'Herdr\herdr-app.exe'))
     foreach ($candidate in $candidates) { if (Test-Path -LiteralPath $candidate -PathType Leaf) { Test-IlsonDiagPath $candidate; return $candidate } }
@@ -286,14 +299,15 @@ function Install-HerdrCourse([bool]$Plan, [string]$Architecture) {
         $archive = Join-Path $scratch 'app.tar.gz'
         Get-IlsonDownload $script:CourseHerdrUrl 'tools.vendor.download' $archive | Out-Null
         if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ine $script:CourseHerdrSha256) { throw 'HASH_MISMATCH' }
-        $members = @(& $tar -tzf $archive 2>$null)
-        if ($LASTEXITCODE -ne 0 -or -not $members.Count) { throw 'VERIFY_FAILED' }
+        $listing = Invoke-IlsonCourseNative $tar @('-tzf', $archive)
+        $members = @($listing.Output)
+        if ($listing.ExitCode -ne 0 -or -not $members.Count) { throw 'VERIFY_FAILED' }
         foreach ($member in $members) {
             if (($member -replace '^\./','') -notmatch '^herdr-app(?:/|$)' -or $member -match '(^|/)\.\.(/|$)|^[\\/]|[:\\]') { throw 'VERIFY_FAILED' }
         }
         Start-IlsonStep 'tools.vendor.execute'
-        & $tar -xzf $archive -C $scratch 2>$null | Out-Null
-        $nativeCode = $LASTEXITCODE
+        $extraction = Invoke-IlsonCourseNative $tar @('-xzf', $archive, '-C', $scratch)
+        $nativeCode = $extraction.ExitCode
         Stop-IlsonStep 'tools.vendor.execute' $(if ($nativeCode -eq 0) {'ok'} else {'failed'}) $(if ($nativeCode -eq 0) {'OK'} else {'EXECUTE_FAILED'}) $true $nativeCode 'native'
         if ($nativeCode -ne 0) { throw 'EXECUTE_FAILED' }
         $staged = Join-Path $scratch 'herdr-app'
@@ -359,7 +373,12 @@ function Main {
     Start-IlsonStep 'tools.claude'
     try {
         $c = Find-Claude
-        if ($c) { $statuses.Claude = (K '7J2066+4IOyeiOydjA=='); Write-Output ('Claude: ' + (& $c.Source --version 2>&1 | Select-Object -First 1)) }
+        if ($c) {
+            $claudeProbe = Invoke-IlsonCourseNative $c.Source @('--version')
+            if ($claudeProbe.ExitCode -ne 0) { throw 'VERIFY_FAILED' }
+            $statuses.Claude = (K '7J2066+4IOyeiOydjA==')
+            Write-Output ('Claude: ' + ($claudeProbe.Output | Select-Object -First 1))
+        }
         elseif ($DryRun) { $statuses.Claude = (K '7ISk7LmYIOyYiOyglQ==') }
         else {
             $official = $script:DiagUtf8.GetString((Get-IlsonDownload 'https://claude.ai/install.ps1' 'tools.claude.download'))
@@ -496,8 +515,9 @@ function Main {
         try {
             $pyArgs = @(); if ($name -eq 'py.exe') { $pyArgs += '-3' }
             $pyArgs += @('-B', '-c', 'import sys; assert sys.version_info >= (3,10); print(sys.executable)')
-            $output = @(& $command.Source @pyArgs 2>$null)
-            if ($LASTEXITCODE -eq 0 -and $output.Count -and (Test-Path -LiteralPath $output[-1] -PathType Leaf)) { $python = [string]$output[-1]; break }
+            $probe = Invoke-IlsonCourseNative $command.Source $pyArgs
+            $output = @($probe.Output)
+            if ($probe.ExitCode -eq 0 -and $output.Count -and (Test-Path -LiteralPath $output[-1] -PathType Leaf)) { $python = [string]$output[-1]; break }
         } catch { }
     } }
     if ($null -eq $oldPythonManager) { Remove-Item Env:PYTHON_MANAGER_AUTOMATIC_INSTALL -ErrorAction SilentlyContinue }
@@ -506,8 +526,8 @@ function Main {
         $coursePython = Join-Path $env:LOCALAPPDATA 'Programs\ilson-course-python\3.15.2\python.exe'
         if (Test-Path -LiteralPath $coursePython -PathType Leaf) {
             try {
-                & $coursePython -B -c 'import sys; assert sys.version_info[:3] == (3,15,2)' 2>$null
-                if ($LASTEXITCODE -eq 0) { $python = $coursePython }
+                $probe = Invoke-IlsonCourseNative $coursePython @('-B', '-c', 'import sys; assert sys.version_info[:3] == (3,15,2)')
+                if ($probe.ExitCode -eq 0) { $python = $coursePython }
             } catch { }
         }
     }
@@ -531,8 +551,8 @@ function Main {
             $process = Start-Process -FilePath $tmp -ArgumentList $args -PassThru -Wait
             Stop-IlsonStep 'tools.vendor.execute' $(if ($process.ExitCode -eq 0) {'ok'} else {'failed'}) $(if ($process.ExitCode -eq 0) {'OK'} else {'EXECUTE_FAILED'}) $true $process.ExitCode 'native'
             if ($process.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $python -PathType Leaf)) { throw 'Python installation failed' }
-            & $python -c 'import sys; assert sys.version_info[:3] == (3,15,2)' 2>$null
-            if ($LASTEXITCODE -ne 0) { throw 'Python version verification failed' }
+            $probe = Invoke-IlsonCourseNative $python @('-c', 'import sys; assert sys.version_info[:3] == (3,15,2)')
+            if ($probe.ExitCode -ne 0) { throw 'Python version verification failed' }
             $statuses.Python = (K '7ISk7LmY65Co')
         } catch { $python = $null; $statuses.Python = (K '7Iuk7Yyo'); Write-Output ('Python: ' + 'DETAIL_SUPPRESSED') }
     }
@@ -616,8 +636,9 @@ function Main {
         Start-IlsonStep 'cli.link'; Stop-IlsonStep 'cli.link'
         Start-IlsonStep 'path.persist'; Stop-IlsonStep 'path.persist'
         Start-IlsonStep 'verify.absolute'
-        $verified=@(& $python -X utf8 (Join-Path $lib 'ilson.py') --version 2>$null)
-        $verifyCode=$LASTEXITCODE
+        $probe = Invoke-IlsonCourseNative $python @('-X', 'utf8', (Join-Path $lib 'ilson.py'), '--version')
+        $verified=@($probe.Output)
+        $verifyCode=$probe.ExitCode
         if ($verifyCode -eq 0 -and ($verified -join '') -match 'windows-course ILSON-DIAG-1') { Stop-IlsonStep 'verify.absolute' 'ok' 'OK' $true $verifyCode 'native' }
         else { Stop-IlsonStep 'verify.absolute' 'failed' 'VERIFY_FAILED' $true $verifyCode 'native' }
     } elseif (-not $python) { Stop-IlsonStep 'helper.install' 'skipped-with-reason' 'DEPENDENCY_FAILED' }

@@ -175,7 +175,7 @@ function Invoke-IlsonStep([string]$Step, [scriptblock]$Action, [bool]$Required=$
 function Get-IlsonDownload([string]$Url, [string]$Step, [string]$OutFile='') {
     $script:DiagLastDownloadFailed=$false
     $hostCode='custom_host'; $uri=[uri]$Url
-    if ($uri.Host -in @('raw.githubusercontent.com','codeload.github.com','github.com','claude.ai','chatgpt.com','www.python.org')) { $hostCode=$uri.Host }
+    if ($uri.Host -in @('raw.githubusercontent.com','codeload.github.com','github.com','claude.ai','chatgpt.com','www.python.org','releases.herdr.dev')) { $hostCode=$uri.Host }
     Start-IlsonStep $Step
     try {
         # Do not disable certificate validation or change TLS settings. TLS errors advise OS updates.

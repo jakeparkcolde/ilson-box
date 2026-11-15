@@ -38,6 +38,8 @@ class HerdrContractTests(unittest.TestCase):
         self.assertIn("$key.GetValueKind('Path')",helper)
         self.assertIn('[IO.Directory]::Move',helper)
         self.assertIn('if ($Plan)',helper)
+        download=source.split('function Get-IlsonDownload',1)[1].split('function Complete-IlsonDiagnostics',1)[0]
+        self.assertIn("'releases.herdr.dev'",download)
         intel=(ROOT/'course/install-intel-mac.sh').read_text()
         self.assertIn('orca-macos-x64.dmg',intel)
         self.assertFalse(pin['intel_macos_supported'])
@@ -63,6 +65,26 @@ class HerdrContractTests(unittest.TestCase):
                 self.assertEqual(probe.call_args.args[0],[str(app),'--version'])
                 probe.return_value=(0,b'unknown or secret');self.assertEqual(diag.course_workspace_app()['state'],'unknown')
                 app.unlink();self.assertEqual(diag.course_workspace_app()['state'],'missing')
+
+    @unittest.skipUnless(shutil.which('pwsh'),'pwsh required for native stderr handling')
+    def test_native_stderr_keeps_success_and_failure_exit_codes(self):
+        source=(ROOT/'course/install-windows.ps1').read_text(encoding='ascii')
+        helper=source.split('function Invoke-IlsonCourseNative',1)[1].split('function Find-Herdr',1)[0]
+        script='function Invoke-IlsonCourseNative'+helper+r'''
+$ErrorActionPreference='Stop'
+foreach ($code in @(0,7)) {
+    $result=Invoke-IlsonCourseNative $env:ILSON_TEST_PYTHON @('-c', ('import sys; print("native-ok"); print("private-warning",file=sys.stderr); sys.exit('+ $code +')'))
+    if ($ErrorActionPreference -ne 'Stop') { throw 'preference changed' }
+    if ($result.ExitCode -ne $code -or ($result.Output -join '') -ne 'native-ok') { throw 'native result lost' }
+    Write-Output ('verified '+$result.ExitCode)
+}
+'''
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp)/'native.ps1';path.write_text(script,encoding='ascii')
+            result=subprocess.run([shutil.which('pwsh'),'-NoProfile','-File',str(path)],env=dict(os.environ,ILSON_TEST_PYTHON=sys.executable),capture_output=True,text=True,timeout=15)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+            self.assertEqual(result.stdout.splitlines(),['verified 0','verified 7'])
+            self.assertNotIn('private-warning',result.stdout+result.stderr)
 
     @unittest.skipUnless(shutil.which('pwsh'),'pwsh required for isolated PowerShell Herdr modes')
     def test_powershell_dry_run_reuse_and_failed_download_continue_without_orca(self):
