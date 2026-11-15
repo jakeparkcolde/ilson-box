@@ -60,6 +60,9 @@ STATIC = {"/dashboard": ("web/dashboard.html", "text/html; charset=utf-8"),
           "/favicon.svg": ("web/favicon.svg", "image/svg+xml")}
 
 
+STATIC['/usage-history'] = ('web/usage-history.html', 'text/html; charset=utf-8')
+STATIC['/usage-history.js'] = ('web/usage-history.js', 'application/javascript; charset=utf-8')
+STATIC['/usage-history.css'] = ('web/usage-history.css', 'text/css; charset=utf-8')
 STATIC['/approval'] = ('web/approval.html', 'text/html; charset=utf-8')
 STATIC['/approval.js'] = ('web/approval.js', 'application/javascript; charset=utf-8')
 STATIC['/current/opensource.js'] = ('web/current/opensource.js', 'application/javascript; charset=utf-8')
@@ -956,16 +959,22 @@ class Handler(BaseHTTPRequestHandler):
     def guarded(self, callback):
         try:
             self.boundary()
-            from license import evaluate
-            try:
-                licensed = evaluate(self.server.box.home)[0]
-            except (OSError, ValueError, TypeError):
-                licensed = False
             approval_path = urlsplit(self.path).path
+            usage_safe = ((self.command in ('GET', 'HEAD') and approval_path in ('/usage-history', '/usage-history.js', '/usage-history.css', '/api/usage-history/summary')) or
+                          (self.command == 'POST' and approval_path in ('/api/usage-history/off', '/api/usage-history/export', '/api/usage-history/delete-local', '/api/usage-history/unlink')))
+            session_safe = approval_path == '/api/session'
+            if usage_safe or session_safe:
+                licensed = True  # Local privacy controls never renew/check a network license.
+            else:
+                from license import evaluate
+                try:
+                    licensed = evaluate(self.server.box.home)[0]
+                except (OSError, ValueError, TypeError):
+                    licensed = False
             approval_safe = ((self.command in ('GET', 'HEAD') and approval_path in ('/approval', '/approval.js', '/api/approvals', '/api/session')) or (self.command == 'POST' and approval_path in ('/api/session', '/api/approvals/reject')))
             if not licensed and approval_path not in ('/health', '/api/health') and not approval_safe:
                 if self.command in ('GET', 'HEAD') and not urlsplit(self.path).path.startswith('/api/'):
-                    return self.reply(200, '<!doctype html><meta charset="utf-8"><title>일손 라이선스</title><h1>일손 라이선스가 필요합니다</h1><p>터미널에서 ilson license activate 를 실행하세요.</p><p><a id="approval" href="/approval">승인 대기함 보기·취소</a></p><script>document.getElementById("approval").href+=location.hash</script>'.encode(), 'text/html; charset=utf-8')
+                    return self.reply(200, '<!doctype html><meta charset="utf-8"><title>일손 라이선스</title><h1>일손 라이선스가 필요합니다</h1><p>터미널에서 ilson license activate 를 실행하세요.</p><p><a id="approval" href="/approval">승인 대기함 보기·취소</a></p><p><a id="usage-history" href="/usage-history">내 AI 사용 기록 보기·끄기·내보내기·삭제</a></p><script>for(const id of ["approval","usage-history"])document.getElementById(id).href+=location.hash</script>'.encode(), 'text/html; charset=utf-8')
                 if approval_path.startswith('/api/opensource/'):
                     return self.reply(403, {'error':'일손 라이선스가 필요합니다. 이용 권한을 확인해 주세요.'})
                 return self.reply(403, {'error':'라이선스가 필요합니다. ilson license activate를 실행하세요.'})
@@ -1065,6 +1074,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(200, {"authenticated": True})
         if path.startswith("/api/workspace/"):
             return self.workspace_request("GET", path)
+        if path == "/api/usage-history/summary":
+            return self.usage_request(path)
         if path == "/api/usage":
             from usage_dashboard import dashboard as usage_dashboard
             return self.reply(200, usage_dashboard(self.server.box.home))
@@ -1081,6 +1092,58 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         self.guarded(self.post)
+
+    def usage_request(self, path):
+        self.require_session()
+        from access_policy import require_owner, AccessDenied
+        from usage_timeline import Ledger, UsageError
+        import sqlite3
+        try:
+            require_owner(self.server.box.home)
+            ledger = Ledger(self.server.box.home, user_home=self.server.box.user_files.home, clock=self.server.box.clock)
+            if self.command in ('GET', 'HEAD') and path == '/api/usage-history/summary':
+                return self.reply(200, ledger.summary())
+            data = self.body()
+            action = path.removeprefix('/api/usage-history/')
+            if not isinstance(data, dict):
+                raise UsageError('설정을 확인하세요.')
+            if action == 'on' and set(data) == {'workspace', 'timezone', 'backfill_from', 'consent'} and data['consent'] is True:
+                if not isinstance(data['workspace'], str) or not isinstance(data['timezone'], str) or (data['backfill_from'] is not None and not isinstance(data['backfill_from'], str)):
+                    raise UsageError('실습 폴더와 시간대를 확인하세요.')
+                ledger.on(data['workspace'], data['timezone'], backfill=data['backfill_from'])
+                result = ledger.collect()
+            elif action in ('off', 'collect', 'delete-local', 'export', 'unlink', 'sync') and not data:
+                if action == 'off': ledger.off()
+                elif action == 'collect': ledger.collect()
+                elif action == 'delete-local': ledger.delete_local()
+                elif action == 'export':
+                    from usage_sync import validate_payload
+                    payload = ledger.payload()
+                    if payload is not None:
+                        from datetime import date
+                        validate_payload(payload, date.fromisoformat(ledger.summary()['today']), linked=False)
+                    return self.reply(200, payload if payload is not None else b'null')
+                else:
+                    from usage_sync import Client
+                    if action == 'unlink': Client(ledger).unlink()
+                    else:
+                        ledger.collect()
+                        Client(ledger).sync()
+                result = ledger.summary()
+            elif action == 'link' and set(data) == {'base_url', 'code', 'consent', 'preview_revision'} and data['consent'] is True:
+                if not isinstance(data['code'], str) or not isinstance(data['base_url'], str) or type(data['preview_revision']) is not int or ledger.config().get('revision') != data['preview_revision']:
+                    raise UsageError('기록이 바뀌었습니다. 전송 JSON을 다시 확인하세요.')
+                from usage_sync import Client
+                result = Client(ledger).link(data['base_url'], data['code'])
+            else:
+                raise UsageError('지원하는 사용 기록 요청을 확인하세요.')
+            return self.reply(200, result)
+        except AccessDenied:
+            raise AdminError('사용 기록은 본인 개인 관리자에서만 확인할 수 있습니다.', 403) from None
+        except UsageError as error:
+            raise AdminError(str(error), 400) from None
+        except (OSError, ValueError, sqlite3.Error):
+            raise AdminError('사용 기록을 처리하지 못했습니다. 개인 권한과 연결 상태를 확인하세요.', 503) from None
 
     def workspace_request(self, method, path):
         work = self.server.box.workspace()
@@ -1226,6 +1289,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def post(self):
         path = self.route()
+        if path.startswith("/api/usage-history/"):
+            return self.usage_request(path)
         if path.startswith('/api/approvals/'):
             self.require_session()
             return self.approval_request(path)

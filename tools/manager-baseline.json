@@ -62,5 +62,6 @@
   "template/lib/research/knowledge.py": "ecd9a6edac88326e33db58c321d389efa8e64724a1421b158e1041ba381ce591",
   "template/lib/social/meta_publish.py": "000258b1eb319843d9b20d9acaf2c5ebb8b92f9b2eea771c0aeae5b89de892ff",
   "template/lib/social/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "template/lib/social/http.py": "30c3d0f173eca299f9d7e542ce4983b65b63bd5f56a8e31f1038d047c5f1f199"
+  "template/lib/social/http.py": "30c3d0f173eca299f9d7e542ce4983b65b63bd5f56a8e31f1038d047c5f1f199",
+  "ilson": "9fc5cf8c54ee8371ad7bd8081928d5ea1bacc5f277970934187ba1f22b244d36"
 }

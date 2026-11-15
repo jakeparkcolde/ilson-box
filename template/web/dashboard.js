@@ -135,9 +135,10 @@
       root.innerHTML = `<div class="db-heading"><div><p class="db-eyebrow">이 컴퓨터 · 읽기 전용</p><h1>자동화와 컴퓨터 현황</h1><p>일손 업무와 이 사용자의 launchd 등록 상태를 한곳에서 확인합니다.</p></div><button id="db-refresh" type="button">새로 확인</button></div>
 <p id="db-status" role="status">관측을 준비하고 있습니다.</p><p id="db-error" role="alert" hidden></p>
 <section aria-labelledby="db-resources-title"><h2 id="db-resources-title">컴퓨터 사용량</h2><div id="db-resources" class="db-resources"></div><p class="db-hint">CPU는 약 1초 구간의 전체 사용률, 메모리는 앱·유선·압축 메모리 합계입니다. 디스크는 일손이 설치된 볼륨의 사용자 가용 공간 기준입니다.</p></section>
-<section aria-labelledby="db-usage-title"><h2 id="db-usage-title">사용량</h2><div id="db-usage">사용량을 확인하고 있습니다.</div></section>
+<section aria-labelledby="db-usage-title"><h2 id="db-usage-title">F8 · Claude 계정 한도</h2><div id="db-usage">사용량을 확인하고 있습니다.</div></section>
+<div id="db-usage-history"></div>
 <section aria-labelledby="db-jobs-title"><div class="db-section-heading"><h2 id="db-jobs-title">자동화 관측</h2><span id="db-count"></span></div><p id="db-automation-status" class="db-hint"></p><div class="db-filters"><label>검색<input id="db-search" type="search" placeholder="업무 이름 또는 식별자" maxlength="200"></label><label>범위<select id="db-source"><option value="all">전체</option><option value="box">일손 업무</option><option value="launchd">다른 launchd 등록</option></select></label><label>상태<select id="db-state"><option value="all">전체</option><option value="running">프로세스 실행 중</option><option value="exit_nonzero">최근 종료값 확인 필요</option><option value="idle">등록 · 대기</option><option value="not_loaded">미등록</option><option value="paused">멈춤 기록</option><option value="unknown">관측 불가·오래됨</option></select></label></div><div id="db-jobs"></div></section>
-<section class="db-limits" aria-labelledby="db-limits-title"><h2 id="db-limits-title">이 화면이 확인하는 범위</h2><p>launchd의 PID는 프로세스 실행 관측이고 종료값 0은 업무 성공 증거가 아닙니다. 마지막 성공은 일손 실행기가 남긴 도장이 있을 때만 표시합니다. 멈춤 기록과 실제 실행이 다를 수 있습니다.</p><p>다른 launchd 등록은 현재 로그인한 사용자의 등록 목록입니다. Apple 시스템 항목·일반 앱 항목은 제외합니다. 미등록 외부 예약, 시스템 데몬, cron·PM2·앱 내부 예약은 포함하지 않으며 일정과 결과를 추정하지 않습니다.</p><p>Claude 사용량은 선택한 경우에만 상태줄에서 관측합니다. 로그인 정보나 쿠키를 읽지 않습니다. 다중기기: 이 설치 기기만 관측하며 다른 컴퓨터에 연결하거나 전송하지 않습니다.</p><p>30초 동안 관측값을 재사용합니다. 숨긴 창에서는 자동 조회를 멈춥니다. 새로 확인도 캐시 기간 안에서는 같은 표본을 표시합니다.</p></section>`;
+<section class="db-limits" aria-labelledby="db-limits-title"><h2 id="db-limits-title">이 화면이 확인하는 범위</h2><p>launchd의 PID는 프로세스 실행 관측이고 종료값 0은 업무 성공 증거가 아닙니다. 마지막 성공은 일손 실행기가 남긴 도장이 있을 때만 표시합니다. 멈춤 기록과 실제 실행이 다를 수 있습니다.</p><p>다른 launchd 등록은 현재 로그인한 사용자의 등록 목록입니다. Apple 시스템 항목·일반 앱 항목은 제외합니다. 미등록 외부 예약, 시스템 데몬, cron·PM2·앱 내부 예약은 포함하지 않으며 일정과 결과를 추정하지 않습니다.</p><p>Claude 사용량은 선택한 경우에만 상태줄에서 관측합니다. 로그인 정보나 쿠키를 읽지 않습니다. F8 한도는 이 기기의 상태줄 관측이며 자동 전송하지 않습니다. 내 AI 사용 기록의 강사 공유는 별도로 동의한 경우에만 일별 숫자를 전송합니다.</p><p>30초 동안 관측값을 재사용합니다. 숨긴 창에서는 자동 조회를 멈춥니다. 새로 확인도 캐시 기간 안에서는 같은 표본을 표시합니다.</p></section>`;
       for (const id of ['search', 'source', 'state']) $(id).addEventListener(id === 'search' ? 'input' : 'change', jobs);
       $('refresh').addEventListener('click', () => { refresh(); usageLoad(); });
     }
@@ -149,6 +150,7 @@
     if (data) { resources(); jobs(); }
     refresh();
     usageLoad();
+    if(window.IlsonUsage)window.IlsonUsage.mount($('usage-history'));
   }
   window.IlsonDashboard = {mount, leave};
 })();

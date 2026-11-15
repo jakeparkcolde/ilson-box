@@ -1,0 +1,57 @@
+{
+  "version": "anthropic-20261115",
+  "source_url": "https://platform.claude.com/docs/en/about-claude/pricing",
+  "checked_at": "2026-11-15",
+  "currency": "USD",
+  "unit": "per_million_tokens",
+  "label": "추정",
+  "models": {
+    "claude-sonnet-4-5": {
+      "input": 3,
+      "output": 15,
+      "cache_read": 0.3,
+      "cache_creation_5m": 3.75,
+      "cache_creation_1h": 6
+    },
+    "claude-sonnet-4-6": {
+      "input": 3,
+      "output": 15,
+      "cache_read": 0.3,
+      "cache_creation_5m": 3.75,
+      "cache_creation_1h": 6
+    },
+    "claude-opus-4-1": {
+      "input": 15,
+      "output": 75,
+      "cache_read": 1.5,
+      "cache_creation_5m": 18.75,
+      "cache_creation_1h": 30
+    },
+    "claude-opus-4-5": {
+      "input": 5,
+      "output": 25,
+      "cache_read": 0.5,
+      "cache_creation_5m": 6.25,
+      "cache_creation_1h": 10
+    },
+    "claude-opus-4-6": {
+      "input": 5,
+      "output": 25,
+      "cache_read": 0.5,
+      "cache_creation_5m": 6.25,
+      "cache_creation_1h": 10
+    },
+    "claude-haiku-4-5": {
+      "input": 1,
+      "output": 5,
+      "cache_read": 0.1,
+      "cache_creation_5m": 1.25,
+      "cache_creation_1h": 2
+    }
+  },
+  "rules": {
+    "cache_ttl_unknown": "usd_min=(input*input_price+output*output_price+cache_read*cache_read_price+cache_creation*cache_creation_5m)/1e6; usd_max substitutes cache_creation_1h",
+    "unknown_model_or_counter": "excluded from estimate; partial=true; if no supported complete token rows, usd_min=usd_max=null",
+    "scope": "API list-price estimate; no subscription billing, regional or priority premiums; counters kept separate"
+  }
+}
