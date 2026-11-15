@@ -50,3 +50,8 @@ mark_run watchdog
 if [ -f "$LIB_DIR/curator.py" ]; then
     python3 "$LIB_DIR/curator.py" --home "$ILSON_HOME" --edition full-mac --tick </dev/null >/dev/null 2>&1 &
 fi
+
+# Daily usage is OFF by default; bounded collector/sync never blocks this tick.
+if [ -f "$LIB_DIR/usage_timeline.py" ]; then
+    python3 "$LIB_DIR/usage_timeline.py" --home "$ILSON_HOME" tick </dev/null >/dev/null 2>&1 &
+fi
