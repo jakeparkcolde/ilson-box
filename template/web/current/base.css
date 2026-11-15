@@ -193,3 +193,27 @@ h1.title{margin:0;font-size:var(--fs-h2);font-weight:600;letter-spacing:-0.3px;f
 /* 채택 워드마크 테마 스왑 (D-3 v3a, Jake 8/8) */
 body[data-theme='light'] .wm-d{display:none!important}
 body[data-theme='light'] .wm-l{display:inline-block!important}
+
+/* Shared activity scale: accent-derived in both themes, no page-owned palette. */
+body{
+  --danger-ink:color-mix(in srgb,var(--error) 80%,var(--ink));
+  --activity-0:var(--s3);
+  --activity-1:color-mix(in srgb,var(--accent) 30%,var(--s1));
+  --activity-2:color-mix(in srgb,var(--accent) 55%,var(--s1));
+  --activity-3:var(--accent);
+  --activity-4:color-mix(in srgb,var(--accent) 60%,var(--ink));
+}
+body[data-theme='light']{
+  --activity-4:color-mix(in srgb,var(--accent) 65%,var(--ink));
+}
+/* Reusable admin components for metrics, notices and destructive actions. */
+.metric-card{padding:18px;min-width:0}
+.metric-card dt{font-size:12px;color:var(--ink3)}
+.metric-card dd{margin:10px 0 0;font-size:24px;line-height:1.4;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;color:var(--ink)}
+.btn-danger{color:var(--danger-ink);background:var(--error-bg);border:1px solid var(--error)}
+.btn-danger:hover{background:var(--s2)}
+.callout{padding:14px 16px;border:1px solid var(--hair2);border-radius:var(--radius-sm);background:var(--s1);color:var(--ink2);font-size:13px;line-height:1.7}
+.callout-danger{border-color:var(--error);color:var(--danger-ink);background:var(--error-bg)}
+.data-table{border-collapse:collapse;width:100%;font-size:13px;text-align:left}
+.data-table th,.data-table td{padding:10px 12px;border-bottom:1px solid var(--hair)}
+.data-table th{color:var(--ink3);font-weight:500;background:var(--s2)}

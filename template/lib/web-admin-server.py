@@ -963,7 +963,12 @@ class Handler(BaseHTTPRequestHandler):
             usage_safe = ((self.command in ('GET', 'HEAD') and approval_path in ('/usage-history', '/usage-history.js', '/usage-history.css', '/api/usage-history/summary')) or
                           (self.command == 'POST' and approval_path in ('/api/usage-history/off', '/api/usage-history/export', '/api/usage-history/delete-local', '/api/usage-history/unlink')))
             session_safe = approval_path == '/api/session'
-            if usage_safe or session_safe:
+            # The offline privacy page uses the same shell assets. Static UI
+            # code/styles/fonts carry no account data; APIs keep their license gates.
+            shell_asset = (self.command in ('GET', 'HEAD') and approval_path in STATIC
+                           and STATIC[approval_path][1].split(';', 1)[0] in
+                           ('text/css', 'application/javascript', 'font/woff2'))
+            if usage_safe or session_safe or shell_asset:
                 licensed = True  # Local privacy controls never renew/check a network license.
             else:
                 from license import evaluate

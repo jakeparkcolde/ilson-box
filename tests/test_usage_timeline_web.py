@@ -20,6 +20,8 @@ class UsageWebTests(BoxFixture):
         self.server = admin.Server(self.box, 0)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start(); self.addCleanup(self.stop)
+        for relative in ('current/index.html','current/base.css','current/shell.js','fonts.css'):
+            self.write('web/'+relative,(ROOT/'template/web'/relative).read_text())
         for name in ('usage-history.html','usage-history.js','usage-history.css'):
             self.write('web/'+name,(ROOT/'template/web'/name).read_text())
 
@@ -58,7 +60,7 @@ class UsageWebTests(BoxFixture):
     def test_expired_offline_page_and_privacy_controls_skip_license_network(self):
         with patch('license.evaluate',side_effect=AssertionError('license network forbidden')):
             cookie=self.login()
-            for path in ('/usage-history','/usage-history.js','/usage-history.css','/api/usage-history/summary'):
+            for path in ('/usage-history','/usage-history.js','/usage-history.css','/api/usage-history/summary','/current/base.css','/current/shell.js','/fonts.css'):
                 status,headers,body=self.request('GET',path,cookie=cookie)
                 self.assertEqual(status,200,body);self.assertEqual(headers['Cache-Control'],'no-store')
             for action in ('off','delete-local','unlink','export'):
@@ -79,6 +81,32 @@ class UsageWebTests(BoxFixture):
         self.assertEqual(status,200,payload);self.assertEqual(payload,result['preview'])
         self.assertNotIn(str(workspace),json.dumps(result))
         self.assertEqual(self.request('POST','/api/usage-history/link',dict(base_url='http://external.invalid',code='ABC',consent=True,preview_revision=-1),cookie=cookie)[0],400)
+
+    def test_usage_page_reuses_admin_shell_components_and_theme_tokens(self):
+        cookie=self.login()
+        status,_,body=self.request('GET','/usage-history',cookie=cookie)
+        self.assertEqual(status,200)
+        page=body.decode()
+        current=(ROOT/'template/web/current/index.html').read_text()
+        normalized=re.sub(r'(href|src)="/current/([^"]+)"',r'\1="\2"',page)
+        self.assertEqual(normalized.replace('내 AI 사용 기록 · 일손','일손 · 업무 공간'),current)
+        for part in ('class="sidebar"','id="main"','src="/current/shell.js"','href="/current/base.css"'):
+            self.assertIn(part,page)
+        script=(ROOT/'template/web/usage-history.js').read_text()
+        css=(ROOT/'template/web/usage-history.css').read_text()
+        for source in (page,script,css):
+            self.assertNotRegex(source,r'#[0-9a-fA-F]{3,8}\b')
+        self.assertNotIn('dataset.theme',script)
+        self.assertNotIn('prefers-color-scheme',css)
+        for component in ('btn btn-primary','btn btn-danger','seg uh-tabs','card metric-card','callout','data-table'):
+            self.assertIn(component,script)
+        for level in range(5):
+            self.assertIn('var(--activity-'+str(level)+')',css)
+        self.assertIn('border:1px dashed',css)
+        self.assertIn('날짜별 숫자 표',script)
+        shell=(ROOT/'template/web/current/shell.js').read_text()
+        self.assertIn("id:'usage-history'",shell)
+        self.assertIn("if(!main.querySelector('.usage-history'))IlsonUsage.mount(main)",shell)
 
     def test_course_payload_and_pricing_manifest_match_runtime(self):
         for name in ('usage_timeline.py','usage_sync.py'):
