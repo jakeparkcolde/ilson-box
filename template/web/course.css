@@ -1,0 +1,11 @@
+/* Mac admin tokens, spacing and navigation; course uses OS fonts without a download. */
+:root{--font-sans:Inter,Pretendard,'Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif}
+.course-card{padding:22px;margin:16px 0}.course-card h2{margin-top:0;font-size:17px}
+.course-card p{color:var(--ink2);line-height:1.75}.course-actions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+.course-card pre,.course-document{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.75;color:var(--ink2);font-family:var(--font-sans)}
+.course-label{display:block;margin:16px 0;color:var(--ink2)}.course-label input[type=text],.course-label textarea{display:block;width:100%;margin-top:8px;padding:12px;border-radius:8px;border:1px solid var(--hair2);background:var(--s2);color:var(--ink);font:inherit}
+.course-label textarea{min-height:160px;resize:vertical}.course-check{display:flex;justify-content:space-between;gap:18px;border-bottom:1px solid var(--hair);padding:14px 0}.course-check small{color:var(--ink3)}
+.course-notice{color:var(--ink3);line-height:1.7}.course-error{color:var(--error)}.course-status{min-height:1.5em;margin:12px 0;color:var(--ink3)}
+.brand-word{font-family:Georgia,'Times New Roman',serif;font-size:15px;letter-spacing:.28em}.brand-star{color:var(--link)}
+.side-user{margin-top:auto;flex-wrap:wrap;font-size:11px}.course-name{margin-right:auto;color:var(--ink3)}
+@media(max-width:720px){.screen{padding:20px 0 72px}.course-check{flex-direction:column;gap:6px}.course-card{padding:16px}}

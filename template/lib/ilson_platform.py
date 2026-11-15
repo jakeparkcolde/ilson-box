@@ -240,3 +240,38 @@ def cached_private(path, *, directory=False, create=False):
         if key not in _private_cache:
             private(path, directory=directory, create=create)
             _private_cache.add(key)
+
+
+COURSE_FEATURES = frozenset({'home', 'approvals', 'reports', 'usage-history', 'replies'})
+BOX_FEATURES = COURSE_FEATURES | {'jobs', 'settings', 'sns', 'sns-accounts', 'vault', 'received-files',
+    'dashboard', 'staff', 'org', 'skills', 'research', 'knowledge', 'packs', 'opensource', 'learn', 'telegram_approval'}
+COURSE_STATIC = {
+    '/': ('web/course.html', 'text/html; charset=utf-8'),
+    '/index.html': ('web/course.html', 'text/html; charset=utf-8'),
+    '/approval': ('web/course.html', 'text/html; charset=utf-8'),
+    '/reports': ('web/course.html', 'text/html; charset=utf-8'),
+    '/replies': ('web/course.html', 'text/html; charset=utf-8'),
+    '/usage-history': ('web/course.html', 'text/html; charset=utf-8'),
+    '/course.js': ('web/course.js', 'application/javascript; charset=utf-8'),
+    '/course.css': ('web/course.css', 'text/css; charset=utf-8'),
+    '/current/base.css': ('web/current/base.css', 'text/css; charset=utf-8'),
+    '/current/shell.css': ('web/current/shell.css', 'text/css; charset=utf-8'),
+    '/usage-history.js': ('web/usage-history.js', 'application/javascript; charset=utf-8'),
+    '/usage-history.css': ('web/usage-history.css', 'text/css; charset=utf-8'),
+}
+
+
+def features(profile):
+    if profile not in ('box', 'course'): raise ValueError('관리자 프로필을 확인하세요.')
+    return COURSE_FEATURES if profile == 'course' else BOX_FEATURES
+
+
+def course_route(method, path):
+    if method in ('GET', 'HEAD'):
+        return path in COURSE_STATIC or path in {'/health', '/api/health', '/api/session', '/api/overview',
+            '/api/approvals', '/api/reports', '/api/usage-history/summary'} or bool(__import__('re').fullmatch('/api/reports/[a-f0-9]{32}', path))
+    if method == 'POST':
+        return path in {'/api/session', '/api/logout', '/api/admin/shutdown', '/api/replies/draft'} or path in {
+            '/api/approvals/' + action for action in ('create', 'approve', 'change', 'reject', 'run')} or path in {
+            '/api/usage-history/' + action for action in ('on', 'off', 'collect', 'delete-local', 'export', 'link', 'unlink', 'sync')}
+    return False

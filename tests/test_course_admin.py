@@ -58,3 +58,53 @@ class FlatVaultTests(BoxFixture):
 
 
 if __name__=='__main__':unittest.main()
+
+
+class CourseHTTPTests(FlatVaultTests):
+    # Reuse only HTTP helpers, without inheriting the full Box HTTP test suite.
+    from test_web_admin import HTTP시험 as _HTTP
+    request=_HTTP.request
+    login=_HTTP.login
+    stop=_HTTP.stop
+
+    def setUp(self):
+        super().setUp()
+        import threading
+        self.server=admin.Server(self.box,0)
+        self.thread=threading.Thread(target=self.server.serve_forever,daemon=True)
+        self.thread.start();self.addCleanup(self.stop)
+
+    def test_course_allowlist_prevents_optional_imports_and_returns_only_five_features(self):
+        import builtins
+        original=builtins.__import__
+        forbidden={'mini_workspace','current_ui','resource_dashboard','inbox_files','approval_telegram','replies_naver_qna','replies_dispatch'}
+        def checked(name,*args,**kwargs):
+            if name in forbidden: raise AssertionError('course imported '+name)
+            return original(name,*args,**kwargs)
+        with patch.object(builtins,'__import__',side_effect=checked):
+            cookie,_=self.login();headers={'Cookie':cookie}
+            status,_,session=self.request('GET','/api/session',headers=headers)
+            self.assertEqual(status,200)
+            self.assertEqual(set(session['features']),{'home','approvals','reports','usage-history','replies'})
+            self.assertEqual(self.request('GET','/api/approvals',headers=headers)[0],200)
+            for method,path in [('GET','/api/dashboard'),('GET','/current/'),('GET','/api/workspace/people'),('GET','/api/inbox-files'),('GET','/api/oauth/callback/threads'),('GET','/api/sns-operations'),('POST','/api/approvals/send'),('POST','/api/replies/collect'),('POST','/api/usage')]:
+                with self.subTest(path=path): self.assertEqual(self.request(method,path,{} if method=='POST' else None,headers=headers)[0],404)
+            with patch('replies_draft.draft',return_value={'status':'draft','text':'합성 초안'}) as draft:
+                self.assertEqual(self.request('POST','/api/replies/draft',{'text':'안녕','consent':True},headers=headers)[0],200)
+                draft.assert_called_once()
+
+    def test_course_keeps_token_host_origin_and_read_only_reports_boundary(self):
+        self.assertEqual(self.request('GET','/api/overview')[0],401)
+        self.assertEqual(self.request('GET','/api/overview',headers={'Host':'attacker.test'})[0],403)
+        cookie,_=self.login();headers={'Cookie':cookie}
+        self.assertEqual(self.request('POST','/api/approvals/create',{'name':'draft.md'},headers={**headers,'Origin':'https://attacker.test'})[0],403)
+        self.assertEqual(self.request('POST','/api/reports',{},headers=headers)[0],404)
+        self.assertEqual(self.request('POST','/api/replies/draft',{'text':'안녕','consent':False},headers=headers)[0],400)
+
+    def test_course_licenses_are_cached_for_sixty_seconds(self):
+        self.box.license_cache=None;clock=[10.0];self.box.license_clock=lambda:clock[0]
+        with patch('license.evaluate',return_value=(True,'ACTIVE')) as evaluate:
+            self.assertTrue(self.box.licensed());self.assertTrue(self.box.licensed())
+            evaluate.assert_called_once()
+            clock[0]+=60
+            self.assertTrue(self.box.licensed());self.assertEqual(evaluate.call_count,2)

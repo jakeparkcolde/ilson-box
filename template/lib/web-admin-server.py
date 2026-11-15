@@ -17,6 +17,7 @@ import re
 import secrets
 import shutil
 import signal
+import socket
 from socketserver import TCPServer
 import stat
 import subprocess
@@ -291,11 +292,12 @@ class Probe:
         try:
             process = subprocess.Popen(args, cwd=self.home, stdin=subprocess.DEVNULL,
                                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                                       start_new_session=True)
+                                       **({"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)} if platform.IS_WINDOWS else {"start_new_session": True}))
             try:
                 raw, _ = process.communicate(timeout=3)
             except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
+                if platform.IS_WINDOWS: process.kill()
+                else: os.killpg(process.pid, signal.SIGKILL)
                 process.communicate()
                 return None
             if len(raw) > 1024 * 1024:
@@ -401,6 +403,13 @@ class Box:
         self.project_paths = {str(Path(home).absolute()), str(Path(home).resolve())}
         self.home = Path(home).resolve()
         self.profile = profile
+        self.features = sorted(platform.features(profile))
+        self.static = platform.COURSE_STATIC if profile == "course" else STATIC
+        self.static_files = Files(Path(LIBRARY).parent) if profile == "course" else None
+        self.license_lock = threading.Lock()
+        self.license_cache = None
+        self.license_clock = time.monotonic
+        self.last_activity = time.monotonic()
         self.vault = platform.vault_root(self.home, vault)
         if profile == "course": self.project_paths = {str(self.vault.absolute()), str(self.vault.resolve())}
         release=self.home/'.updates/installed.json'
@@ -412,8 +421,10 @@ class Box:
         self.user_files = Files(user_home or Path.home())
         self.clock = clock
         self.probe = probe or Probe(self.home)
-        from resource_dashboard import Collector
-        self.resource_collector = Collector(self.home)
+        self.resource_collector = None
+        if "dashboard" in self.features:
+            from resource_dashboard import Collector
+            self.resource_collector = Collector(self.home)
         try:
             token, _ = self.files.text("state/web-admin/token", 200, private=True)
             instance, _ = self.files.text("state/web-admin/instance", 200, private=True)
@@ -430,8 +441,48 @@ class Box:
         self.secret_lock = threading.Lock()
         self._workspace = None
         self.workspace_lock = threading.Lock()
-        from opensource_catalog import Catalog
-        self.opensource_catalog = Catalog(self.files.read, clock=self.clock, redact=self.redact)
+        self.opensource_catalog = None
+        if "opensource" in self.features:
+            from opensource_catalog import Catalog
+            self.opensource_catalog = Catalog(self.files.read, clock=self.clock, redact=self.redact)
+
+    def licensed(self):
+        from license import evaluate
+        def check():
+            try: return bool(evaluate(self.home)[0])
+            except (OSError, ValueError, TypeError): return False
+        if self.profile != 'course': return check()
+        with self.license_lock:
+            now = self.license_clock()
+            if self.license_cache is None or now - self.license_cache[0] >= 60:
+                self.license_cache = (now, check())
+            return self.license_cache[1]
+
+    def course_overview(self):
+        company, state, detail = self.company()
+        claude, trust = self.probe.claude(), self.trust()
+        licensed = self.licensed()
+        return self.redact({'features': self.features, 'generated_at': stamp(self.clock()),
+            'box': {'company_name': company, 'sandbox': False, 'setup_state': 'ready'},
+            'checks': [{'id': 'claude', 'label': 'Claude 로그인', 'state': claude[0], 'detail': claude[1]},
+                {'id': 'company', 'label': '회사 정보', 'state': state, 'detail': detail},
+                {'id': 'trust', 'label': '실습 폴더 신뢰', 'state': trust[0], 'detail': trust[1]},
+                {'id': 'license', 'label': '라이선스', 'state': 'ok' if licensed else 'attention',
+                 'detail': '이용 권한을 확인했습니다.' if licensed else 'ilson license activate로 이용 권한을 확인하세요.'}],
+            'jobs': [], 'limitations': ['강의판은 예약 없이 직접 실행합니다. 초안은 Claude 대화에서 저장하세요.']})
+
+    def pending_drafts(self):
+        rows = []
+        try:
+            for name, _, regular in sorted(self.vault_files.listdir(('reports', 'pending')))[:100]:
+                if regular and name.endswith('.md') and not name.startswith('.'):
+                    try:
+                        text, _ = self.vault_files.text('reports/pending/' + name, REPORT_BYTES)
+                        title = next((line[2:122] for line in text.splitlines()[:40] if line.startswith('# ')), name)
+                        rows.append({'name': name, 'title': title})
+                    except (OSError, Unreadable): pass
+        except (OSError, Unreadable): pass
+        return rows
 
     def workspace(self):
         with self.workspace_lock:
@@ -608,6 +659,7 @@ class Box:
         return rows, notices
 
     def overview(self):
+        if self.profile == "course": return self.course_overview()
         marker = self.files.marker("state/sandbox")
         sandbox = marker is not False
         company, company_state, company_detail = self.company()
@@ -630,7 +682,7 @@ class Box:
         jobs, notices = self.jobs(sandbox)
         pending, complete = self.files.marker("state/setup-pending"), self.files.marker("state/setup-complete")
         setup_state = "pending" if sandbox or pending is True else ("ready" if complete is True else "unknown")
-        return self.redact({"generated_at": stamp(self.clock()), "box": {"company_name": company, "sandbox": sandbox,
+        return self.redact({"features": self.features, "generated_at": stamp(self.clock()), "box": {"company_name": company, "sandbox": sandbox,
                             "setup_state": setup_state, "timezone": datetime.now().astimezone().tzname()},
                            "checks": checks, "telegram": telegram, "jobs": jobs,
                            "limitations": notices + ["마지막 성공 기록만으로 현재 실행 중·최근 실패·알림 도착 여부를 확정하지 않습니다.",
@@ -647,18 +699,15 @@ class Box:
             if depth > REPORT_DEPTH or visited >= SCAN_LIMIT:
                 limited = True
                 return
-            descriptor = None
             try:
-                descriptor = self.vault_files.open_dir(parts)
-                with os.scandir(descriptor) as entries:
-                    names = []
-                    for entry in entries:
-                        visited += 1
-                        if visited > SCAN_LIMIT:
-                            limited = True
-                            break
-                        if not entry.name.startswith(".") and not entry.is_symlink():
-                            names.append((entry.name, entry.is_dir(follow_symlinks=False), entry.is_file(follow_symlinks=False)))
+                names = []
+                for name, directory, file in self.vault_files.listdir(parts):
+                    visited += 1
+                    if visited > SCAN_LIMIT:
+                        limited = True
+                        break
+                    if not name.startswith('.'):
+                        names.append((name, directory, file))
                 for name, directory, file in sorted(names):
                     relative = parts + (name,)
                     if directory:
@@ -669,9 +718,6 @@ class Box:
                 return
             except (OSError, Unreadable):
                 limited = True
-            finally:
-                if descriptor is not None:
-                    os.close(descriptor)
         scan(("reports",) if self.profile == "course" else ("vault", "reports"), 0)
         return rows, limited
 
@@ -787,12 +833,15 @@ class Server(ThreadingHTTPServer):
     def server_bind(self):
         # 2026-10-06 실측: HTTPServer의 역방향 DNS가 macOS에서 약 35초 대기했다.
         # 고정 loopback 주소는 이름 조회가 필요 없다. 실제 바인딩 포트만 보존한다.
+        if platform.IS_WINDOWS:
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         TCPServer.server_bind(self)
         self.server_name = "localhost"
         self.server_port = self.server_address[1]
 
     def __init__(self, box, port):
         self.box = box
+        if platform.IS_WINDOWS: self.allow_reuse_address = False
         super().__init__(("127.0.0.1", port), Handler)
         self.hosts = {"127.0.0.1:" + str(self.server_port), "localhost:" + str(self.server_port)}
         self.origins = {"http://" + host for host in self.hosts}
@@ -855,7 +904,7 @@ class Handler(BaseHTTPRequestHandler):
     def boundary(self):
         hosts = self.headers.get_all("Host", [])
         callback_path = urlsplit(self.path).path
-        callback = self.command == 'GET' and re.fullmatch(r'/api/oauth/callback/(threads|instagram|facebook)', callback_path)
+        callback = self.server.box.profile == 'box' and self.command == 'GET' and re.fullmatch(r'/api/oauth/callback/(threads|instagram|facebook)', callback_path)
         callback_host = bool(callback and len(hosts) == 1 and self.current_ui().oauth.callback_host(hosts[0], callback_path))
         if len(hosts) != 1 or (hosts[0].lower() not in self.server.hosts and not callback_host):
             raise AdminError("이 기기의 일손 관리자 주소에서 접속해주세요.", 403)
@@ -894,6 +943,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def guarded(self, callback):
         try:
+            if self.server.box.profile == "course" and not platform.course_route(self.command, unquote(urlsplit(self.path).path)):
+                raise AdminError("페이지를 찾을 수 없습니다.", 404)
             self.boundary()
             approval_path = urlsplit(self.path).path
             usage_safe = ((self.command in ('GET', 'HEAD') and approval_path in ('/usage-history', '/usage-history.js', '/usage-history.css', '/api/usage-history/summary')) or
@@ -901,17 +952,13 @@ class Handler(BaseHTTPRequestHandler):
             session_safe = approval_path == '/api/session'
             # The offline privacy page uses the same shell assets. Static UI
             # code/styles/fonts carry no account data; APIs keep their license gates.
-            shell_asset = (self.command in ('GET', 'HEAD') and approval_path in STATIC
-                           and STATIC[approval_path][1].split(';', 1)[0] in
+            shell_asset = (self.command in ('GET', 'HEAD') and approval_path in self.server.box.static
+                           and self.server.box.static[approval_path][1].split(';', 1)[0] in
                            ('text/css', 'application/javascript', 'font/woff2'))
             if usage_safe or session_safe or shell_asset:
                 licensed = True  # Local privacy controls never renew/check a network license.
             else:
-                from license import evaluate
-                try:
-                    licensed = evaluate(self.server.box.home)[0]
-                except (OSError, ValueError, TypeError):
-                    licensed = False
+                licensed = self.server.box.licensed()
             approval_safe = ((self.command in ('GET', 'HEAD') and approval_path in ('/approval', '/approval.js', '/api/approvals', '/api/session')) or (self.command == 'POST' and approval_path in ('/api/session', '/api/approvals/reject')))
             if not licensed and approval_path not in ('/health', '/api/health') and not approval_safe:
                 if self.command in ('GET', 'HEAD') and not urlsplit(self.path).path.startswith('/api/'):
@@ -954,13 +1001,13 @@ class Handler(BaseHTTPRequestHandler):
                 raise AdminError(str(error), error.status) from None
         if path in {"/api/health", "/health"}:
             return self.reply(200, {"service": SERVICE, "instance": self.server.box.instance, "release":self.server.box.release_info})
-        if path in STATIC:
-            relative, kind = STATIC[path]
+        if path in self.server.box.static:
+            relative, kind = self.server.box.static[path]
             try:
                 # 한글 전체 글리프가 있는 고정 Pretendard 파일(2,057,688 B)만큼 허용한다.
                 # 폰트도 위 정확한 경로만 서빙하며 일반 정적 파일·보고서 상한은 유지한다.
                 limit = 2 * 1024 * 1024 if kind == "font/woff2" else 1024 * 1024
-                raw, _ = self.server.box.files.read(relative, limit)
+                raw, _ = (self.server.box.static_files or self.server.box.files).read(relative, limit)
             except (FileNotFoundError, Unreadable):
                 raise AdminError("관리자 화면 파일이 없습니다. ilson setup으로 갱신해주세요.", 404) from None
             return self.reply(200, raw, kind)
@@ -981,7 +1028,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/api/inbox-files':
             from inbox_files import list_files
             return self.reply(200, {'files':list_files(self.server.box.home)})
-        from current_ui import handles
+        if self.server.box.profile == "box":
+            from current_ui import handles
+        else:
+            handles = lambda path: False
         if re.fullmatch(r'/api/motion/projects/[a-f0-9]{32}/download',path):
             from motion_pack import asset
             from mini_workspace import WorkspaceError
@@ -992,7 +1042,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/approvals":
             import approval_store as store
             from approval_actions import load_all
-            load_all()
+            load_all(profile=self.server.box.profile)
             rows = store.list_requests(self.server.box.home)
             for row in rows:
                 visible = [row['body'], row['title'], *row['target'].values()]
@@ -1010,9 +1060,9 @@ class Handler(BaseHTTPRequestHandler):
                     except Exception:
                         row['context_error'] = True
                 row['review_blocked'] = row['context_error'] or any(self.server.box.redact(value) != value for value in visible)
-            return self.reply(200, {"requests": rows})
+            return self.reply(200, {"requests": rows, "drafts": self.server.box.pending_drafts() if self.server.box.profile == "course" else []})
         if path == "/api/session":
-            return self.reply(200, {"authenticated": True})
+            return self.reply(200, {"authenticated": True, "features": self.server.box.features, "profile": self.server.box.profile})
         if path.startswith("/api/workspace/"):
             return self.workspace_request("GET", path)
         if path == "/api/usage-history/summary":
@@ -1174,8 +1224,7 @@ class Handler(BaseHTTPRequestHandler):
         import approval_store as store
         import approval_dispatch as dispatch
         from approval_actions import load_all
-        load_all()
-        from approval_telegram import TelegramError, send_card
+        load_all(profile=self.server.box.profile)
         data = self.body()
         if not isinstance(data, dict):
             raise AdminError('요청 형식을 확인해 주세요.')
@@ -1198,7 +1247,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 if not (pending / name).is_file() or (pending / name).stat().st_size > 256000:
                     raise ValueError('invalid draft')
-                body = (pending / name).read_text(encoding='utf-8')
+                body = self.server.box.vault_files.text('reports/pending/' + name, 256000)[0] if self.server.box.profile == 'course' else (pending / name).read_text(encoding='utf-8')
                 request_id = store.request_approval('local_note', {'channel': 'local_note', 'account': 'local', 'object_id': name}, name, body, home=home)
             except (OSError, UnicodeError, ValueError):
                 raise AdminError('초안을 읽지 못했습니다. 파일과 크기를 확인해 주세요.') from None
@@ -1207,8 +1256,9 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(request_id, str) or not re.fullmatch('[a-f0-9]{32}', request_id):
             raise AdminError('승인 요청을 확인해 주세요.')
         if path == '/api/approvals/run':
-            return self.reply(200, {'status': dispatch.dispatch(request_id, home, vault=self.server.box.vault)})
+            return self.reply(200, {'status': dispatch.dispatch(request_id, home, vault=self.server.box.vault, profile=self.server.box.profile, license_check=self.server.box.licensed if self.server.box.profile == "course" else None)})
         if path == '/api/approvals/send':
+            from approval_telegram import TelegramError, send_card
             try:
                 req = store.get(request_id, home)
                 if not req or any(self.server.box.redact(value) != value for value in [req['body'], req['title'], *req['target'].values()]):
@@ -1226,11 +1276,18 @@ class Handler(BaseHTTPRequestHandler):
                 raise AdminError('숨겨진 내용이 있어 승인할 수 없습니다. 초안을 수정한 뒤 다시 요청하세요.')
         if not store.decide(request_id, decisions[path], 'local', home=home):
             raise AdminError('이미 처리되었거나 만료된 요청입니다.', 409)
-        status = dispatch.dispatch(request_id, home, vault=self.server.box.vault) if decisions[path] == 'approved' else decisions[path]
+        status = dispatch.dispatch(request_id, home, vault=self.server.box.vault, profile=self.server.box.profile, license_check=self.server.box.licensed if self.server.box.profile == "course" else None) if decisions[path] == 'approved' else decisions[path]
         return self.reply(200, {'status': status})
 
     def post(self):
         path = self.route()
+        if path == '/api/replies/draft' and self.server.box.profile == 'course':
+            self.require_session()
+            data = self.body(limit=12000)
+            if set(data) != {'text', 'consent'}: raise AdminError('입력을 확인하세요.')
+            from replies_draft import draft
+            try: return self.reply(200, draft(data['text'], consent=data['consent'], home=self.server.box.vault))
+            except ValueError as error: raise AdminError(str(error)) from None
         if path.startswith("/api/usage-history/"):
             return self.usage_request(path)
         if path.startswith('/api/approvals/'):
@@ -1255,7 +1312,10 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith('/api/inbox-files/'):
             self.require_session()
             return self.inbox_request(path)
-        from current_ui import handles
+        if self.server.box.profile == "box":
+            from current_ui import handles
+        else:
+            handles = lambda path: False
         if handles(path):
             self.require_session()
             return self.current_request("POST", path)
@@ -1289,7 +1349,7 @@ class Handler(BaseHTTPRequestHandler):
             if set(data) != {"token"}:
                 raise AdminError("연결 요청 형식을 확인해주세요.")
             session = self.server.box.login(data["token"])
-            return self.reply(200, {"ok": True}, cookie=self.cookie(session, SESSION_SECONDS))
+            return self.reply(200, {"ok": True, "features": self.server.box.features, "profile": self.server.box.profile}, cookie=self.cookie(session, SESSION_SECONDS))
         if path == "/api/logout":
             self.require_session()
             if self.body():

@@ -105,20 +105,20 @@ def execution_lock(home):
     return fd
 
 
-def dispatch(request_id, home=None, *, license_check=None, vault=None):
+def dispatch(request_id, home=None, *, license_check=None, vault=None, profile="box"):
     home = store.home_path(home)
     fd = execution_lock(home)
     vault_token = _ACTIVE_VAULT.set(vault)
     try:
-        return _dispatch(request_id, home, license_check=license_check)
+        return _dispatch(request_id, home, license_check=license_check, profile=profile)
     finally:
         _ACTIVE_VAULT.reset(vault_token)
         os.close(fd)
 
 
-def _dispatch(request_id, home, *, license_check=None):
+def _dispatch(request_id, home, *, license_check=None, profile="box"):
     from approval_actions import load_all
-    load_all()
+    load_all(profile=profile)
     if license_check is None:
         from license import evaluate
         license_check = lambda: evaluate(home)[0]
@@ -130,7 +130,7 @@ def _dispatch(request_id, home, *, license_check=None):
     with store.connect(home) as db:
         db.execute('BEGIN IMMEDIATE')
         row = db.execute('SELECT * FROM requests WHERE id=?', (request_id,)).fetchone()
-        if not row or row['state'] != 'approved' or row['execution'] != 'received':
+        if not row or (profile == 'course' and row['action_type'] != 'local_note') or row['state'] != 'approved' or row['execution'] != 'received':
             db.rollback()
             return 'not_ready'
         db.execute("UPDATE requests SET state='executing',execution='running' WHERE id=? AND state='approved'", (request_id,))
