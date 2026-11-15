@@ -275,3 +275,101 @@ def course_route(method, path):
             '/api/approvals/' + action for action in ('create', 'approve', 'change', 'reject', 'run')} or path in {
             '/api/usage-history/' + action for action in ('on', 'off', 'collect', 'delete-local', 'export', 'link', 'unlink', 'sync')}
     return False
+
+
+def copy_verified(source, destination, expected):
+    """OneDrive/NTFS fallback: exclusive copy, hash, unchanged source, then unlink."""
+    import hashlib
+    source, destination = safe_path(source), safe_path(destination)
+    raw, before = WindowsFiles(source.parent).read(source.name, 256000)
+    if hashlib.sha256(raw).hexdigest() != expected: raise ValueError('초안이 변경되었습니다.')
+    fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_BINARY', 0), 0o600)
+    created = os.fstat(fd)
+    try:
+        with os.fdopen(fd, 'wb') as output:
+            output.write(raw); output.flush(); os.fsync(output.fileno())
+        copied, _ = WindowsFiles(destination.parent).read(destination.name, 256000)
+        after = source.lstat()
+        identity = lambda st: (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_nlink)
+        if (hashlib.sha256(copied).hexdigest() != expected or identity(before) != identity(after) or is_link(after)):
+            raise ValueError('초안이 변경되었습니다.')
+        source.unlink()
+    except Exception:
+        try:
+            now = destination.lstat()
+            if (now.st_dev, now.st_ino) == (created.st_dev, created.st_ino): destination.unlink()
+        except FileNotFoundError: pass
+        raise
+
+
+def acquire_lock(path, *, blocking=False):
+    path = safe_path(path)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1: raise ValueError('잠금 파일을 확인하세요.')
+        lock(fd, blocking=blocking)
+        return fd
+    except Exception:
+        os.close(fd)
+        raise
+
+
+def atomic_write(path, data):
+    import tempfile
+    path = safe_path(path)
+    if path.exists() and path.lstat().st_nlink != 1: raise ValueError('개인 파일을 확인하세요.')
+    fd, name = tempfile.mkstemp(prefix='.admin-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(data); stream.flush(); os.fsync(stream.fileno())
+        os.replace(name, path)
+    finally:
+        if os.path.exists(name): os.unlink(name)
+
+
+def code_digest(library):
+    import hashlib
+    library = safe_path(library)
+    root = library.parent
+    sources = sorted(library.glob('*.py'))
+    web = root / 'web'
+    safe_path(web)
+    if web.exists(): sources += sorted(p for p in web.rglob('*') if p.is_file())
+    result = hashlib.sha256()
+    for path in sources:
+        safe_path(path)
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1: raise ValueError('실행 파일을 확인하세요.')
+        result.update(str(path.relative_to(root)).replace('\\', '/').encode())
+        result.update(b'\0'); result.update(path.read_bytes())
+    return result.hexdigest()
+
+
+def process_identity(pid):
+    """Executable and OS creation time, for a specifically recorded PID only."""
+    if IS_WINDOWS:
+        import ctypes
+        from ctypes import wintypes
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        kernel.OpenProcess.restype = wintypes.HANDLE
+        kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel.QueryFullProcessImageNameW.argtypes = (wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD))
+        kernel.GetProcessTimes.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.FILETIME), ctypes.POINTER(wintypes.FILETIME), ctypes.POINTER(wintypes.FILETIME), ctypes.POINTER(wintypes.FILETIME))
+        handle = kernel.OpenProcess(0x1000, False, pid)
+        if not handle: raise ValueError('프로세스 신원을 확인하지 못했습니다.')
+        try:
+            size=wintypes.DWORD(32768);name=ctypes.create_unicode_buffer(size.value)
+            created,ended,system,user=(wintypes.FILETIME() for _ in range(4))
+            if not kernel.QueryFullProcessImageNameW(handle,0,name,ctypes.byref(size)) or not kernel.GetProcessTimes(handle,ctypes.byref(created),ctypes.byref(ended),ctypes.byref(system),ctypes.byref(user)):
+                raise ValueError('프로세스 신원을 확인하지 못했습니다.')
+            started=((created.dwHighDateTime<<32)|created.dwLowDateTime)/10000000-11644473600
+            return str(Path(name.value).resolve()), started
+        finally: kernel.CloseHandle(handle)
+    import subprocess
+    import datetime
+    name=subprocess.run(['/bin/ps','-p',str(pid),'-o','comm='],capture_output=True,text=True,timeout=3)
+    start=subprocess.run(['/bin/ps','-p',str(pid),'-o','lstart='],capture_output=True,text=True,timeout=3,env=dict(os.environ,LC_ALL='C'))
+    if name.returncode or start.returncode: raise ValueError('프로세스 신원을 확인하지 못했습니다.')
+    return str(Path(name.stdout.strip()).resolve()), datetime.datetime.strptime(start.stdout.strip(),'%a %b %d %H:%M:%S %Y').timestamp()

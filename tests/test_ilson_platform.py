@@ -68,3 +68,35 @@ class PlatformTests(unittest.TestCase):
 
 
 if __name__ == '__main__': unittest.main()
+
+
+class WindowsMoveTests(unittest.TestCase):
+    def test_verified_copy_does_not_overwrite_and_never_removes_changed_source(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve();source=root/'source.md';destination=root/'approved.md'
+            source.write_bytes('합성 초안'.encode());expected=hashlib.sha256(source.read_bytes()).hexdigest()
+            destination.write_text('preserve')
+            with self.assertRaises(FileExistsError): platform.copy_verified(source,destination,expected)
+            self.assertEqual(destination.read_text(),'preserve');self.assertTrue(source.exists())
+            destination.unlink();source.write_text('changed')
+            with self.assertRaises(ValueError): platform.copy_verified(source,destination,expected)
+            self.assertTrue(source.exists());self.assertFalse(destination.exists())
+            source.write_bytes('합성 초안'.encode());platform.copy_verified(source,destination,expected)
+            self.assertFalse(source.exists());self.assertEqual(destination.read_text(),'합성 초안')
+
+    def test_windows_one_drive_hard_link_failure_uses_verified_copy(self):
+        import approval_dispatch as dispatch
+        import approval_store as store
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve();vault=root/'notes';pending=vault/'reports/pending';pending.mkdir(parents=True)
+            body='합성 초안';(pending/'draft.md').write_text(body)
+            req=SimpleNamespace(target={'channel':'local_note','account':'local','object_id':'draft.md'},body=body,body_sha256=store.digest(body),id='a'*32)
+            home_token=dispatch._ACTIVE_HOME.set(root);vault_token=dispatch._ACTIVE_VAULT.set(vault)
+            try:
+                with patch.object(platform,'IS_WINDOWS',True),patch.object(dispatch.os,'link',side_effect=OSError(errno.EXDEV,'OneDrive')):
+                    self.assertEqual(dispatch.execute_note(req).status,'success')
+                self.assertFalse((pending/'draft.md').exists());self.assertEqual((vault/'reports/approved/draft.md').read_text(),body)
+            finally:
+                dispatch._ACTIVE_HOME.reset(home_token);dispatch._ACTIVE_VAULT.reset(vault_token)

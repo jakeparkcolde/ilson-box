@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import errno
 from collections import OrderedDict
 from datetime import datetime, timezone
 import hashlib
@@ -460,6 +461,7 @@ class Box:
 
     def course_overview(self):
         company, state, detail = self.company()
+        if state != 'ok': detail = 'Claude 대화에서 실습 볼트의 CONTEXT.md에 회사 정보를 정리하세요.'
         claude, trust = self.probe.claude(), self.trust()
         licensed = self.licensed()
         return self.redact({'features': self.features, 'generated_at': stamp(self.clock()),
@@ -558,12 +560,24 @@ class Box:
             projects = data.get("projects") if isinstance(data, dict) else None
             if not isinstance(projects, dict):
                 return "unknown", "Claude 폴더 신뢰 설정을 확인하지 못했습니다."
+            if self.profile == 'course':
+                import ntpath
+                matches = self.project_paths
+                if platform.IS_WINDOWS:
+                    matches = {ntpath.normcase(ntpath.normpath(p)) for p in matches}
+                for key, value in projects.items():
+                    if not isinstance(key, str): continue
+                    normal = ntpath.normcase(ntpath.normpath(key)) if platform.IS_WINDOWS else key
+                    if normal in matches and isinstance(value, dict) and value.get('hasTrustDialogAccepted') is True:
+                        return 'ok', '실습 폴더의 Claude 신뢰 설정을 확인했습니다.'
+                return 'unknown', '실습 폴더에서 Claude Code를 열어 폴더 신뢰를 직접 확인하세요.'
             if any(isinstance(projects.get(path), dict)
                    and projects[path].get("hasTrustDialogAccepted") is True
                    for path in self.project_paths):
                 return "ok", "이 Box 폴더의 Claude 신뢰 설정을 확인했습니다."
             return "attention", "터미널에서 ilson chat을 열고 폴더 신뢰를 확인하세요."
         except FileNotFoundError:
+            if self.profile == "course": return "unknown", "실습 폴더에서 Claude Code를 열어 폴더 신뢰를 직접 확인하세요."
             return "attention", "터미널에서 ilson chat을 처음 열어 폴더 신뢰를 확인하세요."
         except (Unreadable, ValueError):
             return "unknown", "Claude 폴더 신뢰 설정을 읽지 못했습니다."
@@ -926,6 +940,7 @@ class Handler(BaseHTTPRequestHandler):
     def require_session(self, message=None):
         if not self.server.box.authenticated(self.session()):
             raise AdminError(message or "연결이 필요합니다. 터미널에서 ilson open으로 열어주세요.", 401)
+        self.server.box.last_activity = time.monotonic()
 
     def body(self, limit=BODY_LIMIT):
         if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
@@ -1000,7 +1015,7 @@ class Handler(BaseHTTPRequestHandler):
             except WorkspaceError as error:
                 raise AdminError(str(error), error.status) from None
         if path in {"/api/health", "/health"}:
-            return self.reply(200, {"service": SERVICE, "instance": self.server.box.instance, "release":self.server.box.release_info})
+            return self.reply(200, {"service": SERVICE, "instance": self.server.box.instance, "release":self.server.box.release_info, **({"pid": os.getpid(), "source_digest": getattr(self.server, "source_digest", "")} if self.server.box.profile == "course" else {})})
         if path in self.server.box.static:
             relative, kind = self.server.box.static[path]
             try:
@@ -1281,6 +1296,12 @@ class Handler(BaseHTTPRequestHandler):
 
     def post(self):
         path = self.route()
+        if path == '/api/admin/shutdown' and self.server.box.profile == 'course':
+            self.require_session()
+            if self.body(): raise AdminError('중지 요청을 확인하세요.')
+            self.reply(200, {'ok': True})
+            threading.Thread(target=self.server.shutdown, daemon=True).start()
+            return
         if path == '/api/replies/draft' and self.server.box.profile == 'course':
             self.require_session()
             data = self.body(limit=12000)
@@ -1349,6 +1370,7 @@ class Handler(BaseHTTPRequestHandler):
             if set(data) != {"token"}:
                 raise AdminError("연결 요청 형식을 확인해주세요.")
             session = self.server.box.login(data["token"])
+            self.server.box.last_activity = time.monotonic()
             return self.reply(200, {"ok": True, "features": self.server.box.features, "profile": self.server.box.profile}, cookie=self.cookie(session, SESSION_SECONDS))
         if path == "/api/logout":
             self.require_session()
@@ -1359,12 +1381,61 @@ class Handler(BaseHTTPRequestHandler):
         raise AdminError("지원하지 않는 요청입니다.", 404)
 
 
+def course_server(args):
+    from course_admin import private_home
+    home, private = private_home(args.home)
+    if args.vault is None or not args.vault.is_absolute() or not args.vault.is_dir(): raise AdminError('실습 볼트를 확인하세요.')
+    platform.safe_path(args.vault)
+    os.environ.update(ILSON_HOME=str(home), ILSON_PROFILE='course', ILSON_COURSE_VAULT=str(args.vault))
+    fd = platform.acquire_lock(private / 'server.lock')
+    server = None
+    stopped = threading.Event()
+    try:
+        from approval_actions import load_all
+        load_all(profile='course')
+        box = Box(home, profile='course', vault=args.vault)
+        try: server = Server(box, args.port)
+        except OSError as error:
+            if error.errno not in (errno.EADDRINUSE, errno.EACCES): raise
+            server = Server(box, 0)
+        server.source_digest = platform.code_digest(Path(LIBRARY))
+        executable, started = platform.process_identity(os.getpid())
+        info = {'service': SERVICE, 'pid': os.getpid(), 'port': server.server_port, 'started_at': started,
+                'source_digest': server.source_digest, 'instance': box.instance, 'executable': executable}
+        platform.atomic_write(private / 'server.json', json.dumps(info).encode())
+        def idle():
+            while not stopped.wait(min(30, args.idle_seconds / 2)):
+                if time.monotonic() - box.last_activity >= args.idle_seconds:
+                    server.shutdown()
+                    return
+        thread = threading.Thread(target=idle, daemon=True)
+        thread.start()
+        print(f'일손 강의 관리자: http://127.0.0.1:{server.server_port}/ · 유휴 2시간 뒤 종료', flush=True)
+        server.serve_forever(poll_interval=.1)
+    finally:
+        stopped.set()
+        if server is not None: server.server_close()
+        try:
+            value = json.loads((private / 'server.json').read_text())
+            if value.get('pid') == os.getpid() and value.get('instance') == box.instance:
+                platform.safe_path(private / 'server.json').unlink()
+        except (OSError, ValueError, UnboundLocalError): pass
+        os.close(fd)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--home", type=Path, required=True)
     parser.add_argument("--port", type=int, required=True)
+    parser.add_argument("--profile", choices=("box", "course"), default="box")
+    parser.add_argument("--vault", type=Path)
+    parser.add_argument("--idle-seconds", type=float, default=7200)
     args = parser.parse_args()
     try:
+        if args.profile == "course":
+            if not args.home.is_absolute() or not 0 <= args.port <= 65535 or args.idle_seconds <= 0:
+                raise AdminError("관리자 실행 설정을 확인하세요.")
+            return course_server(args)
         if not args.home.is_absolute() or not 1 <= args.port <= 65535:
             raise AdminError("Box 절대 경로와 포트를 확인해주세요.")
         os.environ['ILSON_HOME'] = str(args.home.resolve())

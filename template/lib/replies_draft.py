@@ -2,6 +2,8 @@
 import json
 import re
 import subprocess
+import shutil
+import ilson_platform as platform
 
 # A deliberately conservative guard; it does not claim to identify every risky case.
 SENSITIVE = re.compile(r'환불|반품|분쟁|소송|신고|보상|피해|불량|교환|취소|배상|클레임|배송|택배|도착|출고|가격|금액|할인|원\b|주문|재고|언제|가능|확인|refund|dispute|shipping|price', re.I)
@@ -20,7 +22,9 @@ def draft(text, *, consent, home, runner=subprocess.run):
               '정확히 NEEDS_REVIEW만 출력하세요. 그 외 짧은 한국어 답글만 작성하세요.\n' +
               json.dumps({'고객 글':text}, ensure_ascii=False))
     try:
-        result = runner(['claude', '--safe-mode', '-p', '--max-turns', '1', '--output-format', 'json',
+        executable = shutil.which('claude') if platform.IS_WINDOWS else 'claude'
+        if not executable: raise ValueError()
+        result = runner([executable, '--safe-mode', '-p', '--max-turns', '1', '--output-format', 'json',
                          '--tools', '', '--setting-sources', '', '--strict-mcp-config', '--mcp-config',
                          '{"mcpServers":{}}', '--disable-slash-commands', '--no-session-persistence'],
                         input=prompt, text=True, capture_output=True, timeout=180, cwd=home)

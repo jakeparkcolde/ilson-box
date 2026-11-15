@@ -5,6 +5,7 @@ from datetime import datetime
 import ilson_platform as platform
 from ilson_platform import vault_root
 import os
+import errno
 from pathlib import Path
 import approval_store as store
 
@@ -34,6 +35,9 @@ def note_path(req):
         if path.is_symlink():
             raise store.ApprovalStale('linked path')
     path = pending / name
+    if platform.IS_WINDOWS:
+        platform.safe_path(path)
+        if path.lstat().st_nlink != 1: raise store.ApprovalStale('shared draft')
     if path.is_symlink() or not path.is_file():
         raise store.ApprovalStale('draft unavailable')
     return path
@@ -66,7 +70,34 @@ def execute_note(req):
     dest = active_vault(home) / 'reports/approved'
     dest.mkdir(parents=True, exist_ok=True)
     destination = dest / path.name
-    os.link(path, destination, follow_symlinks=False)
+    copied = False
+    if platform.IS_WINDOWS:
+        platform.safe_path(destination)
+        try:
+            os.link(path, destination)
+        except OSError as error:
+            if error.errno not in (errno.EPERM, errno.EACCES, errno.EXDEV, errno.ENOTSUP, errno.EINVAL): raise
+            try: platform.copy_verified(path, destination, req.body_sha256)
+            except ValueError: raise store.ApprovalStale('draft changed') from None
+            copied = True
+    else:
+        os.link(path, destination, follow_symlinks=False)
+    if not copied:
+        _finish_link(path, destination, req)
+    journal = active_vault(home) / 'journal'
+    if journal.is_symlink():
+        raise OSError('journal unavailable')
+    if platform.IS_WINDOWS: platform.safe_path(journal)
+    journal.mkdir(parents=True, exist_ok=True)
+    log = journal / (datetime.now().strftime('%Y-%m-%d') + '.md')
+    if platform.IS_WINDOWS: platform.safe_path(log)
+    fd = os.open(log, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    with os.fdopen(fd, 'a', encoding='utf-8') as output:
+        output.write('\n- 승인한 초안을 보관했습니다. 승인 번호: ' + req.id + '\n')
+    return store.ActionResult()
+
+
+def _finish_link(path, destination, req):
     try:
         # Check the linked file again at the move boundary. Never remove a
         # draft when the bytes or file identity changed since verification.
@@ -82,15 +113,6 @@ def execute_note(req):
         os.unlink(destination)
         raise
     os.unlink(path)
-    journal = active_vault(home) / 'journal'
-    if journal.is_symlink():
-        raise OSError('journal unavailable')
-    journal.mkdir(parents=True, exist_ok=True)
-    log = journal / (datetime.now().strftime('%Y-%m-%d') + '.md')
-    fd = os.open(log, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0), 0o600)
-    with os.fdopen(fd, 'a', encoding='utf-8') as output:
-        output.write('\n- 승인한 초안을 보관했습니다. 승인 번호: ' + req.id + '\n')
-    return store.ActionResult()
 
 
 def register():
@@ -100,9 +122,15 @@ def register():
 def execution_lock(home):
     with store.connect(home):
         pass
-    fd = os.open(store.home_path(home) / '.approval/execute.lock', os.O_RDWR | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0), 0o600)
-    platform.lock(fd)
-    return fd
+    path = store.home_path(home) / '.approval/execute.lock'
+    if platform.IS_WINDOWS: platform.safe_path(path)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    try:
+        platform.lock(fd)
+        return fd
+    except Exception:
+        os.close(fd)
+        raise
 
 
 def dispatch(request_id, home=None, *, license_check=None, vault=None, profile="box"):
