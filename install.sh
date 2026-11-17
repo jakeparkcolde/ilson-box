@@ -275,7 +275,7 @@ valid_feed() {
     esac
 }
 
-cleanup() { [ -n "$TMP" ] && [ -d "$TMP" ] && rm -rf "$TMP"; }
+cleanup() { [ -n "$TMP" ] && [ -d "$TMP" ] && rm -rf "$TMP" || :; }
 install_interrupted=0
 installer_exit() {
     install_rc=$?
