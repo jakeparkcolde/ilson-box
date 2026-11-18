@@ -108,10 +108,13 @@ allow-list include it, but is not registered as a public static asset.
 ## Reference-only manual approval (lead decision 2026-11-15)
 
 The BRIEF manual path is restricted by the consumer's REFERENCE_REPOS allowlist
-of 22 full names and GitHub numeric identities. Round 2 adds ten reviewed
+of 23 full names and GitHub numeric identities. Round 2 adds ten reviewed
 repo-level introductions, including the vercel-labs/skills and
 emilkowalski/skills collections; find-skills and emil-design-eng are examples
-inside those collections, not independent repository cards. The cards do not
+inside those collections, not independent repository cards. Round 3 (2026-11-19)
+adds yihui-dev/awesome-opus5-5-videos as a repo-level example-and-prompt list
+introduction, stating that MIT covers the list only while each video and prompt
+belongs to its linked creator. The cards do not
 claim these repositories were the carousel author's exact choices.
 JuliusBrussee/caveman remains excluded while its skill/proxy scope needs review.
 AI skills/plugins change the host agent's behavior; their descriptions explain

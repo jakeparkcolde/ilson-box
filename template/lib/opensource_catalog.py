@@ -22,7 +22,7 @@ BUNDLE_TTL = 30 * 86400
 SOURCE_CHECK_WINDOW = 72 * 3600
 MANUAL_PATH = 'reference-manual-20261115'
 # This editorial exception is restricted to the reviewed reference repos and
-# Round 2 repo-level introductions (including two explicit skill collections).
+# Round 2/3 repo-level introductions (including explicit collections and lists).
 # GitHub numeric IDs also bind identity if a name is transferred or reused.
 REFERENCE_REPOS = {
     'cli/cli': (212613049, 'MIT', 'LICENSE'),
@@ -47,6 +47,7 @@ REFERENCE_REPOS = {
     'blader/humanizer': (1136666433, 'MIT', 'LICENSE'),
     'vercel-labs/skills': (1134543109, 'MIT', 'LICENSE'),
     'emilkowalski/skills': (1183325896, 'MIT', 'LICENSE'),
+    'yihui-dev/awesome-opus5-5-videos': (1390273274, 'MIT', 'LICENSE'),
 }
 CATEGORIES = (
     ('build', '만들고 점검하기'), ('design', '디자인'),

@@ -27,13 +27,13 @@ class CatalogTests(unittest.TestCase):
 
     def test_shipped_reference_catalog_is_all_visible_and_explanation_only(self):
         document=oc.validate((ROOT/'template'/oc.CATALOG_PATH).read_bytes())
-        self.assertEqual(len(document['repos']), 22)
-        self.assertEqual(document['catalog_version'], 3)
+        self.assertEqual(len(document['repos']), 23)
+        self.assertEqual(document['catalog_version'], 4)
         generated=oc.timestamp(document['generated_at'])
         self.assertEqual(oc.timestamp(document['valid_until'])-generated, 30*86400)
         self.assertEqual(document['signature']['kind'], 'bundled')
         store=oc.Catalog(lambda *_:(raw(document),None),clock=lambda:generated)
-        self.assertEqual(len(store.snapshot()['repos']), 22)
+        self.assertEqual(len(store.snapshot()['repos']), 23)
         self.assertEqual({r['full_name'] for r in document['repos']}, set(oc.REFERENCE_REPOS))
         self.assertEqual({c['id'] for c in store.snapshot()['categories']}, {'build','design','grow','make','run'})
         for row in document['repos']:
@@ -41,6 +41,29 @@ class CatalogTests(unittest.TestCase):
             self.assertIsNone(row['preview']);self.assertIsNone(row['video'])
             self.assertEqual(row['approval_path'],oc.MANUAL_PATH)
             self.assertEqual(store.snapshot(row['id'])['repo'],row)
+
+    def test_round_three_opus_videos_card_rights_and_staggered_review_expiry(self):
+        document=oc.validate((ROOT/'template'/oc.CATALOG_PATH).read_bytes())
+        target=next(r for r in document['repos'] if r['full_name']=='yihui-dev/awesome-opus5-5-videos')
+        self.assertEqual(target['github_id'],1390273274)
+        self.assertEqual(target['category'],'make')
+        self.assertEqual(target['gitbap_url'],'https://www.gitbap.com/r/yihui-dev/awesome-opus5-5-videos')
+        self.assertEqual(target['review']['metadata_verdict'],'review')
+        self.assertIsNone(target['review']['metadata_warning'])
+        self.assertEqual(target['license']['spdx'],'MIT')
+        for prose in (target['mild_md'],target['license']['conditions'],' '.join(target['limitations'])):
+            self.assertIn('목록',prose)
+            self.assertIn('원 제작자',prose)
+        clock={'now':oc.timestamp(document['generated_at'])}
+        store=oc.Catalog(lambda *_:(raw(document),None),clock=lambda:clock['now'])
+        self.assertEqual(store.snapshot()['visible_until'],'2026-12-15T10:18:13Z')
+        clock['now']=oc.timestamp('2026-12-15T10:18:13Z')
+        after_earlier_reviews=store.snapshot()
+        self.assertEqual([r['full_name'] for r in after_earlier_reviews['repos']],['yihui-dev/awesome-opus5-5-videos'])
+        self.assertEqual(after_earlier_reviews['visible_until'],document['valid_until'])
+        clock['now']=oc.timestamp(document['valid_until'])
+        self.assertEqual(store.snapshot()['state'],'expired')
+        self.assertEqual(store.snapshot()['repos'],[])
 
     def test_round_two_identities_are_bound_and_caveman_stays_out(self):
         document=oc.validate((ROOT/'template'/oc.CATALOG_PATH).read_bytes())

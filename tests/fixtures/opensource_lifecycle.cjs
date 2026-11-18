@@ -150,29 +150,38 @@ async function referenceCatalog(){
   const data=JSON.parse(fs.readFileSync(path.join(web,'opensource-catalog.json'),'utf8'));
   const rows=data.repos.map(r=>({...r,reviewed_at:r.review.reviewed_at,metadata_verdict:r.review.metadata_verdict,metadata_warning:r.review.metadata_warning}));
   const h=setup();h.now=Date.parse(data.generated_at);h.ctx.IlsonOpensource.mount(h.host);
-  const response={...data,state:'ready',repos:rows,visible_until:data.valid_until};
+  const visibleUntil=new Date(Math.min(Date.parse(data.valid_until),...data.repos.map(r=>Date.parse(r.review.valid_until)))).toISOString().replace('.000Z','Z');
+  const response={...data,state:'ready',repos:rows,visible_until:visibleUntil};
   await respond(h.requests[0],response);
-  assert.match(h.root().textContent,/22개 도구/);
+  assert.match(h.root().textContent,/23개 도구/);
   assert.match(h.root().textContent,/깃밥 점검 전 · 소개만/);
   assert.match(h.root().textContent,/주의:.*라이선스/);
   assert.ok(h.doc.querySelectorAll('a').every(a=>a.attrs.href!=='null'&&a.attrs.href!=='undefined'));
-  for(const [category,count] of [['build',7],['design',6],['grow',3],['make',3],['run',3]]){
+  for(const [category,count] of [['build',7],['design',6],['grow',3],['make',4],['run',3]]){
     h.click(`[data-category="${category}"]`);assert.match(h.get('os-results').textContent,new RegExp(count+'개 도구'));
   }
   h.click('[data-category="all"]');
+  const opus=rows.find(r=>r.full_name==='yihui-dev/awesome-opus5-5-videos');
+  h.click(`[data-repo="${opus.id}"]`);
+  await respond(h.requests[1],{...response,repo:opus});
+  assert.match(h.root().textContent,/깃밥 점검 전 · 소개만/);
+  assert.match(h.root().textContent,/원 제작자/);
+  assert.ok([...h.doc.querySelectorAll('a')].some(a=>a.attrs.href==='https://www.gitbap.com/r/yihui-dev/awesome-opus5-5-videos'));
+  h.click('[data-action="back"]');await respond(h.requests[2],response);
   const unc=rows.find(r=>r.metadata_verdict==='not_curated');
   h.click(`[data-repo="${unc.id}"]`);
-  await respond(h.requests[1],{...response,repo:unc});
+  await respond(h.requests[3],{...response,repo:unc});
   assert.match(h.root().textContent,/공식 문서로 정리한 소개/);
   assert.match(h.root().textContent,/not_curated/);
   assert.doesNotMatch(h.root().textContent,/깃밥 원문 설명/);
   assert.ok(h.doc.querySelectorAll('a').every(a=>!a.attrs.href.includes('gitbap.com')));
-  // 30 days exceeds the browser's signed 32-bit timeout range. Re-arm at
-  // that limit, rather than expiring immediately through timer overflow.
+  // Multi-week deadline exceeds the browser's signed 32-bit timeout range.
+  // Re-arm at that limit, rather than expiring immediately through timer overflow.
   assert.ok([...h.timers.values()].some(t=>t.ms===2147483647));
   h.now+=2147483647;h.fire(2147483647);
   assert.doesNotMatch(h.root().textContent,/자료가 만료/);
-  const remaining=Date.parse(data.valid_until)-h.now;
+  const deadline=Math.min(Date.parse(data.valid_until),Date.parse(visibleUntil),Date.parse(unc.review.valid_until));
+  const remaining=deadline-h.now;
   assert.ok(remaining>0&&remaining<2147483647);
   assert.ok([...h.timers.values()].some(t=>t.ms===remaining));
   h.now+=remaining;h.fire(remaining);

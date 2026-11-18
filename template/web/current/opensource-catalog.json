@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "catalog_version": 3,
-  "generated_at": "2026-11-15T10:18:13Z",
-  "valid_until": "2026-12-15T10:18:13Z",
+  "catalog_version": 4,
+  "generated_at": "2026-11-18T16:22:37Z",
+  "valid_until": "2026-12-18T16:22:37Z",
   "policy_version": "box-l0-bundle-30d-v2",
   "revocation_version": 0,
   "revoked_repo_ids": [],
@@ -11,7 +11,7 @@
     "key_id": null,
     "value": null
   },
-  "source_commit": "ffc2da374345275467d0128106c67e14e9091726",
+  "source_commit": "3f14aa08d3de8874632c79d9e4afe90d7a74818f",
   "repos": [
     {
       "id": "581294506aae0699503956037e847e42",
@@ -52,7 +52,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T10:18:13Z",
         "synced_at": "2026-11-15T10:14:29Z",
-        "status_checked_at": "2026-11-15T10:14:29Z",
+        "status_checked_at": "2026-11-18T16:11:35Z",
         "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
         "copy_origin": "gitbap-adapted"
       },
@@ -78,7 +78,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T10:14:27Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -125,7 +125,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T10:18:13Z",
         "synced_at": "2026-11-15T10:14:29Z",
-        "status_checked_at": "2026-11-15T10:14:29Z",
+        "status_checked_at": "2026-11-18T16:11:36Z",
         "commit": "0326b144af36676d599dcf63a9fad9a870d22ed6",
         "copy_origin": "gitbap-adapted"
       },
@@ -151,7 +151,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T10:14:27Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -198,7 +198,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T10:18:13Z",
         "synced_at": "2026-11-15T10:14:29Z",
-        "status_checked_at": "2026-11-15T10:14:29Z",
+        "status_checked_at": "2026-11-18T16:11:36Z",
         "commit": "d4a5b323ef8501518b82c58a05fe21b35ce24992",
         "copy_origin": "gitbap-adapted"
       },
@@ -224,7 +224,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T10:14:27Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -271,7 +271,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T09:10:58Z",
         "synced_at": "2026-11-15T09:04:05Z",
-        "status_checked_at": "2026-11-15T09:04:05Z",
+        "status_checked_at": "2026-11-18T16:11:36Z",
         "commit": "3d5a9e355a837f2f5ee78d7484c118cc1342ad1a",
         "copy_origin": "official-readme"
       },
@@ -297,7 +297,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T09:12:51Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -344,7 +344,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T09:10:58Z",
         "synced_at": "2026-11-15T09:04:05Z",
-        "status_checked_at": "2026-11-15T09:04:05Z",
+        "status_checked_at": "2026-11-18T16:11:36Z",
         "commit": "b4d016aadc5cbd2b898a284307975fe73e05483d",
         "copy_origin": "gitbap-adapted"
       },
@@ -370,7 +370,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T09:12:52Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -417,7 +417,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T09:10:58Z",
         "synced_at": "2026-11-15T09:04:05Z",
-        "status_checked_at": "2026-11-15T09:04:05Z",
+        "status_checked_at": "2026-11-18T16:11:36Z",
         "commit": "ee344ca9458351a6ea102795fa73110ad3ede5dc",
         "copy_origin": "official-readme"
       },
@@ -443,7 +443,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T09:12:52Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -490,7 +490,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T10:18:13Z",
         "synced_at": "2026-11-15T10:14:29Z",
-        "status_checked_at": "2026-11-15T10:14:29Z",
+        "status_checked_at": "2026-11-18T16:11:35Z",
         "commit": "9d2b6fa4df43c8ced61c0c23956fd291551726ac",
         "copy_origin": "official-readme"
       },
@@ -516,7 +516,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T10:14:27Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -563,7 +563,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T09:10:58Z",
         "synced_at": "2026-11-15T09:04:06Z",
-        "status_checked_at": "2026-11-15T09:04:06Z",
+        "status_checked_at": "2026-11-18T16:11:36Z",
         "commit": "d643997c82e94742dd3bee43210b0198e8bbba3d",
         "copy_origin": "gitbap-adapted"
       },
@@ -589,7 +589,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T09:12:52Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -636,7 +636,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T10:18:13Z",
         "synced_at": "2026-11-15T10:14:29Z",
-        "status_checked_at": "2026-11-15T10:14:29Z",
+        "status_checked_at": "2026-11-18T16:11:39Z",
         "commit": "2b86d9c07b97d4bed7de23583e1bd1e58dd2baae",
         "copy_origin": "gitbap-adapted"
       },
@@ -662,7 +662,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T10:14:27Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -709,7 +709,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T10:18:13Z",
         "synced_at": "2026-11-15T10:14:29Z",
-        "status_checked_at": "2026-11-15T10:14:29Z",
+        "status_checked_at": "2026-11-18T16:11:37Z",
         "commit": "f6b76575f949707b4e3c37cd86cb44b0b98643e8",
         "copy_origin": "gitbap-adapted"
       },
@@ -735,7 +735,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T10:14:27Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -782,7 +782,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T10:18:13Z",
         "synced_at": "2026-11-15T10:14:30Z",
-        "status_checked_at": "2026-11-15T10:14:30Z",
+        "status_checked_at": "2026-11-18T16:11:38Z",
         "commit": "0f2e23b32bb1265e84cff8d3e75785fec953fb1b",
         "copy_origin": "gitbap-adapted"
       },
@@ -808,7 +808,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T10:14:27Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -855,7 +855,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T09:10:58Z",
         "synced_at": "2026-11-15T09:04:05Z",
-        "status_checked_at": "2026-11-15T09:04:05Z",
+        "status_checked_at": "2026-11-18T16:11:39Z",
         "commit": "ded5e3eec25cd2da405fb30c2751d6406726607d",
         "copy_origin": "gitbap-adapted"
       },
@@ -881,7 +881,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T09:12:52Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -928,7 +928,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T09:10:58Z",
         "synced_at": "2026-11-15T09:04:07Z",
-        "status_checked_at": "2026-11-15T09:04:07Z",
+        "status_checked_at": "2026-11-18T16:11:39Z",
         "commit": "09382db7f5791362dcaf0f4f26fad2bb18cb0dcb",
         "copy_origin": "gitbap-adapted"
       },
@@ -954,7 +954,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T09:12:52Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -1001,7 +1001,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T09:10:58Z",
         "synced_at": "2026-11-15T09:04:05Z",
-        "status_checked_at": "2026-11-15T09:04:05Z",
+        "status_checked_at": "2026-11-18T16:11:39Z",
         "commit": "71f430a2dabffaf718cef7091c340b7384b91178",
         "copy_origin": "gitbap-adapted"
       },
@@ -1027,7 +1027,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T09:12:52Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -1074,7 +1074,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T10:18:13Z",
         "synced_at": "2026-11-15T10:14:29Z",
-        "status_checked_at": "2026-11-15T10:14:29Z",
+        "status_checked_at": "2026-11-18T16:11:39Z",
         "commit": "5718ae786c1738a70126681122e345bd6f0245d3",
         "copy_origin": "gitbap-adapted"
       },
@@ -1100,7 +1100,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T10:14:27Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -1147,7 +1147,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T10:18:13Z",
         "synced_at": "2026-11-15T10:14:29Z",
-        "status_checked_at": "2026-11-15T10:14:29Z",
+        "status_checked_at": "2026-11-18T16:11:38Z",
         "commit": "b48c832f0f809c1b5658edbb838c2521b72f2413",
         "copy_origin": "gitbap-adapted"
       },
@@ -1173,7 +1173,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T10:14:27Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -1220,7 +1220,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T09:10:58Z",
         "synced_at": "2026-11-15T09:04:07Z",
-        "status_checked_at": "2026-11-15T09:04:07Z",
+        "status_checked_at": "2026-11-18T16:11:40Z",
         "commit": "12348e4e06f4b0d5e216be768226afc9903d2be2",
         "copy_origin": "gitbap-adapted"
       },
@@ -1246,7 +1246,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T09:12:52Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -1293,7 +1293,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T09:10:58Z",
         "synced_at": "2026-11-15T09:04:07Z",
-        "status_checked_at": "2026-11-15T09:04:07Z",
+        "status_checked_at": "2026-11-18T16:11:39Z",
         "commit": "86098128c0b4f24f0e2aa2994de830614b474227",
         "copy_origin": "official-readme"
       },
@@ -1319,7 +1319,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T09:12:52Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -1366,7 +1366,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T09:10:58Z",
         "synced_at": "2026-11-15T09:04:07Z",
-        "status_checked_at": "2026-11-15T09:04:07Z",
+        "status_checked_at": "2026-11-18T16:11:41Z",
         "commit": "8750d3827ac038d3f597bc3bb3bd36b3bb9b9fe4",
         "copy_origin": "official-readme"
       },
@@ -1392,7 +1392,81 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T09:12:52Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
+      },
+      "catalog_approved": true,
+      "runnable": false,
+      "preview": null,
+      "video": null,
+      "approval_path": "reference-manual-20261115"
+    },
+    {
+      "id": "d326b4bb18b8fec1e302d51f67f16651",
+      "github_id": 1390273274,
+      "full_name": "yihui-dev/awesome-opus5-5-videos",
+      "category": "make",
+      "curated_order": 34,
+      "one_liner": "Claude Opus 5.5로 만든 예시 영상과 프롬프트를 원 제작자 게시글 링크와 함께 모아 둔 참고 목록입니다.",
+      "mild_md": "설치하거나 바로 실행하는 프로그램이 아니라, 여러 제작자가 Claude Opus 5.5에게 웹 화면 코드로 움직이는 그래픽·설명 화면·3D 장면을 만들게 한 사례와 공개 프롬프트를 모아 각 원문 게시글로 연결한 목록 저장소입니다. 비개발자 사장님도 제품 소개나 안내 화면에 어떤 연출과 요청 문구를 쓸 수 있는지 감을 잡을 때 살펴보기 좋습니다. 다만 저장소의 MIT 라이선스는 목록 자체에만 적용되고 개별 영상과 프롬프트의 권리는 각 원 제작자에게 있으므로, 상업적 작업에 영상을 쓰거나 프롬프트를 그대로 활용하기 전에는 원 제작자의 조건을 먼저 확인해야 합니다. 같은 프롬프트라도 실행할 때마다 결과가 달라질 수 있고 일부 항목은 프롬프트 일부나 설명만 담고 있습니다.",
+      "use_cases": [
+        "상품 소개·안내 영상의 움직이는 화면 사례와 AI 요청 문구 구성을 먼저 살펴보고 싶은 사장님"
+      ],
+      "prerequisites": [
+        "실제로 프롬프트를 시험하려면 Claude Opus 5.5 이용 권한(유료 Claude 요금제 또는 API 사용 환경)과 결과 HTML을 열 브라우저가 필요하며, 동영상 파일로 저장하려면 화면 녹화 도구가 필요합니다."
+      ],
+      "limitations": [
+        "목록 저장소의 MIT 라이선스는 목록에만 해당하며 각 영상과 프롬프트는 원 제작자에게 귀속되므로, 상업적 이용이나 영상 재사용·프롬프트 복사 전 원 제작자의 조건을 확인해야 합니다.",
+        "같은 프롬프트를 입력해도 결과가 매번 달라질 수 있고 일부 항목은 프롬프트 전문이 없으며, 항목 링크를 누르면 외부 게시글과 외부 사이트로 이동합니다."
+      ],
+      "difficulty": 2,
+      "box_burden": "browse",
+      "preparation": "목록과 소개만 살펴볼 때는 준비물이 없습니다. 직접 따라 해 보려면 유료 Claude 요금제 또는 API 기반의 Claude Opus 5.5 사용 환경과 웹브라우저가 필요하고, 결과 화면을 영상 파일로 남기려면 별도 화면 녹화 도구가 필요합니다.",
+      "cost": "목록 열람은 무료이지만 실제로 프롬프트를 실행하려면 유료 Claude 요금제 구독이나 Claude Opus 5.5 API 사용 요금이 발생합니다.",
+      "data_processing": "이 Box의 L0 소개는 입력 파일·계정을 받거나 프롬프트를 실행하지 않습니다. 저장소 안의 원문 링크를 열면 외부 SNS 게시글이나 외부 미리보기 사이트에 접속하게 되며, 직접 Claude에 프롬프트와 사업 자료를 입력할 때는 해당 AI 서비스의 데이터 처리 조건을 확인해야 합니다.",
+      "license": {
+        "spdx": "MIT",
+        "conditions": "저장소의 목록 파일에는 MIT 조건이 적용되어 복제·배포 시 저작권 고지와 허가문을 보존해야 합니다. 단, 개별 예시 영상과 프롬프트는 각 원 제작자에게 권리가 있으므로 상업적 사용이나 영상 재사용·프롬프트 활용 전에는 연결된 원 제작자의 조건을 별도로 확인해야 합니다.",
+        "url": "https://github.com/yihui-dev/awesome-opus5-5-videos/blob/92aee2f586ac0715cb3cbcb6384834f98a33383d/LICENSE",
+        "reviewed": true
+      },
+      "gitbap_url": "https://www.gitbap.com/r/yihui-dev/awesome-opus5-5-videos",
+      "official_url": "https://github.com/yihui-dev/awesome-opus5-5-videos",
+      "source": {
+        "summary_id": null,
+        "summary_revision": null,
+        "lang": "ko",
+        "readme_hash": "0aea4fdbab29c20416b0c14c485f13e24fff4af26c39d43fb671a407b361e92c",
+        "summary_readme_hash": null,
+        "model": null,
+        "summary_created_at": "2026-11-18T16:22:36Z",
+        "synced_at": "2026-11-18T16:11:33Z",
+        "status_checked_at": "2026-11-18T16:11:33Z",
+        "commit": "92aee2f586ac0715cb3cbcb6384834f98a33383d",
+        "copy_origin": "official-readme"
+      },
+      "review": {
+        "hidden": false,
+        "review_status": "approved",
+        "metadata_verdict": "review",
+        "metadata_warning": null,
+        "content_scan": "ok",
+        "policy": "approved",
+        "rights": "approved",
+        "maintenance": "active",
+        "archived": false,
+        "disabled": false,
+        "prohibited": false,
+        "requirements_confirmed": true,
+        "key_required": false,
+        "paid_api_required": false,
+        "reviewed_at": "2026-11-18T16:22:37Z",
+        "valid_until": "2026-12-18T16:22:37Z",
+        "target_commit": "92aee2f586ac0715cb3cbcb6384834f98a33383d",
+        "policy_version": "box-l0-bundle-30d-v2",
+        "past_safety_pass": null,
+        "past_alive_pass": null,
+        "past_evaluated_at": null,
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -1439,7 +1513,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T10:18:13Z",
         "synced_at": "2026-11-15T10:14:31Z",
-        "status_checked_at": "2026-11-15T10:14:31Z",
+        "status_checked_at": "2026-11-18T16:11:42Z",
         "commit": "b716f9dc2ba36b6aa8f0080615e5a3a6caeac63b",
         "copy_origin": "official-readme"
       },
@@ -1465,7 +1539,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T10:14:27Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -1512,7 +1586,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T09:10:58Z",
         "synced_at": "2026-11-15T09:04:07Z",
-        "status_checked_at": "2026-11-15T09:04:07Z",
+        "status_checked_at": "2026-11-18T16:11:42Z",
         "commit": "c07db8c5c1b1b18e1e0e088b83f56922c142c0cf",
         "copy_origin": "official-readme"
       },
@@ -1538,7 +1612,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T09:12:53Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
@@ -1585,7 +1659,7 @@
         "model": null,
         "summary_created_at": "2026-11-15T09:10:58Z",
         "synced_at": "2026-11-15T09:04:07Z",
-        "status_checked_at": "2026-11-15T09:04:07Z",
+        "status_checked_at": "2026-11-18T16:11:41Z",
         "commit": "a5864fcb33969705de3c0ebfedf4b2a16c970bcc",
         "copy_origin": "gitbap-adapted"
       },
@@ -1611,7 +1685,7 @@
         "past_safety_pass": null,
         "past_alive_pass": null,
         "past_evaluated_at": null,
-        "metadata_checked_at": "2026-11-15T09:12:53Z"
+        "metadata_checked_at": "2026-11-18T16:15:06Z"
       },
       "catalog_approved": true,
       "runnable": false,
