@@ -10,6 +10,8 @@ import sys
 import tempfile
 import unittest
 
+from pwsh_support import find_pwsh, offline_env, offline_installer_source, run_pwsh
+
 ROOT = Path(__file__).resolve().parents[1]
 WINDOWS_BASE64 = re.compile(
     r"(?<=K ')[A-Za-z0-9+/=]+(?=')|"
@@ -70,12 +72,10 @@ claude() { echo "Claude mock"; }
 
 class PowerShellTests(unittest.TestCase):
     def test_python_bootstrap_and_existing_environment_are_preserved(self):
-        pwsh = os.environ.get('ILSON_TEST_PWSH') or shutil.which('pwsh')
+        pwsh = find_pwsh()
         if not pwsh:
             self.skipTest('pwsh required for mocked PowerShell tests')
-        source = (ROOT / 'course/install-windows.ps1').read_text(encoding='ascii')
-        source = source.replace('New-Object Net.WebClient', 'New-TestClient')
-        source = source.replace('[IO.Path]::GetPathRoot($env:USERPROFILE).Substring(0,1)', "'T'")
+        source = offline_installer_source()
         mocks = r'''
 function Get-CimInstance { param($ClassName) if ($ClassName -eq 'Win32_OperatingSystem') { [pscustomobject]@{ BuildNumber='26300'; ProductType=1; Caption='test Windows' } } else { [pscustomobject]@{ SystemType='x64-based PC' } } }
 function Get-PSDrive { param($Name) [pscustomobject]@{Free=10GB} }
@@ -95,7 +95,7 @@ function New-TestClient {
 }
 '''
         with tempfile.TemporaryDirectory() as tmp:
-            home = Path(tmp); kit = home / 'kit'; kit.mkdir()
+            home = Path(tmp).resolve(); kit = home / 'kit'; kit.mkdir()
             obs = home / 'Programs/obsidian/Obsidian.exe'
             obs.parent.mkdir(parents=True); obs.write_text('fixture')
             runner = home / 'runner.ps1'
@@ -104,11 +104,9 @@ Main
 Write-Output ('ENV_PAYLOAD=' + $env:ILSON_COURSE_PAYLOAD)
 Write-Output ('ENV_BOOTSTRAP=' + $env:ILSON_COURSE_BOOTSTRAP)
 ''', encoding='ascii')
-            env = dict(os.environ, USERPROFILE=tmp, LOCALAPPDATA=tmp, ProgramFiles=tmp,
-                       ILSON_COURSE_DRY_RUN='0', ILSON_TEST_PYTHON=sys.executable,
-                       ILSON_COURSE_PAYLOAD='existing-payload', ILSON_COURSE_BOOTSTRAP='existing-bootstrap')
-            result = subprocess.run([pwsh, '-NoProfile', '-File', str(runner), '-KitPath', str(kit)],
-                                    text=True, capture_output=True, timeout=30, env=env)
+            env = offline_env(home, ILSON_COURSE_DRY_RUN='0', ILSON_TEST_PYTHON=sys.executable,
+                              ILSON_COURSE_PAYLOAD='existing-payload', ILSON_COURSE_BOOTSTRAP='existing-bootstrap')
+            result = run_pwsh(pwsh, runner, '-KitPath', kit, env=env)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn('Learn: 준비됨', result.stdout)
             self.assertIn('ENV_PAYLOAD=existing-payload', result.stdout)
@@ -117,15 +115,15 @@ Write-Output ('ENV_BOOTSTRAP=' + $env:ILSON_COURSE_BOOTSTRAP)
                              (ROOT / 'course/ilson.py').read_text(encoding='utf-8'))
 
     def test_dry_run_and_failures_preserve_existing_files(self):
-        pwsh = os.environ.get('ILSON_TEST_PWSH') or shutil.which('pwsh')
+        pwsh = find_pwsh()
         if not pwsh:
             self.skipTest('pwsh required for mocked PowerShell tests')
-        source = (ROOT / 'course/install-windows.ps1').read_text(encoding='ascii')
+        source = offline_installer_source()
         self.assertTrue(source.endswith('Main\n'))
         for mode in ('installed', 'missing', 'failure'):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmp:
-                home = Path(tmp)
-                prefix = "$env:USERPROFILE = '{0}'\n$env:LOCALAPPDATA = '{0}'\n$env:ProgramFiles = '{0}'\n$env:ILSON_COURSE_DRY_RUN = '{1}'".format(tmp.replace("'", "''"), '0' if mode == 'failure' else '1')
+                home = Path(tmp).resolve()
+                prefix = "$env:ILSON_COURSE_DRY_RUN = '{0}'".format('0' if mode == 'failure' else '1')
                 mocks = '''
 function Get-CimInstance { param($ClassName) if ($ClassName -eq 'Win32_OperatingSystem') { [pscustomobject]@{ BuildNumber='26300'; ProductType=1; Caption='test Windows' } } else { [pscustomobject]@{ SystemType='x64-based PC' } } }
 function Get-PSDrive { param($Name) [pscustomobject]@{Free=10GB} }
@@ -134,6 +132,12 @@ function Find-Herdr { ORCA_MOCK }
 function Get-HerdrCourseVersion { '0.1.15' }
 function Invoke-RestMethod { throw 'simulated Claude failure' }
 function Invoke-WebRequest { throw 'simulated download failure' }
+function New-TestClient {
+    $client = [pscustomobject]@{}
+    $client | Add-Member ScriptMethod DownloadData { param($url) [IO.File]::AppendAllText($env:ILSON_DOWNLOAD_LOG, "$url`n"); throw 'simulated download failure' }
+    $client | Add-Member ScriptMethod Dispose { }
+    return $client
+}
 '''.replace('CLAUDE_MOCK', "[pscustomobject]@{ Source='/usr/bin/true' }" if mode == 'installed' else '$null').replace('ORCA_MOCK', "'/fake/herdr-app.exe'" if mode == 'installed' else '$null')
                 kit = home / 'Documents/일손강의-1기'
                 if mode == 'failure':
@@ -144,12 +148,18 @@ function Invoke-WebRequest { throw 'simulated download failure' }
                         target = kit / name
                         target.parent.mkdir(parents=True, exist_ok=True)
                         target.write_text('preserved')
-                patched = source.replace("[IO.Path]::GetPathRoot($env:USERPROFILE).Substring(0,1)", "'T'")
-                patched = patched[:-5].replace('param([switch]$DryRun, [string]$KitPath)', 'param([switch]$DryRun, [string]$KitPath)\n' + prefix)
+                patched = source[:-5].replace('param([switch]$DryRun, [string]$KitPath)', 'param([switch]$DryRun, [string]$KitPath)\n' + prefix)
                 runner = home / 'test.ps1'
                 runner.write_text(patched + '\n' + mocks + '\nMain\n')
-                proc = subprocess.run([pwsh, '-NoProfile', '-File', str(runner)], text=True, capture_output=True, timeout=30)
+                downloads = home / 'downloads'
+                proc = run_pwsh(pwsh, runner, env=offline_env(home, ILSON_DOWNLOAD_LOG=downloads))
                 self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+                # Failure mode must hit the mocked client only; dry runs must not download at all.
+                attempted = downloads.read_text().splitlines() if downloads.exists() else []
+                if mode == 'failure':
+                    self.assertTrue(attempted)
+                else:
+                    self.assertEqual(attempted, [])
                 for word in {'installed': ['이미 있음', '모의 실행'], 'missing': ['설치 예정', '모의 실행'], 'failure': ['실패', '준비됨']}[mode]:
                     self.assertIn(word, proc.stdout)
                 if mode == 'failure':
@@ -158,13 +168,10 @@ function Invoke-WebRequest { throw 'simulated download failure' }
                     self.assertFalse(kit.exists())
 
     def test_empty_kit_creation_and_second_run_preserves_every_file(self):
-        pwsh = os.environ.get('ILSON_TEST_PWSH') or shutil.which('pwsh')
+        pwsh = find_pwsh()
         if not pwsh:
             self.skipTest('pwsh required for mocked PowerShell tests')
-        source = (ROOT / 'course/install-windows.ps1').read_text(encoding='ascii')
-        self.assertEqual(source.count('New-Object Net.WebClient'), 1)
-        source = source.replace('New-Object Net.WebClient', 'New-TestClient')
-        source = source.replace('[IO.Path]::GetPathRoot($env:USERPROFILE).Substring(0,1)', "'T'")
+        source = offline_installer_source()
         mocks = r'''
 function Get-CimInstance { param($ClassName) if ($ClassName -eq 'Win32_OperatingSystem') { [pscustomobject]@{ BuildNumber='26300'; ProductType=1; Caption='test Windows' } } else { [pscustomobject]@{ SystemType='x64-based PC' } } }
 function Get-PSDrive { param($Name) [pscustomobject]@{Free=10GB} }
@@ -175,7 +182,7 @@ function New-TestClient {
     $client = [pscustomobject]@{}
     $client | Add-Member ScriptMethod DownloadData {
         param($url)
-        [IO.File]::AppendAllText($env:ILSON_DOWNLOAD_LOG, "download`n")
+        [IO.File]::AppendAllText($env:ILSON_DOWNLOAD_LOG, "download $url`n")
         return ,([Text.Encoding]::UTF8.GetBytes('fixture body'))
     }
     $client | Add-Member ScriptMethod Dispose { }
@@ -183,7 +190,7 @@ function New-TestClient {
 }
 '''
         with tempfile.TemporaryDirectory() as tmp:
-            home = Path(tmp)
+            home = Path(tmp).resolve()
             kit = home / 'empty kit'
             kit.mkdir()
             obs = home / 'Programs/obsidian/Obsidian.exe'
@@ -191,11 +198,9 @@ function New-TestClient {
             obs.write_text('fixture')
             runner = home / 'runner.ps1'
             runner.write_text(source[:-5] + '\n' + mocks + '\nMain\n', encoding='ascii')
-            env = dict(os.environ, USERPROFILE=tmp, LOCALAPPDATA=tmp, ProgramFiles=tmp,
-                       ILSON_COURSE_DRY_RUN='0', ILSON_DOWNLOAD_LOG=str(home / 'downloads'))
+            env = offline_env(home, ILSON_COURSE_DRY_RUN='0', ILSON_DOWNLOAD_LOG=home / 'downloads')
             def run():
-                return subprocess.run([pwsh, '-NoProfile', '-File', str(runner), '-KitPath', str(kit)],
-                                      text=True, capture_output=True, timeout=30, env=env)
+                return run_pwsh(pwsh, runner, '-KitPath', kit, env=env)
             first = run()
             self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
             self.assertIn('Kit: 완료', first.stdout)
@@ -211,23 +216,21 @@ function New-TestClient {
             self.assertEqual((kit / '시작과_막힘_복구.md').read_text(encoding='utf-8'),
                              '> Windows와 Intel 맥은 먼저 00_강의_시작.md를 따르세요.\n\nfixture body')
             before = {name: ((kit / name).read_bytes(), (kit / name).stat().st_mtime_ns) for name in expected}
-            self.assertEqual((home / 'downloads').read_text().count('download'), 18)
+            self.assertEqual(len((home / 'downloads').read_text().splitlines()), 18)
             second = run()
             self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
             self.assertIn('Kit: 완료', second.stdout)
             self.assertEqual({str(p.relative_to(kit)) for p in kit.rglob('*') if p.is_file()}, expected)
             self.assertEqual({name: ((kit / name).read_bytes(), (kit / name).stat().st_mtime_ns)
                               for name in expected}, before)
-            self.assertEqual((home / 'downloads').read_text().count('download'), 18)
+            self.assertEqual(len((home / 'downloads').read_text().splitlines()), 18)
 
 
     def test_upgrade_replaces_old_suggested_rules_and_keeps_a_dated_backup(self):
-        pwsh = os.environ.get('ILSON_TEST_PWSH') or shutil.which('pwsh')
+        pwsh = find_pwsh()
         if not pwsh:
             self.skipTest('pwsh required for mocked PowerShell tests')
-        source = (ROOT / 'course/install-windows.ps1').read_text(encoding='ascii')
-        source = source.replace('New-Object Net.WebClient', 'New-TestClient')
-        source = source.replace('[IO.Path]::GetPathRoot($env:USERPROFILE).Substring(0,1)', "'T'")
+        source = offline_installer_source()
         mocks = r"""
 function Get-CimInstance { param($ClassName) if ($ClassName -eq 'Win32_OperatingSystem') { [pscustomobject]@{ BuildNumber='26300'; ProductType=1; Caption='test Windows' } } else { [pscustomobject]@{ SystemType='x64-based PC' } } }
 function Get-PSDrive { param($Name) [pscustomobject]@{Free=10GB} }
@@ -248,7 +251,7 @@ function New-TestClient {
 """
         rules = (ROOT / 'course/CLAUDE.md').read_bytes()
         with tempfile.TemporaryDirectory() as tmp:
-            home = Path(tmp); kit = home / 'kit'; kit.mkdir()
+            home = Path(tmp).resolve(); kit = home / 'kit'; kit.mkdir()
             (kit / 'CLAUDE.md').write_bytes(b'user rules\n')
             obs = home / 'Programs/obsidian/Obsidian.exe'
             obs.parent.mkdir(parents=True); obs.write_text('fixture')
@@ -257,11 +260,9 @@ function New-TestClient {
             suggested.write_bytes(b'old suggested rules\n')
             runner = home / 'runner.ps1'
             runner.write_text(source[:-5] + '\n' + mocks + '\nMain\n', encoding='ascii')
-            env = dict(os.environ, USERPROFILE=tmp, LOCALAPPDATA=tmp, ProgramFiles=tmp,
-                       ILSON_COURSE_DRY_RUN='0', ILSON_TEST_PYTHON=sys.executable)
+            env = offline_env(home, ILSON_COURSE_DRY_RUN='0', ILSON_TEST_PYTHON=sys.executable)
             def run():
-                result = subprocess.run([pwsh, '-NoProfile', '-File', str(runner), '-KitPath', str(kit)],
-                                        text=True, capture_output=True, timeout=30, env=env)
+                result = run_pwsh(pwsh, runner, '-KitPath', kit, env=env)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 return result
             first = run()

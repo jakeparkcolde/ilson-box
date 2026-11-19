@@ -14,6 +14,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 from course_bundle import target_path
+from pwsh_support import find_pwsh, offline_env, run_pwsh
 BOOT = 'import base64,sys;exec(base64.b64decode(sys.stdin.buffer.readline()))'
 spec = importlib.util.spec_from_file_location('transport_diagnostics', ROOT / 'template/lib/install_diagnostics.py')
 diag = importlib.util.module_from_spec(spec)
@@ -74,7 +75,7 @@ class PayloadTransportTests(unittest.TestCase):
 
 class HelperFailureTests(unittest.TestCase):
     def test_windows_helper_failure_records_native_code_or_sanitized_exception_without_message(self):
-        pwsh = os.environ.get('ILSON_TEST_PWSH') or shutil.which('pwsh')
+        pwsh = find_pwsh()
         if not pwsh:
             self.skipTest('pwsh required for isolated Windows helper stage')
         source = (ROOT / 'course/install-windows.ps1').read_text(encoding='ascii')
@@ -101,10 +102,8 @@ Start-IlsonDiagnostics 'windows-course'
                 script += 'function Invoke-TestHelper {\n' + stage + '\n}\nInvoke-TestHelper\nComplete-IlsonDiagnostics 0\n'
                 runner = home / 'stage.ps1'
                 runner.write_text(script, encoding='ascii')
-                env = dict(os.environ, LOCALAPPDATA=str(home), USERPROFILE=str(home), ILSON_TEST_PYTHON=sys.executable,
-                           ILSON_DIAGNOSTICS_DIR=str(home / 'diagnostics'))
-                result = subprocess.run([pwsh, '-NoProfile', '-File', str(runner)], env=env,
-                                        capture_output=True, text=True, timeout=15)
+                env = offline_env(home, ILSON_TEST_PYTHON=sys.executable)
+                result = run_pwsh(pwsh, runner, env=env, timeout=15)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn('INSTALL_RESULT=1', result.stdout)
                 folder = next((home / 'diagnostics/runs').iterdir())
