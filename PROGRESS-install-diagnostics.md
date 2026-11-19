@@ -1,5 +1,11 @@
 # 설치 진단 구현 진행 · 2026-11-13
 
+## 설치기 종료 코드 수정 · 2026-11-18
+
+- 기준 main e16d653. 전체판 cleanup이 빈 임시 경로, 사라진 디렉터리 또는 삭제 실패에서도 종료 트랩을 중단하지 않도록 수정. dry-run, 임시 폴더 생성 전 오류와 정상·실패 cleanup을 격리 회귀 시험으로 확인.
+- Intel/Windows 강의 설치기 및 payload, ilson, bootstrap과 핀을 확인. 강의 payload에 전체판 설치기 없음; 새 고정 설치 명령은 생성 시 현재 파일의 해시를 계산. 과거 `docs/intel-install-20261016/install.sh`의 삭제 트랩은 t2v5 지시에 따라 공개본 참고 사본으로 보존함.
+- 전체 회귀 `python3 -m unittest discover -s tests`: 1021건 OK, 40건 skip, 461.555초. 신규 종료 처리 시험 2건 별도 통과(삭제 실패 시 0과 37 보존 포함), 셸 구문 및 `git diff --check` 통과. 실제 설치·push·릴리스·배포·AGY 실행 없음.
+
 - 목표: IMPL-BRIEF-1, DESIGN 단계 1–4 + 강의판 갱신 경로. 기준 49f683a.
 - 승인: 지정 worktree/branch 유일 writer. 로컬 구현·시험·커밋·AGY 묶음 작성. push/Release/외부 전송/실기기 설치/AGY 실행 금지. 보고 hc send t2v5.
 - 환경: Mac Studio Mac17,14. 브랜치 feat/install-diagnostics-20261113, 시작 clean.
