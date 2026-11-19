@@ -10,7 +10,7 @@ import sys
 import tempfile
 import unittest
 
-from pwsh_support import find_pwsh, offline_env, offline_installer_source, run_pwsh
+from pwsh_support import assert_install_result, find_pwsh, offline_env, offline_installer_source, run_pwsh
 
 ROOT = Path(__file__).resolve().parents[1]
 WINDOWS_BASE64 = re.compile(
@@ -70,6 +70,17 @@ claude() { echo "Claude mock"; }
                 self.assertEqual(after, before | {'mock-bash-env'})
 
 
+# Required steps each scenario is expected to fail. INSTALL_RESULT=1 then follows by design
+# (Complete-IlsonDiagnostics, 88b780b); file mode exits with that code.
+# Every download fails and Claude, Herdr and Python are absent.
+FAILURE_MODE_STEPS = frozenset({
+    ('tools.claude', 'EXECUTE_FAILED'), ('tools.claude.download', 'DOWNLOAD_FAILED'),
+    ('tools.claude.execute', 'DEPENDENCY_FAILED'), ('tools.vendor.download', 'DOWNLOAD_FAILED'),
+    ('apps.herdr', 'VERIFY_FAILED'), ('apps.obsidian', 'VERIFY_FAILED'),
+    ('runtime.python', 'RUNTIME_MISSING'), ('helper.install', 'DEPENDENCY_FAILED'),
+})
+
+
 class PowerShellTests(unittest.TestCase):
     def test_python_bootstrap_and_existing_environment_are_preserved(self):
         pwsh = find_pwsh()
@@ -99,7 +110,10 @@ function New-TestClient {
             obs = home / 'Programs/obsidian/Obsidian.exe'
             obs.parent.mkdir(parents=True); obs.write_text('fixture')
             runner = home / 'runner.ps1'
+            # Emulate `irm | iex`: there the installer runs in the student's own session and
+            # must leave its variables untouched. A file run would `exit` at the end of Main.
             runner.write_text(source[:-5] + '\n' + mocks + '''
+$script:IlsonInstallerFileMode = $false
 Main
 Write-Output ('ENV_PAYLOAD=' + $env:ILSON_COURSE_PAYLOAD)
 Write-Output ('ENV_BOOTSTRAP=' + $env:ILSON_COURSE_BOOTSTRAP)
@@ -107,7 +121,7 @@ Write-Output ('ENV_BOOTSTRAP=' + $env:ILSON_COURSE_BOOTSTRAP)
             env = offline_env(home, ILSON_COURSE_DRY_RUN='0', ILSON_TEST_PYTHON=sys.executable,
                               ILSON_COURSE_PAYLOAD='existing-payload', ILSON_COURSE_BOOTSTRAP='existing-bootstrap')
             result = run_pwsh(pwsh, runner, '-KitPath', kit, env=env)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            assert_install_result(self, result, home, file_mode=False)
             self.assertIn('Learn: 준비됨', result.stdout)
             self.assertIn('ENV_PAYLOAD=existing-payload', result.stdout)
             self.assertIn('ENV_BOOTSTRAP=existing-bootstrap', result.stdout)
@@ -153,7 +167,12 @@ function New-TestClient {
                 runner.write_text(patched + '\n' + mocks + '\nMain\n')
                 downloads = home / 'downloads'
                 proc = run_pwsh(pwsh, runner, env=offline_env(home, ILSON_DOWNLOAD_LOG=downloads))
-                self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+                if mode == 'failure':
+                    assert_install_result(self, proc, home, FAILURE_MODE_STEPS, helper_verified=False)
+                else:
+                    # Dry runs write no diagnostics and always exit 0.
+                    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+                    self.assertFalse(any((home / 'diagnostics/runs').iterdir()))
                 # Failure mode must hit the mocked client only; dry runs must not download at all.
                 attempted = downloads.read_text().splitlines() if downloads.exists() else []
                 if mode == 'failure':
@@ -178,6 +197,11 @@ function Get-PSDrive { param($Name) [pscustomobject]@{Free=10GB} }
 function Find-Claude { [pscustomobject]@{ Source='/usr/bin/true' } }
 function Find-Herdr { '/fake/herdr-app.exe' }
 function Get-HerdrCourseVersion { '0.1.15' }
+function Get-Command {
+    [CmdletBinding()] param([string]$Name)
+    if ($Name -eq 'python.exe') { return [pscustomobject]@{Source=$env:ILSON_TEST_PYTHON} }
+    return $null
+}
 function New-TestClient {
     $client = [pscustomobject]@{}
     $client | Add-Member ScriptMethod DownloadData {
@@ -198,11 +222,13 @@ function New-TestClient {
             obs.write_text('fixture')
             runner = home / 'runner.ps1'
             runner.write_text(source[:-5] + '\n' + mocks + '\nMain\n', encoding='ascii')
-            env = offline_env(home, ILSON_COURSE_DRY_RUN='0', ILSON_DOWNLOAD_LOG=home / 'downloads')
+            # Python is present, so the only downloads are the 18 kit and vault files.
+            env = offline_env(home, ILSON_COURSE_DRY_RUN='0', ILSON_DOWNLOAD_LOG=home / 'downloads',
+                              ILSON_TEST_PYTHON=sys.executable)
             def run():
                 return run_pwsh(pwsh, runner, '-KitPath', kit, env=env)
             first = run()
-            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+            assert_install_result(self, first, home)
             self.assertIn('Kit: 완료', first.stdout)
             self.assertIn('Vault: 준비됨', first.stdout)
             names = [p.name for p in (ROOT / 'template/claude/skills/course-kit-20261109').glob('*.md')]
@@ -218,7 +244,7 @@ function New-TestClient {
             before = {name: ((kit / name).read_bytes(), (kit / name).stat().st_mtime_ns) for name in expected}
             self.assertEqual(len((home / 'downloads').read_text().splitlines()), 18)
             second = run()
-            self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+            assert_install_result(self, second, home)
             self.assertIn('Kit: 완료', second.stdout)
             self.assertEqual({str(p.relative_to(kit)) for p in kit.rglob('*') if p.is_file()}, expected)
             self.assertEqual({name: ((kit / name).read_bytes(), (kit / name).stat().st_mtime_ns)
@@ -263,7 +289,7 @@ function New-TestClient {
             env = offline_env(home, ILSON_COURSE_DRY_RUN='0', ILSON_TEST_PYTHON=sys.executable)
             def run():
                 result = run_pwsh(pwsh, runner, '-KitPath', kit, env=env)
-                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                assert_install_result(self, result, home)
                 return result
             first = run()
             self.assertEqual(suggested.read_bytes(), rules)

@@ -11,6 +11,7 @@ not depend on host quirks that the product would rightly reject:
   umask 077, because on non-Windows hosts New-IlsonDiagDirectory falls back to
   plain CreateDirectory (Windows itself uses an owner-only ACL instead).
 """
+import json
 import os
 from pathlib import Path
 import shutil
@@ -23,6 +24,45 @@ WEBCLIENT = 'New-Object Net.WebClient'
 NETWORK_PRIMITIVES = ('Net.WebClient', 'Invoke-WebRequest', 'Invoke-RestMethod', 'HttpClient',
                       'Start-BitsTransfer', 'DownloadFile', 'DownloadString', 'WebRequest]::Create')
 DEAD_PROXY = 'http://127.0.0.1:9'
+
+
+# Host gap, not a product bug: course/ilson.py reports its edition from os.name, so
+# on a non-Windows test host the real helper answers `ilson intel-course ILSON-DIAG-1`
+# and the installer's absolute check (which wants `windows-course`) records
+# VERIFY_FAILED with native exit 0. On Windows os.name == 'nt' and the check passes.
+# Only this one step is tolerated, and only off Windows; every other required step
+# must still succeed or fail exactly as each test expects.
+HOST_EDITION_GAP = frozenset() if os.name == 'nt' else frozenset({('verify.absolute', 'VERIFY_FAILED')})
+# Mirrors Complete-IlsonDiagnostics: these reasons never make a required step count as failed.
+NEUTRAL_REASONS = ('DRY_RUN', 'NOT_APPLICABLE', 'NOT_SELECTED')
+
+
+def failed_required_steps(home):
+    """(step_id, reason_code) of every required step-end that sets INSTALL_RESULT=1."""
+    runs = Path(home) / 'diagnostics/runs'
+    failed = set()
+    for events in runs.glob('*/events.jsonl'):
+        for line in events.read_text(encoding='utf-8').splitlines():
+            event = json.loads(line)
+            if (event.get('event') == 'step-end' and event.get('required') and event.get('result') != 'ok'
+                    and event.get('reason_code') not in NEUTRAL_REASONS):
+                failed.add((event['step_id'], event['reason_code']))
+    return failed
+
+
+def assert_install_result(test, result, home, expected_failures=frozenset(), helper_verified=True,
+                          file_mode=True):
+    """Exact required-step failures and the exit code the installer must derive from them.
+
+    helper_verified: the helper installed, so verify.absolute ran and HOST_EDITION_GAP applies.
+    file_mode: a file run exits with INSTALL_RESULT; under `irm | iex` the session stays open,
+    the process exits 0 and the code is left in $global:IlsonInstallExitCode.
+    """
+    expected = set(expected_failures) | (set(HOST_EDITION_GAP) if helper_verified else set())
+    test.assertEqual(failed_required_steps(home), expected, result.stdout + result.stderr)
+    code = 1 if expected else 0
+    test.assertEqual(result.returncode, code if file_mode else 0, result.stdout + result.stderr)
+    test.assertIn('INSTALL_RESULT=%d' % code, result.stdout)
 
 
 def find_pwsh():
