@@ -490,8 +490,8 @@ PYWRAP
       helper_rc=$?
       # Fixed helper refusals by exit code (install_diagnostics.HELPER_REFUSALS, same text).
       case "$helper_rc" in
-        4) printf '%s\n' '학습 도우미: 관리 화면이 켜져 있어 설치를 멈췄습니다. 바뀐 파일은 없습니다. ilson admin stop 으로 관리 화면을 끈 뒤 설치 명령을 다시 실행해주세요.' ;;
-        5) printf '%s\n' '학습 도우미: 다른 설치가 진행 중이라 설치를 멈췄습니다. 바뀐 파일은 없습니다. 그 설치가 끝난 뒤 설치 명령을 다시 실행해주세요.' ;;
+        4) printf '%s\n' '학습 도우미: 관리 화면이 켜져 있어 설치를 멈췄습니다. 학습 도우미(일손 코드)는 바꾸지 않았습니다. ilson admin stop 으로 관리 화면을 끈 뒤 설치 명령을 다시 실행해주세요.' ;;
+        5) printf '%s\n' '학습 도우미: 다른 설치가 진행 중이라 설치를 멈췄습니다. 학습 도우미(일손 코드)는 바꾸지 않았습니다. 그 설치가 끝난 뒤 설치 명령을 다시 실행해주세요.' ;;
         6) printf '%s\n' '학습 도우미: 학습 도우미 파일이 배포본과 달라 설치를 멈췄습니다. 고친 파일을 지키기 위해 바꾸지 않았습니다. 강사에게 확인해주세요.' ;;
       esac
     fi

@@ -35,10 +35,11 @@ STAMP = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$')
 EXIT_SOURCES = {'none', 'native', 'curl', 'exception', 'installer', 'doctor'}
 # Fixed refusals of the course helper (course/install_payload.py REFUSAL_EXIT), keyed by its exit
 # code. Both course installers print the same text (a test compares them); the diagnostics event
-# keeps only the number. No paths or file names.
+# keeps only the number. No paths or file names. The helper files are what the refusal leaves
+# unchanged; earlier installer steps (Herdr, kit, vault, suggested rules) may already have run.
 HELPER_REFUSALS = {
-    4: ('ADMIN_RUNNING', '관리 화면이 켜져 있어 설치를 멈췄습니다. 바뀐 파일은 없습니다. ilson admin stop 으로 관리 화면을 끈 뒤 설치 명령을 다시 실행해주세요.'),
-    5: ('INSTALL_BUSY', '다른 설치가 진행 중이라 설치를 멈췄습니다. 바뀐 파일은 없습니다. 그 설치가 끝난 뒤 설치 명령을 다시 실행해주세요.'),
+    4: ('ADMIN_RUNNING', '관리 화면이 켜져 있어 설치를 멈췄습니다. 학습 도우미(일손 코드)는 바꾸지 않았습니다. ilson admin stop 으로 관리 화면을 끈 뒤 설치 명령을 다시 실행해주세요.'),
+    5: ('INSTALL_BUSY', '다른 설치가 진행 중이라 설치를 멈췄습니다. 학습 도우미(일손 코드)는 바꾸지 않았습니다. 그 설치가 끝난 뒤 설치 명령을 다시 실행해주세요.'),
     6: ('HELPER_MODIFIED', '학습 도우미 파일이 배포본과 달라 설치를 멈췄습니다. 고친 파일을 지키기 위해 바꾸지 않았습니다. 강사에게 확인해주세요.'),
 }
 

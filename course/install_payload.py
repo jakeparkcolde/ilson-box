@@ -20,9 +20,10 @@ RERUN_ELEVATED_HINT = ('관리자 권한 PowerShell에서 만든 파일 때문�
                        '마우스 오른쪽 버튼으로 눌러 「관리자로 실행」을 고른 뒤, 「관리자: Windows PowerShell」 창에서 설치 명령을 다시 실행해주세요: '
                        + WINDOWS_INSTALL_COMMAND + ' 설치가 끝나면 평소처럼 일반 PowerShell 창에서 계속하면 됩니다.')
 
-# Fixed reasons an install stops before it changes anything. The helper prints only the code
-# (HELPER_REFUSED=<code>) and exits with its number; the installers show the Korean line for the
-# number (install_diagnostics.HELPER_REFUSALS), because they drop the helper's stderr. 3 is the
+# Fixed reasons the helper install stops before it changes any helper file (earlier installer
+# steps may already have run). The helper prints only the code (HELPER_REFUSED=<code>) and exits
+# with its number; the installers show the Korean line for the number
+# (install_diagnostics.HELPER_REFUSALS), because they drop the helper's stderr. 3 is the
 # permission-denied exit above.
 REFUSAL_EXIT = {'ADMIN_RUNNING': 4, 'INSTALL_BUSY': 5, 'HELPER_MODIFIED': 6}
 
