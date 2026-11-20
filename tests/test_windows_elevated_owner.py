@@ -169,6 +169,18 @@ class CourseAdminRecoveryTests(unittest.TestCase):
             self.assertIn(launch.PERMISSION_MESSAGE, text); self.assertIn(expected, text)
             self.assertNotIn(str(self.private), text)
 
+    def test_license_elevated_owner_error_keeps_the_hint(self):
+        args = SimpleNamespace(command='start', home=self.private / 'home', vault=self.private, port=None, force=False)
+        def evaluate(home): raise course_license.ElevatedOwnerError()
+        with patch.dict(sys.modules, license=SimpleNamespace(evaluate=evaluate, ELEVATED_OWNER_HINT=HINT)), \
+                patch('builtins.print') as output:
+            self.assertEqual(launch.main(args), 1)
+        self.assertIn(launch.PERMISSION_MESSAGE, output.call_args.args[0]); self.assertIn(HINT, output.call_args.args[0])
+        with patch.dict(sys.modules, license=SimpleNamespace(evaluate=Mock(side_effect=ValueError('STORAGE_ERROR')), ELEVATED_OWNER_HINT=HINT)), \
+                patch('builtins.print') as output:
+            self.assertEqual(launch.main(args), 1)
+        self.assertNotIn(HINT, output.call_args.args[0])
+
     def test_child_exit_codes_map_to_one_cause_each(self):
         with patch.dict(sys.modules, license=SimpleNamespace(ELEVATED_OWNER_HINT=HINT)):
             self.assertEqual(launch.child_failure(launch.EXIT_PORT), launch.PORT_MESSAGE)
@@ -232,7 +244,9 @@ class LicenseHelperTests(unittest.TestCase):
         with patch.object(course_license.subprocess, 'run', return_value=self.completed(0)) as run:
             course_license.windows_acl(Path('C:/x/token'), create=True)
         env = run.call_args.kwargs['env']
-        self.assertEqual((env['ILSON_ACL_TARGET'], env['ILSON_ACL_CREATE']), (str(Path('C:/x/token')), '1'))
+        # Absolute, so the elevated route can compare it with the handle's final path.
+        self.assertEqual((env['ILSON_ACL_TARGET'], env['ILSON_ACL_CREATE']), (os.path.abspath(str(Path('C:/x/token'))), '1'))
+        self.assertEqual(env['ILSON_ACL_CS'], course_license.ACL_HANDLE_CS)
         self.assertEqual(run.call_args.args[0][:4], ['powershell.exe', '-NoProfile', '-NonInteractive', '-EncodedCommand'])
         with patch.object(course_license.subprocess, 'run', return_value=self.completed(3)):
             with self.assertRaises(course_license.ElevatedOwnerError) as caught: course_license.windows_acl('t')
@@ -246,26 +260,39 @@ class LicenseHelperTests(unittest.TestCase):
                 self.assertNotIsInstance(caught.exception, course_license.ElevatedOwnerError)
 
     def test_tree_result_is_parsed_strictly(self):
-        with patch.object(course_license.subprocess, 'run', return_value=self.completed(0, b'noise\r\nILSON_ACL 7 4 0 1 1 1\r\n')) as run:
+        with patch.object(course_license.subprocess, 'run', return_value=self.completed(0, b'noise\r\nILSON_ACL 7 4 0 1 1 2 1\r\n')) as run:
             counts = course_license.windows_tree([Path('C:/a'), Path('C:/b')], repair=True)
-        self.assertEqual(counts, {'checked': 7, 'repaired': 4, 'admin_owned': 0, 'no_access': 1, 'foreign': 1, 'skipped': 1})
+        self.assertEqual(counts, {'checked': 7, 'repaired': 4, 'admin_owned': 0, 'no_access': 1, 'foreign': 1, 'error': 2, 'skipped': 1})
         env = run.call_args.kwargs['env']
         self.assertEqual((env['ILSON_ACL_REPAIR'], env['ILSON_ACL_LIMIT']), ('1', '5000'))
-        self.assertEqual(env['ILSON_ACL_ROOTS'].split('\n'), [str(Path('C:/a')), str(Path('C:/b'))])
-        for out, code in ((b'ILSON_ACL 1 2 3', 0), (b'ILSON_ACL 1 2 3 4 5 x', 0), (b'ILSON_ACL 1 2 3 4 5 6', 1)):
+        self.assertEqual(env['ILSON_ACL_ROOTS'].split('\n'), [os.path.abspath(str(Path('C:/a'))), os.path.abspath(str(Path('C:/b')))])
+        for out, code in ((b'ILSON_ACL 1 2 3', 0), (b'ILSON_ACL 1 2 3 4 5 6', 0), (b'ILSON_ACL 1 2 3 4 5 6 x', 0),
+                          (b'ILSON_ACL 1 2 3 4 5 6 7', 1)):
             with self.subTest(out=out), patch.object(course_license.subprocess, 'run', return_value=self.completed(code, out)):
                 with self.assertRaises(ValueError): course_license.windows_tree(['C:/a'])
 
     def test_scripts_stay_ascii_for_windows_powershell(self):
+        course_license.ACL_HANDLE_CS.encode('ascii')
         for script in (course_license.ACL_PRIVATE_PS, course_license.ACL_TREE_PS):
             script.encode('ascii')
             self.assertIn('SetOwner($Me)', script)
             self.assertIn('SetAccessRuleProtection($true, $false)', script)
+            # CreateProcess caps the whole command line at 32,767 characters; keep a margin.
+            self.assertLess(len(base64.b64encode(script.encode('utf-16le'))), 28000)
+
+    def test_elevated_route_opens_without_following_links_and_sets_security_on_the_handle(self):
+        cs = course_license.ACL_HANDLE_CS
+        self.assertIn('0x02200000', cs)  # FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT
+        self.assertIn('0xE0080', cs)     # READ_CONTROL | WRITE_DAC | WRITE_OWNER | FILE_READ_ATTRIBUTES
+        self.assertIn('SetSecurityInfo(h, 1, info', cs)
+        self.assertNotIn('AdjustTokenPrivileges', cs)
+        guarded = course_license.ACL_VERDICT_PS.split('$handle = Open-IlsonHandle $Path', 1)[1].split('return $true', 1)[0]
+        self.assertNotIn('Set-Acl', guarded); self.assertNotIn('SetAccessControl', guarded)
 
 
 class InstallPayloadOwnerTests(unittest.TestCase):
     def test_windows_install_repairs_the_install_tree_after_success_failure_and_no_change(self):
-        tree = Mock(return_value={'checked': 3, 'repaired': 3, 'admin_owned': 0, 'no_access': 0, 'foreign': 0, 'skipped': 0})
+        tree = Mock(return_value={'checked': 3, 'repaired': 3, 'admin_owned': 0, 'no_access': 0, 'foreign': 0, 'error': 0, 'skipped': 0})
         with tempfile.TemporaryDirectory() as temp, patch.object(payload, 'IS_WINDOWS', True), \
                 patch.object(payload, 'acl_module', return_value=fake_license(tree=tree)), patch('builtins.print') as output:
             root = Path(temp).resolve() / 'ilson-course/lib'; root.mkdir(parents=True)
@@ -281,7 +308,7 @@ class InstallPayloadOwnerTests(unittest.TestCase):
         self.assertIn('HELPER_PERMISSIONS=ok', [c.args[0] for c in output.call_args_list])
 
     def test_left_or_unverified_permissions_are_reported_but_do_not_fail_the_install(self):
-        cases = ((Mock(return_value={'checked': 3, 'repaired': 0, 'admin_owned': 0, 'no_access': 2, 'foreign': 0, 'skipped': 0}), 'left'),
+        cases = ((Mock(return_value={'checked': 3, 'repaired': 0, 'admin_owned': 0, 'no_access': 2, 'foreign': 0, 'error': 0, 'skipped': 0}), 'left'),
                  (Mock(side_effect=ValueError('STORAGE_ERROR')), 'unverified'))
         for tree, state in cases:
             with self.subTest(state=state), tempfile.TemporaryDirectory() as temp, patch.object(payload, 'IS_WINDOWS', True), \
@@ -292,6 +319,17 @@ class InstallPayloadOwnerTests(unittest.TestCase):
                 self.assertIn('HELPER_PERMISSIONS=' + state, lines)
                 self.assertEqual(HINT in lines, state == 'left')
                 self.assertEqual(tree.call_args.args, ([root.parent],))
+
+    def test_failed_install_left_permissions_name_the_installer_rerun(self):
+        tree = Mock(return_value={'checked': 3, 'repaired': 0, 'admin_owned': 0, 'no_access': 2, 'foreign': 0, 'error': 0, 'skipped': 0})
+        with tempfile.TemporaryDirectory() as temp, patch.object(payload, 'IS_WINDOWS', True), \
+                patch.object(payload, 'acl_module', return_value=fake_license(tree=tree)), patch('builtins.print') as output:
+            root = Path(temp).resolve() / 'lib'; root.mkdir()
+            with self.assertRaises(RuntimeError): payload.install(root, sources(), verify=Mock(side_effect=RuntimeError('verify')))
+        lines = [c.args[0] for c in output.call_args_list]
+        self.assertIn('HELPER_PERMISSIONS=left', lines)
+        self.assertIn(payload.RERUN_ELEVATED_HINT, lines)
+        self.assertNotIn(HINT, lines)
 
     def test_posix_install_never_runs_the_windows_repair(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(payload, 'IS_WINDOWS', False), \
@@ -312,8 +350,13 @@ class InstallPayloadOwnerTests(unittest.TestCase):
                 patch('builtins.print') as output:
             with self.assertRaises(SystemExit) as caught: payload.main()
         self.assertEqual(caught.exception.code, 3)
-        self.assertTrue(output.call_args.args[0].startswith('HELPER_PERMISSION_DENIED: '))
-        self.assertIn('fix-permissions', output.call_args.args[0])
+        line = output.call_args.args[0]
+        self.assertTrue(line.startswith('HELPER_PERMISSION_DENIED: '))
+        # The helper left in place may predate --fix-permissions: name the elevated installer rerun.
+        self.assertNotIn('fix-permissions', line)
+        self.assertIn('「관리자: Windows PowerShell」', line)
+        self.assertIn(payload.WINDOWS_INSTALL_COMMAND, line)
+        self.assertIn(payload.WINDOWS_INSTALL_COMMAND, (ROOT / 'README.md').read_text(encoding='utf-8'))
         stream.buffer.seek(0)
         with patch.object(payload.sys, 'argv', ['install_payload.py', 'C:/lib']), patch.object(payload.sys, 'stdin', stream), \
                 patch.object(payload, 'install', side_effect=PermissionError(13, 'denied')), patch.object(payload, 'IS_WINDOWS', False):
@@ -348,7 +391,7 @@ class PublicBuildUpgradeTests(unittest.TestCase):
 
 class DoctorPermissionTests(unittest.TestCase):
     def counts(self, **values):
-        base = {'checked': 9, 'repaired': 0, 'admin_owned': 0, 'no_access': 0, 'foreign': 0, 'skipped': 0}
+        base = {'checked': 9, 'repaired': 0, 'admin_owned': 0, 'no_access': 0, 'foreign': 0, 'error': 0, 'skipped': 0}
         base.update(values); return base
 
     def test_states_lines_and_roots(self):
@@ -357,7 +400,7 @@ class DoctorPermissionTests(unittest.TestCase):
                 patch.dict(os.environ, {'LOCALAPPDATA': temp, 'ILSON_COURSE_STATE': str(Path(temp) / 'state')}), \
                 patch.dict(sys.modules, license=fake_license(tree=tree)):
             for values, state in (({}, 'ok'), ({'admin_owned': 4}, 'elevated_owner'), ({'no_access': 2, 'admin_owned': 1}, 'needs_admin'),
-                                  ({'foreign': 1}, 'foreign')):
+                                  ({'foreign': 1}, 'foreign'), ({'error': 2, 'skipped': 1}, 'incomplete')):
                 with self.subTest(state=state):
                     tree.return_value = self.counts(**values)
                     value = diag.windows_permissions()
@@ -366,6 +409,9 @@ class DoctorPermissionTests(unittest.TestCase):
                     self.assertEqual(bool(lines), state != 'ok')
                     if state in ('elevated_owner', 'needs_admin'): self.assertIn('ilson doctor --fix-permissions', lines[0])
                     if state == 'needs_admin': self.assertIn('관리자: Windows PowerShell', lines[0])
+                    if state == 'incomplete':
+                        self.assertNotIn('관리자', lines[0]); self.assertNotIn('강사', lines[0])
+                        self.assertEqual((value['error'], value['skipped']), (2, 1))
                     for line in lines: self.assertNotIn(temp, line)
             self.assertEqual(tree.call_args.args[0], [Path(temp) / 'ilson-course', Path(temp) / 'state'])
             self.assertEqual(tree.call_args.kwargs, {'repair': False})
@@ -420,12 +466,13 @@ function Get-Item { param([string]$LiteralPath, [switch]$Force)
         return $x }
     $item | Add-Member ScriptMethod SetAccessControl { param($x)
         if ($global:M[$x.P].denyset) { throw (New-Object UnauthorizedAccessException 'denied') }
-        $global:M[$x.P].owner = $x.Owner; 'ACT owner:' + $x.P }
+        $global:M[$x.P].owner = $x.Owner; [Console]::Out.WriteLine('ACT owner:' + $x.P) }
     return $item
 }
 function Get-Acl { param([string]$LiteralPath)
     $o = $global:M[$LiteralPath]
     if ($o.denied) { throw (New-Object UnauthorizedAccessException 'denied') }
+    if ($o.busy) { throw (New-Object IO.IOException 'sharing violation') }
     $acl = [pscustomobject]@{ O = $o.owner; R = @($o.rules); AreAccessRulesProtected = [bool]$o.protected }
     $acl | Add-Member ScriptMethod GetOwner { param($t) if ($this.O) { return [pscustomobject]@{ Value = $this.O } } return $null }
     $acl | Add-Member ScriptMethod GetAccessRules { param($a, $b, $t)
@@ -435,20 +482,49 @@ function Get-Acl { param([string]$LiteralPath)
     return $acl
 }
 function New-IlsonPrivateAcl($Item, $Me) { return [pscustomobject]@{ Me = $Me.Value } }
-function Set-Acl { param([string]$LiteralPath, $AclObject)
-    $o = $global:M[$LiteralPath]
+function Set-ModelPrivate([string]$Path, [string]$Me) {
+    $o = $global:M[$Path]
     if ($o.denyset) { throw (New-Object UnauthorizedAccessException 'denied') }
-    $o.owner = $AclObject.Me; $o.protected = $true; $o.rules = @([pscustomobject]@{ sid = $AclObject.Me; allow = $true })
-    foreach ($c in @($o.children)) { $child = $global:M[$c]; if ($child -and -not $child.protected) { $child.rules = @([pscustomobject]@{ sid = $AclObject.Me; allow = $true }) } }
-    'ACT private:' + $LiteralPath
+    $o.owner = $Me; $o.protected = $true; $o.rules = @([pscustomobject]@{ sid = $Me; allow = $true })
+    foreach ($c in @($o.children)) { $child = $global:M[$c]; if ($child -and -not $child.protected) { $child.rules = @([pscustomobject]@{ sid = $Me; allow = $true }) } }
+}
+function Set-Acl { param([string]$LiteralPath, $AclObject)
+    Set-ModelPrivate $LiteralPath $AclObject.Me
+    [Console]::Out.WriteLine('ACT private:' + $LiteralPath)
 }
 function Get-ChildItem { param([string]$LiteralPath, [switch]$Force)
     foreach ($c in @($global:M[$LiteralPath].children)) { [pscustomobject]@{ FullName = $c } } }
+# Elevated (guarded) route: the handle layer is modelled per node. h* fields describe what the
+# handle sees when it differs from the path read: a swapped path (hfinal), a reparse point
+# planted after Get-Item (hreparse), ACL changed in between (howner/hrules); links = hard links.
+function Test-IlsonGuarded { return $env:ACL_GUARDED -eq '1' }
+function Open-IlsonHandle([string]$Path) {
+    if (-not $global:M.ContainsKey($Path)) { throw (New-Object IO.IOException 'gone') }
+    if ($global:M[$Path].denied) { throw (New-Object UnauthorizedAccessException 'denied') }
+    if ($Path -eq $env:ACL_VANISH) { throw (New-Object IO.FileNotFoundException 'gone') }
+    [Console]::Out.WriteLine('OPEN ' + $Path)
+    return [pscustomobject]@{ P = $Path }
+}
+function Close-IlsonHandle($Handle) { [Console]::Out.WriteLine('CLOSE ' + $Handle.P) }
+function Get-IlsonHandleState($Handle, [bool]$Container) {
+    $o = $global:M[$Handle.P]
+    $final = $Handle.P; if ($o.hfinal) { $final = $o.hfinal }
+    $owner = $o.owner; if ($o.howner) { $owner = $o.howner }
+    $rules = @($o.rules); if ($o.hrules) { $rules = @($o.hrules) }
+    return @{ Reparse = [bool]($o.reparse -or $o.hreparse); Links = [int]$o.links; Final = '\\?\' + $final
+              Facts = @{ Owner = $owner; Rules = $rules; Protected = [bool]$o.protected } }
+}
+function Set-IlsonHandleSecurity($Handle, $Me, $Acl) {
+    if ($Acl) { Set-ModelPrivate $Handle.P $Acl.Me; [Console]::Out.WriteLine('ACT hprivate:' + $Handle.P); return }
+    $global:M[$Handle.P].owner = $Me.Value; [Console]::Out.WriteLine('ACT howner:' + $Handle.P)
+}
 '''
 
     def node(self, path, owner, rules, dir=False, protected=False, children=(), **flags):
         value = {'path': path, 'owner': owner, 'rules': [{'sid': s, 'allow': a} for s, a in rules], 'dir': dir,
-                 'protected': protected, 'children': list(children), 'reparse': False, 'denied': False, 'denyset': False}
+                 'protected': protected, 'children': list(children), 'reparse': False, 'denied': False, 'denyset': False,
+                 'busy': False, 'links': 1}
+        if 'hrules' in flags: flags['hrules'] = [{'sid': s, 'allow': a} for s, a in flags['hrules']]
         value.update(flags); return value
 
     def run_script(self, script, model, **env):
@@ -458,7 +534,11 @@ function Get-ChildItem { param([string]$LiteralPath, [switch]$Force)
         result = subprocess.run([PWSH, '-NoProfile', '-NonInteractive', '-Command', body], capture_output=True, text=True,
                                 timeout=60, stdin=subprocess.DEVNULL,
                                 env=dict(os.environ, ACL_MODEL=json.dumps(model), ACL_ME=ME, **env))
-        result.actions = [line[4:] for line in result.stdout.splitlines() if line.startswith('ACT ')]
+        lines = result.stdout.splitlines()
+        result.actions = [line[4:] for line in lines if line.startswith('ACT ')]
+        # Every handle the guarded route opens is closed again, whatever it decided.
+        self.assertEqual(sorted(l[5:] for l in lines if l.startswith('OPEN ')), sorted(l[6:] for l in lines if l.startswith('CLOSE ')))
+        result.opened = [l[5:] for l in lines if l.startswith('OPEN ')]
         return result
 
     def test_scripts_parse_without_errors(self):
@@ -479,7 +559,17 @@ function Get-ChildItem { param([string]$LiteralPath, [switch]$Force)
             ("Get-IlsonPrivateVerdict '%s' @(@{Sid='%s';Allow=$true},@{Sid='%s';Allow=$true}) '%s'" % (ME, ME, SY, ME), 'repair'),
             ("Get-IlsonPrivateVerdict '' @() '%s'" % ME, 'denied'),
             ("Get-IlsonTreeVerdict '%s' @(@{Sid='%s';Allow=$true},@{Sid='S-1-1-0';Allow=$true}) '%s' $false" % (ME, ME, ME), 'ok'),
-            ("Get-IlsonTreeVerdict '%s' @(@{Sid='%s';Allow=$true},@{Sid='S-1-5-32-545';Allow=$true}) '%s' $false" % (BA, ME, ME), 'fix-owner'),
+            ("Get-IlsonTreeVerdict '%s' @(@{Sid='%s';Allow=$true},@{Sid='%s';Allow=$true},@{Sid='%s';Allow=$true}) '%s' $false" % (BA, ME, SY, BA, ME), 'fix-owner'),
+            # S1: an Administrators-owned object with a foreign grant or any Deny entry is left alone.
+            ("Get-IlsonTreeVerdict '%s' @(@{Sid='%s';Allow=$true},@{Sid='S-1-5-32-545';Allow=$true}) '%s' $false" % (BA, ME, ME), 'foreign'),
+            ("Get-IlsonTreeVerdict '%s' @(@{Sid='%s';Allow=$false},@{Sid='S-1-1-0';Allow=$true}) '%s' $false" % (BA, ME, ME), 'foreign'),
+            ("Get-IlsonTreeVerdict '%s' @(@{Sid='%s';Allow=$true},@{Sid='%s';Allow=$false}) '%s' $false" % (BA, ME, SY, ME), 'foreign'),
+            ("Get-IlsonTreeVerdict '%s' @(@{Sid='%s';Allow=$true},@{Sid='%s';Allow=$true}) '%s' $false" % (BA, ME, OTHER, ME), 'foreign'),
+            # S2: Python 3.13+ mkdir(0o700) in a normal window (CPython SDDL D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;OW)).
+            ("Get-IlsonTreeVerdict '%s' @(@{Sid='%s';Allow=$true},@{Sid='%s';Allow=$true},@{Sid='S-1-3-4';Allow=$true}) '%s' $true" % (ME, SY, BA, ME), 'ok'),
+            ("Get-IlsonTreeVerdict '%s' @(@{Sid='%s';Allow=$true},@{Sid='%s';Allow=$true},@{Sid='S-1-3-4';Allow=$true}) '%s' $false" % (ME, SY, BA, ME), 'ok'),
+            # OWNER RIGHTS grants the owner, so under an Administrators owner the user still has no entry.
+            ("Get-IlsonTreeVerdict '%s' @(@{Sid='%s';Allow=$true},@{Sid='%s';Allow=$true},@{Sid='S-1-3-4';Allow=$true}) '%s' $true" % (BA, SY, BA, ME), 'fix-private'),
             ("Get-IlsonTreeVerdict '%s' @(@{Sid='%s';Allow=$true},@{Sid='%s';Allow=$true}) '%s' $true" % (BA, SY, BA, ME), 'fix-private'),
             ("Get-IlsonTreeVerdict '%s' @(@{Sid='S-1-5-32-545';Allow=$true}) '%s' $true" % (BA, ME), 'foreign'),
             ("Get-IlsonTreeVerdict '%s' @(@{Sid='%s';Allow=$true}) '%s' $false" % (OTHER, ME, ME), 'foreign'),
@@ -533,7 +623,8 @@ function Get-ChildItem { param([string]$LiteralPath, [switch]$Force)
         self.assertEqual(result.returncode, 0, result.stderr)
         lines = result.stdout.splitlines()
         # checked repaired admin no_access foreign skipped
-        self.assertIn('ILSON_ACL 7 4 0 1 1 2', lines)
+        self.assertIn('ILSON_ACL 7 4 0 1 1 0 2', lines)
+        self.assertEqual(result.opened, [])  # a normal window never takes the handle route
         log = result.actions
         self.assertEqual(sorted(log), sorted(['owner:' + root, 'owner:' + root + '\\lib\\a.py', 'private:' + root + '\\web',
                                               'owner:' + root + '\\web\\course.html']))
@@ -543,12 +634,124 @@ function Get-ChildItem { param([string]$LiteralPath, [switch]$Force)
     def test_tree_scan_changes_nothing_and_respects_the_limit(self):
         root, model = self.model()
         result = self.run_script(course_license.ACL_TREE_PS, model, ILSON_ACL_ROOTS=root, ILSON_ACL_REPAIR='0', ILSON_ACL_LIMIT='5000')
-        self.assertIn('ILSON_ACL 7 0 4 1 1 2', result.stdout.splitlines(), result.stderr)
+        self.assertIn('ILSON_ACL 7 0 4 1 1 0 2', result.stdout.splitlines(), result.stderr)
         self.assertEqual(result.actions, [])
         result = self.run_script(course_license.ACL_TREE_PS, model, ILSON_ACL_ROOTS=root, ILSON_ACL_REPAIR='0', ILSON_ACL_LIMIT='2')
         counts = next(line for line in result.stdout.splitlines() if line.startswith('ILSON_ACL ')).split()[1:]
         self.assertEqual(counts[0], '2')
-        self.assertGreater(int(counts[5]), 0)
+        self.assertGreater(int(counts[6]), 0)
+        root, model = self.model(); model[1]['busy'] = True  # lib: sharing violation, not a permission verdict
+        result = self.run_script(course_license.ACL_TREE_PS, model, ILSON_ACL_ROOTS=root, ILSON_ACL_REPAIR='0', ILSON_ACL_LIMIT='5000')
+        self.assertIn('ILSON_ACL 6 0 3 1 1 1 2', result.stdout.splitlines(), result.stderr)
+
+    def tree(self, model, root, guarded):
+        result = self.run_script(course_license.ACL_TREE_PS, model, ILSON_ACL_ROOTS=root, ILSON_ACL_REPAIR='1',
+                                 ILSON_ACL_LIMIT='5000', ACL_GUARDED='1' if guarded else '0')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result.counts = next(line for line in result.stdout.splitlines() if line.startswith('ILSON_ACL ')).split()[1:]
+        return result
+
+    def test_normal_window_python_private_folders_count_as_the_users_own(self):
+        r = 'C:\\state'
+        model = [self.node(r, ME, [(ME, True), (SY, True), (BA, True)], dir=True, children=[r + '\\usage-timeline']),
+                 self.node(r + '\\usage-timeline', ME, [(SY, True), (BA, True), ('S-1-3-4', True)], dir=True, protected=True,
+                           children=[r + '\\usage-timeline\\2026-11.json']),
+                 self.node(r + '\\usage-timeline\\2026-11.json', ME, [(SY, True), (BA, True), ('S-1-3-4', True)])]
+        result = self.run_script(course_license.ACL_TREE_PS, model, ILSON_ACL_ROOTS=r, ILSON_ACL_REPAIR='0', ILSON_ACL_LIMIT='5000')
+        self.assertIn('ILSON_ACL 3 0 0 0 0 0 0', result.stdout.splitlines(), result.stderr)
+        for guarded in (False, True):
+            self.assertEqual((self.tree(model, r, guarded).actions), [])
+
+    def test_foreign_grant_or_deny_on_an_administrators_object_is_left_alone(self):
+        r = 'C:\\ilson-course'
+        for rules in ([(ME, True), ('S-1-5-32-545', True)], [(ME, True), ('S-1-1-0', False)], [(ME, False), (SY, True)]):
+            model = [self.node(r, ME, [(ME, True)], dir=True, children=[r + '\\x']), self.node(r + '\\x', BA, rules)]
+            for guarded in (False, True):
+                with self.subTest(rules=rules, guarded=guarded):
+                    result = self.tree(model, r, guarded)
+                    self.assertEqual(result.actions, [])
+                    self.assertEqual(result.counts, ['2', '0', '0', '0', '1', '0', '0'])
+
+    def test_elevated_repair_acts_on_the_handle_and_matches_the_normal_route(self):
+        root, model = self.model()
+        result = self.tree(model, root, True)
+        self.assertEqual(result.counts, ['7', '4', '0', '1', '1', '0', '2'])
+        self.assertEqual(sorted(result.actions), sorted(['howner:' + root, 'howner:' + root + '\\lib\\a.py', 'hprivate:' + root + '\\web',
+                                                         'howner:' + root + '\\web\\course.html']))
+        self.assertLess(result.actions.index('hprivate:' + root + '\\web'), result.actions.index('howner:' + root + '\\web\\course.html'))
+        self.assertFalse(any('other' in entry or 'link' in entry for entry in result.opened))
+
+    def test_elevated_repair_refuses_hard_links_swapped_paths_and_changed_acls(self):
+        root = 'C:\\ilson-course'
+        inherit = [(ME, True), (SY, True), (BA, True)]
+        cases = {
+            # Second name for a file outside the tree (hard link): skipped, counted as left alone.
+            'hard link': (dict(links=2), ['2', '0', '0', '0', '1', '0', '0']),
+            # lib was swapped for a junction after it was listed: the handle resolves elsewhere.
+            'junction swap': (dict(hfinal='C:\\Program Files\\Vendor\\a.py'), ['2', '0', '0', '0', '1', '0', '0']),
+            # Same name, but the handle shows a reparse point planted after Get-Item.
+            'reparse after check': (dict(hreparse=True), ['2', '0', '0', '0', '1', '0', '0']),
+            # ACL changed between the path read and the handle (foreign grant appeared).
+            'acl changed': (dict(hrules=[(ME, True), ('S-1-1-0', True)]), ['2', '0', '0', '0', '1', '0', '0']),
+            # Object vanished before the handle opened.
+            'gone at open': (dict(vanish=True), ['2', '0', '0', '0', '0', '1', '0']),
+        }
+        for name, (flags, counts) in cases.items():
+            with self.subTest(case=name):
+                flags = dict(flags); vanish = flags.pop('vanish', False)
+                model = [self.node(root, ME, [(ME, True)], dir=True, children=[root + '\\a.py']),
+                         self.node(root + '\\a.py', BA, inherit, **flags)]
+                result = self.run_script(course_license.ACL_TREE_PS, model, ILSON_ACL_ROOTS=root, ILSON_ACL_REPAIR='1',
+                                         ILSON_ACL_LIMIT='5000', ACL_GUARDED='1', ACL_VANISH=root + '\\a.py' if vanish else '')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.actions, [])
+                self.assertEqual(next(l for l in result.stdout.splitlines() if l.startswith('ILSON_ACL ')).split()[1:], counts)
+        # A swapped directory is not descended into either.
+        model = [self.node(root, ME, [(ME, True)], dir=True, children=[root + '\\lib']),
+                 self.node(root + '\\lib', BA, inherit, dir=True, children=[root + '\\lib\\a.py'], hfinal='C:\\Windows\\System32'),
+                 self.node(root + '\\lib\\a.py', BA, inherit)]
+        result = self.tree(model, root, True)
+        self.assertEqual(result.actions, [])
+        self.assertEqual(result.counts, ['2', '0', '0', '0', '1', '0', '0'])
+        self.assertNotIn(root + '\\lib\\a.py', result.opened)
+
+    def test_elevated_private_check_uses_the_handle_and_refuses_redirects(self):
+        target = 'C:\\state\\web-admin\\token'
+        cases = [
+            (dict(owner=BA, rules=[(ME, True)]), '0', '0', ['hprivate:' + target]),
+            (dict(owner=OTHER, rules=[(OTHER, True)]), '1', '0', ['hprivate:' + target]),  # create: new mkstemp file
+            (dict(owner=BA, rules=[(ME, True)], links=2), '0', '1', []),
+            (dict(owner=BA, rules=[(ME, True)], links=2), '1', '1', []),
+            (dict(owner=BA, rules=[(ME, True)], hfinal='C:\\ProgramData\\Vendor\\cfg'), '1', '1', []),
+            (dict(owner=BA, rules=[(ME, True)], hreparse=True), '0', '1', []),
+            (dict(owner=BA, rules=[(ME, True)], hrules=[(ME, True), ('S-1-1-0', True)]), '0', '1', []),
+            (dict(owner=BA, rules=[(ME, True)], howner=OTHER), '0', '1', []),
+            (dict(owner=ME, rules=[(ME, True)]), '0', '0', []),  # already private: no handle at all
+        ]
+        for values, create, code, log in cases:
+            with self.subTest(values=values, create=create):
+                values = dict(values); owner, rules = values.pop('owner'), values.pop('rules')
+                result = self.run_script(course_license.ACL_PRIVATE_PS, [self.node(target, owner, rules, **values)],
+                                         ILSON_ACL_TARGET=target, ILSON_ACL_CREATE=create, ACL_GUARDED='1')
+                self.assertEqual(str(result.returncode), code, result.stderr)
+                self.assertEqual(result.actions, log)
+                self.assertFalse(any(a.startswith('private:') for a in result.actions))  # never Set-Acl by path
+
+    def test_handle_helper_compiles_and_paths_compare_without_following_names(self):
+        body = course_license.ACL_VERDICT_PS + r'''
+Add-Type -TypeDefinition $env:ILSON_ACL_CS
+[IlsonAclHandle].FullName
+ConvertTo-IlsonLongPath 'C:\a\b'
+ConvertTo-IlsonLongPath '\\srv\s\x'
+Test-IlsonSamePath '\\?\C:\Users\Me\AppData\Local\ilson-course\WEB' 'c:\users\me\appdata\local\ilson-course\web'
+Test-IlsonSamePath '\\?\C:\Program Files\Vendor' 'C:\Users\Me\AppData\Local\ilson-course\web'
+Test-IlsonSamePath '\\?\UNC\srv\s\x' '\\srv\s\x'
+Test-IlsonSamePath '\\?\C:\a\bc' 'C:\a\b'
+'''
+        result = subprocess.run([PWSH, '-NoProfile', '-NonInteractive', '-Command', body], capture_output=True, text=True,
+                                timeout=120, stdin=subprocess.DEVNULL, env=dict(os.environ, ILSON_ACL_CS=course_license.ACL_HANDLE_CS))
+        self.assertEqual(result.stdout.split(), ['IlsonAclHandle', '\\\\?\\C:\\a\\b', '\\\\?\\UNC\\srv\\s\\x',
+                                                 'True', 'False', 'True', 'False'], result.stderr)
 
 
 if __name__ == '__main__':
