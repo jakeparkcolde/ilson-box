@@ -31,13 +31,11 @@ REFUSAL_EXIT = {'ADMIN_RUNNING': 4, 'INSTALL_BUSY': 5, 'HELPER_MODIFIED': 6}
 
 # What a non-blocking lock reports when another process holds it: flock EWOULDBLOCK/EAGAIN,
 # msvcrt.locking EACCES (or EDEADLOCK). Any other OSError is a real I/O failure and keeps its own
-# reason (review D23 note 4).
-LOCK_HELD = ({errno.EACCES, getattr(errno, 'EDEADLOCK', errno.EDEADLK)} if os.name == 'nt'
-             else {errno.EWOULDBLOCK, errno.EAGAIN})
-
-
+# reason (review D23 note 4). Decided per call, like the lock branch itself.
 def lock_held(exc):
-    return isinstance(exc, BlockingIOError) or getattr(exc, 'errno', None) in LOCK_HELD
+    held = ({errno.EACCES, getattr(errno, 'EDEADLOCK', errno.EDEADLK)} if os.name == 'nt'
+            else {errno.EWOULDBLOCK, errno.EAGAIN})
+    return isinstance(exc, BlockingIOError) or getattr(exc, 'errno', None) in held
 
 
 class Refusal(ValueError):
