@@ -237,6 +237,8 @@ def main(args):
         print(permission_message(error.elevated));return 1
     except PermissionError:
         print(permission_message(False));return 1
-    except (OSError,ValueError):
+    except (OSError,ValueError) as error:
+        # license.ElevatedOwnerError (from evaluate) carries no class we import here.
+        if str(error)=='ELEVATED_OWNER': print(permission_message(True));return 1
         # Messages are fixed local strings; never include subprocess output or URLs.
         print('관리 화면을 처리하지 못했습니다. ilson admin status 또는 ilson doctor로 확인하세요.');return 1
