@@ -377,8 +377,9 @@ def windows_permissions(repair=False):
     if counts['no_access']: state = 'needs_admin'
     elif counts['foreign']: state = 'foreign'
     elif counts['admin_owned']: state = 'elevated_owner'
+    elif counts['error']: state = 'incomplete'
     else: state = 'ok'
-    return dict(state=state, **{key: counts[key] for key in ('checked', 'repaired', 'admin_owned', 'no_access', 'foreign')})
+    return dict(state=state, **{key: counts[key] for key in ('checked', 'repaired', 'admin_owned', 'no_access', 'foreign', 'error', 'skipped')})
 
 
 def permission_lines(value):
@@ -389,6 +390,9 @@ def permission_lines(value):
         return ['권한 점검: 지금 창에서 열 수 없는 항목 %d개(관리자 권한 설치의 흔적). 「관리자: Windows PowerShell」을 열고 ilson doctor --fix-permissions 를 실행해주세요.' % value['no_access']]
     if state == 'foreign':
         return ['권한 점검: 다른 사용자 소유이거나 다른 계정에 열린 항목 %d개는 고치지 않았습니다. 강사에게 확인해주세요.' % value['foreign']]
+    if state == 'incomplete':
+        # IO errors, sharing violations, long paths: not a permission verdict, so no admin advice.
+        return ['권한 점검: 사용 중이거나 경로가 너무 길어 확인하지 못한 항목 %d개가 있습니다. 열린 프로그램을 닫고 다시 실행해주세요.' % value['error']]
     if state == 'unknown':
         return ['권한 점검: 파일 소유자를 확인하지 못했습니다(Windows PowerShell ACL 사용 불가).']
     return []

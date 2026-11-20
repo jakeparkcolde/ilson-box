@@ -174,11 +174,92 @@ class ElevatedOwnerError(ValueError):
         super().__init__('ELEVATED_OWNER')
 
 
-# Shared by the private check and the tree repair. Pure functions, so tests can run them
-# under pwsh on any host. Trusted owners: this user or BUILTIN\Administrators (the default
-# owner of everything an elevated token creates). Trusted grants: this user, SYSTEM,
-# Administrators, CREATOR OWNER, OWNER RIGHTS (Python 3.13+ mkdir(0o700) uses the last three).
-# A file owned by another real user, or one granting anybody else, is never repaired.
+# Shared by the private check and the tree repair. The verdicts are pure functions, so tests
+# can run them under pwsh on any host. Trusted owners: this user or BUILTIN\Administrators (the
+# default owner of everything an elevated token creates). Trusted grants (Allow only): this user,
+# SYSTEM, Administrators, CREATOR OWNER, OWNER RIGHTS (Python 3.13+ mkdir(0o700) uses the last
+# three). A file owned by another real user, one granting anybody else or one with a Deny entry
+# is never repaired, by either script.
+#
+# Elevated tokens hold privileges a same-user process could borrow by swapping a path that was
+# already checked (junction, hard link). An elevated token therefore never changes an object by
+# path: it opens a handle that does not follow reparse points, checks that the handle is still
+# the object at the checked path (final path, one link, no reparse point, same verdict) and sets
+# owner/DACL on that handle. A normal token keeps the plain path route: it has no privilege a
+# redirect could borrow, and it does not pay for compiling the handle helper.
+# C# for the elevated handle route. It travels in ILSON_ACL_CS, not in the encoded command,
+# which must stay under the 32,767-character command-line limit.
+ACL_HANDLE_CS = r'''
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Text;
+using Microsoft.Win32.SafeHandles;
+public static class IlsonAclHandle {
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern SafeFileHandle CreateFileW(string name, uint access, uint share, IntPtr sa, uint disposition, uint flags, IntPtr template);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool GetFileInformationByHandle(SafeFileHandle h, [Out] uint[] info);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    static extern uint GetFinalPathNameByHandleW(SafeFileHandle h, StringBuilder path, uint size, uint flags);
+    [DllImport("advapi32.dll")]
+    static extern uint GetSecurityInfo(SafeFileHandle h, int type, uint info, out IntPtr owner, out IntPtr group, out IntPtr dacl, out IntPtr sacl, out IntPtr sd);
+    [DllImport("advapi32.dll")]
+    static extern uint SetSecurityInfo(SafeFileHandle h, int type, uint info, byte[] owner, byte[] group, byte[] dacl, byte[] sacl);
+    [DllImport("advapi32.dll")]
+    static extern uint GetSecurityDescriptorLength(IntPtr sd);
+    [DllImport("kernel32.dll")]
+    static extern IntPtr LocalFree(IntPtr p);
+    static void Fail(int code) {
+        if (code == 5) { throw new UnauthorizedAccessException(); }
+        throw new IOException("ILSON_WIN32_" + code);
+    }
+    public static SafeFileHandle Open(string path) {
+        // READ_CONTROL|WRITE_DAC|WRITE_OWNER|FILE_READ_ATTRIBUTES, share all, OPEN_EXISTING,
+        // FILE_FLAG_BACKUP_SEMANTICS (directories)|FILE_FLAG_OPEN_REPARSE_POINT (never follow).
+        SafeFileHandle h = CreateFileW(path, 0xE0080, 7, IntPtr.Zero, 3, 0x02200000, IntPtr.Zero);
+        if (h.IsInvalid) { int code = Marshal.GetLastWin32Error(); h.Dispose(); Fail(code); }
+        return h;
+    }
+    public static uint[] Info(SafeFileHandle h) {
+        uint[] info = new uint[13];
+        if (!GetFileInformationByHandle(h, info)) { Fail(Marshal.GetLastWin32Error()); }
+        return new uint[] { info[0], info[10] };
+    }
+    public static string FinalPath(SafeFileHandle h) {
+        StringBuilder text = new StringBuilder(32768);
+        uint n = GetFinalPathNameByHandleW(h, text, 32768, 0);
+        if (n == 0 || n >= 32768) { Fail(Marshal.GetLastWin32Error()); }
+        return text.ToString();
+    }
+    public static byte[] Read(SafeFileHandle h) {
+        IntPtr o, g, d, s, sd;
+        uint code = GetSecurityInfo(h, 1, 5, out o, out g, out d, out s, out sd);
+        if (code != 0) { Fail((int)code); }
+        try {
+            byte[] bytes = new byte[GetSecurityDescriptorLength(sd)];
+            Marshal.Copy(sd, bytes, 0, bytes.Length);
+            return bytes;
+        } finally { LocalFree(sd); }
+    }
+    public static void Apply(SafeFileHandle h, byte[] descriptor, bool dacl) {
+        RawSecurityDescriptor raw = new RawSecurityDescriptor(descriptor, 0);
+        byte[] owner = new byte[raw.Owner.BinaryLength];
+        raw.Owner.GetBinaryForm(owner, 0);
+        byte[] list = null;
+        uint info = 1;
+        if (dacl) {
+            list = new byte[raw.DiscretionaryAcl.BinaryLength];
+            raw.DiscretionaryAcl.GetBinaryForm(list, 0);
+            info = 0x80000005;
+        }
+        uint code = SetSecurityInfo(h, 1, info, owner, null, list, null);
+        if (code != 0) { Fail((int)code); }
+    }
+}
+'''
+
 ACL_VERDICT_PS = r'''
 function Test-IlsonTrustedGrants($Rules, [string]$Me) {
     $trusted = @($Me, 'S-1-5-18', 'S-1-5-32-544', 'S-1-3-0', 'S-1-3-4')
@@ -198,13 +279,13 @@ function Get-IlsonPrivateVerdict([string]$Owner, $Rules, [string]$Me) {
 function Get-IlsonTreeVerdict([string]$Owner, $Rules, [string]$Me, [bool]$Protected) {
     $rules = @($Rules)
     if (-not $Owner) { return 'denied' }
-    $hasMe = @($rules | Where-Object { $_.Sid -eq $Me -and $_.Allow }).Count -gt 0
+    # OWNER RIGHTS grants the owner: Python 3.13+ mkdir(0o700) in a normal window gives
+    # owner = this user and a protected SY/BA/OW DACL. That is the user's own folder.
+    $hasMe = @($rules | Where-Object { $_.Allow -and ($_.Sid -eq $Me -or ($Owner -eq $Me -and $_.Sid -eq 'S-1-3-4')) }).Count -gt 0
     if ($Owner -eq $Me -and $hasMe) { return 'ok' }
     if ($Owner -ne $Me -and $Owner -ne 'S-1-5-32-544') { return 'foreign' }
-    if ($Protected) {
-        if (-not (Test-IlsonTrustedGrants $rules $Me)) { return 'foreign' }
-        return 'fix-private'
-    }
+    if (-not (Test-IlsonTrustedGrants $rules $Me)) { return 'foreign' }
+    if ($Protected) { return 'fix-private' }
     return 'fix-owner'
 }
 function Get-IlsonAclFacts($Acl) {
@@ -230,6 +311,68 @@ function New-IlsonPrivateAcl($Item, $Me) {
     $acl.AddAccessRule($rule)
     return $acl
 }
+function Test-IlsonGuarded {
+    $principal = New-Object Security.Principal.WindowsPrincipal ([Security.Principal.WindowsIdentity]::GetCurrent())
+    return ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) -or
+            $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::BackupOperator))
+}
+function ConvertTo-IlsonLongPath([string]$Path) {
+    if ($Path.StartsWith('\\?\')) { return $Path }
+    if ($Path.StartsWith('\\')) { return '\\?\UNC\' + $Path.Substring(2) }
+    return '\\?\' + $Path
+}
+function Test-IlsonSamePath([string]$Final, [string]$Path) {
+    if ($Final.StartsWith('\\?\UNC\')) { $Final = '\\' + $Final.Substring(8) }
+    elseif ($Final.StartsWith('\\?\')) { $Final = $Final.Substring(4) }
+    return $Final.TrimEnd('\') -ieq $Path.TrimEnd('\')
+}
+function Open-IlsonHandle([string]$Path) {
+    if (-not ('IlsonAclHandle' -as [type])) { $null = Add-Type -TypeDefinition $env:ILSON_ACL_CS }
+    return [IlsonAclHandle]::Open((ConvertTo-IlsonLongPath $Path))
+}
+function Close-IlsonHandle($Handle) { $Handle.Dispose() }
+function Get-IlsonHandleState($Handle, [bool]$Container) {
+    $info = [IlsonAclHandle]::Info($Handle)
+    if ($Container) { $acl = New-Object Security.AccessControl.DirectorySecurity } else { $acl = New-Object Security.AccessControl.FileSecurity }
+    $acl.SetSecurityDescriptorBinaryForm([IlsonAclHandle]::Read($Handle))
+    return @{ Reparse = (($info[0] -band 0x400) -ne 0); Links = [int]$info[1]; Final = [IlsonAclHandle]::FinalPath($Handle); Facts = (Get-IlsonAclFacts $acl) }
+}
+function Set-IlsonHandleSecurity($Handle, $Me, $Acl) {
+    if ($Acl) { [IlsonAclHandle]::Apply($Handle, $Acl.GetSecurityDescriptorBinaryForm(), $true); return }
+    $owner = New-Object Security.AccessControl.FileSecurity
+    $owner.SetOwner($Me)
+    [IlsonAclHandle]::Apply($Handle, $owner.GetSecurityDescriptorBinaryForm(), $false)
+}
+function Test-IlsonVerdict($Facts, [string]$Me, [string]$Kind, [string]$Want) {
+    if (-not $Want) { return $true }
+    if ($Kind -eq 'private') { $verdict = Get-IlsonPrivateVerdict $Facts.Owner $Facts.Rules $Me }
+    else { $verdict = Get-IlsonTreeVerdict $Facts.Owner $Facts.Rules $Me $Facts.Protected }
+    return $verdict -eq $Want
+}
+# Want '' = a new object (create), 'repair'/'fix-private' = owner + user-only DACL, 'fix-owner' = owner only.
+# Returns $false, changing nothing, when the guarded checks refuse the object.
+function Invoke-IlsonChange([string]$Path, $Item, $Me, [string]$Kind, [string]$Want, [bool]$Guarded) {
+    $acl = $null
+    if ($Want -ne 'fix-owner') { $acl = New-IlsonPrivateAcl $Item $Me }
+    if (-not $Guarded) {
+        if ($acl) { $null = Set-Acl -LiteralPath $Path -AclObject $acl }
+        else {
+            # Owner only. The inherited DACL stays exactly as it is.
+            $owner = $Item.GetAccessControl([Security.AccessControl.AccessControlSections]::Owner)
+            $owner.SetOwner($Me)
+            $null = $Item.SetAccessControl($owner)
+        }
+        return $true
+    }
+    $handle = Open-IlsonHandle $Path
+    try {
+        $state = Get-IlsonHandleState $handle ([bool]$Item.PSIsContainer)
+        if ($state.Reparse -or $state.Links -gt 1 -or -not (Test-IlsonSamePath $state.Final $Path)) { return $false }
+        if (-not (Test-IlsonVerdict $state.Facts $Me.Value $Kind $Want)) { return $false }
+        $null = Set-IlsonHandleSecurity $handle $Me $acl
+    } finally { $null = Close-IlsonHandle $handle }
+    return $true
+}
 function Test-IlsonDenied($Record) {
     $e = $Record.Exception
     while ($e) {
@@ -248,15 +391,16 @@ try {
     $me = [Security.Principal.WindowsIdentity]::GetCurrent().User
     $item = Get-Item -LiteralPath $p -Force
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { exit 1 }
+    $want = ''
     if ($env:ILSON_ACL_CREATE -ne '1') {
         $facts = Get-IlsonAclFacts (Get-Acl -LiteralPath $p)
-        $verdict = Get-IlsonPrivateVerdict $facts.Owner $facts.Rules $me.Value
-        if ($verdict -eq 'ok') { exit 0 }
-        if ($verdict -eq 'denied') { exit 3 }
-        if ($verdict -ne 'repair') { exit 1 }
+        $want = Get-IlsonPrivateVerdict $facts.Owner $facts.Rules $me.Value
+        if ($want -eq 'ok') { exit 0 }
+        if ($want -eq 'denied') { exit 3 }
+        if ($want -ne 'repair') { exit 1 }
     }
     # Same as the license lock: owner = this user even in an elevated token, user-only DACL.
-    Set-Acl -LiteralPath $p -AclObject (New-IlsonPrivateAcl $item $me)
+    if (-not (Invoke-IlsonChange $p $item $me 'private' $want (Test-IlsonGuarded))) { exit 1 }
     $facts = Get-IlsonAclFacts (Get-Acl -LiteralPath $p)
     if ((Get-IlsonPrivateVerdict $facts.Owner $facts.Rules $me.Value) -ne 'ok') { exit 1 }
     exit 0
@@ -267,13 +411,16 @@ try {
 '''
 
 # Walks the given roots (never through reparse points). Prints one line of counts:
-# checked repaired admin_owned no_access foreign skipped
+# checked repaired admin_owned no_access foreign error skipped
+# foreign also counts objects the guarded (elevated) route refused: a second hard link, a path
+# that no longer leads to the checked object, or a verdict that changed in between.
 ACL_TREE_PS = ACL_VERDICT_PS + r'''
 $ErrorActionPreference = 'Stop'
 $me = [Security.Principal.WindowsIdentity]::GetCurrent().User
 $repair = $env:ILSON_ACL_REPAIR -eq '1'
+$guarded = $repair -and (Test-IlsonGuarded)
 $limit = [int]$env:ILSON_ACL_LIMIT
-$n = @{ checked = 0; repaired = 0; admin = 0; denied = 0; foreign = 0; skipped = 0 }
+$n = @{ checked = 0; repaired = 0; admin = 0; denied = 0; foreign = 0; error = 0; skipped = 0 }
 $stack = New-Object System.Collections.Stack
 foreach ($root in @($env:ILSON_ACL_ROOTS -split "`n" | Where-Object { $_ })) {
     if (Test-Path -LiteralPath $root) { $stack.Push($root) }
@@ -291,31 +438,25 @@ while ($stack.Count -gt 0) {
         if ($verdict -eq 'foreign') { $n.foreign++; continue }
         if ($verdict -ne 'ok') {
             if (-not $repair) { $n.admin++ }
-            elseif ($verdict -eq 'fix-private') { Set-Acl -LiteralPath $p -AclObject (New-IlsonPrivateAcl $item $me); $n.repaired++ }
-            else {
-                # Owner only. The inherited DACL stays exactly as it is.
-                $owner = $item.GetAccessControl([Security.AccessControl.AccessControlSections]::Owner)
-                $owner.SetOwner($me)
-                $item.SetAccessControl($owner)
-                $n.repaired++
-            }
+            elseif (Invoke-IlsonChange $p $item $me 'tree' $verdict $guarded) { $n.repaired++ }
+            else { $n.foreign++; continue }
         }
         if ($item.PSIsContainer) {
             foreach ($child in @(Get-ChildItem -LiteralPath $p -Force)) { $stack.Push($child.FullName) }
         }
     } catch {
         if ($_.Exception -is [Management.Automation.ItemNotFoundException]) { $n.skipped++ }
-        elseif (Test-IlsonDenied $_) { $n.denied++ } else { $n.foreign++ }
+        elseif (Test-IlsonDenied $_) { $n.denied++ } else { $n.error++ }
     }
 }
-'ILSON_ACL ' + $n.checked + ' ' + $n.repaired + ' ' + $n.admin + ' ' + $n.denied + ' ' + $n.foreign + ' ' + $n.skipped
+'ILSON_ACL ' + $n.checked + ' ' + $n.repaired + ' ' + $n.admin + ' ' + $n.denied + ' ' + $n.foreign + ' ' + $n.error + ' ' + $n.skipped
 '''
 
 
 def _powershell(script, env, capture=False):
     encoded = base64.b64encode(script.encode('utf-16le')).decode('ascii')
     return subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
-                          env=dict(os.environ, **env), stdin=subprocess.DEVNULL,
+                          env=dict(os.environ, ILSON_ACL_CS=ACL_HANDLE_CS, **env), stdin=subprocess.DEVNULL,
                           stdout=subprocess.PIPE if capture else subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                           creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), timeout=120)
 
@@ -327,7 +468,8 @@ def windows_acl(path, create=False):
     is repaired in the same call; another user's object is never accepted.
     """
     try:
-        result = _powershell(ACL_PRIVATE_PS, {'ILSON_ACL_TARGET': str(path), 'ILSON_ACL_CREATE': '1' if create else '0'})
+        # Absolute, so the elevated route can compare it with the handle's final path.
+        result = _powershell(ACL_PRIVATE_PS, {'ILSON_ACL_TARGET': os.path.abspath(str(path)), 'ILSON_ACL_CREATE': '1' if create else '0'})
     except (OSError, subprocess.SubprocessError):
         raise ValueError('STORAGE_ERROR') from None
     if result.returncode == 3:
@@ -339,15 +481,15 @@ def windows_acl(path, create=False):
 def windows_tree(roots, repair=False, limit=5000):
     """Count (and optionally repair) objects under roots that an elevated session left behind."""
     try:
-        result = _powershell(ACL_TREE_PS, {'ILSON_ACL_ROOTS': '\n'.join(str(p) for p in roots),
+        result = _powershell(ACL_TREE_PS, {'ILSON_ACL_ROOTS': '\n'.join(os.path.abspath(str(p)) for p in roots),
                                            'ILSON_ACL_REPAIR': '1' if repair else '0', 'ILSON_ACL_LIMIT': str(int(limit))},
                              capture=True)
     except (OSError, subprocess.SubprocessError):
         raise ValueError('STORAGE_ERROR') from None
     lines = result.stdout.decode('ascii', errors='replace').split()
-    if result.returncode or len(lines) < 7 or lines[-7] != 'ILSON_ACL' or not all(v.isdigit() for v in lines[-6:]):
+    if result.returncode or len(lines) < 8 or lines[-8] != 'ILSON_ACL' or not all(v.isdigit() for v in lines[-7:]):
         raise ValueError('STORAGE_ERROR')
-    return dict(zip(('checked', 'repaired', 'admin_owned', 'no_access', 'foreign', 'skipped'), map(int, lines[-6:])))
+    return dict(zip(('checked', 'repaired', 'admin_owned', 'no_access', 'foreign', 'error', 'skipped'), map(int, lines[-7:])))
 
 
 def private_dir(home):
