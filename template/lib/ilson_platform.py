@@ -14,6 +14,28 @@ class Unreadable(ValueError):
     pass
 
 
+class AccessProblem(Unreadable):
+    """Owner/ACL check of a private object failed. elevated: left by an elevated window."""
+    def __init__(self, message='개인 파일의 소유자·권한을 확인하세요.', elevated=False):
+        super().__init__(message)
+        self.elevated = elevated
+
+
+def elevated_hint():
+    try:
+        from license import ELEVATED_OWNER_HINT
+        return ELEVATED_OWNER_HINT
+    except ImportError:
+        return '관리자 권한 PowerShell에서 만든 파일입니다. ilson doctor --fix-permissions 로 확인해주세요.'
+
+
+def _windows_acl(path, create, message):
+    from license import windows_acl
+    try: windows_acl(path, create=create)
+    except ValueError as error:
+        raise AccessProblem(message, elevated=str(error) == 'ELEVATED_OWNER') from None
+
+
 def lock(fd, *, exclusive=True, blocking=True, timeout=None):
     if not IS_WINDOWS:
         import fcntl
@@ -57,13 +79,33 @@ def private(path, *, directory=False, create=False):
     path = Path(path)
     if IS_WINDOWS:
         safe_path(path)
-        from license import windows_acl
-        windows_acl(path, create=create)
+        _windows_acl(path, create, '개인 파일의 소유자·권한을 확인하세요.')
     else:
         info = path.lstat()
         valid = stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode)
         if not valid or info.st_uid != os.getuid() or info.st_mode & 0o077:
-            raise ValueError('개인 파일의 소유자·권한을 확인하세요.')
+            raise AccessProblem('개인 파일의 소유자·권한을 확인하세요.')
+
+
+def claim(path, *, directory=False):
+    """Windows: a new private object gets this user as owner and a user-only DACL, also in
+    an elevated window (whose default owner would be BUILTIN\\Administrators). POSIX: no-op,
+    the creating call already set 0600/0700."""
+    if IS_WINDOWS: private(path, directory=directory, create=True)
+
+
+def open_private(path, flags):
+    """Open or create a private file; a file this call creates is claimed on Windows."""
+    path = safe_path(path)
+    nofollow = getattr(os, 'O_NOFOLLOW', 0)
+    if not IS_WINDOWS: return os.open(path, flags | os.O_CREAT | nofollow, 0o600)
+    try: fd = os.open(path, flags | os.O_CREAT | os.O_EXCL | getattr(os, 'O_BINARY', 0), 0o600)
+    except FileExistsError: return os.open(path, flags | getattr(os, 'O_BINARY', 0))
+    try: claim(path)
+    except Exception:
+        os.close(fd)
+        raise
+    return fd
 
 
 def private_dir(path):
@@ -115,7 +157,7 @@ class PosixFiles:
             if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size > limit:
                 raise Unreadable("파일 형식 또는 크기를 확인해주세요.")
             if private and (stat.S_IMODE(info.st_mode) != 0o600 or info.st_uid != os.getuid()):
-                raise Unreadable("관리자 연결 파일의 소유자·권한을 확인해주세요.")
+                raise AccessProblem("관리자 연결 파일의 소유자·권한을 확인해주세요.")
             pieces = []
             remaining = limit + 1
             while remaining:
@@ -128,7 +170,7 @@ class PosixFiles:
             if len(raw) > limit:
                 raise Unreadable("파일이 너무 큽니다.")
             return raw, info
-        except FileNotFoundError:
+        except (FileNotFoundError, AccessProblem):
             raise
         except (OSError, ValueError):
             raise Unreadable("파일을 안전하게 읽지 못했습니다.") from None
@@ -198,8 +240,7 @@ class WindowsFiles(PosixFiles):
                     (before.st_dev, before.st_ino) != (info.st_dev, info.st_ino)):
                 raise Unreadable('파일 형식 또는 크기를 확인해주세요.')
             if private and path not in self._private_checked:
-                from license import windows_acl
-                windows_acl(path)
+                _windows_acl(path, False, '관리자 연결 파일의 소유자·권한을 확인해주세요.')
                 self._private_checked.add(path)
             chunks, size = [], 0
             while size <= limit:
@@ -210,7 +251,7 @@ class WindowsFiles(PosixFiles):
             if size > limit or (info.st_ino, info.st_size, info.st_mtime_ns) != (after.st_ino, after.st_size, after.st_mtime_ns):
                 raise Unreadable('파일이 변경되었거나 너무 큽니다.')
             return b''.join(chunks), after
-        except FileNotFoundError: raise
+        except (FileNotFoundError, AccessProblem): raise
         except (OSError, ValueError): raise Unreadable('파일을 안전하게 읽지 못했습니다.') from None
         finally:
             if fd is not None: os.close(fd)
@@ -309,8 +350,7 @@ def copy_verified(source, destination, expected):
 
 
 def acquire_lock(path, *, blocking=False):
-    path = safe_path(path)
-    fd = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, 'O_NOFOLLOW', 0), 0o600)
+    fd = open_private(path, os.O_RDWR)
     try:
         info = os.fstat(fd)
         if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1: raise ValueError('잠금 파일을 확인하세요.')
@@ -328,6 +368,8 @@ def atomic_write(path, data):
     fd, name = tempfile.mkstemp(prefix='.admin-', dir=path.parent)
     try:
         with os.fdopen(fd, 'wb') as stream:
+            # Claimed before any byte is written, as license.safe_write does; replace keeps it.
+            claim(name)
             stream.write(data); stream.flush(); os.fsync(stream.fileno())
         os.replace(name, path)
     finally:

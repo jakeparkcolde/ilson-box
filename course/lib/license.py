@@ -164,43 +164,190 @@ def parse_serial(value, now=None):
         raise ValueError('INVALID_SERIAL') from None
 
 
-def windows_acl(path, create=False):
-    """Create/check a user-only Windows DACL. Fail closed if ACLs are unavailable."""
-    script = r'''
-$ErrorActionPreference = 'Stop'
-$p = $env:ILSON_ACL_TARGET
-$sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
-$item = Get-Item -LiteralPath $p -Force
-if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { exit 1 }
-if ($env:ILSON_ACL_CREATE -eq '1') {
-    if ($item.PSIsContainer) {
+ELEVATED_OWNER_HINT = ('관리자 권한 PowerShell에서 만든 파일이라 지금 창에서 열 수 없습니다. '
+                       '「관리자: Windows PowerShell」을 열고 ilson doctor --fix-permissions 를 한 번 실행한 뒤 다시 시도해주세요.')
+
+
+class ElevatedOwnerError(ValueError):
+    """An elevated ("관리자") session left an object this window cannot read or repair."""
+    def __init__(self):
+        super().__init__('ELEVATED_OWNER')
+
+
+# Shared by the private check and the tree repair. Pure functions, so tests can run them
+# under pwsh on any host. Trusted owners: this user or BUILTIN\Administrators (the default
+# owner of everything an elevated token creates). Trusted grants: this user, SYSTEM,
+# Administrators, CREATOR OWNER, OWNER RIGHTS (Python 3.13+ mkdir(0o700) uses the last three).
+# A file owned by another real user, or one granting anybody else, is never repaired.
+ACL_VERDICT_PS = r'''
+function Test-IlsonTrustedGrants($Rules, [string]$Me) {
+    $trusted = @($Me, 'S-1-5-18', 'S-1-5-32-544', 'S-1-3-0', 'S-1-3-4')
+    foreach ($rule in @($Rules)) { if (-not $rule.Allow -or $trusted -notcontains $rule.Sid) { return $false } }
+    return $true
+}
+function Get-IlsonPrivateVerdict([string]$Owner, $Rules, [string]$Me) {
+    $rules = @($Rules)
+    if (-not $Owner) { return 'denied' }
+    $userOnly = $rules.Count -gt 0
+    foreach ($rule in $rules) { if ($rule.Sid -ne $Me -or -not $rule.Allow) { $userOnly = $false } }
+    if ($Owner -eq $Me -and $userOnly) { return 'ok' }
+    if ($Owner -ne $Me -and $Owner -ne 'S-1-5-32-544') { return 'foreign' }
+    if (-not (Test-IlsonTrustedGrants $rules $Me)) { return 'foreign' }
+    return 'repair'
+}
+function Get-IlsonTreeVerdict([string]$Owner, $Rules, [string]$Me, [bool]$Protected) {
+    $rules = @($Rules)
+    if (-not $Owner) { return 'denied' }
+    $hasMe = @($rules | Where-Object { $_.Sid -eq $Me -and $_.Allow }).Count -gt 0
+    if ($Owner -eq $Me -and $hasMe) { return 'ok' }
+    if ($Owner -ne $Me -and $Owner -ne 'S-1-5-32-544') { return 'foreign' }
+    if ($Protected) {
+        if (-not (Test-IlsonTrustedGrants $rules $Me)) { return 'foreign' }
+        return 'fix-private'
+    }
+    return 'fix-owner'
+}
+function Get-IlsonAclFacts($Acl) {
+    $owner = $Acl.GetOwner([Security.Principal.SecurityIdentifier])
+    $rules = @(foreach ($rule in $Acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
+        New-Object PSObject -Property @{ Sid = $rule.IdentityReference.Value; Allow = ($rule.AccessControlType -eq 'Allow') }
+    })
+    $value = $null
+    if ($owner) { $value = $owner.Value }
+    return @{ Owner = $value; Rules = $rules; Protected = $Acl.AreAccessRulesProtected }
+}
+function New-IlsonPrivateAcl($Item, $Me) {
+    if ($Item.PSIsContainer) {
         $acl = New-Object Security.AccessControl.DirectorySecurity
         $flags = [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit
     } else {
         $acl = New-Object Security.AccessControl.FileSecurity
         $flags = [Security.AccessControl.InheritanceFlags]::None
     }
-    $acl.SetOwner($sid)
+    $acl.SetOwner($Me)
     $acl.SetAccessRuleProtection($true, $false)
-    $rule = New-Object Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', $flags, 'None', 'Allow')
+    $rule = New-Object Security.AccessControl.FileSystemAccessRule($Me, 'FullControl', $flags, 'None', 'Allow')
     $acl.AddAccessRule($rule)
-    Set-Acl -LiteralPath $p -AclObject $acl
+    return $acl
 }
-$acl = Get-Acl -LiteralPath $p
-if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { exit 1 }
-$rules = @($acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]))
-if ($rules.Count -eq 0) { exit 1 }
-foreach ($rule in $rules) {
-    if ($rule.IdentityReference.Value -ne $sid.Value -or $rule.AccessControlType -ne 'Allow') { exit 1 }
+function Test-IlsonDenied($Record) {
+    $e = $Record.Exception
+    while ($e) {
+        if ($e -is [UnauthorizedAccessException] -or $e -is [Security.AccessControl.PrivilegeNotHeldException]) { return $true }
+        $e = $e.InnerException
+    }
+    return $false
 }
 '''
-    env = dict(os.environ, ILSON_ACL_TARGET=str(path), ILSON_ACL_CREATE='1' if create else '0')
+
+# Exit 0 ok (checked, created or repaired), 1 fail closed, 3 elevated leftover this window cannot fix.
+ACL_PRIVATE_PS = ACL_VERDICT_PS + r'''
+$ErrorActionPreference = 'Stop'
+try {
+    $p = $env:ILSON_ACL_TARGET
+    $me = [Security.Principal.WindowsIdentity]::GetCurrent().User
+    $item = Get-Item -LiteralPath $p -Force
+    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { exit 1 }
+    if ($env:ILSON_ACL_CREATE -ne '1') {
+        $facts = Get-IlsonAclFacts (Get-Acl -LiteralPath $p)
+        $verdict = Get-IlsonPrivateVerdict $facts.Owner $facts.Rules $me.Value
+        if ($verdict -eq 'ok') { exit 0 }
+        if ($verdict -eq 'denied') { exit 3 }
+        if ($verdict -ne 'repair') { exit 1 }
+    }
+    # Same as the license lock: owner = this user even in an elevated token, user-only DACL.
+    Set-Acl -LiteralPath $p -AclObject (New-IlsonPrivateAcl $item $me)
+    $facts = Get-IlsonAclFacts (Get-Acl -LiteralPath $p)
+    if ((Get-IlsonPrivateVerdict $facts.Owner $facts.Rules $me.Value) -ne 'ok') { exit 1 }
+    exit 0
+} catch {
+    if (Test-IlsonDenied $_) { exit 3 }
+    exit 1
+}
+'''
+
+# Walks the given roots (never through reparse points). Prints one line of counts:
+# checked repaired admin_owned no_access foreign skipped
+ACL_TREE_PS = ACL_VERDICT_PS + r'''
+$ErrorActionPreference = 'Stop'
+$me = [Security.Principal.WindowsIdentity]::GetCurrent().User
+$repair = $env:ILSON_ACL_REPAIR -eq '1'
+$limit = [int]$env:ILSON_ACL_LIMIT
+$n = @{ checked = 0; repaired = 0; admin = 0; denied = 0; foreign = 0; skipped = 0 }
+$stack = New-Object System.Collections.Stack
+foreach ($root in @($env:ILSON_ACL_ROOTS -split "`n" | Where-Object { $_ })) {
+    if (Test-Path -LiteralPath $root) { $stack.Push($root) }
+}
+while ($stack.Count -gt 0) {
+    $p = $stack.Pop()
+    if ($n.checked -ge $limit) { $n.skipped++; continue }
+    try {
+        $item = Get-Item -LiteralPath $p -Force
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { $n.skipped++; continue }
+        $n.checked++
+        $facts = Get-IlsonAclFacts (Get-Acl -LiteralPath $p)
+        $verdict = Get-IlsonTreeVerdict $facts.Owner $facts.Rules $me.Value $facts.Protected
+        if ($verdict -eq 'denied') { $n.denied++; continue }
+        if ($verdict -eq 'foreign') { $n.foreign++; continue }
+        if ($verdict -ne 'ok') {
+            if (-not $repair) { $n.admin++ }
+            elseif ($verdict -eq 'fix-private') { Set-Acl -LiteralPath $p -AclObject (New-IlsonPrivateAcl $item $me); $n.repaired++ }
+            else {
+                # Owner only. The inherited DACL stays exactly as it is.
+                $owner = $item.GetAccessControl([Security.AccessControl.AccessControlSections]::Owner)
+                $owner.SetOwner($me)
+                $item.SetAccessControl($owner)
+                $n.repaired++
+            }
+        }
+        if ($item.PSIsContainer) {
+            foreach ($child in @(Get-ChildItem -LiteralPath $p -Force)) { $stack.Push($child.FullName) }
+        }
+    } catch {
+        if ($_.Exception -is [Management.Automation.ItemNotFoundException]) { $n.skipped++ }
+        elseif (Test-IlsonDenied $_) { $n.denied++ } else { $n.foreign++ }
+    }
+}
+'ILSON_ACL ' + $n.checked + ' ' + $n.repaired + ' ' + $n.admin + ' ' + $n.denied + ' ' + $n.foreign + ' ' + $n.skipped
+'''
+
+
+def _powershell(script, env, capture=False):
     encoded = base64.b64encode(script.encode('utf-16le')).decode('ascii')
-    result = subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
-                            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    return subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
+                          env=dict(os.environ, **env), stdin=subprocess.DEVNULL,
+                          stdout=subprocess.PIPE if capture else subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                          creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), timeout=120)
+
+
+def windows_acl(path, create=False):
+    """Create/check a user-only Windows DACL with this user as owner. Fail closed.
+
+    An object left by an elevated session (owner BUILTIN\\Administrators, no foreign grant)
+    is repaired in the same call; another user's object is never accepted.
+    """
+    try:
+        result = _powershell(ACL_PRIVATE_PS, {'ILSON_ACL_TARGET': str(path), 'ILSON_ACL_CREATE': '1' if create else '0'})
+    except (OSError, subprocess.SubprocessError):
+        raise ValueError('STORAGE_ERROR') from None
+    if result.returncode == 3:
+        raise ElevatedOwnerError()
     if result.returncode:
         raise ValueError('STORAGE_ERROR')
+
+
+def windows_tree(roots, repair=False, limit=5000):
+    """Count (and optionally repair) objects under roots that an elevated session left behind."""
+    try:
+        result = _powershell(ACL_TREE_PS, {'ILSON_ACL_ROOTS': '\n'.join(str(p) for p in roots),
+                                           'ILSON_ACL_REPAIR': '1' if repair else '0', 'ILSON_ACL_LIMIT': str(int(limit))},
+                             capture=True)
+    except (OSError, subprocess.SubprocessError):
+        raise ValueError('STORAGE_ERROR') from None
+    lines = result.stdout.decode('ascii', errors='replace').split()
+    if result.returncode or len(lines) < 7 or lines[-7] != 'ILSON_ACL' or not all(v.isdigit() for v in lines[-6:]):
+        raise ValueError('STORAGE_ERROR')
+    return dict(zip(('checked', 'repaired', 'admin_owned', 'no_access', 'foreign', 'skipped'), map(int, lines[-6:])))
 
 
 def private_dir(home):
@@ -434,6 +581,9 @@ def main():
                 print('마지막 확인 납부 기한:',time.strftime('%Y-%m-%d %H:%M UTC',time.gmtime(state['paid_until'])))
         return 0 if ok else 1
     except (OSError,ValueError,KeyError,TypeError,json.JSONDecodeError) as e:
+        if isinstance(e, ElevatedOwnerError):
+            print('라이선스 확인 필요: ELEVATED_OWNER — ' + ELEVATED_OWNER_HINT, file=sys.stderr)
+            return 1
         code = str(e) if str(e) in ('INVALID_SERIAL','EXPIRED','CLOCK_ERROR','STORAGE_ERROR') else 'STORAGE_ERROR'
         print('라이선스 확인 필요: ' + code + ' — ilson license activate',file=sys.stderr)
         return 1
