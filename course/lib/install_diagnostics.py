@@ -33,6 +33,14 @@ EXCEPTION_CLASSES = set('ArgumentException ArgumentNullException ArgumentOutOfRa
 ID = re.compile(r'^[a-f0-9]{32}$')
 STAMP = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$')
 EXIT_SOURCES = {'none', 'native', 'curl', 'exception', 'installer', 'doctor'}
+# Fixed refusals of the course helper (course/install_payload.py REFUSAL_EXIT), keyed by its exit
+# code. Both course installers print the same text (a test compares them); the diagnostics event
+# keeps only the number. No paths or file names.
+HELPER_REFUSALS = {
+    4: ('ADMIN_RUNNING', '관리 화면이 켜져 있어 설치를 멈췄습니다. 바뀐 파일은 없습니다. ilson admin stop 으로 관리 화면을 끈 뒤 설치 명령을 다시 실행해주세요.'),
+    5: ('INSTALL_BUSY', '다른 설치가 진행 중이라 설치를 멈췄습니다. 바뀐 파일은 없습니다. 그 설치가 끝난 뒤 설치 명령을 다시 실행해주세요.'),
+    6: ('HELPER_MODIFIED', '학습 도우미 파일이 배포본과 달라 설치를 멈췄습니다. 고친 파일을 지키기 위해 바꾸지 않았습니다. 강사에게 확인해주세요.'),
+}
 
 
 def utc():
@@ -207,13 +215,19 @@ def summarize_run(events, damaged=False, run_id=None):
     end = next((e for e in reversed(events) if e['event'] == 'run-end'), None)
     interrupted = damaged or bool(active) or not end or not any(e['event'] == 'run-start' for e in events)
     code = 3 if interrupted else 1 if failures or end['result'] == 'failed' else 4 if pending else 0
-    return {'run_id': run_id or (events[0]['run_id'] if events else None), 'edition': events[0]['edition'] if events else 'unknown',
+    helper = last.get('helper.install', {})
+    course = bool(events) and events[0]['edition'] in ('intel-course', 'windows-course')  # the full Box install has its own exit codes
+    refusal = (HELPER_REFUSALS.get(helper.get('exit_code'))
+               if course and helper.get('result') == 'failed' and helper.get('exit_source') == 'native' else None)
+    summary = {'run_id': run_id or (events[0]['run_id'] if events else None), 'edition': events[0]['edition'] if events else 'unknown',
             'status': 'damaged' if damaged else 'interrupted' if interrupted else 'failed' if code == 1 else 'pending' if code == 4 else 'ok',
             'log_status': 'malformed' if damaged else 'ok',
             'exit_code': code, 'first_failure': failures[0]['reason_code'] if failures else None,
             'current': last.get('verify.current', {}).get('result', 'unconfirmed'),
             'new_window': last.get('verify.new-window', {}).get('result', 'unconfirmed'),
             'steps': {key: {'result': e['result'], 'reason_code': e['reason_code']} for key, e in last.items()}}
+    if refusal: summary['helper_refusal'] = refusal[0]
+    return summary
 
 
 def retain(root, now=None):
@@ -515,6 +529,8 @@ def main(argv=None, edition='unknown', cli=None, vault=None):
             print('현재 창/새 창은 별도 확인하며 새 창 여부는 사용자의 선언입니다.')
             for line in next_lines(summary['edition'], summary['run_id'], cli, vault): print(line)
             for line in permission_lines(summary.get('permissions', {})): print(line)
+            refusal = next((text for code, text in HELPER_REFUSALS.values() if code == summary.get('helper_refusal')), None)
+            if refusal: print('설치 중단 이유: ' + refusal)
             if not inside:
                 value = str(selected_vault)
                 if all(ord(c) >= 32 and ord(c) != 127 for c in value):

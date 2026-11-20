@@ -20,6 +20,19 @@ RERUN_ELEVATED_HINT = ('관리자 권한 PowerShell에서 만든 파일 때문�
                        '마우스 오른쪽 버튼으로 눌러 「관리자로 실행」을 고른 뒤, 「관리자: Windows PowerShell」 창에서 설치 명령을 다시 실행해주세요: '
                        + WINDOWS_INSTALL_COMMAND + ' 설치가 끝나면 평소처럼 일반 PowerShell 창에서 계속하면 됩니다.')
 
+# Fixed reasons an install stops before it changes anything. The helper prints only the code
+# (HELPER_REFUSED=<code>) and exits with its number; the installers show the Korean line for the
+# number (install_diagnostics.HELPER_REFUSALS), because they drop the helper's stderr. 3 is the
+# permission-denied exit above.
+REFUSAL_EXIT = {'ADMIN_RUNNING': 4, 'INSTALL_BUSY': 5, 'HELPER_MODIFIED': 6}
+
+
+class Refusal(ValueError):
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
 # Only exact published/baseline bytes may be replaced. Unknown user edits stay intact.
 KNOWN_HELPER_SHA256 = {'ilson.py': {'70c922f15483534e401dccf7f7fefdea88c4be1102b32196ad00fb60f4fa4bff', 'b8491dea3dd3f9b9bf82070c0a054d669386f083a68f1380f0a44e6a141cc5e4', 'b1f72a5e2c9fcb715ce8d58560a22a076f0f126333c154ad7b28100adcdd53d2', '39d10d5e65089bc23e53c09e720e594195891ccb60438253651de6546bb83182'}, 'license.py': {'4b6e50b84073c6e8178b3c0c3c8055839a9d7d607be284ce3e0651e929e15ba9'}, 'selflearn.py': {'48b6804a599765af19f6ab35c75409986fb5bd3e52967bdd52d1386119ee528d', 'b1eabe4380dbd53cc3f35d1a0a82f511f96b04320b2bb585925478f7d8e60b68'}, 'skill_share.py': {'b233d29be73af4e7f9c63a3e948b51ee2946607ea61b71c30f9c473e82fa7412'}, 'weekly_summary.py': {'10a7935d68726ef63457014e64a2702ba0a22167a65c8aa002f3e8a994d48bf7'}, 'install_diagnostics.py': {'0666c62d3668573dbea1ae370aed1e7b9f5b2abd7737c87a8b93e95bd2803ea7', 'ec125e4c085251f010fc414fc91609933ae4da87a4c9dbb06c81d16778d20343'}}
 KNOWN_HELPER_SHA256['ilson.py'].add('752358c3547b3d3e46924b95916de06b239d8153df4bf262ff096d3255392aa3')
@@ -87,10 +100,13 @@ def update_lock(root):
             import msvcrt
             if not info.st_size: os.write(fd, b'0')
             os.lseek(fd, 0, 0)
-            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
         else:
             import fcntl
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        try:
+            if os.name == 'nt': msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+            else: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            raise Refusal('INSTALL_BUSY', 'another install is running') from None
         with admin_stopped(root):
             yield
     finally:
@@ -120,7 +136,7 @@ def admin_stopped(root=None):
                     import fcntl
                     fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except OSError:
-                raise ValueError('관리 화면을 먼저 끄세요: ilson admin stop') from None
+                raise Refusal('ADMIN_RUNNING', '관리 화면을 먼저 끄세요: ilson admin stop') from None
         yield
     finally:
         for fd in reversed(held): os.close(fd)
@@ -177,11 +193,11 @@ def install(root, files, verify=None):
         data = content.encode('utf-8')
         if name.endswith('.py'): compile(content, name, 'exec')
         path = target(root, name); safe(path)
-        if path.exists() and not path.is_file(): raise ValueError('existing helper differs; ask the instructor')
+        if path.exists() and not path.is_file(): raise Refusal('HELPER_MODIFIED', 'existing helper differs; ask the instructor')
         old = path.read_bytes() if path.exists() else None
         if old == data: continue
         if old is not None and digest(old) not in KNOWN_HELPER_SHA256.get(name, set()):
-            raise ValueError('existing helper differs; ask the instructor: ' + name)
+            raise Refusal('HELPER_MODIFIED', 'existing helper differs; ask the instructor: ' + name)
         changes.append((name, path, old, data))
     with update_lock(root):
         installed = False
@@ -212,7 +228,7 @@ def _apply(root, changes, verify):
         for name, path, old, data in sorted(changes, key=lambda item: item[0] == 'ilson.py'):
             safe(path)
             current = path.read_bytes() if path.exists() else None
-            if current != old: raise ValueError('existing helper changed; ask the instructor')
+            if current != old: raise Refusal('HELPER_MODIFIED', 'existing helper changed; ask the instructor')
             path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             if old is None:
                 with path.open('xb') as stream: stream.write(data)
@@ -281,6 +297,13 @@ def rollback(root, backup):
 
 
 def main():
+    try: _main()
+    except Refusal as refusal:
+        print('HELPER_REFUSED=' + refusal.code)
+        sys.exit(REFUSAL_EXIT[refusal.code])
+
+
+def _main():
     root = Path(sys.argv[1]).absolute()
     if len(sys.argv) == 4 and sys.argv[2] == '--rollback':
         rollback(root, root / '.install-backups' / sys.argv[3]); return
