@@ -1,6 +1,7 @@
 """Install the embedded course helper without replacing existing files."""
 import base64
 from contextlib import contextmanager
+import errno
 import gzip
 import hashlib
 import json
@@ -26,6 +27,16 @@ RERUN_ELEVATED_HINT = ('관리자 권한 PowerShell에서 만든 파일 때문�
 # (install_diagnostics.HELPER_REFUSALS), because they drop the helper's stderr. 3 is the
 # permission-denied exit above.
 REFUSAL_EXIT = {'ADMIN_RUNNING': 4, 'INSTALL_BUSY': 5, 'HELPER_MODIFIED': 6}
+
+# What a non-blocking lock reports when another process holds it: flock EWOULDBLOCK/EAGAIN,
+# msvcrt.locking EACCES (or EDEADLOCK). Any other OSError is a real I/O failure and keeps its own
+# reason (review D23 note 4).
+LOCK_HELD = ({errno.EACCES, getattr(errno, 'EDEADLOCK', errno.EDEADLK)} if os.name == 'nt'
+             else {errno.EWOULDBLOCK, errno.EAGAIN})
+
+
+def lock_held(exc):
+    return isinstance(exc, BlockingIOError) or getattr(exc, 'errno', None) in LOCK_HELD
 
 
 class Refusal(ValueError):
@@ -106,7 +117,8 @@ def update_lock(root):
         try:
             if os.name == 'nt': msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
             else: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
+        except OSError as exc:
+            if not lock_held(exc): raise
             raise Refusal('INSTALL_BUSY', 'another install is running') from None
         with admin_stopped(root):
             yield
@@ -136,7 +148,8 @@ def admin_stopped(root=None):
                 else:
                     import fcntl
                     fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except OSError:
+            except OSError as exc:
+                if not lock_held(exc): raise
                 raise Refusal('ADMIN_RUNNING', '관리 화면을 먼저 끄세요: ilson admin stop') from None
         yield
     finally:
