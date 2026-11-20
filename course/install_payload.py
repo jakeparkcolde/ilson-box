@@ -9,6 +9,8 @@ from pathlib import Path
 import sys
 import tempfile
 
+IS_WINDOWS = os.name == 'nt'
+ELEVATED_FALLBACK = '관리자 권한 PowerShell에서 만든 파일이 있습니다. 「관리자: Windows PowerShell」에서 ilson doctor --fix-permissions 를 실행해주세요.'
 
 # Only exact published/baseline bytes may be replaced. Unknown user edits stay intact.
 KNOWN_HELPER_SHA256 = {'ilson.py': {'70c922f15483534e401dccf7f7fefdea88c4be1102b32196ad00fb60f4fa4bff', 'b8491dea3dd3f9b9bf82070c0a054d669386f083a68f1380f0a44e6a141cc5e4', 'b1f72a5e2c9fcb715ce8d58560a22a076f0f126333c154ad7b28100adcdd53d2', '39d10d5e65089bc23e53c09e720e594195891ccb60438253651de6546bb83182'}, 'license.py': {'4b6e50b84073c6e8178b3c0c3c8055839a9d7d607be284ce3e0651e929e15ba9'}, 'selflearn.py': {'48b6804a599765af19f6ab35c75409986fb5bd3e52967bdd52d1386119ee528d', 'b1eabe4380dbd53cc3f35d1a0a82f511f96b04320b2bb585925478f7d8e60b68'}, 'skill_share.py': {'b233d29be73af4e7f9c63a3e948b51ee2946607ea61b71c30f9c473e82fa7412'}, 'weekly_summary.py': {'10a7935d68726ef63457014e64a2702ba0a22167a65c8aa002f3e8a994d48bf7'}, 'install_diagnostics.py': {'0666c62d3668573dbea1ae370aed1e7b9f5b2abd7737c87a8b93e95bd2803ea7', 'ec125e4c085251f010fc414fc91609933ae4da87a4c9dbb06c81d16778d20343'}}
@@ -116,6 +118,33 @@ def admin_stopped(root=None):
         for fd in reversed(held): os.close(fd)
 
 
+def acl_module(files):
+    """The ACL helper of the bundle being installed; a fresh install has no license.py yet."""
+    import types
+    module = types.ModuleType('ilson_install_acl')
+    exec(compile(files['license.py'], 'license.py', 'exec'), module.__dict__)
+    return module
+
+
+def elevated_hint(files):
+    try: return acl_module(files).ELEVATED_OWNER_HINT
+    except Exception: return ELEVATED_FALLBACK
+
+
+def repair_owner(root, files):
+    """Windows: an elevated installer leaves every object owned by BUILTIN\\Administrators and
+    mkdir(0o700)/mkdtemp folders without the user. One pass gives them back to this user."""
+    if not IS_WINDOWS: return None
+    tree = root.parent if root.name.lower() == 'lib' else root
+    try: counts = acl_module(files).windows_tree([tree], repair=True)
+    except Exception:
+        print('HELPER_PERMISSIONS=unverified')
+        return None
+    print('HELPER_PERMISSIONS=' + ('ok' if not counts['no_access'] and not counts['foreign'] else 'left'))
+    if counts['no_access'] or counts['foreign']: print(elevated_hint(files))
+    return counts
+
+
 def target(root, name):
     if name not in ALLOWED_FILES: raise ValueError('invalid helper file')
     return root.parent / name if name in WEB_FILES else root / name
@@ -138,46 +167,53 @@ def install(root, files, verify=None):
             raise ValueError('existing helper differs; ask the instructor: ' + name)
         changes.append((name, path, old, data))
     with update_lock(root):
-        if not changes:
-            if verify: verify()
-            return None
-        base = root / '.install-backups'; safe(base); base.mkdir(mode=0o700, exist_ok=True)
-        backup = Path(tempfile.mkdtemp(prefix='upgrade-', dir=base))
-        manifest = {'schema': 1, 'status': 'pending', 'files': []}
-        for name, path, old, data in changes:
-            if old is not None:
-                saved = backup / name; safe(saved); saved.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
-                saved.write_bytes(old)
-            manifest['files'].append({'name': name, 'before': digest(old) if old is not None else None, 'after': digest(data)})
-        (backup / 'manifest.json').write_text(json.dumps(manifest, sort_keys=True), encoding='utf-8')
-        applied = []
         try:
-            # Dependencies/assets first, entry point last. Validate targets again under lock.
-            for name, path, old, data in sorted(changes, key=lambda item: item[0] == 'ilson.py'):
-                safe(path)
-                current = path.read_bytes() if path.exists() else None
-                if current != old: raise ValueError('existing helper changed; ask the instructor')
-                path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-                if old is None:
-                    with path.open('xb') as stream: stream.write(data)
-                else: atomic_write(path, data)
-                applied.append((name, path, old, data))
-            for name, path, _, data in changes:
-                if path.read_bytes() != data: raise ValueError('helper verification failed')
-            if verify: verify()
-        except Exception:
-            for name, path, old, data in reversed(applied):
-                safe(path)
-                if path.read_bytes() != data: continue
-                if old is None: path.unlink()
-                else: atomic_write(path, old)
-            manifest['status'] = 'failed'
-            atomic_write(backup / 'manifest.json', json.dumps(manifest, sort_keys=True).encode())
-            raise
-        manifest['status'] = 'applied'
+            return _apply(root, changes, verify)
+        finally:
+            repair_owner(root, files)
+
+
+def _apply(root, changes, verify):
+    if not changes:
+        if verify: verify()
+        return None
+    base = root / '.install-backups'; safe(base); base.mkdir(mode=0o700, exist_ok=True)
+    backup = Path(tempfile.mkdtemp(prefix='upgrade-', dir=base))
+    manifest = {'schema': 1, 'status': 'pending', 'files': []}
+    for name, path, old, data in changes:
+        if old is not None:
+            saved = backup / name; safe(saved); saved.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+            saved.write_bytes(old)
+        manifest['files'].append({'name': name, 'before': digest(old) if old is not None else None, 'after': digest(data)})
+    (backup / 'manifest.json').write_text(json.dumps(manifest, sort_keys=True), encoding='utf-8')
+    applied = []
+    try:
+        # Dependencies/assets first, entry point last. Validate targets again under lock.
+        for name, path, old, data in sorted(changes, key=lambda item: item[0] == 'ilson.py'):
+            safe(path)
+            current = path.read_bytes() if path.exists() else None
+            if current != old: raise ValueError('existing helper changed; ask the instructor')
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            if old is None:
+                with path.open('xb') as stream: stream.write(data)
+            else: atomic_write(path, data)
+            applied.append((name, path, old, data))
+        for name, path, _, data in changes:
+            if path.read_bytes() != data: raise ValueError('helper verification failed')
+        if verify: verify()
+    except Exception:
+        for name, path, old, data in reversed(applied):
+            safe(path)
+            if path.read_bytes() != data: continue
+            if old is None: path.unlink()
+            else: atomic_write(path, old)
+        manifest['status'] = 'failed'
         atomic_write(backup / 'manifest.json', json.dumps(manifest, sort_keys=True).encode())
-        print('HELPER_UPGRADE_BACKUP=' + backup.name)
-        return backup
+        raise
+    manifest['status'] = 'applied'
+    atomic_write(backup / 'manifest.json', json.dumps(manifest, sort_keys=True).encode())
+    print('HELPER_UPGRADE_BACKUP=' + backup.name)
+    return backup
 
 
 def _rollback(root, backup):
@@ -231,7 +267,12 @@ def main():
     # The installer streams the bundle after its bootstrap line. Neither environment
     # variables nor command-line arguments can carry arbitrarily large bundles.
     files = json.loads(gzip.decompress(base64.b64decode(sys.stdin.buffer.read())))
-    install(root, files)
+    try: install(root, files)
+    except PermissionError:
+        if not IS_WINDOWS: raise
+        # The installer suppresses stderr; this fixed line is what the student sees.
+        print('HELPER_PERMISSION_DENIED: ' + elevated_hint(files))
+        sys.exit(3)
 
 
 if __name__ == '__main__':
