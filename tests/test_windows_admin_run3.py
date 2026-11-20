@@ -19,7 +19,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from test_windows_elevated_owner import (ME, BA, SY, OW, OI, CI, ID, ROOT, FakeWin32, node, guarded_tree, course_license, payload,
-                                         diag, fake_license, nt_os, load)
+                                         diag, fake_license, nt_os)
 from test_windows_admin_run2 import guard_layout
 from course_bundle import sources
 import test_course_update as cu
@@ -194,10 +194,9 @@ class LockContentionTests(unittest.TestCase):
                 else: self.assertNotIsInstance(caught.exception, payload.Refusal)
 
     def test_windows_lock_errors(self):
-        with patch.object(os, 'name', 'nt'):
-            windows = load('course_payload_nt_locks', ROOT / 'course/install_payload.py')
-        self.assertTrue(windows.lock_held(PermissionError(errno.EACCES, 'locked')))
-        self.assertFalse(windows.lock_held(OSError(errno.EIO, 'disk')))
+        with patch.object(payload, 'os', nt_os()):
+            self.assertTrue(payload.lock_held(PermissionError(errno.EACCES, 'locked')))
+            self.assertFalse(payload.lock_held(OSError(errno.EIO, 'disk')))
         self.assertFalse(payload.lock_held(PermissionError(errno.EACCES, 'denied')))  # POSIX flock never reports a held lock so
 
 

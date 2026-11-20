@@ -89,8 +89,12 @@ class AdminBundleTests(unittest.TestCase):
             with patch.object(payload,'os',proxy),patch.dict(sys.modules,msvcrt=fake):
                 with payload.admin_stopped():pass
                 self.assertEqual(fake.locking.call_args.args[1:],(11,1))
-                fake.locking.side_effect=OSError('busy')
+                # msvcrt.locking reports a held region as EACCES; any other OSError keeps its own reason.
+                fake.locking.side_effect=PermissionError(__import__('errno').EACCES,'locked')
                 with self.assertRaisesRegex(ValueError,'ilson admin stop'):
+                    with payload.admin_stopped():pass
+                fake.locking.side_effect=OSError(__import__('errno').EIO,'disk')
+                with self.assertRaises(OSError):
                     with payload.admin_stopped():pass
 
 
