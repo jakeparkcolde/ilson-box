@@ -174,6 +174,12 @@ class ElevatedOwnerError(ValueError):
         super().__init__('ELEVATED_OWNER')
 
 
+# An elevated window refused a change because the path does not lead plainly to the object (a
+# link on the way, a second hard link). Not another user's file: a normal window re-checks it.
+REDIRECTED_HINT = ('관리자 권한 창에서는 연결(바로가기)을 거치는 경로의 파일을 안전을 위해 바꾸지 않았습니다. '
+                   '일반 PowerShell 창에서 ilson doctor 를 실행해 남은 항목이 있는지 확인해주세요.')
+
+
 # Shared by the private check and the tree repair. The verdicts are pure functions, so tests
 # can run them under pwsh on any host. Trusted owners: this user or BUILTIN\Administrators (the
 # default owner of everything an elevated token creates). Trusted grants (Allow only): this user,
@@ -183,83 +189,9 @@ class ElevatedOwnerError(ValueError):
 #
 # Elevated tokens hold privileges a same-user process could borrow by swapping a path that was
 # already checked (junction, hard link). An elevated token therefore never changes an object by
-# path: it opens a handle that does not follow reparse points, checks that the handle is still
-# the object at the checked path (final path, one link, no reparse point, same verdict) and sets
-# owner/DACL on that handle. A normal token keeps the plain path route: it has no privilege a
-# redirect could borrow, and it does not pay for compiling the handle helper.
-# C# for the elevated handle route. It travels in ILSON_ACL_CS, not in the encoded command,
-# which must stay under the 32,767-character command-line limit.
-ACL_HANDLE_CS = r'''
-using System;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Security.AccessControl;
-using System.Text;
-using Microsoft.Win32.SafeHandles;
-public static class IlsonAclHandle {
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    static extern SafeFileHandle CreateFileW(string name, uint access, uint share, IntPtr sa, uint disposition, uint flags, IntPtr template);
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern bool GetFileInformationByHandle(SafeFileHandle h, [Out] uint[] info);
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    static extern uint GetFinalPathNameByHandleW(SafeFileHandle h, StringBuilder path, uint size, uint flags);
-    [DllImport("advapi32.dll")]
-    static extern uint GetSecurityInfo(SafeFileHandle h, int type, uint info, out IntPtr owner, out IntPtr group, out IntPtr dacl, out IntPtr sacl, out IntPtr sd);
-    [DllImport("advapi32.dll")]
-    static extern uint SetSecurityInfo(SafeFileHandle h, int type, uint info, byte[] owner, byte[] group, byte[] dacl, byte[] sacl);
-    [DllImport("advapi32.dll")]
-    static extern uint GetSecurityDescriptorLength(IntPtr sd);
-    [DllImport("kernel32.dll")]
-    static extern IntPtr LocalFree(IntPtr p);
-    static void Fail(int code) {
-        if (code == 5) { throw new UnauthorizedAccessException(); }
-        throw new IOException("ILSON_WIN32_" + code);
-    }
-    public static SafeFileHandle Open(string path) {
-        // READ_CONTROL|WRITE_DAC|WRITE_OWNER|FILE_READ_ATTRIBUTES, share all, OPEN_EXISTING,
-        // FILE_FLAG_BACKUP_SEMANTICS (directories)|FILE_FLAG_OPEN_REPARSE_POINT (never follow).
-        SafeFileHandle h = CreateFileW(path, 0xE0080, 7, IntPtr.Zero, 3, 0x02200000, IntPtr.Zero);
-        if (h.IsInvalid) { int code = Marshal.GetLastWin32Error(); h.Dispose(); Fail(code); }
-        return h;
-    }
-    public static uint[] Info(SafeFileHandle h) {
-        uint[] info = new uint[13];
-        if (!GetFileInformationByHandle(h, info)) { Fail(Marshal.GetLastWin32Error()); }
-        return new uint[] { info[0], info[10] };
-    }
-    public static string FinalPath(SafeFileHandle h) {
-        StringBuilder text = new StringBuilder(32768);
-        uint n = GetFinalPathNameByHandleW(h, text, 32768, 0);
-        if (n == 0 || n >= 32768) { Fail(Marshal.GetLastWin32Error()); }
-        return text.ToString();
-    }
-    public static byte[] Read(SafeFileHandle h) {
-        IntPtr o, g, d, s, sd;
-        uint code = GetSecurityInfo(h, 1, 5, out o, out g, out d, out s, out sd);
-        if (code != 0) { Fail((int)code); }
-        try {
-            byte[] bytes = new byte[GetSecurityDescriptorLength(sd)];
-            Marshal.Copy(sd, bytes, 0, bytes.Length);
-            return bytes;
-        } finally { LocalFree(sd); }
-    }
-    public static void Apply(SafeFileHandle h, byte[] descriptor, bool dacl) {
-        RawSecurityDescriptor raw = new RawSecurityDescriptor(descriptor, 0);
-        byte[] owner = new byte[raw.Owner.BinaryLength];
-        raw.Owner.GetBinaryForm(owner, 0);
-        byte[] list = null;
-        uint info = 1;
-        if (dacl) {
-            list = new byte[raw.DiscretionaryAcl.BinaryLength];
-            raw.DiscretionaryAcl.GetBinaryForm(list, 0);
-            info = 0x80000005;
-        }
-        uint code = SetSecurityInfo(h, 1, info, owner, null, list, null);
-        if (code != 0) { Fail((int)code); }
-    }
-}
-'''
-
+# path. Python takes that route itself (ctypes, see "Elevated route" below): no PowerShell process
+# and no C# compile. Both scripts refuse to change anything in an elevated token (exit 4), so a
+# failed or skipped elevation check in Python can only fail closed.
 ACL_VERDICT_PS = r'''
 function Test-IlsonTrustedGrants($Rules, [string]$Me) {
     $trusted = @($Me, 'S-1-5-18', 'S-1-5-32-544', 'S-1-3-0', 'S-1-3-4')
@@ -316,62 +248,14 @@ function Test-IlsonGuarded {
     return ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) -or
             $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::BackupOperator))
 }
-function ConvertTo-IlsonLongPath([string]$Path) {
-    if ($Path.StartsWith('\\?\')) { return $Path }
-    if ($Path.StartsWith('\\')) { return '\\?\UNC\' + $Path.Substring(2) }
-    return '\\?\' + $Path
-}
-function Test-IlsonSamePath([string]$Final, [string]$Path) {
-    if ($Final.StartsWith('\\?\UNC\')) { $Final = '\\' + $Final.Substring(8) }
-    elseif ($Final.StartsWith('\\?\')) { $Final = $Final.Substring(4) }
-    return $Final.TrimEnd('\') -ieq $Path.TrimEnd('\')
-}
-function Open-IlsonHandle([string]$Path) {
-    if (-not ('IlsonAclHandle' -as [type])) { $null = Add-Type -TypeDefinition $env:ILSON_ACL_CS }
-    return [IlsonAclHandle]::Open((ConvertTo-IlsonLongPath $Path))
-}
-function Close-IlsonHandle($Handle) { $Handle.Dispose() }
-function Get-IlsonHandleState($Handle, [bool]$Container) {
-    $info = [IlsonAclHandle]::Info($Handle)
-    if ($Container) { $acl = New-Object Security.AccessControl.DirectorySecurity } else { $acl = New-Object Security.AccessControl.FileSecurity }
-    $acl.SetSecurityDescriptorBinaryForm([IlsonAclHandle]::Read($Handle))
-    return @{ Reparse = (($info[0] -band 0x400) -ne 0); Links = [int]$info[1]; Final = [IlsonAclHandle]::FinalPath($Handle); Facts = (Get-IlsonAclFacts $acl) }
-}
-function Set-IlsonHandleSecurity($Handle, $Me, $Acl) {
-    if ($Acl) { [IlsonAclHandle]::Apply($Handle, $Acl.GetSecurityDescriptorBinaryForm(), $true); return }
-    $owner = New-Object Security.AccessControl.FileSecurity
-    $owner.SetOwner($Me)
-    [IlsonAclHandle]::Apply($Handle, $owner.GetSecurityDescriptorBinaryForm(), $false)
-}
-function Test-IlsonVerdict($Facts, [string]$Me, [string]$Kind, [string]$Want) {
-    if (-not $Want) { return $true }
-    if ($Kind -eq 'private') { $verdict = Get-IlsonPrivateVerdict $Facts.Owner $Facts.Rules $Me }
-    else { $verdict = Get-IlsonTreeVerdict $Facts.Owner $Facts.Rules $Me $Facts.Protected }
-    return $verdict -eq $Want
-}
 # Want '' = a new object (create), 'repair'/'fix-private' = owner + user-only DACL, 'fix-owner' = owner only.
-# Returns $false, changing nothing, when the guarded checks refuse the object.
-function Invoke-IlsonChange([string]$Path, $Item, $Me, [string]$Kind, [string]$Want, [bool]$Guarded) {
-    $acl = $null
-    if ($Want -ne 'fix-owner') { $acl = New-IlsonPrivateAcl $Item $Me }
-    if (-not $Guarded) {
-        if ($acl) { $null = Set-Acl -LiteralPath $Path -AclObject $acl }
-        else {
-            # Owner only. The inherited DACL stays exactly as it is.
-            $owner = $Item.GetAccessControl([Security.AccessControl.AccessControlSections]::Owner)
-            $owner.SetOwner($Me)
-            $null = $Item.SetAccessControl($owner)
-        }
-        return $true
-    }
-    $handle = Open-IlsonHandle $Path
-    try {
-        $state = Get-IlsonHandleState $handle ([bool]$Item.PSIsContainer)
-        if ($state.Reparse -or $state.Links -gt 1 -or -not (Test-IlsonSamePath $state.Final $Path)) { return $false }
-        if (-not (Test-IlsonVerdict $state.Facts $Me.Value $Kind $Want)) { return $false }
-        $null = Set-IlsonHandleSecurity $handle $Me $acl
-    } finally { $null = Close-IlsonHandle $handle }
-    return $true
+# Normal (filtered) token only: the scripts exit before this in an elevated one.
+function Invoke-IlsonChange([string]$Path, $Item, $Me, [string]$Want) {
+    if ($Want -ne 'fix-owner') { $null = Set-Acl -LiteralPath $Path -AclObject (New-IlsonPrivateAcl $Item $Me); return }
+    # Owner only. The inherited DACL stays exactly as it is.
+    $owner = $Item.GetAccessControl([Security.AccessControl.AccessControlSections]::Owner)
+    $owner.SetOwner($Me)
+    $null = $Item.SetAccessControl($owner)
 }
 function Test-IlsonDenied($Record) {
     $e = $Record.Exception
@@ -383,10 +267,12 @@ function Test-IlsonDenied($Record) {
 }
 '''
 
-# Exit 0 ok (checked, created or repaired), 1 fail closed, 3 elevated leftover this window cannot fix.
+# Exit 0 ok (checked, created or repaired), 1 fail closed, 3 elevated leftover this window cannot fix,
+# 4 elevated token (the change belongs to the Python handle route; nothing was read or changed).
 ACL_PRIVATE_PS = ACL_VERDICT_PS + r'''
 $ErrorActionPreference = 'Stop'
 try {
+    if (Test-IlsonGuarded) { exit 4 }
     $p = $env:ILSON_ACL_TARGET
     $me = [Security.Principal.WindowsIdentity]::GetCurrent().User
     $item = Get-Item -LiteralPath $p -Force
@@ -399,8 +285,8 @@ try {
         if ($want -eq 'denied') { exit 3 }
         if ($want -ne 'repair') { exit 1 }
     }
-    # Same as the license lock: owner = this user even in an elevated token, user-only DACL.
-    if (-not (Invoke-IlsonChange $p $item $me 'private' $want (Test-IlsonGuarded))) { exit 1 }
+    # Same as the license lock: owner = this user, user-only DACL (normal token; see exit 4 above).
+    Invoke-IlsonChange $p $item $me $want
     $facts = Get-IlsonAclFacts (Get-Acl -LiteralPath $p)
     if ((Get-IlsonPrivateVerdict $facts.Owner $facts.Rules $me.Value) -ne 'ok') { exit 1 }
     exit 0
@@ -412,13 +298,13 @@ try {
 
 # Walks the given roots (never through reparse points). Prints one line of counts:
 # checked repaired admin_owned no_access foreign error skipped
-# foreign also counts objects the guarded (elevated) route refused: a second hard link, a path
-# that no longer leads to the checked object, or a verdict that changed in between.
+# A repair in an elevated token prints ILSON_ACL_GUARDED and exits 4 without reading anything:
+# that repair is the Python handle route (guarded_tree).
 ACL_TREE_PS = ACL_VERDICT_PS + r'''
 $ErrorActionPreference = 'Stop'
-$me = [Security.Principal.WindowsIdentity]::GetCurrent().User
 $repair = $env:ILSON_ACL_REPAIR -eq '1'
-$guarded = $repair -and (Test-IlsonGuarded)
+if ($repair -and (Test-IlsonGuarded)) { 'ILSON_ACL_GUARDED'; exit 4 }
+$me = [Security.Principal.WindowsIdentity]::GetCurrent().User
 $limit = [int]$env:ILSON_ACL_LIMIT
 $n = @{ checked = 0; repaired = 0; admin = 0; denied = 0; foreign = 0; error = 0; skipped = 0 }
 $stack = New-Object System.Collections.Stack
@@ -438,8 +324,7 @@ while ($stack.Count -gt 0) {
         if ($verdict -eq 'foreign') { $n.foreign++; continue }
         if ($verdict -ne 'ok') {
             if (-not $repair) { $n.admin++ }
-            elseif (Invoke-IlsonChange $p $item $me 'tree' $verdict $guarded) { $n.repaired++ }
-            else { $n.foreign++; continue }
+            else { Invoke-IlsonChange $p $item $me $verdict; $n.repaired++ }
         }
         if ($item.PSIsContainer) {
             foreach ($child in @(Get-ChildItem -LiteralPath $p -Force)) { $stack.Push($child.FullName) }
@@ -456,9 +341,408 @@ while ($stack.Count -gt 0) {
 def _powershell(script, env, capture=False):
     encoded = base64.b64encode(script.encode('utf-16le')).decode('ascii')
     return subprocess.run(['powershell.exe', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
-                          env=dict(os.environ, ILSON_ACL_CS=ACL_HANDLE_CS, **env), stdin=subprocess.DEVNULL,
+                          env=dict(os.environ, **env), stdin=subprocess.DEVNULL,
                           stdout=subprocess.PIPE if capture else subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                           creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), timeout=120)
+
+
+# ---- Elevated route (Windows, Python + ctypes) -------------------------------------------------
+# One process, no compile: CreateFileW with FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+# GetFileInformationByHandle, GetFinalPathNameByHandleW, GetSecurityInfo / SetSecurityInfo on that
+# handle. The decisions below take the Win32 layer as an argument, so tests drive them with a fake.
+#
+# Path anchor (F1): legitimate setups reach the course folders indirectly (C:\Users or the profile
+# behind a junction, subst or mapped drives, 8.3 names). So an object is accepted when its handle's
+# final path lies under the final path of its anchor, resolved once through the anchor's own
+# handle: the walked root for the tree repair, the parent folder for a single private object. A
+# parent or folder swapped for a junction during the walk leads outside the anchor and is refused.
+#
+# Laptop check (not provable here): SetSecurityInfo with a DACL lets the system propagate the new
+# inheritable entry to existing children by name, which this guard does not cover; whether that
+# walk follows a junction child is the "propagation" item in PROGRESS.md.
+FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT = 0x10, 0x400
+OPEN_FLAGS = 0x02200000           # FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT
+READ_ACCESS = 0x20080             # READ_CONTROL | FILE_READ_ATTRIBUTES
+WRITE_ACCESS = 0xE0080            # READ_CONTROL | WRITE_DAC | WRITE_OWNER | FILE_READ_ATTRIBUTES
+OWNER_INFO, OWNER_PROTECTED_DACL_INFO = 0x1, 0x80000005  # (PROTECTED_DACL | DACL | OWNER)_SECURITY_INFORMATION
+FULL_CONTROL = 0x1F01FF           # FileSystemRights.FullControl, as New-IlsonPrivateAcl grants it
+BA = 'S-1-5-32-544'
+TRUSTED_GRANTS = ('S-1-5-18', BA, 'S-1-3-0', 'S-1-3-4')
+
+
+class Win32Error(OSError):
+    """A failed Win32 call; code is the Win32 error (5 access denied, 2/3 missing, 32 sharing)."""
+    def __init__(self, code):
+        super().__init__('ILSON_WIN32_%d' % code)
+        self.code = code
+
+
+def _failure(exc):
+    """'denied', 'gone' or 'error' for an exception from the Win32 layer or os."""
+    code = getattr(exc, 'code', None) if isinstance(exc, Win32Error) else getattr(exc, 'winerror', None)
+    if code is None:
+        if isinstance(exc, PermissionError): return 'denied'
+        if isinstance(exc, FileNotFoundError): return 'gone'
+        return 'error'
+    if code == 5: return 'denied'
+    if code in (2, 3): return 'gone'
+    return 'error'
+
+
+def sid_text(data, offset=0):
+    """Binary SID at offset -> ('S-1-...', length). Strict bounds; ValueError otherwise."""
+    if offset < 0 or offset + 8 > len(data) or data[offset] != 1 or data[offset + 1] > 15:
+        raise ValueError('SID')
+    count = data[offset + 1]
+    if offset + 8 + 4 * count > len(data):
+        raise ValueError('SID')
+    authority = int.from_bytes(data[offset + 2:offset + 8], 'big')
+    subs = struct.unpack_from('<%dI' % count, data, offset + 8)
+    text = 'S-1-' + (str(authority) if authority < 2**32 else '0x%012X' % authority)
+    return text + ''.join('-%d' % value for value in subs), 8 + 4 * count
+
+
+def sid_bytes(text):
+    parts = text.split('-')
+    if len(parts) < 3 or parts[0] != 'S' or parts[1] != '1' or len(parts) - 3 > 15:
+        raise ValueError('SID')
+    authority = int(parts[2], 16) if parts[2].lower().startswith('0x') else int(parts[2])
+    subs = [int(value) for value in parts[3:]]
+    return bytes((1, len(subs))) + authority.to_bytes(6, 'big') + struct.pack('<%dI' % len(subs), *subs)
+
+
+def parse_security_descriptor(data):
+    """Self-relative descriptor -> (owner, [(sid, allow)], protected), the facts Get-IlsonAclFacts reads.
+
+    Stricter than .NET where they could differ: a missing DACL means Everyone (as .NET reports
+    it), and an ACE that is not a plain allow/deny entry counts as an untrusted grant.
+    """
+    if len(data) < 20:
+        raise ValueError('SD')
+    revision, _, control, owner_at, _, _, dacl_at = struct.unpack_from('<BBHIIII', data)
+    if revision != 1 or not control & 0x8000:  # SE_SELF_RELATIVE
+        raise ValueError('SD')
+    owner = sid_text(data, owner_at)[0] if owner_at else None
+    protected = bool(control & 0x1000)  # SE_DACL_PROTECTED
+    if not control & 0x4 or not dacl_at:  # SE_DACL_PRESENT, NULL DACL
+        return owner, [('S-1-1-0', True)], protected
+    if dacl_at + 8 > len(data):
+        raise ValueError('SD')
+    _, _, size, count, _ = struct.unpack_from('<BBHHH', data, dacl_at)
+    end = dacl_at + size
+    if size < 8 or end > len(data):
+        raise ValueError('SD')
+    rules, at = [], dacl_at + 8
+    for _ in range(count):
+        if at + 4 > end:
+            raise ValueError('SD')
+        kind, _, ace_size = struct.unpack_from('<BBH', data, at)
+        if ace_size < 8 or at + ace_size > end:
+            raise ValueError('SD')
+        if kind in (0, 1):  # ACCESS_ALLOWED_ACE_TYPE, ACCESS_DENIED_ACE_TYPE
+            rules.append((sid_text(data[:at + ace_size], at + 8)[0], kind == 0))
+        else:
+            rules.append(('ACE-%d' % kind, False))
+        at += ace_size
+    return owner, rules, protected
+
+
+def private_dacl(me, container):
+    """The DACL New-IlsonPrivateAcl builds: one Allow FullControl entry for this user,
+    inherited by subfolders and files (OI|CI) on a folder. Applied as a protected DACL."""
+    sid = sid_bytes(me)
+    ace = struct.pack('<BBHI', 0, 0x03 if container else 0, 8 + len(sid), FULL_CONTROL) + sid
+    return struct.pack('<BBHHH', 2, 0, 8 + len(ace), 1, 0) + ace
+
+
+# Same tables as Get-IlsonPrivateVerdict / Get-IlsonTreeVerdict (a test runs one table through both).
+def _trusted(rules, me):
+    return all(allow and sid in (me,) + TRUSTED_GRANTS for sid, allow in rules)
+
+
+def private_verdict(owner, rules, me):
+    if not owner: return 'denied'
+    if owner == me and rules and all(sid == me and allow for sid, allow in rules): return 'ok'
+    if owner not in (me, BA) or not _trusted(rules, me): return 'foreign'
+    return 'repair'
+
+
+def tree_verdict(owner, rules, me, protected):
+    if not owner: return 'denied'
+    if owner == me and any(allow and (sid == me or sid == 'S-1-3-4') for sid, allow in rules): return 'ok'
+    if owner not in (me, BA) or not _trusted(rules, me): return 'foreign'
+    return 'fix-private' if protected else 'fix-owner'
+
+
+def _final_parts(path):
+    """Components of a final path, \\\\?\\ and \\\\?\\UNC\\ removed, compared case-insensitively."""
+    if path[:8].upper() == '\\\\?\\UNC\\': path = '\\\\' + path[8:]
+    elif path[:4] == '\\\\?\\': path = path[4:]
+    unc = path.startswith('\\\\')
+    parts = [part for part in path.split('\\') if part]
+    # NTFS compares names with a one-to-one upcase table; never let one character become two.
+    return [unc] + [''.join(c.upper() if len(c.upper()) == 1 else c for c in part) for part in parts]
+
+
+def under(final, anchor):
+    """True when final is anchor or lies below it, component by component."""
+    f, a = _final_parts(final), _final_parts(anchor)
+    return len(a) > 1 and f[:len(a)] == a
+
+
+def long_path(path):
+    if path.startswith('\\\\?\\'): return path
+    if path.startswith('\\\\'): return '\\\\?\\UNC\\' + path[2:]
+    return '\\\\?\\' + path
+
+
+class GuardRefusedError(ValueError):
+    """The elevated route did not change an object it could not tie to its folder (a link, a
+    second hard link, a path leading elsewhere, or a verdict that changed in between)."""
+    def __init__(self):
+        super().__init__('PATH_REDIRECTED')
+
+
+def _facts(w32, handle):
+    return parse_security_descriptor(w32.security(handle))
+
+
+def _anchor(w32, path):
+    """Final path of a folder through its own handle; None when the folder itself is a link."""
+    handle = w32.open(path, False)
+    try:
+        attributes, _ = w32.info(handle)
+        return None if attributes & FILE_ATTRIBUTE_REPARSE_POINT else w32.final_path(handle)
+    finally:
+        w32.close(handle)
+
+
+def _guarded_change(w32, path, anchor, me, kind, want):
+    """Owner (+ user-only protected DACL unless want is 'fix-owner') set on a checked handle.
+    False, changing nothing, when the handle is not the object under the anchor or its verdict moved."""
+    handle = w32.open(path, True)
+    try:
+        attributes, links = w32.info(handle)
+        if attributes & FILE_ATTRIBUTE_REPARSE_POINT or links != 1 or not under(w32.final_path(handle), anchor):
+            return False
+        if want:
+            owner, rules, protected = _facts(w32, handle)
+            now = private_verdict(owner, rules, me) if kind == 'private' else tree_verdict(owner, rules, me, protected)
+            if now != want:
+                return False
+        dacl = None if want == 'fix-owner' else private_dacl(me, bool(attributes & FILE_ATTRIBUTE_DIRECTORY))
+        w32.set_security(handle, sid_bytes(me), dacl)
+        if kind == 'private':
+            owner, rules, _ = _facts(w32, handle)
+            if private_verdict(owner, rules, me) != 'ok':
+                raise ValueError('STORAGE_ERROR')
+        return True
+    finally:
+        w32.close(handle)
+
+
+def guarded_private(target, create, w32):
+    """ACL_PRIVATE_PS for an elevated token, on handles. target is absolute."""
+    import ntpath
+    me = w32.user_sid()
+    try:
+        if w32.is_reparse(target):
+            raise ValueError('STORAGE_ERROR')
+        want = ''
+        if not create:
+            handle = w32.open(target, False)
+            try:
+                owner, rules, _ = _facts(w32, handle)
+            finally:
+                w32.close(handle)
+            want = private_verdict(owner, rules, me)
+            if want == 'ok': return
+            if want == 'denied': raise ElevatedOwnerError()
+            if want != 'repair': raise ValueError('STORAGE_ERROR')
+        anchor = _anchor(w32, ntpath.dirname(target))
+        if anchor is None or not _guarded_change(w32, target, anchor, me, 'private', want):
+            raise GuardRefusedError()
+    except (ElevatedOwnerError, GuardRefusedError):
+        raise
+    except (OSError, ValueError, struct.error) as exc:
+        raise (ElevatedOwnerError() if _failure(exc) == 'denied' else ValueError('STORAGE_ERROR')) from None
+
+
+def guarded_tree(roots, limit, w32):
+    """ACL_TREE_PS repair for an elevated token, on handles. refused: objects the guard left alone."""
+    import ntpath
+    me = w32.user_sid()
+    n = dict.fromkeys(('checked', 'repaired', 'admin_owned', 'no_access', 'foreign', 'error', 'skipped', 'refused'), 0)
+    stack = [(root, None) for root in roots if w32.exists(root)]
+    while stack:
+        path, anchor = stack.pop()
+        if n['checked'] >= limit:
+            n['skipped'] += 1
+            continue
+        try:
+            if w32.is_reparse(path):
+                n['skipped'] += 1
+                continue
+            n['checked'] += 1
+            handle = w32.open(path, False)
+            try:
+                attributes, _ = w32.info(handle)
+                final = w32.final_path(handle)
+                if anchor is None:
+                    anchor = final  # the root: its own final path, resolved once
+                if attributes & FILE_ATTRIBUTE_REPARSE_POINT or not under(final, anchor):
+                    n['refused'] += 1
+                    continue
+                owner, rules, protected = _facts(w32, handle)
+            finally:
+                w32.close(handle)
+            verdict = tree_verdict(owner, rules, me, protected)
+            if verdict == 'denied':
+                n['no_access'] += 1
+                continue
+            if verdict == 'foreign':
+                n['foreign'] += 1
+                continue
+            if verdict != 'ok':
+                if not _guarded_change(w32, path, anchor, me, 'tree', verdict):
+                    n['refused'] += 1
+                    continue
+                n['repaired'] += 1
+            if attributes & FILE_ATTRIBUTE_DIRECTORY:
+                stack.extend((ntpath.join(path, name), anchor) for name in w32.children(path))
+        except (OSError, ValueError, struct.error) as exc:
+            kind = _failure(exc)
+            n['skipped' if kind == 'gone' else 'no_access' if kind == 'denied' else 'error'] += 1
+    return n
+
+
+class Win32:
+    """The real Win32 layer for the elevated route (Windows only)."""
+    def __init__(self):
+        import ctypes
+        from ctypes import wintypes
+        self.c = ctypes
+        k = self.kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        a = self.advapi = ctypes.WinDLL('advapi32', use_last_error=True)
+        H, D, B, P = wintypes.HANDLE, wintypes.DWORD, wintypes.BOOL, ctypes.c_void_p
+        for name, args, result in (
+                ('CreateFileW', [wintypes.LPCWSTR, D, D, P, D, D, H], H), ('CloseHandle', [H], B),
+                ('GetFileInformationByHandle', [H, P], B), ('GetFinalPathNameByHandleW', [H, wintypes.LPWSTR, D, D], D),
+                ('GetCurrentProcess', [], H), ('LocalFree', [P], P)):
+            function = getattr(k, name); function.argtypes = args; function.restype = result
+        pp = ctypes.POINTER(P)
+        for name, args, result in (
+                ('GetSecurityInfo', [H, ctypes.c_int, D, pp, pp, pp, pp, pp], D),
+                ('SetSecurityInfo', [H, ctypes.c_int, D, P, P, P, P], D), ('GetSecurityDescriptorLength', [P], D),
+                ('OpenProcessToken', [H, D, ctypes.POINTER(H)], B), ('GetTokenInformation', [H, ctypes.c_int, P, D, ctypes.POINTER(D)], B),
+                ('GetLengthSid', [P], D), ('CheckTokenMembership', [H, P, ctypes.POINTER(B)], B)):
+            function = getattr(a, name); function.argtypes = args; function.restype = result
+        self._sid = self._guarded = None
+
+    def _error(self, code=None):
+        return Win32Error(self.c.get_last_error() if code is None else code)
+
+    def guarded(self):
+        """Like Test-IlsonGuarded: Administrators or Backup Operators enabled in this token
+        (deny-only in a UAC-filtered token, so a normal window is not guarded)."""
+        if self._guarded is None:
+            found = False
+            for sid in (BA, 'S-1-5-32-551'):
+                value = self.c.create_string_buffer(sid_bytes(sid))
+                member = self.c.c_long(0)
+                if not self.advapi.CheckTokenMembership(None, value, self.c.byref(member)):
+                    raise self._error()
+                found = found or bool(member.value)
+            self._guarded = found
+        return self._guarded
+
+    def user_sid(self):
+        if self._sid is None:
+            c = self.c
+            token = c.c_void_p()
+            if not self.advapi.OpenProcessToken(self.kernel.GetCurrentProcess(), 0x8, c.byref(token)):  # TOKEN_QUERY
+                raise self._error()
+            try:
+                size = c.c_ulong(0)
+                self.advapi.GetTokenInformation(token, 1, None, 0, c.byref(size))  # TokenUser: sizes the buffer
+                if not size.value or size.value > 4096:
+                    raise self._error()
+                buffer = c.create_string_buffer(size.value)
+                if not self.advapi.GetTokenInformation(token, 1, buffer, size, c.byref(size)):
+                    raise self._error()
+                pointer = c.c_void_p.from_buffer(buffer).value  # TOKEN_USER.User.Sid
+                self._sid = sid_text(c.string_at(pointer, self.advapi.GetLengthSid(pointer)))[0]
+            finally:
+                self.kernel.CloseHandle(token)
+        return self._sid
+
+    def exists(self, path):
+        return os.path.exists(path)
+
+    def is_reparse(self, path):
+        return bool(getattr(os.lstat(path), 'st_file_attributes', 0) & FILE_ATTRIBUTE_REPARSE_POINT)
+
+    def children(self, path):
+        with os.scandir(path) as entries:
+            return [entry.name for entry in entries]
+
+    def open(self, path, write):
+        handle = self.kernel.CreateFileW(long_path(path), WRITE_ACCESS if write else READ_ACCESS, 7, None, 3, OPEN_FLAGS, None)
+        if handle is None or handle == self.c.c_void_p(-1).value:
+            raise self._error()
+        return handle
+
+    def close(self, handle):
+        self.kernel.CloseHandle(handle)
+
+    def info(self, handle):
+        info = (self.c.c_ulong * 13)()  # BY_HANDLE_FILE_INFORMATION
+        if not self.kernel.GetFileInformationByHandle(handle, info):
+            raise self._error()
+        return info[0], info[10]  # dwFileAttributes, nNumberOfLinks
+
+    def final_path(self, handle):
+        buffer = self.c.create_unicode_buffer(32768)
+        size = self.kernel.GetFinalPathNameByHandleW(handle, buffer, 32768, 0)  # FILE_NAME_NORMALIZED | VOLUME_NAME_DOS
+        if not size or size >= 32768:
+            raise self._error()
+        return buffer.value
+
+    def security(self, handle):
+        c = self.c
+        owner, group, dacl, sacl, descriptor = (c.c_void_p() for _ in range(5))
+        code = self.advapi.GetSecurityInfo(handle, 1, 5, c.byref(owner), c.byref(group), c.byref(dacl), c.byref(sacl), c.byref(descriptor))
+        if code:
+            raise self._error(code)
+        try:
+            return c.string_at(descriptor.value, self.advapi.GetSecurityDescriptorLength(descriptor.value))
+        finally:
+            self.kernel.LocalFree(descriptor.value)
+
+    def set_security(self, handle, owner, dacl):
+        c = self.c
+        owner_buffer = c.create_string_buffer(owner, len(owner))
+        dacl_buffer = None if dacl is None else c.create_string_buffer(dacl, len(dacl))
+        code = self.advapi.SetSecurityInfo(handle, 1, OWNER_INFO if dacl is None else OWNER_PROTECTED_DACL_INFO,
+                                           owner_buffer, None, dacl_buffer, None)
+        if code:
+            raise self._error(code)
+
+
+_WIN32 = []
+
+
+def elevated_win32():
+    """The Win32 layer when this process holds an elevated token, else None (also when ctypes
+    or the check fails: the PowerShell route then refuses an elevated token by itself)."""
+    if os.name != 'nt':
+        return None
+    try:
+        if not _WIN32:
+            _WIN32.append(Win32())
+        return _WIN32[0] if _WIN32[0].guarded() else None
+    except Exception:
+        return None
 
 
 def windows_acl(path, create=False):
@@ -467,9 +751,12 @@ def windows_acl(path, create=False):
     An object left by an elevated session (owner BUILTIN\\Administrators, no foreign grant)
     is repaired in the same call; another user's object is never accepted.
     """
+    target = os.path.abspath(str(path))
+    w32 = elevated_win32()
+    if w32 is not None:
+        return guarded_private(target, create, w32)
     try:
-        # Absolute, so the elevated route can compare it with the handle's final path.
-        result = _powershell(ACL_PRIVATE_PS, {'ILSON_ACL_TARGET': os.path.abspath(str(path)), 'ILSON_ACL_CREATE': '1' if create else '0'})
+        result = _powershell(ACL_PRIVATE_PS, {'ILSON_ACL_TARGET': target, 'ILSON_ACL_CREATE': '1' if create else '0'})
     except (OSError, subprocess.SubprocessError):
         raise ValueError('STORAGE_ERROR') from None
     if result.returncode == 3:
@@ -479,9 +766,17 @@ def windows_acl(path, create=False):
 
 
 def windows_tree(roots, repair=False, limit=5000):
-    """Count (and optionally repair) objects under roots that an elevated session left behind."""
+    """Count (and optionally repair) objects under roots that an elevated session left behind.
+    refused: objects an elevated repair left alone because it could not tie them to the root."""
+    roots = [os.path.abspath(str(p)) for p in roots]
+    w32 = elevated_win32() if repair else None
+    if w32 is not None:
+        try:
+            return guarded_tree(roots, int(limit), w32)
+        except (OSError, ValueError):
+            raise ValueError('STORAGE_ERROR') from None
     try:
-        result = _powershell(ACL_TREE_PS, {'ILSON_ACL_ROOTS': '\n'.join(os.path.abspath(str(p)) for p in roots),
+        result = _powershell(ACL_TREE_PS, {'ILSON_ACL_ROOTS': '\n'.join(roots),
                                            'ILSON_ACL_REPAIR': '1' if repair else '0', 'ILSON_ACL_LIMIT': str(int(limit))},
                              capture=True)
     except (OSError, subprocess.SubprocessError):
@@ -489,7 +784,9 @@ def windows_tree(roots, repair=False, limit=5000):
     lines = result.stdout.decode('ascii', errors='replace').split()
     if result.returncode or len(lines) < 8 or lines[-8] != 'ILSON_ACL' or not all(v.isdigit() for v in lines[-7:]):
         raise ValueError('STORAGE_ERROR')
-    return dict(zip(('checked', 'repaired', 'admin_owned', 'no_access', 'foreign', 'error', 'skipped'), map(int, lines[-7:])))
+    counts = dict(zip(('checked', 'repaired', 'admin_owned', 'no_access', 'foreign', 'error', 'skipped'), map(int, lines[-7:])))
+    counts['refused'] = 0
+    return counts
 
 
 def private_dir(home):
@@ -725,6 +1022,9 @@ def main():
     except (OSError,ValueError,KeyError,TypeError,json.JSONDecodeError) as e:
         if isinstance(e, ElevatedOwnerError):
             print('라이선스 확인 필요: ELEVATED_OWNER — ' + ELEVATED_OWNER_HINT, file=sys.stderr)
+            return 1
+        if isinstance(e, GuardRefusedError):
+            print('라이선스 확인 필요: PATH_REDIRECTED — ' + REDIRECTED_HINT, file=sys.stderr)
             return 1
         code = str(e) if str(e) in ('INVALID_SERIAL','EXPIRED','CLOCK_ERROR','STORAGE_ERROR') else 'STORAGE_ERROR'
         print('라이선스 확인 필요: ' + code + ' — ilson license activate',file=sys.stderr)
