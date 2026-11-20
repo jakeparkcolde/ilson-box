@@ -374,16 +374,32 @@ def windows_permissions(repair=False):
         counts = windows_tree([p for p in roots if p.is_absolute()], repair=repair)
     except (ImportError, OSError, ValueError):
         return {'state': 'unknown'}
+    # refused: an elevated repair left an object alone because its path does not lead plainly to
+    # it (link, second hard link). Not another user's file, so no instructor advice.
+    counts = dict(counts, refused=counts.get('refused', 0))
     if counts['no_access']: state = 'needs_admin'
     elif counts['foreign']: state = 'foreign'
+    elif counts['refused']: state = 'redirected'
     elif counts['admin_owned']: state = 'elevated_owner'
     elif counts['error']: state = 'incomplete'
     else: state = 'ok'
-    return dict(state=state, **{key: counts[key] for key in ('checked', 'repaired', 'admin_owned', 'no_access', 'foreign', 'error', 'skipped')})
+    return dict(state=state, **{key: counts[key] for key in ('checked', 'repaired', 'admin_owned', 'no_access', 'foreign', 'error', 'skipped', 'refused')})
+
+
+REDIRECTED_LINE = ('권한 점검: 관리자 권한 창에서는 연결(바로가기)을 거치는 경로의 항목 %d개를 안전을 위해 바꾸지 않았습니다. '
+                   '일반 PowerShell 창에서 ilson doctor 를 실행해 남은 항목이 있는지 확인해주세요.')
 
 
 def permission_lines(value):
+    lines = _permission_lines(value)
+    if value.get('refused') and value.get('state') != 'redirected': lines.append(REDIRECTED_LINE % value['refused'])
+    return lines
+
+
+def _permission_lines(value):
     state = value.get('state')
+    if state == 'redirected':
+        return [REDIRECTED_LINE % value['refused']]
     if state == 'elevated_owner':
         return ['권한 점검: 관리자 권한 PowerShell에서 만든 항목 %d개(소유자 Administrators). 지금 창에서 ilson doctor --fix-permissions 를 실행해 사용자 소유로 돌려주세요.' % value['admin_owned']]
     if state == 'needs_admin':
