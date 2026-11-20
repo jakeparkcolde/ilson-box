@@ -81,13 +81,15 @@ class HelperFailureTests(unittest.TestCase):
         source = (ROOT / 'course/install-windows.ps1').read_text(encoding='ascii')
         recorder = source.split('# DIAGNOSTICS_BEGIN\n', 1)[1].split('# DIAGNOSTICS_END', 1)[0]
         stage = "    Start-IlsonStep 'helper.install'\n" + source.split("    Start-IlsonStep 'helper.install'\n", 1)[1].split("    Start-IlsonStep 'verify.current'", 1)[0]
+        # The stage maps fixed helper exit codes through this installer function (D3).
+        refusal = re.search(r'(?ms)^function Get-IlsonHelperRefusal\(.*?^\}\n', source).group(0)
         for mode in ('native', 'exception', 'missing-runtime'):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as temp:
                 home = Path(temp).resolve()
                 script = recorder + '''
 $ErrorActionPreference='Stop'
 function K([string]$s) { [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($s)) }
-function Get-Command { $null }
+''' + refusal + '''function Get-Command { $null }
 $DryRun=$false; $statuses=@{}; $python=$env:ILSON_TEST_PYTHON
 Start-IlsonDiagnostics 'windows-course'
 '''
