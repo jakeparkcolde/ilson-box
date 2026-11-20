@@ -229,9 +229,12 @@ class PropagationTests(unittest.TestCase):
             with self.subTest(nested=nested):
                 r, p, model = guard_layout(nested=nested)
                 fake = guarded_tree(model, r)
-                self.assertEqual((fake.actions, fake.propagated), ([], []))
-                self.assertEqual(fake.counts, [2, 0, 0, 0, 0, 0, 0, 1])  # the folder is refused, its children not walked
-                self.assertEqual(model[1]['owner'], BA)
+                # The folder is refused, but its children are still walked one by one (review D23
+                # SF-1): the plain file gets its own repair (a file: nothing propagates), the hard
+                # link is refused by its own link count, a nested folder by its own scan.
+                self.assertEqual((fake.actions, fake.propagated), (['hprivate:' + p + '\\plain.txt'], []))
+                self.assertEqual(fake.counts, [5, 1, 0, 0, 0, 0, 1, 3] if nested else [4, 1, 0, 0, 0, 0, 1, 2])
+                self.assertEqual((model[1]['owner'], fake.unscanned), (BA, 0))
 
     def test_folder_without_links_is_repaired_and_propagation_skips_the_junction(self):
         r, p, model = guard_layout(linked=False)
@@ -241,15 +244,20 @@ class PropagationTests(unittest.TestCase):
         self.assertNotIn('C:\\outside\\inner\\f.txt', fake.propagated)
         self.assertEqual(fake.counts, [4, 3, 0, 0, 0, 0, 1, 0])  # jn skipped (reparse), plain + hl fixed after propagation
 
-    def test_unreadable_or_oversized_subtree_counts_as_linked(self):
+    def test_unreadable_or_oversized_subtree_is_left_alone_under_its_own_count(self):
         r, p, model = guard_layout(linked=False)
         next(n for n in model if n['path'] == p + '\\plain.txt')['denied'] = True
         fake = guarded_tree(model, r)
-        self.assertEqual((fake.actions, fake.counts), ([], [2, 0, 0, 0, 0, 0, 0, 1]))
+        # The folder's DACL is not set (unscanned, not refused); its children are still checked:
+        # the unreadable file counts as no_access, the other file is repaired on its own handle.
+        self.assertEqual((fake.actions, fake.counts, fake.unscanned), (['hprivate:' + p + '\\hl.txt'], [4, 1, 0, 1, 0, 0, 1, 0], 1))
+        self.assertEqual(model[1]['owner'], BA)
         r, p, model = guard_layout(linked=False)
         w32 = FakeWin32(model)
-        self.assertTrue(lic._linked_below(w32, p, limit=2))
-        self.assertFalse(lic._linked_below(w32, p, limit=3))
+        self.assertEqual(lic._linked_below(w32, p, limit=2), 'unscanned')
+        self.assertIsNone(lic._linked_below(w32, p, limit=3))
+        model[-1]['links'] = 2
+        self.assertEqual(lic._linked_below(w32, p, limit=3), 'linked')
         self.assertFalse(w32.handles)
 
     def test_owner_only_folder_change_never_propagates(self):

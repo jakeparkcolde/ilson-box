@@ -265,7 +265,7 @@ class LicenseHelperTests(unittest.TestCase):
         with patch.object(course_license.subprocess, 'run', return_value=self.completed(0, b'noise\r\nILSON_ACL 7 4 0 1 1 2 1\r\n')) as run:
             counts = course_license.windows_tree([Path('C:/a'), Path('C:/b')], repair=True)
         self.assertEqual(counts, {'checked': 7, 'repaired': 4, 'admin_owned': 0, 'no_access': 1, 'foreign': 1, 'error': 2, 'skipped': 1,
-                                  'refused': 0})
+                                  'refused': 0, 'unscanned': 0})
         env = run.call_args.kwargs['env']
         self.assertEqual((env['ILSON_ACL_REPAIR'], env['ILSON_ACL_LIMIT']), ('1', '5000'))
         self.assertEqual(env['ILSON_ACL_ROOTS'].split('\n'), [os.path.abspath(str(Path('C:/a'))), os.path.abspath(str(Path('C:/b')))])
@@ -658,6 +658,7 @@ def guarded_tree(model, root, **fake):
     w32 = FakeWin32(model, **fake)
     counts = course_license.guarded_tree([root], 5000, w32)
     w32.counts = [counts[k] for k in COUNT_KEYS]
+    w32.unscanned = counts['unscanned']
     assert not w32.handles, 'every handle is closed again: %r' % w32.handles
     return w32
 
@@ -1140,14 +1141,22 @@ class GuardedRouteTests(unittest.TestCase):
                 self.assertEqual(lic.windows_tree([root], repair=True)['repaired'], 4)
             run.assert_not_called()
         self.assertEqual(fake.actions, ['hprivate:' + target])
-        # A scan never needs the handle route, even in an elevated window.
-        with patch.object(lic, 'elevated_win32') as elevated, \
-                patch.object(lic.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, b'ILSON_ACL 1 0 0 0 0 0 0', b'')):
+        # A scan in an elevated window takes the same handle checks as its repair (run 3, N2), on
+        # read handles only, changing nothing and running no PowerShell.
+        scan = FakeWin32(tree_model(root)[1])
+        with patch.object(lic, 'elevated_win32', return_value=scan), patch.object(lic.subprocess, 'run') as run:
+            counts = lic.windows_tree([root])
+        run.assert_not_called()
+        self.assertEqual((counts['repaired'], counts['admin_owned'], scan.actions), (0, 4, []))
+        self.assertFalse([path for path, write in scan.opened if write])
+        # A normal window reads through PowerShell, as before.
+        with patch.object(lic, 'elevated_win32', return_value=None), \
+                patch.object(lic.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, b'ILSON_ACL 1 0 0 0 0 0 0', b'')) as run:
             lic.windows_tree([root])
-        elevated.assert_not_called()
+        run.assert_called_once()
         # Layer failures cost one call per object and end in a clear, closed result.
         broken = FakeWin32(tree_model(root)[1], nofinal={p['path'] for p in tree_model(root)[1]})
-        self.assertEqual(lic.guarded_tree([root], 5000, broken), dict(zip(COUNT_KEYS, (1, 0, 0, 0, 0, 1, 0, 0))))
+        self.assertEqual(lic.guarded_tree([root], 5000, broken), dict(zip(COUNT_KEYS, (1, 0, 0, 0, 0, 1, 0, 0)), unscanned=0))
         self.assertEqual(broken.calls, 1)
         failing = Mock(user_sid=Mock(side_effect=lic.Win32Error(1)))
         with patch.object(lic, 'elevated_win32', return_value=failing):
