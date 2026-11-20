@@ -23,6 +23,24 @@ class CourseAdminError(ValueError):
     pass
 
 
+# Start-failure classes shared with web-admin-server.py (its exit codes). Fixed text only.
+EXIT_PERMISSION,EXIT_PORT,EXIT_SETTINGS,EXIT_ELEVATED=3,4,5,6
+PERMISSION_MESSAGE='관리자 상태 파일의 소유자·권한이 맞지 않아 관리 화면을 열지 못했습니다.'
+PORT_MESSAGE='관리 화면 포트를 열지 못했습니다. 포트를 쓰는 다른 프로그램을 종료하거나 잠시 뒤 다시 시도해주세요.'
+SETTINGS_MESSAGE='관리자 연결 설정이 없거나 형식이 다릅니다. ilson open을 다시 실행해주세요.'
+
+
+def permission_message(elevated):
+    return PERMISSION_MESSAGE+' '+(platform.elevated_hint() if elevated else 'ilson doctor로 확인해주세요.')
+
+
+def child_failure(code):
+    if code==EXIT_PORT: return PORT_MESSAGE
+    if code==EXIT_SETTINGS: return SETTINGS_MESSAGE
+    if code in (EXIT_PERMISSION,EXIT_ELEVATED): return permission_message(code==EXIT_ELEVATED)
+    return '관리 웹을 시작하지 못했습니다. ilson doctor로 확인하세요.'
+
+
 def private_home(home):
     home=platform.safe_path(home)
     forbidden=[Path.home()/'Documents']
@@ -87,7 +105,13 @@ def locked(private):
 
 def prepare(private):
     for name,length in (('token',32),('instance',24)):
-        value=read(private,name)
+        try: value=read(private,name)
+        except platform.AccessProblem:
+            # Windows: private_dir() already repaired what this window may repair. A value that
+            # still fails its check is never used; with no server running it is replaced by a
+            # fresh one in this user's name (the folder is ours, so the replace is allowed).
+            if not platform.IS_WINDOWS or locked(private): raise
+            value=None
         if value is None: platform.atomic_write(private/name,secrets.token_urlsafe(length).encode())
         elif not SECRET.fullmatch(value): raise CourseAdminError('관리자 연결 설정을 확인하세요. 기존 값을 보존했습니다.')
 
@@ -165,8 +189,7 @@ def start(home,vault,*,port=None,wait=12,idle_seconds=IDLE_SECONDS):
         logs=[]
         try:
             for name in ('stdout.log','stderr.log'):
-                path=platform.safe_path(private/name)
-                fd=os.open(path,os.O_WRONLY|os.O_APPEND|os.O_CREAT|getattr(os,'O_NOFOLLOW',0),0o600)
+                fd=platform.open_private(private/name,os.O_WRONLY|os.O_APPEND)
                 if os.fstat(fd).st_nlink!=1: os.close(fd);raise CourseAdminError('관리자 로그 경로를 확인하세요.')
                 logs.append(os.fdopen(fd,'ab'))
             child=subprocess.Popen(args,cwd=home,stdin=subprocess.DEVNULL,stdout=logs[0],stderr=logs[1],
@@ -177,7 +200,8 @@ def start(home,vault,*,port=None,wait=12,idle_seconds=IDLE_SECONDS):
         while True:
             current=record(private)
             if current and current['pid']==child.pid and current['source_digest']==digest and locked(private) and health(current): return current['port']
-            if child.poll() is not None: raise CourseAdminError('관리 웹을 시작하지 못했습니다. ilson doctor로 확인하세요.')
+            code=child.poll()
+            if code is not None: raise CourseAdminError(child_failure(code))
             if time.monotonic()>=deadline: raise CourseAdminError('관리 웹이 아직 응답하지 않습니다. ilson admin status로 확인하세요.')
             time.sleep(.1)
     finally:
@@ -209,6 +233,10 @@ def main(args):
         print('일손 관리 화면을 열었습니다. 유휴 2시간 뒤 자동 종료됩니다.');return 0
     except CourseAdminError as error:
         print(str(error));return 1
+    except platform.AccessProblem as error:
+        print(permission_message(error.elevated));return 1
+    except PermissionError:
+        print(permission_message(False));return 1
     except (OSError,ValueError):
         # Messages are fixed local strings; never include subprocess output or URLs.
         print('관리 화면을 처리하지 못했습니다. ilson admin status 또는 ilson doctor로 확인하세요.');return 1

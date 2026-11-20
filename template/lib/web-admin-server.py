@@ -270,6 +270,29 @@ class AdminError(ValueError):
         self.status = status
 
 
+class SettingsProblem(AdminError):
+    """Connection settings (token/instance) are missing or malformed."""
+
+
+class PermissionProblem(AdminError):
+    """A private admin file failed its owner/permission check."""
+    def __init__(self, message, elevated=False):
+        super().__init__(message)
+        self.elevated = elevated
+
+
+class PortProblem(AdminError):
+    """The loopback listener could not be opened."""
+
+
+# Windows reports socket errors with WSA codes, not the C errno values.
+PORT_BUSY = {errno.EADDRINUSE, errno.EACCES, 10048, 10013}
+
+
+def port_busy(error):
+    return error.errno in PORT_BUSY or getattr(error, 'winerror', None) in (10048, 10013)
+
+
 Unreadable = platform.Unreadable
 
 
@@ -430,10 +453,14 @@ class Box:
         try:
             token, _ = self.files.text("state/web-admin/token", 200, private=True)
             instance, _ = self.files.text("state/web-admin/instance", 200, private=True)
-        except (FileNotFoundError, Unreadable):
-            raise AdminError("관리자 연결 설정이 없습니다. ilson admin start로 준비해주세요.") from None
+        except FileNotFoundError:
+            raise SettingsProblem("관리자 연결 설정이 없습니다. ilson admin start로 준비해주세요.") from None
+        except platform.AccessProblem as error:
+            raise PermissionProblem("관리자 연결 파일의 소유자·권한을 확인해주세요.", elevated=error.elevated) from None
+        except Unreadable:
+            raise PermissionProblem("관리자 연결 파일을 안전하게 읽지 못했습니다.") from None
         if not re.fullmatch(r"[A-Za-z0-9_-]{32,160}", token) or not re.fullmatch(r"[A-Za-z0-9_-]{16,128}", instance):
-            raise AdminError("관리자 연결 설정 형식을 확인해주세요.")
+            raise SettingsProblem("관리자 연결 설정 형식을 확인해주세요.")
         self.token, self.instance = token, instance
         self.cookie_name = "ilson_box_admin_" + hashlib.sha256(str(self.home).encode()).hexdigest()[:12]
         self.sessions = {}
@@ -1397,10 +1424,13 @@ def course_server(args):
         from approval_actions import load_all
         load_all(profile='course')
         box = Box(home, profile='course', vault=args.vault)
-        try: server = Server(box, args.port)
-        except OSError as error:
-            if error.errno not in (errno.EADDRINUSE, errno.EACCES): raise
-            server = Server(box, 0)
+        try:
+            try: server = Server(box, args.port)
+            except OSError as error:
+                if not port_busy(error): raise
+                server = Server(box, 0)
+        except OSError:
+            raise PortProblem('관리 화면 포트를 열지 못했습니다.') from None
         server.source_digest = platform.code_digest(Path(LIBRARY))
         executable, started = platform.process_identity(os.getpid())
         info = {'service': SERVICE, 'pid': os.getpid(), 'port': server.server_port, 'started_at': started,
@@ -1427,6 +1457,21 @@ def course_server(args):
         os.close(fd)
 
 
+def course_failure(error):
+    """(exit code, fixed message) by cause; course_admin maps the same codes. No paths or secrets."""
+    import course_admin
+    if isinstance(error, PortProblem):
+        return course_admin.EXIT_PORT, course_admin.PORT_MESSAGE
+    if isinstance(error, SettingsProblem):
+        return course_admin.EXIT_SETTINGS, course_admin.SETTINGS_MESSAGE
+    if isinstance(error, (PermissionProblem, platform.AccessProblem, PermissionError)):
+        elevated = bool(getattr(error, 'elevated', False))
+        return (course_admin.EXIT_ELEVATED if elevated else course_admin.EXIT_PERMISSION), course_admin.permission_message(elevated)
+    if isinstance(error, course_admin.CourseAdminError):
+        return 1, str(error)
+    return 1, '관리 화면을 준비하지 못했습니다. ilson doctor로 확인해주세요.'
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--home", type=Path, required=True)
@@ -1447,7 +1492,10 @@ def main():
         load_all()
         server = Server(Box(args.home), args.port)
         server.box.workspace().start()
-    except (AdminError, OSError, ValueError):
+    except (AdminError, OSError, ValueError) as error:
+        if args.profile == "course":
+            code, message = course_failure(error)
+            parser.exit(code, "일손 관리자 시작 실패: " + message + "\n")
         parser.exit(1, "일손 관리자 시작 실패: 연결 설정·파일 권한·사용 중인 포트를 확인해주세요.\n")
     print(f"일손 관리자: http://127.0.0.1:{server.server_port}/ · 이 기기에서만 접속", flush=True)
     try:
