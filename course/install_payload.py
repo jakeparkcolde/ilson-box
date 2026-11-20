@@ -237,8 +237,9 @@ def _apply(root, changes, verify):
         if verify: verify()
         return None
     base = root / '.install-backups'; safe(base); base.mkdir(mode=0o700, exist_ok=True)
+    seq = next_backup_seq(base)
     backup = Path(tempfile.mkdtemp(prefix='upgrade-', dir=base))
-    manifest = {'schema': 1, 'status': 'pending', 'files': []}
+    manifest = {'schema': 1, 'seq': seq, 'status': 'pending', 'files': []}
     for name, path, old, data in changes:
         if old is not None:
             saved = backup / name; safe(saved); saved.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
@@ -273,6 +274,28 @@ def _apply(root, changes, verify):
     atomic_write(backup / 'manifest.json', json.dumps(manifest, sort_keys=True).encode())
     print('HELPER_UPGRADE_BACKUP=' + backup.name)
     return backup
+
+
+def backup_seq(manifest):
+    """The creation order an install recorded in its backup manifest; None for backups of helpers
+    that recorded none (public e67f806 and older)."""
+    value = manifest.get('seq') if isinstance(manifest, dict) else None
+    return value if type(value) is int and value > 0 else None
+
+
+def next_backup_seq(base):
+    """1 + the highest order any backup records, whatever its status. Read under the install lock,
+    so two installs never share a number. Folder times play no part: copying or re-creating a
+    backup folder changes them (laptop run 3, N7)."""
+    top = 0
+    for backup in base.glob('upgrade-*'):
+        path = backup / 'manifest.json'
+        try:
+            safe(path)
+            top = max(top, backup_seq(json.loads(path.read_text(encoding='utf-8'))) or 0)
+        except (OSError, ValueError):
+            continue
+    return top + 1
 
 
 def _rollback(root, backup):

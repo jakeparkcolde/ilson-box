@@ -112,21 +112,50 @@ def upgrade(root, pin, installer=None):
     return backup
 
 
+def _installed_now(module, root, manifest):
+    """True when every file the backup's install wrote is still exactly what it wrote."""
+    for item in manifest['files']:
+        path = module.target(root, item['name'])
+        module.safe(path)
+        if not path.is_file() or module.digest(path.read_bytes()) != item['after']:
+            return False
+    return True
+
+
 def last_backup(root):
+    """The applied backup of the latest install, chosen by what the manifests record, never by
+    folder times (laptop run 3, N7: a re-created folder made an older backup look newest).
+    Numbered backups (seq, written under the install lock) order themselves. Older helpers wrote
+    no number; such a backup is chosen only when it is the one whose installed files are exactly
+    the current ones. A tie or no match fails (AMBIGUOUS_BACKUP / NO_BACKUP), and the rollback
+    itself still refuses a backup whose files no longer match, so nothing changes then."""
     module = payload_module()
     base = root / '.install-backups'
     module.safe(base)
-    valid = []
+    applied = []
     if base.is_dir():
         for backup in base.glob('upgrade-*'):
             module.safe(backup)
             path = backup / 'manifest.json'
             module.safe(path)
-            if path.is_file() and json.loads(path.read_text()).get('status', 'applied') == 'applied':
-                valid.append(backup)
-    if not valid:
+            if not path.is_file():
+                continue
+            manifest = json.loads(path.read_text(encoding='utf-8'))
+            if manifest.get('status', 'applied') == 'applied':
+                applied.append((backup, manifest))
+    if not applied:
         raise UpdateError('NO_BACKUP')
-    return max(valid, key=lambda p: (p.stat().st_mtime_ns, p.name))
+    numbered = [(module.backup_seq(manifest), backup) for backup, manifest in applied if module.backup_seq(manifest)]
+    if numbered:
+        top = max(seq for seq, _ in numbered)
+        newest = [backup for seq, backup in numbered if seq == top]
+        if len(newest) != 1:
+            raise UpdateError('AMBIGUOUS_BACKUP')
+        return newest[0]
+    current = [backup for backup, manifest in applied if _installed_now(module, root, manifest)]
+    if len(current) != 1:
+        raise UpdateError('AMBIGUOUS_BACKUP' if current else 'NO_BACKUP')
+    return current[0]
 
 
 def main(argv=None):
