@@ -192,6 +192,17 @@ REDIRECTED_HINT = ('관리자 권한 창에서는 연결(바로가기)을 거치
 # path. Python takes that route itself (ctypes, see "Elevated route" below): no PowerShell process
 # and no C# compile. Both scripts refuse to change anything in an elevated token (exit 4), so a
 # failed or skipped elevation check in Python can only fail closed.
+#
+# D2 (laptop run 2, 2026-11-20). Rules carry Effective: false for an inherit-only entry, which
+# passes to children but gives the object itself no access; both verdicts count access from
+# effective entries only. Get-IlsonAclFacts normalises like parse_security_descriptor, whatever
+# .NET already dropped: an entry with no rights, or an inherit-only entry that cannot pass anywhere
+# (a file, or no inherit flag), is left out; any other inherit-only entry stays for the trust
+# check. An owner change makes Windows turn OWNER RIGHTS entries inherit-only, so an owner-only
+# fix ('fix-owner') is chosen only when an entry names this user; otherwise the object gets the
+# full private repair. The tree repair reads every change back: an owner-only change that still
+# leaves the user without access gets the private repair, anything else not reading back as the
+# user's own counts as an error, never as repaired.
 ACL_VERDICT_PS = r'''
 function Test-IlsonTrustedGrants($Rules, [string]$Me) {
     $trusted = @($Me, 'S-1-5-18', 'S-1-5-32-544', 'S-1-3-0', 'S-1-3-4')
@@ -202,8 +213,11 @@ function Get-IlsonPrivateVerdict([string]$Owner, $Rules, [string]$Me) {
     $rules = @($Rules)
     if (-not $Owner) { return 'denied' }
     $userOnly = $rules.Count -gt 0
-    foreach ($rule in $rules) { if ($rule.Sid -ne $Me -or -not $rule.Allow) { $userOnly = $false } }
-    if ($Owner -eq $Me -and $userOnly) { return 'ok' }
+    $own = $false
+    foreach ($rule in $rules) {
+        if ($rule.Sid -ne $Me -or -not $rule.Allow) { $userOnly = $false } elseif ($rule.Effective) { $own = $true }
+    }
+    if ($Owner -eq $Me -and $userOnly -and $own) { return 'ok' }
     if ($Owner -ne $Me -and $Owner -ne 'S-1-5-32-544') { return 'foreign' }
     if (-not (Test-IlsonTrustedGrants $rules $Me)) { return 'foreign' }
     return 'repair'
@@ -213,17 +227,22 @@ function Get-IlsonTreeVerdict([string]$Owner, $Rules, [string]$Me, [bool]$Protec
     if (-not $Owner) { return 'denied' }
     # OWNER RIGHTS grants the owner: Python 3.13+ mkdir(0o700) in a normal window gives
     # owner = this user and a protected SY/BA/OW DACL. That is the user's own folder.
-    $hasMe = @($rules | Where-Object { $_.Allow -and ($_.Sid -eq $Me -or ($Owner -eq $Me -and $_.Sid -eq 'S-1-3-4')) }).Count -gt 0
+    $hasMe = @($rules | Where-Object { $_.Effective -and $_.Allow -and ($_.Sid -eq $Me -or ($Owner -eq $Me -and $_.Sid -eq 'S-1-3-4')) }).Count -gt 0
     if ($Owner -eq $Me -and $hasMe) { return 'ok' }
     if ($Owner -ne $Me -and $Owner -ne 'S-1-5-32-544') { return 'foreign' }
     if (-not (Test-IlsonTrustedGrants $rules $Me)) { return 'foreign' }
     if ($Protected) { return 'fix-private' }
-    return 'fix-owner'
+    $named = @($rules | Where-Object { $_.Effective -and $_.Allow -and $_.Sid -eq $Me }).Count -gt 0
+    if ($Owner -eq 'S-1-5-32-544' -and $named) { return 'fix-owner' }
+    return 'fix-private'
 }
-function Get-IlsonAclFacts($Acl) {
+function Get-IlsonAclFacts($Acl, [bool]$Container) {
     $owner = $Acl.GetOwner([Security.Principal.SecurityIdentifier])
     $rules = @(foreach ($rule in $Acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
-        New-Object PSObject -Property @{ Sid = $rule.IdentityReference.Value; Allow = ($rule.AccessControlType -eq 'Allow') }
+        $inheritOnly = ([int]$rule.PropagationFlags -band 2) -ne 0
+        if ([int64]$rule.FileSystemRights -eq 0) { continue }
+        if ($inheritOnly -and (-not $Container -or [int]$rule.InheritanceFlags -eq 0)) { continue }
+        New-Object PSObject -Property @{ Sid = $rule.IdentityReference.Value; Allow = ($rule.AccessControlType -eq 'Allow'); Effective = -not $inheritOnly }
     })
     $value = $null
     if ($owner) { $value = $owner.Value }
@@ -279,7 +298,7 @@ try {
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { exit 1 }
     $want = ''
     if ($env:ILSON_ACL_CREATE -ne '1') {
-        $facts = Get-IlsonAclFacts (Get-Acl -LiteralPath $p)
+        $facts = Get-IlsonAclFacts (Get-Acl -LiteralPath $p) ([bool]$item.PSIsContainer)
         $want = Get-IlsonPrivateVerdict $facts.Owner $facts.Rules $me.Value
         if ($want -eq 'ok') { exit 0 }
         if ($want -eq 'denied') { exit 3 }
@@ -287,7 +306,7 @@ try {
     }
     # Same as the license lock: owner = this user, user-only DACL (normal token; see exit 4 above).
     Invoke-IlsonChange $p $item $me $want
-    $facts = Get-IlsonAclFacts (Get-Acl -LiteralPath $p)
+    $facts = Get-IlsonAclFacts (Get-Acl -LiteralPath $p) ([bool]$item.PSIsContainer)
     if ((Get-IlsonPrivateVerdict $facts.Owner $facts.Rules $me.Value) -ne 'ok') { exit 1 }
     exit 0
 } catch {
@@ -302,6 +321,10 @@ try {
 # that repair is the Python handle route (guarded_tree).
 ACL_TREE_PS = ACL_VERDICT_PS + r'''
 $ErrorActionPreference = 'Stop'
+function Get-IlsonTreeState([string]$Path, $Item, $Me) {
+    $facts = Get-IlsonAclFacts (Get-Acl -LiteralPath $Path) ([bool]$Item.PSIsContainer)
+    return (Get-IlsonTreeVerdict $facts.Owner $facts.Rules $Me.Value $facts.Protected)
+}
 $repair = $env:ILSON_ACL_REPAIR -eq '1'
 if ($repair -and (Test-IlsonGuarded)) { 'ILSON_ACL_GUARDED'; exit 4 }
 $me = [Security.Principal.WindowsIdentity]::GetCurrent().User
@@ -318,13 +341,21 @@ while ($stack.Count -gt 0) {
         $item = Get-Item -LiteralPath $p -Force
         if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { $n.skipped++; continue }
         $n.checked++
-        $facts = Get-IlsonAclFacts (Get-Acl -LiteralPath $p)
+        $facts = Get-IlsonAclFacts (Get-Acl -LiteralPath $p) ([bool]$item.PSIsContainer)
         $verdict = Get-IlsonTreeVerdict $facts.Owner $facts.Rules $me.Value $facts.Protected
         if ($verdict -eq 'denied') { $n.denied++; continue }
         if ($verdict -eq 'foreign') { $n.foreign++; continue }
         if ($verdict -ne 'ok') {
             if (-not $repair) { $n.admin++ }
-            else { Invoke-IlsonChange $p $item $me $verdict; $n.repaired++ }
+            else {
+                Invoke-IlsonChange $p $item $me $verdict
+                if ((Get-IlsonTreeState $p $item $me) -ne 'ok') {
+                    if ($verdict -ne 'fix-owner') { throw 'ILSON_ACL_UNVERIFIED' }
+                    Invoke-IlsonChange $p $item $me 'fix-private'
+                    if ((Get-IlsonTreeState $p $item $me) -ne 'ok') { throw 'ILSON_ACL_UNVERIFIED' }
+                }
+                $n.repaired++
+            }
         }
         if ($item.PSIsContainer) {
             foreach ($child in @(Get-ChildItem -LiteralPath $p -Force)) { $stack.Push($child.FullName) }
@@ -353,13 +384,18 @@ def _powershell(script, env, capture=False):
 #
 # Path anchor (F1): legitimate setups reach the course folders indirectly (C:\Users or the profile
 # behind a junction, subst or mapped drives, 8.3 names). So an object is accepted when its handle's
-# final path lies under the final path of its anchor, resolved once through the anchor's own
-# handle: the walked root for the tree repair, the parent folder for a single private object. A
-# parent or folder swapped for a junction during the walk leads outside the anchor and is refused.
+# final path lies under the final path of its anchor, resolved through the anchor's own handle:
+# the walked root for the tree repair. A single private object (SF1) must sit exactly at its
+# course root's final path plus the literal rest of its path (private_roots: state, install,
+# vault, profile; the parent folder only for a path under none of them), so a folder swapped for a
+# junction anywhere below that root is refused, while indirection above the root still works.
 #
-# Laptop check (not provable here): SetSecurityInfo with a DACL lets the system propagate the new
-# inheritable entry to existing children by name, which this guard does not cover; whether that
-# walk follows a junction child is the "propagation" item in PROGRESS.md.
+# Propagation (N1, laptop 2026-11-20): SetSecurityInfo with a DACL lets the system rewrite the
+# inherited entries of existing children by name, outside this guard. That walk does not follow
+# junction children, but it does change a hard-linked file whose other name lies outside the tree.
+# So a folder's DACL is set only after a scan through handles finds no file with a second link
+# below it (_linked_below); otherwise the folder is refused like a link. Known limit: a same-user
+# process that plants a hard link between that scan and the set still wins the race.
 FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT = 0x10, 0x400
 OPEN_FLAGS = 0x02200000           # FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT
 READ_ACCESS = 0x20080             # READ_CONTROL | FILE_READ_ATTRIBUTES
@@ -411,11 +447,16 @@ def sid_bytes(text):
     return bytes((1, len(subs))) + authority.to_bytes(6, 'big') + struct.pack('<%dI' % len(subs), *subs)
 
 
-def parse_security_descriptor(data):
-    """Self-relative descriptor -> (owner, [(sid, allow)], protected), the facts Get-IlsonAclFacts reads.
+def parse_security_descriptor(data, container=True):
+    """Self-relative descriptor -> (owner, [(sid, allow, effective)], protected), the facts
+    Get-IlsonAclFacts reads. container: the object is a folder (from its handle).
 
-    Stricter than .NET where they could differ: a missing DACL means Everyone (as .NET reports
-    it), and an ACE that is not a plain allow/deny entry counts as an untrusted grant.
+    Entries are normalised as .NET's CommonAcl does and as Get-IlsonAclFacts repeats: no rights
+    (mask 0) or an inherit-only entry that cannot pass anywhere (on a file, or without OI/CI) is
+    dropped; another inherit-only entry stays for the trust check with effective False, because
+    it gives the object itself no access (D2: Windows turns OWNER RIGHTS inherit-only when the
+    owner changes). Stricter than .NET where they could differ: a missing DACL means Everyone (as
+    .NET reports it), and an ACE that is not a plain allow/deny entry counts as an untrusted grant.
     """
     if len(data) < 20:
         raise ValueError('SD')
@@ -425,7 +466,7 @@ def parse_security_descriptor(data):
     owner = sid_text(data, owner_at)[0] if owner_at else None
     protected = bool(control & 0x1000)  # SE_DACL_PROTECTED
     if not control & 0x4 or not dacl_at:  # SE_DACL_PRESENT, NULL DACL
-        return owner, [('S-1-1-0', True)], protected
+        return owner, [('S-1-1-0', True, True)], protected
     if dacl_at + 8 > len(data):
         raise ValueError('SD')
     _, _, size, count, _ = struct.unpack_from('<BBHHH', data, dacl_at)
@@ -436,13 +477,17 @@ def parse_security_descriptor(data):
     for _ in range(count):
         if at + 4 > end:
             raise ValueError('SD')
-        kind, _, ace_size = struct.unpack_from('<BBH', data, at)
+        kind, flags, ace_size = struct.unpack_from('<BBH', data, at)
         if ace_size < 8 or at + ace_size > end:
             raise ValueError('SD')
         if kind in (0, 1):  # ACCESS_ALLOWED_ACE_TYPE, ACCESS_DENIED_ACE_TYPE
-            rules.append((sid_text(data[:at + ace_size], at + 8)[0], kind == 0))
+            sid = sid_text(data[:at + ace_size], at + 8)[0]
+            mask = struct.unpack_from('<I', data, at + 4)[0]
+            inherit_only = bool(flags & 0x08)  # INHERIT_ONLY_ACE
+            if mask and not (inherit_only and (not container or not flags & 0x03)):  # OBJECT_INHERIT | CONTAINER_INHERIT
+                rules.append((sid, kind == 0, not inherit_only))
         else:
-            rules.append(('ACE-%d' % kind, False))
+            rules.append(('ACE-%d' % kind, False, True))
         at += ace_size
     return owner, rules, protected
 
@@ -456,22 +501,34 @@ def private_dacl(me, container):
 
 
 # Same tables as Get-IlsonPrivateVerdict / Get-IlsonTreeVerdict (a test runs one table through both).
+# A rule is (sid, allow, effective); a pair counts as effective.
+def _rules(rules):
+    return [(rule[0], rule[1], rule[2] if len(rule) > 2 else True) for rule in rules]
+
+
 def _trusted(rules, me):
-    return all(allow and sid in (me,) + TRUSTED_GRANTS for sid, allow in rules)
+    return all(allow and sid in (me,) + TRUSTED_GRANTS for sid, allow, _ in rules)
 
 
 def private_verdict(owner, rules, me):
+    rules = _rules(rules)
     if not owner: return 'denied'
-    if owner == me and rules and all(sid == me and allow for sid, allow in rules): return 'ok'
+    if (owner == me and rules and all(sid == me and allow for sid, allow, _ in rules)
+            and any(effective for *_, effective in rules)): return 'ok'
     if owner not in (me, BA) or not _trusted(rules, me): return 'foreign'
     return 'repair'
 
 
 def tree_verdict(owner, rules, me, protected):
+    rules = _rules(rules)
     if not owner: return 'denied'
-    if owner == me and any(allow and (sid == me or sid == 'S-1-3-4') for sid, allow in rules): return 'ok'
+    if owner == me and any(effective and allow and (sid == me or sid == 'S-1-3-4') for sid, allow, effective in rules): return 'ok'
     if owner not in (me, BA) or not _trusted(rules, me): return 'foreign'
-    return 'fix-private' if protected else 'fix-owner'
+    if protected: return 'fix-private'
+    # D2: an owner change turns OWNER RIGHTS entries inherit-only, so an owner-only fix is right
+    # only when an entry names this user; otherwise the full private repair (see Get-IlsonTreeVerdict).
+    named = any(effective and allow and sid == me for sid, allow, effective in rules)
+    return 'fix-owner' if owner == BA and named else 'fix-private'
 
 
 def _final_parts(path):
@@ -503,8 +560,8 @@ class GuardRefusedError(ValueError):
         super().__init__('PATH_REDIRECTED')
 
 
-def _facts(w32, handle):
-    return parse_security_descriptor(w32.security(handle))
+def _facts(w32, handle, container):
+    return parse_security_descriptor(w32.security(handle), container)
 
 
 def _anchor(w32, path):
@@ -517,50 +574,130 @@ def _anchor(w32, path):
         w32.close(handle)
 
 
-def _guarded_change(w32, path, anchor, me, kind, want):
-    """Owner (+ user-only protected DACL unless want is 'fix-owner') set on a checked handle.
-    False, changing nothing, when the handle is not the object under the anchor or its verdict moved."""
+PROPAGATION_SCAN_LIMIT = 5000
+
+
+def _linked_below(w32, folder, limit=PROPAGATION_SCAN_LIMIT):
+    """True unless a scan through handles shows no file with a second hard link anywhere below
+    folder (not through reparse points, which the system's propagation does not follow either).
+    Anything the scan cannot read, or more than limit objects, counts as linked (fail closed)."""
+    import ntpath
+    stack, seen = [folder], 0
+    try:
+        while stack:
+            path = stack.pop()
+            for name in w32.children(path):
+                seen += 1
+                if seen > limit:
+                    return True
+                child = ntpath.join(path, name)
+                handle = w32.open(child, False)
+                try:
+                    attributes, links = w32.info(handle)
+                finally:
+                    w32.close(handle)
+                if attributes & FILE_ATTRIBUTE_REPARSE_POINT:
+                    continue
+                if attributes & FILE_ATTRIBUTE_DIRECTORY:
+                    stack.append(child)
+                elif links != 1:
+                    return True
+    except (OSError, ValueError):
+        return True
+    return False
+
+
+def _guarded_change(w32, path, anchor, me, kind, want, exact=False):
+    """Owner (+ user-only protected DACL unless want is 'fix-owner') set on a checked handle, then
+    read back on the same handle. False, changing nothing, when the handle is not the object at its
+    place (under the anchor, or exactly the anchor when exact), its verdict moved, or a folder's new
+    DACL could propagate to a hard-linked file. A result that does not read back as the user's own
+    raises STORAGE_ERROR; an owner-only fix that left the user without access (OWNER RIGHTS turned
+    inherit-only, D2) gets the full private repair first."""
     handle = w32.open(path, True)
     try:
         attributes, links = w32.info(handle)
-        if attributes & FILE_ATTRIBUTE_REPARSE_POINT or links != 1 or not under(w32.final_path(handle), anchor):
+        container = bool(attributes & FILE_ATTRIBUTE_DIRECTORY)
+        final = w32.final_path(handle)
+        placed = _final_parts(final) == _final_parts(anchor) if exact else under(final, anchor)
+        if attributes & FILE_ATTRIBUTE_REPARSE_POINT or links != 1 or not placed:
             return False
-        if want:
-            owner, rules, protected = _facts(w32, handle)
-            now = private_verdict(owner, rules, me) if kind == 'private' else tree_verdict(owner, rules, me, protected)
-            if now != want:
-                return False
-        dacl = None if want == 'fix-owner' else private_dacl(me, bool(attributes & FILE_ATTRIBUTE_DIRECTORY))
-        w32.set_security(handle, sid_bytes(me), dacl)
-        if kind == 'private':
-            owner, rules, _ = _facts(w32, handle)
-            if private_verdict(owner, rules, me) != 'ok':
-                raise ValueError('STORAGE_ERROR')
+
+        def verdict():
+            owner, rules, protected = _facts(w32, handle, container)
+            return private_verdict(owner, rules, me) if kind == 'private' else tree_verdict(owner, rules, me, protected)
+
+        if want and verdict() != want:
+            return False
+        if want != 'fix-owner' and container and _linked_below(w32, path):
+            return False
+        w32.set_security(handle, sid_bytes(me), None if want == 'fix-owner' else private_dacl(me, container))
+        if verdict() == 'ok':
+            return True
+        if want != 'fix-owner':
+            raise ValueError('STORAGE_ERROR')
+        if container and _linked_below(w32, path):
+            return False
+        w32.set_security(handle, sid_bytes(me), private_dacl(me, container))
+        if verdict() != 'ok':
+            raise ValueError('STORAGE_ERROR')
         return True
     finally:
         w32.close(handle)
 
 
-def guarded_private(target, create, w32):
-    """ACL_PRIVATE_PS for an elevated token, on handles. target is absolute."""
+def private_roots(environ=None):
+    """Course roots a private object lives under, as the course sets them (literal Windows paths):
+    state home, install folder, practice vault, profile (Path.home() is USERPROFILE on Windows).
+    The longest one holding the object anchors it."""
     import ntpath
-    me = w32.user_sid()
+    env = os.environ if environ is None else environ
+    home, local = env.get('USERPROFILE'), env.get('LOCALAPPDATA')
+    values = [env.get('ILSON_HOME'), env.get('ILSON_COURSE_STATE'), home and ntpath.join(home, '.ilson-course'),
+              env.get('ILSON_COURSE_VAULT'), home, local and ntpath.join(local, 'ilson-course')]
+    return [ntpath.normpath(value) for value in values if value and ntpath.isabs(value)]
+
+
+def _private_place(target, roots):
+    """(root, suffix components) for target: the longest root strictly above it, compared by
+    component without case; the parent folder when none holds it."""
+    import ntpath
+    parts = _final_parts(target)
+    best = None
+    for root in roots:
+        candidate = _final_parts(root)
+        if 1 < len(candidate) < len(parts) and parts[:len(candidate)] == candidate and (best is None or len(candidate) > len(best[1])):
+            best = (root, candidate)
+    if best is None:
+        parent = ntpath.dirname(target)
+        best = (parent, _final_parts(parent))
+    return best[0], parts[len(best[1]):]
+
+
+def guarded_private(target, create, w32, roots=()):
+    """ACL_PRIVATE_PS for an elevated token, on handles. target is absolute."""
     try:
+        me = w32.user_sid()
         if w32.is_reparse(target):
             raise ValueError('STORAGE_ERROR')
         want = ''
         if not create:
             handle = w32.open(target, False)
             try:
-                owner, rules, _ = _facts(w32, handle)
+                attributes, _ = w32.info(handle)
+                owner, rules, _ = _facts(w32, handle, bool(attributes & FILE_ATTRIBUTE_DIRECTORY))
             finally:
                 w32.close(handle)
             want = private_verdict(owner, rules, me)
             if want == 'ok': return
             if want == 'denied': raise ElevatedOwnerError()
             if want != 'repair': raise ValueError('STORAGE_ERROR')
-        anchor = _anchor(w32, ntpath.dirname(target))
-        if anchor is None or not _guarded_change(w32, target, anchor, me, 'private', want):
+        root, suffix = _private_place(target, roots)
+        anchor = _anchor(w32, root)
+        if anchor is None or not suffix:
+            raise GuardRefusedError()
+        expected = anchor.rstrip('\\') + '\\' + '\\'.join(suffix)
+        if not _guarded_change(w32, target, expected, me, 'private', want, exact=True):
             raise GuardRefusedError()
     except (ElevatedOwnerError, GuardRefusedError):
         raise
@@ -593,7 +730,7 @@ def guarded_tree(roots, limit, w32):
                 if attributes & FILE_ATTRIBUTE_REPARSE_POINT or not under(final, anchor):
                     n['refused'] += 1
                     continue
-                owner, rules, protected = _facts(w32, handle)
+                owner, rules, protected = _facts(w32, handle, bool(attributes & FILE_ATTRIBUTE_DIRECTORY))
             finally:
                 w32.close(handle)
             verdict = tree_verdict(owner, rules, me, protected)
@@ -754,7 +891,7 @@ def windows_acl(path, create=False):
     target = os.path.abspath(str(path))
     w32 = elevated_win32()
     if w32 is not None:
-        return guarded_private(target, create, w32)
+        return guarded_private(target, create, w32, private_roots())
     try:
         result = _powershell(ACL_PRIVATE_PS, {'ILSON_ACL_TARGET': target, 'ILSON_ACL_CREATE': '1' if create else '0'})
     except (OSError, subprocess.SubprocessError):
