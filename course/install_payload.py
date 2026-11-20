@@ -11,6 +11,13 @@ import tempfile
 
 IS_WINDOWS = os.name == 'nt'
 ELEVATED_FALLBACK = '관리자 권한 PowerShell에서 만든 파일이 있습니다. 「관리자: Windows PowerShell」에서 ilson doctor --fix-permissions 를 실행해주세요.'
+# README's student install command. When an install fails, the helper left in place may predate
+# `ilson doctor --fix-permissions` (e67f806 has no such flag); an elevated rerun of the installer
+# always works, because its final repair pass hands the tree back to the user.
+WINDOWS_INSTALL_COMMAND = 'irm https://raw.githubusercontent.com/jakeparkcolde/ilson-box/main/course/install-windows.ps1 | iex'
+RERUN_ELEVATED_HINT = ('관리자 권한 PowerShell에서 만든 파일 때문에 설치를 마치지 못했습니다. 시작 메뉴에서 Windows PowerShell을 '
+                       '마우스 오른쪽 버튼으로 눌러 「관리자로 실행」을 고른 뒤, 「관리자: Windows PowerShell」 창에서 설치 명령을 다시 실행해주세요: '
+                       + WINDOWS_INSTALL_COMMAND + ' 설치가 끝나면 평소처럼 일반 PowerShell 창에서 계속하면 됩니다.')
 
 # Only exact published/baseline bytes may be replaced. Unknown user edits stay intact.
 KNOWN_HELPER_SHA256 = {'ilson.py': {'70c922f15483534e401dccf7f7fefdea88c4be1102b32196ad00fb60f4fa4bff', 'b8491dea3dd3f9b9bf82070c0a054d669386f083a68f1380f0a44e6a141cc5e4', 'b1f72a5e2c9fcb715ce8d58560a22a076f0f126333c154ad7b28100adcdd53d2', '39d10d5e65089bc23e53c09e720e594195891ccb60438253651de6546bb83182'}, 'license.py': {'4b6e50b84073c6e8178b3c0c3c8055839a9d7d607be284ce3e0651e929e15ba9'}, 'selflearn.py': {'48b6804a599765af19f6ab35c75409986fb5bd3e52967bdd52d1386119ee528d', 'b1eabe4380dbd53cc3f35d1a0a82f511f96b04320b2bb585925478f7d8e60b68'}, 'skill_share.py': {'b233d29be73af4e7f9c63a3e948b51ee2946607ea61b71c30f9c473e82fa7412'}, 'weekly_summary.py': {'10a7935d68726ef63457014e64a2702ba0a22167a65c8aa002f3e8a994d48bf7'}, 'install_diagnostics.py': {'0666c62d3668573dbea1ae370aed1e7b9f5b2abd7737c87a8b93e95bd2803ea7', 'ec125e4c085251f010fc414fc91609933ae4da87a4c9dbb06c81d16778d20343'}}
@@ -131,9 +138,10 @@ def elevated_hint(files):
     except Exception: return ELEVATED_FALLBACK
 
 
-def repair_owner(root, files):
+def repair_owner(root, files, installed=True):
     """Windows: an elevated installer leaves every object owned by BUILTIN\\Administrators and
-    mkdir(0o700)/mkdtemp folders without the user. One pass gives them back to this user."""
+    mkdir(0o700)/mkdtemp folders without the user. One pass gives them back to this user.
+    installed: the new helper (with ilson doctor --fix-permissions) is in place."""
     if not IS_WINDOWS: return None
     tree = root.parent if root.name.lower() == 'lib' else root
     try: counts = acl_module(files).windows_tree([tree], repair=True)
@@ -141,7 +149,7 @@ def repair_owner(root, files):
         print('HELPER_PERMISSIONS=unverified')
         return None
     print('HELPER_PERMISSIONS=' + ('ok' if not counts['no_access'] and not counts['foreign'] else 'left'))
-    if counts['no_access'] or counts['foreign']: print(elevated_hint(files))
+    if counts['no_access'] or counts['foreign']: print(elevated_hint(files) if installed else RERUN_ELEVATED_HINT)
     return counts
 
 
@@ -167,10 +175,13 @@ def install(root, files, verify=None):
             raise ValueError('existing helper differs; ask the instructor: ' + name)
         changes.append((name, path, old, data))
     with update_lock(root):
+        installed = False
         try:
-            return _apply(root, changes, verify)
+            result = _apply(root, changes, verify)
+            installed = True
+            return result
         finally:
-            repair_owner(root, files)
+            repair_owner(root, files, installed)
 
 
 def _apply(root, changes, verify):
@@ -270,8 +281,9 @@ def main():
     try: install(root, files)
     except PermissionError:
         if not IS_WINDOWS: raise
-        # The installer suppresses stderr; this fixed line is what the student sees.
-        print('HELPER_PERMISSION_DENIED: ' + elevated_hint(files))
+        # The installer suppresses stderr; this fixed line is what the student sees. The installed
+        # helper may be the previous one, so name the step that works with any of them.
+        print('HELPER_PERMISSION_DENIED: ' + RERUN_ELEVATED_HINT)
         sys.exit(3)
 
 
