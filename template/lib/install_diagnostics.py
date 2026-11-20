@@ -364,6 +364,49 @@ def course_workspace_app():
         return {'name': 'Herdr', 'state': 'unknown', 'version': 'unknown'}
 
 
+def windows_permissions(repair=False):
+    """Owner/ACL leftovers of an elevated ("관리자") window under the course install and state."""
+    if os.name != 'nt': return {'state': 'unverified'}
+    roots = [Path(os.environ.get('LOCALAPPDATA', '')) / 'ilson-course',
+             Path(os.environ.get('ILSON_COURSE_STATE', str(Path.home() / '.ilson-course')))]
+    try:
+        from license import windows_tree
+        counts = windows_tree([p for p in roots if p.is_absolute()], repair=repair)
+    except (ImportError, OSError, ValueError):
+        return {'state': 'unknown'}
+    if counts['no_access']: state = 'needs_admin'
+    elif counts['foreign']: state = 'foreign'
+    elif counts['admin_owned']: state = 'elevated_owner'
+    else: state = 'ok'
+    return dict(state=state, **{key: counts[key] for key in ('checked', 'repaired', 'admin_owned', 'no_access', 'foreign')})
+
+
+def permission_lines(value):
+    state = value.get('state')
+    if state == 'elevated_owner':
+        return ['권한 점검: 관리자 권한 PowerShell에서 만든 항목 %d개(소유자 Administrators). 지금 창에서 ilson doctor --fix-permissions 를 실행해 사용자 소유로 돌려주세요.' % value['admin_owned']]
+    if state == 'needs_admin':
+        return ['권한 점검: 지금 창에서 열 수 없는 항목 %d개(관리자 권한 설치의 흔적). 「관리자: Windows PowerShell」을 열고 ilson doctor --fix-permissions 를 실행해주세요.' % value['no_access']]
+    if state == 'foreign':
+        return ['권한 점검: 다른 사용자 소유이거나 다른 계정에 열린 항목 %d개는 고치지 않았습니다. 강사에게 확인해주세요.' % value['foreign']]
+    if state == 'unknown':
+        return ['권한 점검: 파일 소유자를 확인하지 못했습니다(Windows PowerShell ACL 사용 불가).']
+    return []
+
+
+def fix_permissions():
+    if os.name != 'nt':
+        print('권한 복구는 Windows 강의판에서만 필요합니다.')
+        return 0
+    value = windows_permissions(repair=True)
+    if value['state'] == 'unknown':
+        print(permission_lines(value)[0])
+        return 3
+    print('권한 복구: 사용자 소유로 돌린 항목 %d개 · 확인한 항목 %d개' % (value['repaired'], value['checked']))
+    for line in permission_lines(value): print(line)
+    return 0 if value['state'] == 'ok' else 1
+
+
 def main(argv=None, edition='unknown', cli=None, vault=None):
     parser = argparse.ArgumentParser(description='일손 로컬 설치 점검 · 네트워크 연결 없음')
     parser.add_argument('--install', action='store_true')
@@ -373,7 +416,9 @@ def main(argv=None, edition='unknown', cli=None, vault=None):
     parser.add_argument('--simulate-shell', choices=('zsh', 'bash', 'powershell'), help='명시적으로 셸 초기화 파일 실행을 허용하고 모의 점검')
     parser.add_argument('--run')
     parser.add_argument('--confirm-shell', choices=('current', 'new'))
+    parser.add_argument('--fix-permissions', action='store_true', help='Windows: 관리자 권한 창이 남긴 소유자를 사용자로 되돌림')
     args = parser.parse_args(argv)
+    if args.fix_permissions: return fix_permissions()
     try:
         if args.self_check:
             print(json.dumps({'version': VERSION, 'edition_expected': edition}))
@@ -436,6 +481,10 @@ def main(argv=None, edition='unknown', cli=None, vault=None):
             summary['workspace_app'] = course_workspace_app()
             if summary['workspace_app']['state'] in ('missing', 'unknown') and summary['exit_code'] in (0, 4):
                 summary.update(status='failed', exit_code=1, first_failure='RUNTIME_MISSING')
+            if os.name == 'nt':
+                summary['permissions'] = windows_permissions()
+                if summary['permissions']['state'] in ('needs_admin', 'foreign') and summary['exit_code'] in (0, 4):
+                    summary.update(status='failed', exit_code=1, first_failure='PERMISSIONS')
         if args.share:
             if not events and not damaged: raise ValueError('NO_RUN')
             summary['reference'] = export_share(events, root, damaged, directory.name if directory else None)
@@ -445,6 +494,7 @@ def main(argv=None, edition='unknown', cli=None, vault=None):
             print(json.dumps(summary, ensure_ascii=False, indent=2))
             print('현재 창/새 창은 별도 확인하며 새 창 여부는 사용자의 선언입니다.')
             for line in next_lines(summary['edition'], summary['run_id'], cli, vault): print(line)
+            for line in permission_lines(summary.get('permissions', {})): print(line)
             if not inside:
                 value = str(selected_vault)
                 if all(ord(c) >= 32 and ord(c) != 127 for c in value):

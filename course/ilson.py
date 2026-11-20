@@ -34,7 +34,7 @@ def _main(argv):
         cli = str(Path(os.environ.get('LOCALAPPDATA', '')) / 'ilson-course/bin/ilson.cmd') if os.name == 'nt' else str(Path.home() / '.local/bin/ilson')
         vault = os.environ.get('ILSON_COURSE_VAULT', str(Path.home() / 'Documents/일손강의-1기'))
         # No new daemon in course editions. Doctor opportunistically runs a bounded tick.
-        if not any(arg in ('--share', '--install') for arg in argv[1:]):
+        if not any(arg in ('--share', '--install', '--fix-permissions') for arg in argv[1:]):
             lib = Path(__file__).resolve().parent
             if (lib / 'lib/usage_timeline.py').is_file(): lib /= 'lib'
             if (lib / 'usage_timeline.py').is_file():
@@ -63,7 +63,7 @@ def _main(argv):
         return subprocess.call([sys.executable, '-X', 'utf8', str(lib / 'curator.py'),
                                 '--home', str(home), '--edition', edition, '--vault', vault] + argv[1:])
     if not argv or argv[0] not in ('learn', 'license', 'skill', 'report'):
-        print('사용법: ilson open | ilson admin status|stop | ilson doctor --install [--share] | ilson --version | ilson usage | ilson curator|diary [--on|--off|--status|--addendum] | ilson update [--rollback] | ilson report weekly | ilson learn ... | ilson skill share|list|get|withdraw | ilson license activate|status')
+        print('사용법: ilson open | ilson admin status|stop | ilson doctor --install [--share] | ilson doctor --fix-permissions | ilson --version | ilson usage | ilson curator|diary [--on|--off|--status|--addendum] | ilson update [--rollback] | ilson report weekly | ilson learn ... | ilson skill share|list|get|withdraw | ilson license activate|status')
         return 0 if not argv or argv[0] in ('-h', '--help') else 2
     lib = Path(__file__).resolve().parent
     home = Path(os.environ.get('ILSON_COURSE_STATE', Path.home() / '.ilson-course'))
