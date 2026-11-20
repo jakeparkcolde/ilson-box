@@ -24,20 +24,21 @@ class CourseAdminError(ValueError):
 
 
 # Start-failure classes shared with web-admin-server.py (its exit codes). Fixed text only.
-EXIT_PERMISSION,EXIT_PORT,EXIT_SETTINGS,EXIT_ELEVATED=3,4,5,6
+EXIT_PERMISSION,EXIT_PORT,EXIT_SETTINGS,EXIT_ELEVATED,EXIT_REDIRECTED=3,4,5,6,7
 PERMISSION_MESSAGE='관리자 상태 파일의 소유자·권한이 맞지 않아 관리 화면을 열지 못했습니다.'
 PORT_MESSAGE='관리 화면 포트를 열지 못했습니다. 포트를 쓰는 다른 프로그램을 종료하거나 잠시 뒤 다시 시도해주세요.'
 SETTINGS_MESSAGE='관리자 연결 설정이 없거나 형식이 다릅니다. ilson open을 다시 실행해주세요.'
 
 
-def permission_message(elevated):
+def permission_message(elevated,redirected=False):
+    if redirected: return PERMISSION_MESSAGE+' '+platform.redirected_hint()
     return PERMISSION_MESSAGE+' '+(platform.elevated_hint() if elevated else 'ilson doctor로 확인해주세요.')
 
 
 def child_failure(code):
     if code==EXIT_PORT: return PORT_MESSAGE
     if code==EXIT_SETTINGS: return SETTINGS_MESSAGE
-    if code in (EXIT_PERMISSION,EXIT_ELEVATED): return permission_message(code==EXIT_ELEVATED)
+    if code in (EXIT_PERMISSION,EXIT_ELEVATED,EXIT_REDIRECTED): return permission_message(code==EXIT_ELEVATED,code==EXIT_REDIRECTED)
     return '관리 웹을 시작하지 못했습니다. ilson doctor로 확인하세요.'
 
 
@@ -234,11 +235,12 @@ def main(args):
     except CourseAdminError as error:
         print(str(error));return 1
     except platform.AccessProblem as error:
-        print(permission_message(error.elevated));return 1
+        print(permission_message(error.elevated,getattr(error,'redirected',False)));return 1
     except PermissionError:
         print(permission_message(False));return 1
     except (OSError,ValueError) as error:
         # license.ElevatedOwnerError (from evaluate) carries no class we import here.
         if str(error)=='ELEVATED_OWNER': print(permission_message(True));return 1
+        if str(error)=='PATH_REDIRECTED': print(permission_message(False,True));return 1
         # Messages are fixed local strings; never include subprocess output or URLs.
         print('관리 화면을 처리하지 못했습니다. ilson admin status 또는 ilson doctor로 확인하세요.');return 1

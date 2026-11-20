@@ -276,9 +276,10 @@ class SettingsProblem(AdminError):
 
 class PermissionProblem(AdminError):
     """A private admin file failed its owner/permission check."""
-    def __init__(self, message, elevated=False):
+    def __init__(self, message, elevated=False, redirected=False):
         super().__init__(message)
         self.elevated = elevated
+        self.redirected = redirected
 
 
 class PortProblem(AdminError):
@@ -456,7 +457,8 @@ class Box:
         except FileNotFoundError:
             raise SettingsProblem("관리자 연결 설정이 없습니다. ilson admin start로 준비해주세요.") from None
         except platform.AccessProblem as error:
-            raise PermissionProblem("관리자 연결 파일의 소유자·권한을 확인해주세요.", elevated=error.elevated) from None
+            raise PermissionProblem("관리자 연결 파일의 소유자·권한을 확인해주세요.", elevated=error.elevated,
+                                    redirected=getattr(error, 'redirected', False)) from None
         except Unreadable:
             raise PermissionProblem("관리자 연결 파일을 안전하게 읽지 못했습니다.") from None
         if not re.fullmatch(r"[A-Za-z0-9_-]{32,160}", token) or not re.fullmatch(r"[A-Za-z0-9_-]{16,128}", instance):
@@ -1465,7 +1467,9 @@ def course_failure(error):
     if isinstance(error, SettingsProblem):
         return course_admin.EXIT_SETTINGS, course_admin.SETTINGS_MESSAGE
     if isinstance(error, (PermissionProblem, platform.AccessProblem, PermissionError)):
-        elevated = bool(getattr(error, 'elevated', False))
+        elevated, redirected = bool(getattr(error, 'elevated', False)), bool(getattr(error, 'redirected', False))
+        if redirected:
+            return course_admin.EXIT_REDIRECTED, course_admin.permission_message(False, True)
         return (course_admin.EXIT_ELEVATED if elevated else course_admin.EXIT_PERMISSION), course_admin.permission_message(elevated)
     if isinstance(error, course_admin.CourseAdminError):
         return 1, str(error)

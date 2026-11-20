@@ -15,10 +15,12 @@ class Unreadable(ValueError):
 
 
 class AccessProblem(Unreadable):
-    """Owner/ACL check of a private object failed. elevated: left by an elevated window."""
-    def __init__(self, message='개인 파일의 소유자·권한을 확인하세요.', elevated=False):
+    """Owner/ACL check of a private object failed. elevated: left by an elevated window.
+    redirected: an elevated window refused it because its path does not lead plainly to it."""
+    def __init__(self, message='개인 파일의 소유자·권한을 확인하세요.', elevated=False, redirected=False):
         super().__init__(message)
         self.elevated = elevated
+        self.redirected = redirected
 
 
 def elevated_hint():
@@ -29,11 +31,19 @@ def elevated_hint():
         return '관리자 권한 PowerShell에서 만든 파일입니다. ilson doctor --fix-permissions 로 확인해주세요.'
 
 
+def redirected_hint():
+    try:
+        from license import REDIRECTED_HINT
+        return REDIRECTED_HINT
+    except ImportError:
+        return '관리자 권한 창에서는 연결(바로가기)을 거치는 경로의 파일을 바꾸지 않았습니다. 일반 PowerShell 창에서 ilson doctor 로 확인해주세요.'
+
+
 def _windows_acl(path, create, message):
     from license import windows_acl
     try: windows_acl(path, create=create)
     except ValueError as error:
-        raise AccessProblem(message, elevated=str(error) == 'ELEVATED_OWNER') from None
+        raise AccessProblem(message, elevated=str(error) == 'ELEVATED_OWNER', redirected=str(error) == 'PATH_REDIRECTED') from None
 
 
 def lock(fd, *, exclusive=True, blocking=True, timeout=None):
