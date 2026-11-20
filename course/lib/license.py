@@ -179,6 +179,13 @@ class ElevatedOwnerError(ValueError):
 REDIRECTED_HINT = ('관리자 권한 창에서는 연결(바로가기)을 거치는 경로의 파일을 안전을 위해 바꾸지 않았습니다. '
                    '일반 PowerShell 창에서 ilson doctor 를 실행해 남은 항목이 있는지 확인해주세요.')
 
+# An elevated window left a folder as it was because its safety scan could not finish (more
+# entries than the scan limit, or an entry it could not open). A normal window cannot fix such a
+# folder either (it may grant this user nothing), so the hint names the elevated rerun and the
+# instructor, never the normal window.
+UNSCANNED_HINT = ('관리자 권한 창에서 일부 폴더는 안에 항목이 너무 많거나 열 수 없는 항목이 있어 안전 확인을 끝내지 못했고, 그래서 권한을 바꾸지 않았습니다. '
+                  '열린 프로그램을 닫고 「관리자: Windows PowerShell」에서 ilson doctor --fix-permissions 를 다시 실행해주세요. 그래도 남으면 강사에게 확인해주세요.')
+
 
 # Shared by the private check and the tree repair. The verdicts are pure functions, so tests
 # can run them under pwsh on any host. Trusted owners: this user or BUILTIN\Administrators (the
@@ -394,8 +401,12 @@ def _powershell(script, env, capture=False):
 # inherited entries of existing children by name, outside this guard. That walk does not follow
 # junction children, but it does change a hard-linked file whose other name lies outside the tree.
 # So a folder's DACL is set only after a scan through handles finds no file with a second link
-# below it (_linked_below); otherwise the folder is refused like a link. Known limit: a same-user
-# process that plants a hard link between that scan and the set still wins the race.
+# below it (_linked_below); otherwise the folder is refused like a link. The scan does not enter a
+# protected child (its DACL, and so everything below it, is not rewritten). A scan that cannot
+# finish (limit, unreadable entry) refuses the folder under its own count, 'unscanned'. Either
+# way the walk still visits the folder's children, each checked and repaired on its own handle
+# (review D23 SF-1). Known limit: a same-user process that plants a hard link between that scan
+# and the set still wins the race.
 FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT = 0x10, 0x400
 OPEN_FLAGS = 0x02200000           # FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT
 READ_ACCESS = 0x20080             # READ_CONTROL | FILE_READ_ATTRIBUTES
@@ -578,9 +589,11 @@ PROPAGATION_SCAN_LIMIT = 5000
 
 
 def _linked_below(w32, folder, limit=PROPAGATION_SCAN_LIMIT):
-    """True unless a scan through handles shows no file with a second hard link anywhere below
-    folder (not through reparse points, which the system's propagation does not follow either).
-    Anything the scan cannot read, or more than limit objects, counts as linked (fail closed)."""
+    """What a new inheritable DACL on folder could reach, from a scan through handles:
+    None when no file with a second hard link lies below it, 'linked' when one does, 'unscanned'
+    when the scan could not finish (an entry it cannot open or read, or more than limit entries;
+    fail closed). Like the system's propagation, the scan enters neither reparse points nor
+    protected children: a protected DACL is not rewritten, so nothing below it changes."""
     import ntpath
     stack, seen = [folder], 0
     try:
@@ -589,59 +602,69 @@ def _linked_below(w32, folder, limit=PROPAGATION_SCAN_LIMIT):
             for name in w32.children(path):
                 seen += 1
                 if seen > limit:
-                    return True
+                    return 'unscanned'
                 child = ntpath.join(path, name)
                 handle = w32.open(child, False)
                 try:
                     attributes, links = w32.info(handle)
+                    if attributes & FILE_ATTRIBUTE_REPARSE_POINT:
+                        continue
+                    container = bool(attributes & FILE_ATTRIBUTE_DIRECTORY)
+                    if _facts(w32, handle, container)[2]:
+                        continue  # protected: propagation stops here
                 finally:
                     w32.close(handle)
-                if attributes & FILE_ATTRIBUTE_REPARSE_POINT:
-                    continue
-                if attributes & FILE_ATTRIBUTE_DIRECTORY:
+                if container:
                     stack.append(child)
                 elif links != 1:
-                    return True
-    except (OSError, ValueError):
-        return True
-    return False
+                    return 'linked'
+    except (OSError, ValueError, struct.error):
+        return 'unscanned'
+    return None
 
 
-def _guarded_change(w32, path, anchor, me, kind, want, exact=False):
+def _guarded_change(w32, path, anchor, me, kind, want, exact=False, dry=False):
     """Owner (+ user-only protected DACL unless want is 'fix-owner') set on a checked handle, then
-    read back on the same handle. False, changing nothing, when the handle is not the object at its
-    place (under the anchor, or exactly the anchor when exact), its verdict moved, or a folder's new
-    DACL could propagate to a hard-linked file. A result that does not read back as the user's own
-    raises STORAGE_ERROR; an owner-only fix that left the user without access (OWNER RIGHTS turned
-    inherit-only, D2) gets the full private repair first."""
-    handle = w32.open(path, True)
+    read back on the same handle. Returns 'changed', or, changing nothing:
+    'refused' when the handle is not the object at its place (under the anchor, or exactly the
+    anchor when exact) or its verdict moved; 'linked' or 'unscanned' when a folder's new DACL could
+    propagate to a hard-linked file or the scan could not tell (_linked_below).
+    A result that does not read back as the user's own raises STORAGE_ERROR; an owner-only fix that
+    left the user without access (OWNER RIGHTS turned inherit-only, D2) gets the full private
+    repair first, and raises STORAGE_ERROR when the scan refuses that repair, because the owner
+    has already changed. dry: every check on a read handle, then 'changed' without changing."""
+    handle = w32.open(path, not dry)
     try:
         attributes, links = w32.info(handle)
         container = bool(attributes & FILE_ATTRIBUTE_DIRECTORY)
         final = w32.final_path(handle)
         placed = _final_parts(final) == _final_parts(anchor) if exact else under(final, anchor)
         if attributes & FILE_ATTRIBUTE_REPARSE_POINT or links != 1 or not placed:
-            return False
+            return 'refused'
 
         def verdict():
             owner, rules, protected = _facts(w32, handle, container)
             return private_verdict(owner, rules, me) if kind == 'private' else tree_verdict(owner, rules, me, protected)
 
         if want and verdict() != want:
-            return False
-        if want != 'fix-owner' and container and _linked_below(w32, path):
-            return False
+            return 'refused'
+        if want != 'fix-owner' and container:
+            scan = _linked_below(w32, path)
+            if scan:
+                return scan
+        if dry:
+            return 'changed'
         w32.set_security(handle, sid_bytes(me), None if want == 'fix-owner' else private_dacl(me, container))
         if verdict() == 'ok':
-            return True
+            return 'changed'
         if want != 'fix-owner':
             raise ValueError('STORAGE_ERROR')
         if container and _linked_below(w32, path):
-            return False
+            raise ValueError('STORAGE_ERROR')  # review D23 note 2: the owner is no longer as found
         w32.set_security(handle, sid_bytes(me), private_dacl(me, container))
         if verdict() != 'ok':
             raise ValueError('STORAGE_ERROR')
-        return True
+        return 'changed'
     finally:
         w32.close(handle)
 
@@ -697,7 +720,10 @@ def guarded_private(target, create, w32, roots=()):
         if anchor is None or not suffix:
             raise GuardRefusedError()
         expected = anchor.rstrip('\\') + '\\' + '\\'.join(suffix)
-        if not _guarded_change(w32, target, expected, me, 'private', want, exact=True):
+        result = _guarded_change(w32, target, expected, me, 'private', want, exact=True)
+        if result == 'unscanned':
+            raise ValueError('STORAGE_ERROR')  # not a link: no redirect hint
+        if result != 'changed':
             raise GuardRefusedError()
     except (ElevatedOwnerError, GuardRefusedError):
         raise
@@ -705,11 +731,18 @@ def guarded_private(target, create, w32, roots=()):
         raise (ElevatedOwnerError() if _failure(exc) == 'denied' else ValueError('STORAGE_ERROR')) from None
 
 
-def guarded_tree(roots, limit, w32):
-    """ACL_TREE_PS repair for an elevated token, on handles. refused: objects the guard left alone."""
+TREE_COUNTS = ('checked', 'repaired', 'admin_owned', 'no_access', 'foreign', 'error', 'skipped', 'refused', 'unscanned')
+
+
+def guarded_tree(roots, limit, w32, repair=True):
+    """ACL_TREE_PS for an elevated token, on handles. refused: objects the guard left alone (a link,
+    a second hard link, a path leading elsewhere); unscanned: folders left alone because their
+    propagation scan could not finish. A folder left alone by its scan still has its children
+    walked. repair False: the same checks without changing anything (ilson doctor in an elevated
+    window), so an object the repair would refuse is not counted as admin_owned (run 3, N2)."""
     import ntpath
     me = w32.user_sid()
-    n = dict.fromkeys(('checked', 'repaired', 'admin_owned', 'no_access', 'foreign', 'error', 'skipped', 'refused'), 0)
+    n = dict.fromkeys(TREE_COUNTS, 0)
     stack = [(root, None) for root in roots if w32.exists(root)]
     while stack:
         path, anchor = stack.pop()
@@ -741,10 +774,16 @@ def guarded_tree(roots, limit, w32):
                 n['foreign'] += 1
                 continue
             if verdict != 'ok':
-                if not _guarded_change(w32, path, anchor, me, 'tree', verdict):
+                result = _guarded_change(w32, path, anchor, me, 'tree', verdict, dry=not repair)
+                if result == 'refused':
                     n['refused'] += 1
-                    continue
-                n['repaired'] += 1
+                    continue  # not tied to its place: never walk below it
+                if result == 'linked':
+                    n['refused'] += 1
+                elif result == 'unscanned':
+                    n['unscanned'] += 1
+                else:
+                    n['repaired' if repair else 'admin_owned'] += 1
             if attributes & FILE_ATTRIBUTE_DIRECTORY:
                 stack.extend((ntpath.join(path, name), anchor) for name in w32.children(path))
         except (OSError, ValueError, struct.error) as exc:
@@ -904,12 +943,13 @@ def windows_acl(path, create=False):
 
 def windows_tree(roots, repair=False, limit=5000):
     """Count (and optionally repair) objects under roots that an elevated session left behind.
-    refused: objects an elevated repair left alone because it could not tie them to the root."""
+    refused / unscanned: objects an elevated window leaves alone (guarded_tree). An elevated
+    window reads through the same handle checks as its repair, so the counts agree (run 3, N2)."""
     roots = [os.path.abspath(str(p)) for p in roots]
-    w32 = elevated_win32() if repair else None
+    w32 = elevated_win32()
     if w32 is not None:
         try:
-            return guarded_tree(roots, int(limit), w32)
+            return guarded_tree(roots, int(limit), w32, repair=repair)
         except (OSError, ValueError):
             raise ValueError('STORAGE_ERROR') from None
     try:
@@ -922,7 +962,7 @@ def windows_tree(roots, repair=False, limit=5000):
     if result.returncode or len(lines) < 8 or lines[-8] != 'ILSON_ACL' or not all(v.isdigit() for v in lines[-7:]):
         raise ValueError('STORAGE_ERROR')
     counts = dict(zip(('checked', 'repaired', 'admin_owned', 'no_access', 'foreign', 'error', 'skipped'), map(int, lines[-7:])))
-    counts['refused'] = 0
+    counts['refused'] = counts['unscanned'] = 0
     return counts
 
 

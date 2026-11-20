@@ -13,6 +13,7 @@ import tempfile
 IS_WINDOWS = os.name == 'nt'
 ELEVATED_FALLBACK = '관리자 권한 PowerShell에서 만든 파일이 있습니다. 「관리자: Windows PowerShell」에서 ilson doctor --fix-permissions 를 실행해주세요.'
 REDIRECTED_FALLBACK = '관리자 권한 창에서는 연결(바로가기)을 거치는 경로의 파일을 바꾸지 않았습니다. 일반 PowerShell 창에서 ilson doctor 로 확인해주세요.'
+UNSCANNED_FALLBACK = '관리자 권한 창에서 일부 폴더는 안전 확인을 끝내지 못해 권한을 바꾸지 않았습니다. 「관리자: Windows PowerShell」에서 ilson doctor --fix-permissions 를 다시 실행하고, 그래도 남으면 강사에게 확인해주세요.'
 # README's student install command. When an install fails, the helper left in place may predate
 # `ilson doctor --fix-permissions` (e67f806 has no such flag); an elevated rerun of the installer
 # always works, because its final repair pass hands the tree back to the user.
@@ -174,6 +175,11 @@ def redirected_hint(files):
     except Exception: return REDIRECTED_FALLBACK
 
 
+def unscanned_hint(files):
+    try: return acl_module(files).UNSCANNED_HINT
+    except Exception: return UNSCANNED_FALLBACK
+
+
 def repair_owner(root, files, installed=True):
     """Windows: an elevated installer leaves every object owned by BUILTIN\\Administrators and
     mkdir(0o700)/mkdtemp folders without the user. One pass gives them back to this user.
@@ -186,9 +192,12 @@ def repair_owner(root, files, installed=True):
         return None
     left = counts['no_access'] or counts['foreign']
     refused = counts.get('refused', 0)  # the guarded repair left a linked path alone: not a reason to rerun elevated
-    print('HELPER_PERMISSIONS=' + ('ok' if not left and not refused else 'left'))
+    unscanned = counts.get('unscanned', 0)  # a folder's safety scan did not finish: not a link either
+    print('HELPER_PERMISSIONS=' + ('ok' if not left and not refused and not unscanned else 'left'))
     if left: print(elevated_hint(files) if installed else RERUN_ELEVATED_HINT)
-    elif refused: print(redirected_hint(files))
+    else:
+        if unscanned: print(unscanned_hint(files))
+        if refused: print(redirected_hint(files))
     return counts
 
 
