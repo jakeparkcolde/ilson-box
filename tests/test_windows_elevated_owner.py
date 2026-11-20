@@ -480,16 +480,39 @@ def ps_literal(value):
     return "'" + value.replace("'", "''") + "'"
 
 
+OI, CI, IO, ID = 0x01, 0x02, 0x08, 0x10  # ACE flags (MS-DTYP 2.4.4.1)
+OW = 'S-1-3-4'
+
+
+def rule(value):
+    """(sid, allow[, ace flags[, mask]]) -> model rule; FullControl unless a mask is given."""
+    return {'sid': value[0], 'allow': value[1], 'flags': value[2] if len(value) > 2 else 0,
+            'mask': value[3] if len(value) > 3 else 0x1F01FF}
+
+
 def node(path, owner, rules, dir=False, protected=False, children=(), **flags):
     """One object of the in-memory ACL model shared by the pwsh stubs and the fake Win32 layer.
     h* fields describe what a handle sees when it differs from the path: hfinal (the handle's
     final path), hreparse (a reparse point planted after the path check), howner/hrules (the ACL
-    as the change handle reads it, i.e. changed in between); links = hard links."""
-    value = {'path': path, 'owner': owner, 'rules': [{'sid': s, 'allow': a} for s, a in rules], 'dir': dir,
+    as the change handle reads it, i.e. changed in between); links = hard links. ownerdrop: an
+    owner change also turns this user's entries inherit-only (to drive the D2 read-back guard)."""
+    value = {'path': path, 'owner': owner, 'rules': [rule(r) for r in rules], 'dir': dir,
              'protected': protected, 'children': list(children), 'reparse': False, 'denied': False, 'denyset': False,
              'busy': False, 'links': 1}
-    if 'hrules' in flags: flags['hrules'] = [{'sid': s, 'allow': a} for s, a in flags['hrules']]
+    if 'hrules' in flags: flags['hrules'] = [rule(r) for r in flags['hrules']]
     value.update(flags); return value
+
+
+def owner_change(n, new_owner):
+    """What Windows did on the laptop (2026-11-20, D2) when only the owner changed: every OWNER
+    RIGHTS entry became inherit-only; if one was inherited, the DACL became protected with the
+    inherited entries copied as explicit ones."""
+    if n['owner'] == new_owner: return
+    inherited = any(r['sid'] == OW and not r['flags'] & IO and r['flags'] & ID for r in n['rules'])
+    for r in n['rules']:
+        if r['sid'] == OW or (n.get('ownerdrop') and r['sid'] == ME): r['flags'] |= IO
+        if inherited: r['flags'] &= ~ID
+    if inherited: n['protected'] = True
 
 
 def tree_model(r='C:\\ilson-course'):
@@ -520,8 +543,9 @@ def enc_sid(text):
 
 
 def enc_acl(rules, flags=0, extra=b''):
-    aces = b''.join(bytes([0 if allow else 1, flags]) + (8 + len(enc_sid(sid))).to_bytes(2, 'little') + (0x1F01FF).to_bytes(4, 'little')
-                    + enc_sid(sid) for sid, allow in rules) + extra
+    """rules: (sid, allow[, ace flags[, mask]]); flags is the default ACE flag byte."""
+    aces = b''.join(bytes([0 if r[1] else 1, r[2] if len(r) > 2 else flags]) + (8 + len(enc_sid(r[0]))).to_bytes(2, 'little')
+                    + (r[3] if len(r) > 3 else 0x1F01FF).to_bytes(4, 'little') + enc_sid(r[0]) for r in rules) + extra
     return bytes([2, 0]) + (8 + len(aces)).to_bytes(2, 'little') + (len(rules) + (1 if extra else 0)).to_bytes(2, 'little') + b'\0\0' + aces
 
 
@@ -553,6 +577,7 @@ class FakeWin32:
         self.m = {n['path']: n for n in nodes}
         self.finals, self.vanish, self.nofinal = list(finals), set(vanish), set(nofinal)
         self.handles, self.opened, self.actions, self.dacls, self.calls, self.next = {}, [], [], {}, 0, 1
+        self.propagated = []
 
     def user_sid(self): return ME
     def exists(self, path): return path in self.m
@@ -595,7 +620,7 @@ class FakeWin32:
         n = self.m[path]
         owner = n.get('howner') if write and n.get('howner') else n['owner']
         rules = n['hrules'] if write and 'hrules' in n else n['rules']
-        return enc_sd(owner, [(r['sid'], r['allow']) for r in rules], n['protected'])
+        return enc_sd(owner, [(r['sid'], r['allow'], r.get('flags', 0), r.get('mask', 0x1F01FF)) for r in rules], n['protected'])
 
     def set_security(self, handle, owner, dacl):
         path, write = self.handles[handle]
@@ -604,15 +629,26 @@ class FakeWin32:
         if n['denyset']: raise course_license.Win32Error(5)
         if n.get('ignoreset'): self.actions.append('ignored:' + path); return  # call "succeeds", nothing changes
         n.pop('howner', None); n.pop('hrules', None)
-        n['owner'] = course_license.sid_text(owner)[0]
+        new_owner = course_license.sid_text(owner)[0]
         if dacl is None:
+            owner_change(n, new_owner); n['owner'] = new_owner
             self.actions.append('howner:' + path); return
+        n['owner'] = new_owner
         self.dacls[path] = dacl
-        n['rules'] = [{'sid': r['sid'], 'allow': r['allow']} for r in dec_acl(dacl)]; n['protected'] = True
+        n['rules'] = [{'sid': r['sid'], 'allow': r['allow'], 'flags': r['flags'], 'mask': r['mask']} for r in dec_acl(dacl)]
+        n['protected'] = True
+        self.propagate(n)
+        self.actions.append('hprivate:' + path)
+
+    def propagate(self, n):
+        """The system's walk after a DACL set: by name, into every non-protected child, never
+        through a reparse point (laptop N1); a hard-linked file's other name changes with it."""
         for c in n['children']:
             child = self.m.get(c)
-            if child and not child['protected']: child['rules'] = [{'sid': ME, 'allow': True}]
-        self.actions.append('hprivate:' + path)
+            if not child or child['protected'] or child['reparse']: continue
+            child['rules'] = [rule((ME, True, ID | (OI | CI if child['dir'] else 0)))]
+            self.propagated.append(c)
+            if child['dir']: self.propagate(child)
 
 
 COUNT_KEYS = ('checked', 'repaired', 'admin_owned', 'no_access', 'foreign', 'error', 'skipped', 'refused')
@@ -626,15 +662,27 @@ def guarded_tree(model, root, **fake):
     return w32
 
 
-@unittest.skipUnless(PWSH, 'pwsh required to run the PowerShell ACL logic')
-class PowerShellAclLogicTests(unittest.TestCase):
-    """The real script text with the ACL cmdlets replaced by an in-memory model."""
-    IDENTITY = '[Security.Principal.WindowsIdentity]::GetCurrent().User'
-    STUBS = r'''
+IDENTITY = '[Security.Principal.WindowsIdentity]::GetCurrent().User'
+# The ACL cmdlets replaced by the in-memory model. GetAccessRules reports every entry with the
+# .NET properties (InheritanceFlags, PropagationFlags, FileSystemRights), unfiltered, so the
+# script's own normalisation is what the tests see. Owner changes and DACL propagation follow the
+# same rules as FakeWin32 (owner_change, propagate).
+PS_STUBS = r'''
 $global:M = @{}
 foreach ($e in @(ConvertFrom-Json $env:ACL_MODEL)) { $global:M[$e.path] = $e }
 $global:StubMe = [pscustomobject]@{ Value = $env:ACL_ME }
 function Test-Path { param([string]$LiteralPath) return $global:M.ContainsKey($LiteralPath) }
+function Set-ModelOwner($o, [string]$Owner) {
+    if ($o.owner -ne $Owner) {
+        $inherited = @($o.rules | Where-Object { $_.sid -eq 'S-1-3-4' -and -not ([int]$_.flags -band 8) -and ([int]$_.flags -band 16) }).Count -gt 0
+        foreach ($r in @($o.rules)) {
+            if ($r.sid -eq 'S-1-3-4' -or ($o.ownerdrop -and $r.sid -eq $env:ACL_ME)) { $r.flags = [int]$r.flags -bor 8 }
+            if ($inherited) { $r.flags = [int]$r.flags -band (-bnot 16) }
+        }
+        if ($inherited) { $o.protected = $true }
+    }
+    $o.owner = $Owner
+}
 function Get-Item { param([string]$LiteralPath, [switch]$Force)
     [Console]::Out.WriteLine('READ ' + $LiteralPath)
     $o = $global:M[$LiteralPath]
@@ -648,7 +696,7 @@ function Get-Item { param([string]$LiteralPath, [switch]$Force)
         return $x }
     $item | Add-Member ScriptMethod SetAccessControl { param($x)
         if ($global:M[$x.P].denyset) { throw (New-Object UnauthorizedAccessException 'denied') }
-        $global:M[$x.P].owner = $x.Owner; [Console]::Out.WriteLine('ACT owner:' + $x.P) }
+        Set-ModelOwner $global:M[$x.P] $x.Owner; [Console]::Out.WriteLine('ACT owner:' + $x.P) }
     return $item
 }
 function Get-Acl { param([string]$LiteralPath)
@@ -660,15 +708,32 @@ function Get-Acl { param([string]$LiteralPath)
     $acl | Add-Member ScriptMethod GetAccessRules { param($a, $b, $t)
         foreach ($r in $this.R) {
             $type = 'Deny'; if ($r.allow) { $type = 'Allow' }
-            [pscustomobject]@{ IdentityReference = [pscustomobject]@{ Value = $r.sid }; AccessControlType = $type } } }
+            $f = [int]$r.flags; $mask = $r.mask; if ($null -eq $mask) { $mask = 2032127 }
+            $inheritance = 0; if ($f -band 1) { $inheritance = $inheritance -bor 2 }; if ($f -band 2) { $inheritance = $inheritance -bor 1 }
+            $propagation = 0; if ($f -band 4) { $propagation = $propagation -bor 1 }; if ($f -band 8) { $propagation = $propagation -bor 2 }
+            [pscustomobject]@{ IdentityReference = [pscustomobject]@{ Value = $r.sid }; AccessControlType = $type;
+                               InheritanceFlags = $inheritance; PropagationFlags = $propagation; FileSystemRights = [int64]$mask;
+                               IsInherited = (($f -band 16) -ne 0) } } }
     return $acl
 }
 function New-IlsonPrivateAcl($Item, $Me) { return [pscustomobject]@{ Me = $Me.Value } }
+function Push-ModelInherit($o, [string]$Me) {
+    foreach ($c in @($o.children)) {
+        $child = $global:M[$c]
+        if ($child -and -not $child.protected -and -not $child.reparse) {
+            $f = 16; if ($child.dir) { $f = 19 }
+            $child.rules = @([pscustomobject]@{ sid = $Me; allow = $true; flags = $f; mask = 2032127 })
+            [Console]::Out.WriteLine('PROPAGATED ' + $c)
+            if ($child.dir) { Push-ModelInherit $child $Me }
+        }
+    }
+}
 function Set-ModelPrivate([string]$Path, [string]$Me) {
     $o = $global:M[$Path]
     if ($o.denyset) { throw (New-Object UnauthorizedAccessException 'denied') }
-    $o.owner = $Me; $o.protected = $true; $o.rules = @([pscustomobject]@{ sid = $Me; allow = $true })
-    foreach ($c in @($o.children)) { $child = $global:M[$c]; if ($child -and -not $child.protected) { $child.rules = @([pscustomobject]@{ sid = $Me; allow = $true }) } }
+    $f = 0; if ($o.dir) { $f = 3 }
+    $o.owner = $Me; $o.protected = $true; $o.rules = @([pscustomobject]@{ sid = $Me; allow = $true; flags = $f; mask = 2032127 })
+    Push-ModelInherit $o $Me
 }
 function Set-Acl { param([string]$LiteralPath, $AclObject)
     Set-ModelPrivate $LiteralPath $AclObject.Me
@@ -679,21 +744,36 @@ function Get-ChildItem { param([string]$LiteralPath, [switch]$Force)
 function Test-IlsonGuarded { return $env:ACL_GUARDED -eq '1' }
 '''
 
+
+def run_acl_script(script, model, **env):
+    """Run one of license.py's ACL scripts under pwsh against the model. Needs PWSH."""
+    logic = script.split(course_license.ACL_VERDICT_PS, 1)[1]
+    assert IDENTITY in logic
+    body = course_license.ACL_VERDICT_PS + PS_STUBS + logic.replace(IDENTITY, '$global:StubMe')
+    result = subprocess.run([PWSH, '-NoProfile', '-NonInteractive', '-Command', body], capture_output=True, text=True,
+                            timeout=60, stdin=subprocess.DEVNULL,
+                            env=dict(os.environ, ACL_MODEL=json.dumps(model), ACL_ME=ME, **env))
+    lines = result.stdout.splitlines()
+    result.actions = [line[4:] for line in lines if line.startswith('ACT ')]
+    result.reads = [line[5:] for line in lines if line.startswith('READ ')]
+    result.opened = [line[5:] for line in lines if line.startswith('OPEN ')]
+    result.propagated = [line[11:] for line in lines if line.startswith('PROPAGATED ')]
+    counts = [line.split()[1:] for line in lines if line.startswith('ILSON_ACL ')]
+    result.counts = [int(v) for v in counts[-1]] if counts else None
+    return result
+
+
+@unittest.skipUnless(PWSH, 'pwsh required to run the PowerShell ACL logic')
+class PowerShellAclLogicTests(unittest.TestCase):
+    """The real script text with the ACL cmdlets replaced by an in-memory model."""
+    IDENTITY = IDENTITY
+    STUBS = PS_STUBS
+
     def node(self, *args, **kwargs): return node(*args, **kwargs)
     def model(self): return tree_model()
 
     def run_script(self, script, model, **env):
-        logic = script.split(course_license.ACL_VERDICT_PS, 1)[1]
-        self.assertIn(self.IDENTITY, logic)
-        body = course_license.ACL_VERDICT_PS + self.STUBS + logic.replace(self.IDENTITY, '$global:StubMe')
-        result = subprocess.run([PWSH, '-NoProfile', '-NonInteractive', '-Command', body], capture_output=True, text=True,
-                                timeout=60, stdin=subprocess.DEVNULL,
-                                env=dict(os.environ, ACL_MODEL=json.dumps(model), ACL_ME=ME, **env))
-        lines = result.stdout.splitlines()
-        result.actions = [line[4:] for line in lines if line.startswith('ACT ')]
-        result.reads = [line[5:] for line in lines if line.startswith('READ ')]
-        result.opened = [line[5:] for line in lines if line.startswith('OPEN ')]
-        return result
+        return run_acl_script(script, model, **env)
 
     def test_scripts_parse_without_errors(self):
         for script in (course_license.ACL_PRIVATE_PS, course_license.ACL_TREE_PS):
@@ -814,7 +894,9 @@ function Test-IlsonGuarded { return $env:ACL_GUARDED -eq '1' }
 
 
 def ps_rules(rules):
-    return '@(' + ','.join("@{Sid='%s';Allow=$%s}" % (sid, 'true' if allow else 'false') for sid, allow in rules) + ')'
+    """(sid, allow[, effective]) -> PowerShell rule list as Get-IlsonAclFacts returns it."""
+    return '@(' + ','.join("@{Sid='%s';Allow=$%s;Effective=$%s}" % (r[0], 'true' if r[1] else 'false',
+                                                                    'true' if len(r) < 3 or r[2] else 'false') for r in rules) + ')'
 
 
 VERDICT_CASES = [
@@ -841,6 +923,20 @@ VERDICT_CASES = [
     ('tree', BA, [(SY, True), (BA, True)], True, 'fix-private'),
     ('tree', BA, [('S-1-5-32-545', True)], True, 'foreign'),
     ('tree', OTHER, [(ME, True)], False, 'foreign'),
+    # D2 (laptop run 2): access counts from effective entries only; a third value False marks an
+    # inherit-only entry. An owner-only fix needs an entry naming the user, since an owner change
+    # turns OWNER RIGHTS inherit-only.
+    ('tree', BA, [(SY, True), (BA, True), ('S-1-3-4', True)], False, 'fix-private'),   # elevated.txt before
+    ('tree', ME, [(SY, True), (BA, True), ('S-1-3-4', True, False)], True, 'fix-private'),  # elevated.txt after
+    ('tree', ME, [('S-1-3-4', True, False), (SY, True), (BA, True)], False, 'fix-private'),  # note.txt
+    ('tree', BA, [(SY, True), (BA, True)], False, 'fix-private'),
+    ('tree', BA, [(ME, True, False), (SY, True)], False, 'fix-private'),
+    ('tree', BA, [(ME, True), ('S-1-3-4', True)], False, 'fix-owner'),
+    ('tree', ME, [(ME, True, False), (SY, True)], False, 'fix-private'),
+    ('tree', BA, [(ME, True), ('S-1-1-0', True, False)], False, 'foreign'),  # an inherit-only foreign grant still blocks
+    ('private', ME, [(ME, True, False)], False, 'repair'),
+    ('private', ME, [(ME, True), (ME, True, False)], False, 'ok'),
+    ('private', ME, [(SY, True), (BA, True), ('S-1-3-4', True, False)], False, 'repair'),
 ]
 
 
@@ -861,10 +957,10 @@ class GuardedRouteTests(unittest.TestCase):
             self.assertEqual((lic.sid_bytes(sid).hex(), lic.sid_text(bytes.fromhex(hexed))), (hexed, (sid, len(hexed) // 2)))
         self.assertEqual(lic.sid_text(lic.sid_bytes(ME))[0], ME)
         rules = [(SY, True), (OTHER, False), ('S-1-3-4', True)]
-        self.assertEqual(lic.parse_security_descriptor(enc_sd(BA, rules, protected=True)), (BA, rules, True))
-        self.assertEqual(lic.parse_security_descriptor(enc_sd(ME, [(ME, True)])), (ME, [(ME, True)], False))
+        self.assertEqual(lic.parse_security_descriptor(enc_sd(BA, rules, protected=True)), (BA, [r + (True,) for r in rules], True))
+        self.assertEqual(lic.parse_security_descriptor(enc_sd(ME, [(ME, True)])), (ME, [(ME, True, True)], False))
         # No DACL: everybody has access, as .NET reports it.
-        self.assertEqual(lic.parse_security_descriptor(enc_sd(BA, [], dacl=False)), (BA, [('S-1-1-0', True)], False))
+        self.assertEqual(lic.parse_security_descriptor(enc_sd(BA, [], dacl=False)), (BA, [('S-1-1-0', True, True)], False))
         self.assertIsNone(lic.parse_security_descriptor(enc_sd(None, [(ME, True)]))[0])
         # A callback ACE (type 9) is never a trusted grant.
         callback = bytes([9, 0, 24, 0]) + (0x1F01FF).to_bytes(4, 'little') + enc_sid(ME)[:16]
@@ -1140,7 +1236,7 @@ class Win32GlueTests(unittest.TestCase):
             handle = w32.open('C:\\ilson-course', True)
             self.assertEqual(w32.info(handle), (0x10, 1))
             self.assertEqual(w32.final_path(handle), '\\\\?\\C:\\ilson-course')
-            self.assertEqual(course_license.parse_security_descriptor(w32.security(handle)), (BA, [(ME, True), (SY, True)], False))
+            self.assertEqual(course_license.parse_security_descriptor(w32.security(handle)), (BA, [(ME, True, True), (SY, True, True)], False))
             dacl = course_license.private_dacl(ME, True)
             w32.set_security(handle, course_license.sid_bytes(ME), dacl)
             self.assertEqual(applied, {'info': 0x80000005, 'owner': enc_sid(ME), 'dacl': dacl})
