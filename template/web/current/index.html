@@ -8,6 +8,23 @@
 <script src="icons.js" defer></script><script src="sns_operations.js" defer></script>
 <script src="sns_accounts.js" defer></script><script src="vault.js" defer></script><script src="inbox-files.js" defer></script>
 <script src="pack-library/pack-navigation.js" defer></script><script src="composer.js" defer></script><script src="learn/learn.js" defer></script><script src="replies.js" defer></script><script src="opensource.js" defer></script><script src="shell.js" defer></script>
-</head><body><div class="app"><nav class="sidebar" id="sidebar"></nav><main class="main" id="main"></main></div>
+</head><body class="folio-shell"><div class="app"><aside class="folio-rail-wrap" id="folioRail" aria-label="바로가기">
+<div class="folio-rail">
+<button class="rail-top-btn" type="button" title="홈으로 이동" aria-label="홈으로 이동" onclick="A.go('home')"><svg viewBox="0 0 26 26" width="26" height="26" aria-hidden="true"><rect x="0.7" y="0.7" width="24.6" height="24.6" rx="7.3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7 9h12M7 13h12M7 17h7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+<span class="rail-sep" aria-hidden="true"></span>
+<nav class="rail-nav" aria-label="주요 메뉴">
+<button class="rail-btn" type="button" data-rail="home" title="홈" aria-label="홈" onclick="A.go('home')"><svg viewBox="-9 -9 18 18" aria-hidden="true"><rect x="-7" y="-7" width="5.5" height="5.5" rx="1.5"/><rect x="1.5" y="-7" width="5.5" height="5.5" rx="1.5"/><rect x="-7" y="1.5" width="5.5" height="5.5" rx="1.5"/><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.5"/></svg></button>
+<button class="rail-btn" type="button" data-rail="jobs" title="업무" aria-label="업무" onclick="A.go('jobs')"><svg viewBox="-9 -9 18 18" aria-hidden="true"><circle cx="-5" cy="0" r="2.2"/><circle cx="5" cy="-5" r="2.2"/><circle cx="5" cy="5" r="2.2"/><path d="M-2.8 0H0V-5H2.8M0 0V5H2.8"/></svg></button>
+<button class="rail-btn" type="button" data-rail="sns" title="SNS 운영" aria-label="SNS 운영" onclick="A.go('sns')"><svg viewBox="-9 -9 18 18" aria-hidden="true"><circle r="7"/><path d="M-3 0l2.2 2.2 4-4.4"/></svg><span class="rail-dot" id="railPendingDot" hidden></span></button>
+<button class="rail-btn" type="button" data-rail="dashboard" title="자동화·컴퓨터 현황" aria-label="자동화·컴퓨터 현황" onclick="A.go('dashboard')"><svg viewBox="-9 -9 18 18" aria-hidden="true"><circle r="7"/><path d="M0-3.5V0l2.5 1.5"/></svg></button>
+<button class="rail-btn" type="button" data-rail="vault" title="서류함" aria-label="서류함" onclick="A.go('vault')"><svg viewBox="-9 -9 18 18" aria-hidden="true"><path d="M-7-4.5h4.5l1.5 2h8v8h-14z"/></svg></button>
+<button class="rail-btn" type="button" data-rail="staff" title="직원" aria-label="직원" onclick="A.go('staff')"><svg viewBox="-9 -9 18 18" aria-hidden="true"><circle cx="-2" cy="-3" r="2.6"/><path d="M-7 6c0-3.5 2-5 5-5s5 1.5 5 5M4.5 1.2c2 .3 3 1.8 3 4.3"/></svg></button>
+<button class="rail-btn" type="button" data-rail="settings" title="설정" aria-label="설정" onclick="A.go('settings')"><svg viewBox="-9 -9 18 18" aria-hidden="true"><path d="M-7-4H7M-7 4H7"/><circle class="rail-knob" cx="-2" cy="-4" r="2"/><circle class="rail-knob" cx="3" cy="4" r="2"/></svg></button>
+</nav>
+<div class="rail-ruler" aria-hidden="true"><span class="rail-cap">00</span><div class="rail-ticks"><div class="rail-now" id="railNow"><span class="rail-now-bar"></span><span class="rail-now-time" id="railNowTime">--:--</span></div></div><span class="rail-cap">24</span></div>
+<button class="rail-btn rail-help-btn" type="button" data-rail="learn" title="Claude 배우기" aria-label="Claude 배우기" onclick="A.go('learn')"><svg viewBox="-9 -9 18 18" aria-hidden="true"><circle r="7"/><path d="M-2-2c0-3 4.5-3 4.5-.3 0 1.6-2.3 1.7-2.3 3.4M.2 4v.2"/></svg></button>
+</div>
+<button class="rail-bottom-btn" id="railCollapseBtn" type="button" title="사이드바 접기/펼치기" aria-label="사이드바 접기/펼치기" aria-pressed="false"><svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M3 6h14M3 14h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+</aside><nav class="sidebar" id="sidebar"></nav><main class="main" id="main"></main></div>
 <div id="modals"></div><button class="m-nav-btn" id="mNavBtn" aria-label="메뉴">☰</button>
 <div class="m-nav-backdrop" id="mNavBackdrop"></div></body></html>

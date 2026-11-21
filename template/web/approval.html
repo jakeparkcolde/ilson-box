@@ -1,7 +1,48 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>승인 대기함 · 일손</title>
-<style>body{font:16px/1.6 system-ui,sans-serif;color:#202a24;background:#f4f7f4;max-width:850px;margin:0 auto;padding:24px}article,section{background:white;padding:20px;margin:16px 0;border:1px solid #d6e1d8;border-radius:12px}button,input{font:inherit;padding:9px;margin:4px}button{cursor:pointer}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f7f4;padding:14px}.status{color:#345340}.error{color:#9a2433}</style><script src="/approval.js" defer></script></head><body>
-<a href="/">← 일손 홈</a><h1>승인 대기함</h1><p>내용과 대상 전체를 확인한 뒤 결정하세요. 맥 Box 전용 기능입니다.</p>
-<p>휴대폰 승인은 <code>ilson telegram approval-connect</code>로 개인 대화를 연결하고 <code>ilson telegram approval-start</code>로 수신을 시작하세요. 기기 분실 시 <code>ilson telegram approval-stop</code>으로 중지한 뒤 <code>ilson telegram approval-disconnect</code>로 연결을 해제하고 다시 연결하세요.</p>
-<p>승인 요청 내용은 이 맥에 보관됩니다. 텔레그램으로 보내면 해당 대화와 기기에도 남습니다. 자동 개인정보 가림은 제공하지 않습니다. 승인 기록은 보관되며, 이 기능의 데이터는 일반 vault/state 스냅샷에 포함되지 않습니다.</p>
+<link rel="stylesheet" href="/fonts.css">
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('ilson-theme')||'light';}catch(_){document.documentElement.dataset.theme='light';}</script>
+<style>
+:root{
+  --canvas:#e7e6e1;--panel:#fbfaf8;--inset:#f1f0ec;--white:#ffffff;
+  --hair:#e8e7e2;--hair2:#dddcd6;--ink:#161615;--ink2:#3a3a37;--ink3:#8b8a84;
+  --lime:#c8f03e;--alert:#e2553a;--shadow:0 2px 14px rgba(58,56,47,.06);
+  --font-sans:Inter,'Pretendard Variable',Pretendard,'Apple SD Gothic Neo',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+:root[data-theme="dark"]{
+  --canvas:#111210;--panel:#181917;--inset:#20221f;--white:#252723;
+  --hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);
+  --ink:#f2f3ee;--ink2:#c5c8bf;--ink3:#878b82;--shadow:0 2px 14px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{font:14px/1.65 var(--font-sans);color:var(--ink);background:var(--canvas);max-width:920px;margin:0 auto;padding:28px 24px 64px;-webkit-font-smoothing:antialiased}
+.back-pill{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 14px;border-radius:999px;background:var(--panel);border:1px solid var(--hair2);color:var(--ink);text-decoration:none;font-size:12.5px;font-weight:500;box-shadow:0 1px 3px rgba(58,56,47,.06);margin-bottom:18px}
+.back-pill:hover{background:var(--inset)}
+h1{font-size:34px;font-weight:300;letter-spacing:-.025em;line-height:1.15;margin:0 0 8px}
+h2{font-size:15.5px;font-weight:600;margin:0 0 8px}
+p{color:var(--ink2);margin:8px 0}
+.info-strip{background:var(--panel);border:1px solid var(--hair);border-radius:20px;padding:18px 22px;margin:16px 0;box-shadow:var(--shadow);font-size:13px}
+.info-strip p{color:var(--ink3);margin:6px 0}
+code{font:12px var(--font-mono);background:var(--inset);border:1px solid var(--hair);padding:2px 6px;border-radius:6px;color:var(--ink)}
+article,section{background:var(--panel);padding:22px 24px;margin:16px 0;border:1px solid var(--hair);border-radius:24px;box-shadow:var(--shadow)}
+label{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2);margin-right:8px}
+input{font:inherit;padding:8px 12px;border-radius:10px;border:1px solid var(--hair2);background:var(--white);color:var(--ink);min-width:220px}
+button{font:inherit;font-size:12.5px;font-weight:600;height:34px;padding:0 16px;margin:4px 4px 4px 0;border-radius:999px;border:1px solid var(--hair2);background:var(--white);color:var(--ink);cursor:pointer;transition:background 120ms ease}
+button:hover{background:var(--inset)}
+#create,article button:first-of-type{background:#161615;border-color:transparent;color:#ffffff}
+#create:hover,article button:first-of-type:hover{background:#2a2a28}
+:root[data-theme="dark"] #create,:root[data-theme="dark"] article button:first-of-type{background:var(--lime);color:#161615}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--inset);border:1px solid var(--hair);border-radius:14px;padding:14px 16px;font:12.5px/1.65 var(--font-mono);color:var(--ink2)}
+.status{color:var(--ink);background:var(--inset);border-left:3px solid var(--lime);padding:10px 14px;border-radius:10px}
+.status:empty{display:none}
+.error{color:var(--alert);background:rgba(226,85,58,.1);border-left:3px solid var(--alert);padding:10px 14px;border-radius:10px}
+</style><script src="/approval.js" defer></script></head><body>
+<a class="back-pill" href="/current/index.html?tab=home">← 일손 홈</a>
+<h1>승인 대기함</h1>
+<p>내용과 대상 전체를 확인한 뒤 결정하세요. 맥 Box 전용 기능입니다.</p>
+<div class="info-strip">
+  <p>휴대폰 승인은 <code>ilson telegram approval-connect</code>로 개인 대화를 연결하고 <code>ilson telegram approval-start</code>로 수신을 시작하세요. 기기 분실 시 <code>ilson telegram approval-stop</code>으로 중지한 뒤 <code>ilson telegram approval-disconnect</code>로 연결을 해제하고 다시 연결하세요.</p>
+  <p>승인 요청 내용은 이 맥에 보관됩니다. 텔레그램으로 보내면 해당 대화와 기기에도 남습니다. 자동 개인정보 가림은 제공하지 않습니다. 승인 기록은 보관되며, 이 기능의 데이터는 일반 vault/state 스냅샷에 포함되지 않습니다.</p>
+</div>
 <section><h2>초안 승인 요청 만들기</h2><p><code>vault/reports/pending</code>에 있는 Markdown 초안 파일 이름을 입력하세요. 승인하면 초안을 approved 폴더에 옮기고 일지에 기록합니다.</p><label>파일 이름 <input id="name" placeholder="초안.md"></label><button id="create" type="button">대기함에 추가</button></section>
 <p id="message" role="status"></p><div id="requests"></div></body></html>

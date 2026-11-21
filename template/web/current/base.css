@@ -9,38 +9,38 @@
   --radius-xs:5px;--radius-sm:8px;--radius-md:12px;--radius-lg:16px;--radius-pill:999px;
 }
 body{
-  /* ── 리니어 프리미티브 (다크 기본) ── */
-  --canvas:#010102;--s1:#0f1011;--s2:#141516;--s3:#18191a;
-  --hair:#23252a;--hair2:#34343a;
-  --ink:#f7f8f8;--ink2:#d0d6e0;--ink3:#8a8f98;--ink4:#62666d;
-  --accent:#5e6ad2;--accent-soft:rgba(94,106,210,.16);
-  --link:#828fff;--link-h:#a7b0ff;
-  --ok:#27a644;--ok-bright:#3fce62;--ok-soft:rgba(39,166,68,.16);
-  --edge:rgba(255,255,255,.04);
+  /* ── Fable 다크 토큰 (기본) ── */
+  --canvas:#111210;--s1:#181917;--s2:#20221f;--s3:#282a26;
+  --hair:rgba(255,255,255,.08);--hair2:rgba(255,255,255,.14);
+  --ink:#f2f3ee;--ink2:#c5c8bf;--ink3:#878b82;--ink4:#686c64;
+  --accent:#c8f03e;--accent-soft:rgba(200,240,62,.15);
+  --link:#c8f03e;--link-h:#d9f76f;
+  --ok:#c8f03e;--ok-bright:#c8f03e;--ok-soft:rgba(200,240,62,.16);
+  --edge:rgba(255,255,255,.05);
   /* ── 기존 토큰 별칭 (인라인 var() 호환) ── */
   --bg-base:var(--canvas);--bg-subtle:var(--s1);--bg-sunken:var(--s2);
   --border:var(--hair);--border-strong:var(--hair2);
   --text-body:var(--ink);--text-muted:var(--ink3);--text-faint:var(--ink4);
-  --flow-green:var(--ok);--flow-deep:var(--accent);--flow-mint:#62d18e;--flow-black:var(--s3);
-  --card:var(--s1);--stamp:#5e6ad2;
-  --success-bg:var(--ok-soft);--warning:#d9a13a;--warning-bg:rgba(217,161,58,.15);
-  --error:#e5534b;--error-bg:rgba(229,83,75,.14);
-  --shadow-xs:0 1px 2px rgba(0,0,0,.3);--shadow-sm:0 2px 8px rgba(0,0,0,.35);
+  --flow-green:var(--ok);--flow-deep:var(--accent);--flow-mint:#c8f03e;--flow-black:var(--s3);
+  --card:var(--s1);--stamp:#c8f03e;
+  --success-bg:var(--ok-soft);--warning:#e09a3e;--warning-bg:rgba(224,154,62,.15);
+  --error:#e2553a;--error-bg:rgba(226,85,58,.14);
+  --shadow-xs:0 1px 2px rgba(0,0,0,.3);--shadow-sm:0 2px 12px rgba(0,0,0,.35);
   --shadow-md:0 8px 24px rgba(0,0,0,.4);--shadow-lg:0 20px 50px rgba(0,0,0,.5);
-  --shadow-focus:0 0 0 3px rgba(94,106,210,.3);
+  --shadow-focus:0 0 0 3px rgba(200,240,62,.28);
 }
 body[data-theme='light']{
-  --canvas:#ffffff;--s1:#f5f6f6;--s2:#f0f1f3;--s3:#eceef0;
-  --hair:#e4e4e8;--hair2:#d4d4da;
-  --ink:#1d1d21;--ink2:#3c4149;--ink3:#6b7078;--ink4:#959aa4;
-  --accent:#5e6ad2;--accent-soft:rgba(94,106,210,.12);
-  --link:#5e6ad2;--link-h:#828fff;
-  --ok:#1d8a38;--ok-bright:#1d8a38;--ok-soft:rgba(39,166,68,.12);
-  --edge:rgba(0,0,0,.03);
-  --warning:#a3720a;--warning-bg:rgba(217,161,58,.16);
-  --error:#d0453e;--error-bg:rgba(229,83,75,.1);
-  --shadow-xs:0 1px 2px rgba(20,20,30,.05);--shadow-sm:0 2px 8px rgba(20,20,30,.06);
-  --shadow-md:0 8px 24px rgba(20,20,30,.09);--shadow-lg:0 20px 50px rgba(20,20,30,.14);
+  --canvas:#e7e6e1;--s1:#fbfaf8;--s2:#f1f0ec;--s3:#e6e5df;
+  --hair:#e8e7e2;--hair2:#dddcd6;
+  --ink:#161615;--ink2:#3a3a37;--ink3:#8b8a84;--ink4:#a3a29c;
+  --accent:#161615;--accent-soft:rgba(200,240,62,.26);
+  --link:#161615;--link-h:#3a3a37;
+  --ok:#161615;--ok-bright:#3f6212;--ok-soft:rgba(200,240,62,.28);
+  --edge:rgba(58,56,47,.04);
+  --warning:#9f6510;--warning-bg:#fbf5e8;
+  --error:#e2553a;--error-bg:rgba(226,85,58,.11);
+  --shadow-xs:0 1px 3px rgba(58,56,47,.06);--shadow-sm:0 2px 14px rgba(58,56,47,.06);
+  --shadow-md:0 8px 24px rgba(58,56,47,.09);--shadow-lg:0 20px 50px rgba(58,56,47,.14);
 }
 html,body{margin:0;padding:0;background:var(--canvas)}
 *{box-sizing:border-box}
