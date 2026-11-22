@@ -29,6 +29,7 @@ class PostgreSQLLicenseTest(unittest.TestCase):
             cls.running=True
             cls.sql('create role anon; create role authenticated; create role service_role;')
             cls.sql((ROOT/'server/license/migrations/001_license.sql').read_text())
+            cls.sql((ROOT/'server/license/migrations/003_short_serial.sql').read_text())
         except Exception:
             if getattr(cls,'running',False): run(BIN/'pg_ctl','-D',cls.data,'stop','-m','fast','-w')
             cls.temp.cleanup()
@@ -73,5 +74,55 @@ class PostgreSQLLicenseTest(unittest.TestCase):
         self.assertEqual(json.loads(self.sql(request_sql(revoke)).stdout)['status'],'ok')
         check={**base,'action':'check','device_hash':'1'*64}
         self.assertEqual(json.loads(self.sql(request_sql(check)).stdout)['status'],'revoked')
+
+    def test_v2_short_serial_concurrent_device_limit_conflict_sealed_hiding_and_rls(self):
+        now=int(time.time()); ident='cd'*16; ident2='ef'*16
+        sch='7'*64; sealed='A'*188
+        lic={'id':ident,'payload_hash':'34'*32,'cohort':1,'plan':1,'issued':now-10,'expires':4294967295}
+        lic2={'id':ident2,'payload_hash':'56'*32,'cohort':1,'plan':1,'issued':now-10,'expires':4294967295}
+        def request_sql(p):
+            return "select public.ilson_license_request('"+json.dumps(p).replace("'","''")+"'::jsonb);"
+        # Half-pair rejected
+        bad_reg={'action':'register','license':lic,'ip_hash':'b'*64,'display_name':'v2','request_id':'a'*32,'short_code_hash':sch}
+        self.assertEqual(json.loads(self.sql(request_sql(bad_reg)).stdout)['status'],'invalid_serial')
+        # Valid V2 register
+        reg={'action':'register','license':lic,'ip_hash':'b'*64,'display_name':'v2','request_id':'b'*32,
+             'short_code_hash':sch,'sealed_serial':sealed}
+        self.assertEqual(json.loads(self.sql(request_sql(reg)).stdout)['status'],'ok')
+        # Duplicate short_code_hash on a different license id -> conflict
+        dup={'action':'register','license':lic2,'ip_hash':'b'*64,'display_name':'v2-dup','request_id':'c'*32,
+             'short_code_hash':sch,'sealed_serial':'B'*188}
+        self.assertEqual(json.loads(self.sql(request_sql(dup)).stdout)['status'],'conflict')
+        # Same id re-registered with mismatched sealed_serial -> conflict
+        mismatch={'action':'register','license':lic,'ip_hash':'b'*64,'display_name':'v2','request_id':'d'*32,
+                  'short_code_hash':sch,'sealed_serial':'C'*188}
+        self.assertEqual(json.loads(self.sql(request_sql(mismatch)).stdout)['status'],'conflict')
+        # Concurrent 3-device V2 activation: 2 active (with sealed_serial) + 1 device_limit (without sealed_serial)
+        barrier=threading.Barrier(3)
+        def activate_v2(n):
+            req={'action':'activate','short_code_hash':sch,'device_hash':str(n)*64,'ip_hash':'b'*64}
+            barrier.wait()
+            result=self.sql('begin; '+request_sql(req)+' select pg_sleep(0.3); commit;')
+            return json.loads(result.stdout.splitlines()[0])
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            responses=list(pool.map(activate_v2,(4,5,6)))
+        statuses=sorted(r['status'] for r in responses)
+        self.assertEqual(statuses,['active','active','device_limit'])
+        for r in responses:
+            if r['status']=='active':
+                self.assertEqual(r.get('sealed_serial'),sealed)
+            else:
+                self.assertNotIn('sealed_serial',r)
+        # Revoke -> V2 activate must not expose sealed_serial
+        revoke={'action':'revoke','license':lic,'ip_hash':'b'*64,'request_id':'e'*32}
+        self.assertEqual(json.loads(self.sql(request_sql(revoke)).stdout)['status'],'ok')
+        revoked_res=json.loads(self.sql(request_sql({'action':'activate','short_code_hash':sch,'device_hash':'4'*64,'ip_hash':'b'*64})).stdout)
+        self.assertEqual(revoked_res['status'],'revoked')
+        self.assertNotIn('sealed_serial',revoked_res)
+        # RLS: anon and authenticated cannot read short_code_hash/sealed_serial or call RPC
+        self.assertNotEqual(self.sql('set role anon; select short_code_hash, sealed_serial from license_private.licenses;',check=False).returncode,0)
+        self.assertNotEqual(self.sql('set role authenticated; select short_code_hash, sealed_serial from license_private.licenses;',check=False).returncode,0)
+        self.assertNotEqual(self.sql("set role anon; select public.ilson_license_request('{}'::jsonb);",check=False).returncode,0)
+        self.assertNotEqual(self.sql("set role authenticated; select public.ilson_license_request('{}'::jsonb);",check=False).returncode,0)
 
 if __name__=='__main__': unittest.main()

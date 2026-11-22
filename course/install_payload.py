@@ -69,6 +69,9 @@ for _name, _hashes in {'access_policy.py': {'fa675442435bd1098ae6dbc2c0ed26076b2
     KNOWN_HELPER_SHA256.setdefault(_name, set()).update(_hashes)
 
 KNOWN_HELPER_SHA256.setdefault('install_payload.py', set()).add('ecbb6520eac95e7a144425169fb0c920e377caf084e46af77db47010574b5645')
+# Exact origin/main (bbd7c40) bytes before V2 short serial support.
+KNOWN_HELPER_SHA256.setdefault('license.py', set()).add('4fce712766ab7627a6965e2045f5a747dfe15e15695b81ee474c5679f0fe7fae')
+KNOWN_HELPER_SHA256.setdefault('install_payload.py', set()).add('eff01b3378c887890a9b2709193d3fc973023d06f2054dea2f057b6bf4dfd53b')
 
 ADMIN_FILES = {'web-admin-server.py', 'web-admin.py', 'runtime_gate.py', 'ilson_platform.py', 'replies_draft.py', 'access_policy.py', 'course_admin.py', 'approval_actions.py', 'approval_store.py', 'approval_dispatch.py'}
 WEB_FILES = {'web/course.js', 'web/usage-history.css', 'web/current/base.css', 'web/current/shell.css', 'web/usage-history.js', 'web/course.html', 'web/course.css'}

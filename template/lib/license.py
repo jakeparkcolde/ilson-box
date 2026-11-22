@@ -8,6 +8,7 @@ import base64
 import getpass
 import fcntl
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -26,6 +27,7 @@ import urllib.request
 PUBLIC_KEYS = {1: bytes.fromhex('6455f743370eba4adf230aeb65b23fc2cd4e0ff7df35108e48e2c63bf0f35feb')}
 API_URL = 'https://ilson-license.vercel.app'
 DOMAIN = b'ILSON-LICENSE-V1\0'
+SHORT_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
 GRACE = 14 * 86400
 CHECK_INTERVAL = 86400
 Q = 2**255 - 19
@@ -122,25 +124,106 @@ def verify(pub, message, signature):
         return False
 
 
-def encode_serial(payload, seed):
-    if len(payload) != 29:
-        raise ValueError('invalid payload')
-    data = payload + sign(seed, DOMAIN + payload)
-    raw = base64.b32encode(data).decode('ascii').rstrip('=')
-    return 'ILSON-' + '-'.join(raw[i:i+5] for i in range(0,len(raw),5))
+def is_short_serial(value):
+    if not isinstance(value, str) or len(value) > 512:
+        return False
+    clean = re.sub(r'[\s-]', '', value, flags=re.ASCII).upper()
+    return bool(re.fullmatch(r'IL2[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{12}', clean))
 
 
-def parse_serial(value, now=None):
-    if len(value) > 512:
+def normalize_short_serial(value):
+    if not isinstance(value, str) or len(value) > 512:
         raise ValueError('INVALID_SERIAL')
-    clean = re.sub(r'[\s-]', '', value).upper()
+    clean = re.sub(r'[\s-]', '', value, flags=re.ASCII).upper()
+    if not re.fullmatch(r'IL2[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{12}', clean):
+        raise ValueError('INVALID_SERIAL')
+    body = clean[3:]
+    return 'IL2-' + body[0:4] + '-' + body[4:8] + '-' + body[8:12]
+
+
+def short_code_hash(value):
+    canonical = normalize_short_serial(value)
+    return hashlib.sha256(b'ilson-short-v2\0' + canonical.encode('ascii')).hexdigest()
+
+
+def generate_short_serial():
+    body = ''.join(secrets.choice(SHORT_ALPHABET) for _ in range(12))
+    return 'IL2-' + body[0:4] + '-' + body[4:8] + '-' + body[8:12]
+
+
+def serial_raw_bytes(v1_serial):
+    if not isinstance(v1_serial, str) or len(v1_serial) > 512:
+        raise ValueError('INVALID_SERIAL')
+    clean = re.sub(r'[\s-]', '', v1_serial).upper()
     if not clean.startswith('ILSON') or not re.fullmatch(r'ILSON[A-Z2-7]{149}', clean):
         raise ValueError('INVALID_SERIAL')
     text = clean[5:]
     try:
-        raw = base64.b32decode(text + '='*((-len(text)) % 8))
-        if len(raw) != 93 or base64.b32encode(raw).decode().rstrip('=') != text:
+        raw = base64.b32decode(text + '=' * ((-len(text)) % 8))
+        if len(raw) != 93 or base64.b32encode(raw).decode('ascii').rstrip('=') != text:
             raise ValueError()
+        return raw
+    except ValueError:
+        raise ValueError('INVALID_SERIAL') from None
+
+
+def raw_bytes_to_serial(raw93):
+    if not isinstance(raw93, (bytes, bytearray)) or len(raw93) != 93:
+        raise ValueError('INVALID_SERIAL')
+    raw = base64.b32encode(bytes(raw93)).decode('ascii').rstrip('=')
+    return 'ILSON-' + '-'.join(raw[i:i+5] for i in range(0, len(raw), 5))
+
+
+def seal_serial(short_code, v1_serial, salt=None):
+    canonical = normalize_short_serial(short_code)
+    raw93 = serial_raw_bytes(v1_serial)
+    if salt is None:
+        salt = secrets.token_bytes(16)
+    elif not isinstance(salt, (bytes, bytearray)) or len(salt) != 16:
+        raise ValueError('INVALID_SERIAL')
+    else:
+        salt = bytes(salt)
+    enc_key = hashlib.sha256(b'ilson-short-enc-v2\0' + canonical.encode('ascii') + b'\0' + salt).digest()
+    mac_key = hashlib.sha256(b'ilson-short-mac-v2\0' + canonical.encode('ascii') + b'\0' + salt).digest()
+    stream = b''.join(hashlib.sha256(enc_key + struct.pack('>I', i)).digest() for i in range(3))[:93]
+    ciphertext = bytes(a ^ b for a, b in zip(raw93, stream))
+    tag = hmac.new(mac_key, b'ilson-short-mac-v2\0' + salt + ciphertext, hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(salt + ciphertext + tag).decode('ascii').rstrip('=')
+
+
+def unseal_serial(short_code, sealed, now=None):
+    canonical = normalize_short_serial(short_code)
+    if not isinstance(sealed, str) or not re.fullmatch(r'[A-Za-z0-9_-]{188}', sealed):
+        raise ValueError('INVALID_SERIAL')
+    try:
+        blob = base64.urlsafe_b64decode(sealed)
+    except ValueError:
+        raise ValueError('INVALID_SERIAL') from None
+    if len(blob) != 141 or base64.urlsafe_b64encode(blob).decode('ascii').rstrip('=') != sealed:
+        raise ValueError('INVALID_SERIAL')
+    salt, ciphertext, tag = blob[:16], blob[16:109], blob[109:]
+    mac_key = hashlib.sha256(b'ilson-short-mac-v2\0' + canonical.encode('ascii') + b'\0' + salt).digest()
+    expected = hmac.new(mac_key, b'ilson-short-mac-v2\0' + salt + ciphertext, hashlib.sha256).digest()
+    if not secrets.compare_digest(tag, expected):
+        raise ValueError('INVALID_SERIAL')
+    enc_key = hashlib.sha256(b'ilson-short-enc-v2\0' + canonical.encode('ascii') + b'\0' + salt).digest()
+    stream = b''.join(hashlib.sha256(enc_key + struct.pack('>I', i)).digest() for i in range(3))[:93]
+    raw93 = bytes(a ^ b for a, b in zip(ciphertext, stream))
+    v1_serial = raw_bytes_to_serial(raw93)
+    info = parse_serial(v1_serial, now)
+    return v1_serial, info
+
+
+def encode_serial(payload, seed):
+    if len(payload) != 29:
+        raise ValueError('invalid payload')
+    data = payload + sign(seed, DOMAIN + payload)
+    return raw_bytes_to_serial(data)
+
+
+def parse_serial(value, now=None):
+    raw = serial_raw_bytes(value)
+    try:
         payload, signature = raw[:29], raw[29:]
         version,kid,ident,cohort,plan,issued,expires = struct.unpack('>BB16sHBII',payload)
         pub = PUBLIC_KEYS.get(kid)
@@ -247,6 +330,45 @@ def _evaluate(home, serial=None, force=False, now=None, transport=request):
             serial = safe_read(path/'serial').strip()
         except FileNotFoundError:
             return False, 'NO_LICENSE'
+    if is_short_serial(serial):
+        canonical = normalize_short_serial(serial)
+        try:
+            device = safe_read(path/'device-id').strip()
+            if not re.fullmatch('[0-9a-f]{64}',device):
+                raise ValueError('STORAGE_ERROR')
+        except FileNotFoundError:
+            device = secrets.token_hex(32)
+            safe_write(path/'device-id',device)
+        try:
+            result = transport('activate', canonical, device)
+        except OSError:
+            return False, 'SERVER_UNAVAILABLE'
+        server_time = result['server_time']
+        if abs(now - server_time) > 300:
+            return False, 'CLOCK_ERROR'
+        status = result['status']
+        if status != 'active':
+            return False, status.upper()
+        sealed = result.get('sealed_serial')
+        if not isinstance(sealed, str):
+            return False, 'INVALID_SERIAL'
+        try:
+            v1_serial, info = unseal_serial(canonical, sealed, now)
+        except ValueError as exc:
+            code = str(exc)
+            return False, code if code in ('CLOCK_ERROR', 'EXPIRED') else 'INVALID_SERIAL'
+        new_state = {
+            'id': info['id'],
+            'first': now,
+            'last_success': now,
+            'registered': True,
+            'denied': None,
+            'paid_until': result.get('paid_until'),
+            'last_observed': now,
+        }
+        safe_write(path/'serial', v1_serial)
+        safe_write(state_path, json.dumps(new_state))
+        return True, 'ACTIVE'
     info = parse_serial(serial,now)
     same = state.get('id') == info['id']
     if not same:
@@ -343,7 +465,10 @@ def main():
             serial = sys.stdin.read(513) if args.stdin else getpass.getpass('시리얼을 붙여넣으세요: ')
         ok, code = evaluate(args.home,serial,force=args.action in ('activate','status'))
         if args.action != 'check' or not ok:
-            print(('라이선스 확인: ' if ok else '라이선스 확인 필요: ') + code + ('' if ok else ' — ilson license activate'))
+            if not ok and code == 'SERVER_UNAVAILABLE':
+                print('라이선스 확인 필요: SERVER_UNAVAILABLE — 짧은 시리얼은 최초 1회 온라인 확인이 필요합니다. 인터넷 연결 후 ilson license activate를 다시 실행해 주세요.')
+            else:
+                print(('라이선스 확인: ' if ok else '라이선스 확인 필요: ') + code + ('' if ok else ' — ilson license activate'))
         if ok and args.action == 'status':
             directory = private_dir(args.home)
             info = parse_serial(safe_read(directory/'serial').strip())

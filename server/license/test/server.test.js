@@ -114,3 +114,67 @@ test('API and PostgreSQL transactions: register, limit, revoke and renew', async
  assert.equal(throttled,true,'invalid admin attempts must be rate limited');
  await db.close();
 });
+
+test('V2 short serial: register, activate, device limit, revoke, V1/skill-share interop and rate limit', async()=>{
+ const db=new PGlite();
+ await db.exec('create role anon; create role authenticated; create role service_role;');
+ for (const name of ['001_license.sql','002_skill_share.sql','003_short_serial.sql']) {
+  await db.exec(fs.readFileSync(require('node:path').join(__dirname,'../migrations',name),'utf8'));
+ }
+ global.fetch=async (url,opts)=>{
+  const body=JSON.parse(opts.body);
+  const fn=url.pathname.split('/').pop();
+  const arg=fn==='ilson_rate_limit'?body.p_bucket:JSON.stringify(body.p);
+  const type=fn==='ilson_rate_limit'?'text':'jsonb';
+  const result=await db.query(`select public.${fn}($1::${type}) as result`,[arg]);
+  return {ok:true,json:async()=>result.rows[0].result};
+ };
+ const v1=token(1,55,1), v1Other=token(1,56,1);
+ const shortCode='IL2-ABCD-EFGH-JKLM';
+ const sch=handler.shortCodeHash(shortCode);
+ const sealed='Z'.repeat(188);
+ // Half-pair or malformed short fields must be rejected with 400 invalid_serial
+ assert.equal((await run('register',{serial:v1,display_name:'V2',request_id:'1'.repeat(32),short_code_hash:sch},true)).code,400);
+ assert.equal((await run('register',{serial:v1,display_name:'V2',request_id:'1'.repeat(32),short_code_hash:'bad',sealed_serial:sealed},true)).code,400);
+ // Valid V2 register + idempotent retry + mismatched short fields conflict
+ assert.equal((await run('register',{serial:v1,display_name:'V2',request_id:'2'.repeat(32),short_code_hash:sch,sealed_serial:sealed},true)).value.status,'ok');
+ assert.equal((await run('register',{serial:v1,display_name:'V2',request_id:'2'.repeat(32),short_code_hash:sch,sealed_serial:sealed},true)).value.status,'ok');
+ assert.equal((await run('register',{serial:v1,display_name:'V2',request_id:'8'.repeat(32),short_code_hash:sch,sealed_serial:'X'.repeat(188)},true)).code,409);
+ // Duplicate short_code_hash on another license -> 409 conflict
+ assert.equal((await run('register',{serial:v1Other,display_name:'V2B',request_id:'3'.repeat(32),short_code_hash:sch,sealed_serial:'Y'.repeat(188)},true)).code,409);
+ // RLS: anon and authenticated cannot read license_private.licenses or call ilson_license_request
+ await assert.rejects(()=>db.exec('begin; set local role anon; select short_code_hash, sealed_serial from license_private.licenses; commit;'));
+ await db.exec('rollback;');
+ await assert.rejects(()=>db.exec('begin; set local role authenticated; select public.ilson_license_request(\'{}\'::jsonb); commit;'));
+ await db.exec('rollback;');
+ // Activate devices 1 & 2 via short serial (lowercase/spaces normalized) -> returns sealed_serial
+ const act1=await run('activate',{serial:shortCode.toLowerCase().replace(/-/g,' '),device_id:'1'.repeat(64)});
+ assert.equal(act1.code,200); assert.equal(act1.value.status,'active'); assert.equal(act1.value.sealed_serial,sealed);
+ const act2=await run('activate',{serial:shortCode,device_id:'2'.repeat(64)});
+ assert.equal(act2.code,200); assert.equal(act2.value.status,'active'); assert.equal(act2.value.sealed_serial,sealed);
+ // Device 3 hits device_limit and MUST NOT return sealed_serial
+ const act3=await run('activate',{serial:shortCode,device_id:'3'.repeat(64)});
+ assert.equal(act3.code,409); assert.equal(act3.value.status,'device_limit'); assert.equal(act3.value.sealed_serial,undefined);
+ // V1 check & skill-share work with the V1 serial on the device activated via V2 short code
+ const chk=await run('check',{serial:v1,device_id:'1'.repeat(64)});
+ assert.equal(chk.code,200); assert.equal(chk.value.status,'active'); assert.equal(chk.value.sealed_serial,undefined);
+ const shared=await run('skill-share',{serial:v1,device_id:'1'.repeat(64),name:'v2skill',files:{'SKILL.md':'# 테스트'}});
+ assert.equal(shared.code,200); assert.equal(shared.value.status,'ok');
+ // Revoke -> V2 activate returns 403 revoked and MUST NOT return sealed_serial
+ assert.equal((await run('revoke',{serial:v1,request_id:'4'.repeat(32)},true)).value.status,'ok');
+ const revAct=await run('activate',{serial:shortCode,device_id:'1'.repeat(64)});
+ assert.equal(revAct.code,403); assert.equal(revAct.value.status,'revoked'); assert.equal(revAct.value.sealed_serial,undefined);
+ // Nonexistent short code rate-limiting (short:<hash> bucket at 60/min, even across distinct IPs)
+ const badShort='IL2-2345-6789-ABCD';
+ let shortThrottled=false;
+ for (let i=0;i<65;i++) {
+  const r=await new Promise((resolve,reject)=>{
+   const res={setHeader(){},status(code){this.code=code;return this},json(value){resolve({code:this.code,value});return this}};
+   handler({method:'POST',query:{action:'activate'},body:{serial:badShort,device_id:'9'.repeat(64),nonce:'b'.repeat(32)},headers:{'x-forwarded-for':`198.51.100.${i+1}`}},res).catch(reject);
+  });
+  if (r.code===429 && r.value.status==='rate_limited') { shortThrottled=true; break; }
+  assert.equal(r.code,400); assert.equal(r.value.status,'invalid_serial'); assert.equal(r.value.sealed_serial,undefined);
+ }
+ assert.equal(shortThrottled,true,'unknown short code probes must be rate limited');
+ await db.close();
+});

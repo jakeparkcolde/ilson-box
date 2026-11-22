@@ -143,4 +143,169 @@ class LicenseTest(unittest.TestCase):
         with self.assertRaises(ValueError): lic.evaluate(self.home,'ILSON-BAD',now=self.now,transport=self.offline)
         self.assertEqual((self.home/'state/license/serial').read_text(),self.serial)
 
+    def test_short_serial_normalization_rejection_and_node_hash_match(self):
+        short = lic.generate_short_serial()
+        self.assertEqual(len(short), 18)
+        self.assertTrue(lic.is_short_serial(short))
+        self.assertEqual(lic.normalize_short_serial(short.lower().replace('-', ' \n')), short)
+        self.assertEqual(lic.short_code_hash(short.lower().replace('-', '')), lic.short_code_hash(short))
+        # Reject ambiguous characters 0/O/1/I, wrong prefix, wrong length, non-string, oversized.
+        for bad in (
+            'IL2-0AAA-AAAA-AAAA', 'IL2-OAAA-AAAA-AAAA', 'IL2-1AAA-AAAA-AAAA', 'IL2-IAAA-AAAA-AAAA',
+            'IL1-AAAA-AAAA-AAAA', 'IL2-AAAA-AAAA-AAA', 'IL2-AAAA-AAAA-AAAAA', 'IL2-' + 'A'*600,
+            '', 12345, None, self.serial,
+        ):
+            self.assertFalse(lic.is_short_serial(bad), f'should reject {bad!r}')
+            with self.assertRaises(ValueError):
+                lic.normalize_short_serial(bad)
+        js = "const h=require(process.argv[1]);process.stdout.write(h.shortCodeHash(process.argv[2]))"
+        proc = subprocess.run(['node', '-e', js, str(ROOT/'server/license/api/v1/[action].js'), short.lower().replace('-', ' ')],
+                              capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout, lic.short_code_hash(short))
+        # Non-ASCII whitespace (\x85, \u00a0) must be rejected identically in both Python and Node.
+        for bad_ws in (short[:4] + '\x85' + short[4:], short[:4] + '\u00a0' + short[4:]):
+            self.assertFalse(lic.is_short_serial(bad_ws))
+            with self.assertRaises(ValueError) as ctx:
+                lic.normalize_short_serial(bad_ws)
+            self.assertEqual(str(ctx.exception), 'INVALID_SERIAL')
+            with self.assertRaises(ValueError) as ctx:
+                lic.short_code_hash(bad_ws)
+            self.assertEqual(str(ctx.exception), 'INVALID_SERIAL')
+            node_bad = subprocess.run(
+                ['node', '-e', "const h=require(process.argv[1]);try{h.shortCodeHash(process.argv[2]);process.exit(2)}catch(e){process.stdout.write(e.message)}",
+                 str(ROOT/'server/license/api/v1/[action].js'), bad_ws],
+                capture_output=True, text=True)
+            self.assertEqual(node_bad.returncode, 0, node_bad.stderr)
+            self.assertEqual(node_bad.stdout, 'INVALID_SERIAL')
+
+    def test_seal_and_unseal_roundtrip_and_tamper_detection(self):
+        short = lic.generate_short_serial()
+        sealed = lic.seal_serial(short, self.serial)
+        self.assertEqual(len(sealed), 188)
+        v1, info = lic.unseal_serial(short.lower().replace('-', ' '), sealed, self.now)
+        self.assertEqual(v1, self.serial)
+        self.assertEqual(info['id'], lic.parse_serial(self.serial, self.now)['id'])
+        # Deterministic salt test
+        salt = b'\x11' * 16
+        self.assertEqual(lic.seal_serial(short, self.serial, salt=salt), lic.seal_serial(short, self.serial, salt=salt))
+        with self.assertRaises(ValueError):
+            lic.seal_serial(short, self.serial, salt=b'short')
+        # Tamper in salt (pos 0), ciphertext (pos 40), tag (pos 180)
+        for pos in (0, 40, 180):
+            flipped = 'A' if sealed[pos] != 'A' else 'B'
+            tampered = sealed[:pos] + flipped + sealed[pos+1:]
+            with self.assertRaises(ValueError):
+                lic.unseal_serial(short, tampered, self.now)
+        # Wrong short code
+        other_short = lic.generate_short_serial()
+        while other_short == short:
+            other_short = lic.generate_short_serial()
+        with self.assertRaises(ValueError):
+            lic.unseal_serial(other_short, sealed, self.now)
+        # Bad sealed length / non-string
+        for bad_sealed in ('', sealed[:-1], sealed + 'A', 123, None):
+            with self.assertRaises(ValueError):
+                lic.unseal_serial(short, bad_sealed, self.now)
+        # Expired V1 inside sealed blob
+        with self.assertRaises(ValueError) as ctx:
+            lic.unseal_serial(short, sealed, self.now + 365 * 86400)
+        self.assertEqual(str(ctx.exception), 'EXPIRED')
+        # Future-issued V1 inside sealed blob
+        with self.assertRaises(ValueError) as ctx:
+            lic.unseal_serial(short, sealed, self.now - 20000)
+        self.assertEqual(str(ctx.exception), 'CLOCK_ERROR')
+        # Bad Ed25519 signature inside sealed blob
+        bad_v1 = self.serial[:-1] + ('A' if self.serial[-1] != 'A' else 'B')
+        # Construct raw 93 bytes with valid base32 but bad signature
+        raw93 = bytearray(lic.serial_raw_bytes(self.serial))
+        raw93[-1] ^= 0xff
+        bad_sig_v1 = lic.raw_bytes_to_serial(bytes(raw93))
+        bad_sealed = lic.seal_serial(short, bad_sig_v1)
+        with self.assertRaises(ValueError) as ctx:
+            lic.unseal_serial(short, bad_sealed, self.now)
+        self.assertEqual(str(ctx.exception), 'INVALID_SERIAL')
+
+    def test_short_serial_flow_offline_grace_and_state_preservation_in_template_and_course(self):
+        course_spec = importlib.util.spec_from_file_location('course_license_test_module', ROOT/'course/lib/license.py')
+        course_lic = importlib.util.module_from_spec(course_spec)
+        course_spec.loader.exec_module(course_lic)
+        old_course_keys = course_lic.PUBLIC_KEYS.copy()
+        course_lic.PUBLIC_KEYS.clear(); course_lic.PUBLIC_KEYS[1] = PUBLIC
+        self.addCleanup(lambda: (course_lic.PUBLIC_KEYS.clear(), course_lic.PUBLIC_KEYS.update(old_course_keys)))
+
+        for label, mod in (('template', lic), ('course', course_lic)):
+            with self.subTest(module=label):
+                home = Path(self.tmp.name) / f'v2-{label}'
+                short = mod.generate_short_serial()
+                sealed = mod.seal_serial(short, self.serial)
+                # 1. Offline first activation must fail with SERVER_UNAVAILABLE and leave no serial/state.
+                self.assertEqual(mod.evaluate(home, short, force=True, now=self.now, transport=self.offline),
+                                 (False, 'SERVER_UNAVAILABLE'))
+                self.assertFalse((home/'state/license/serial').exists())
+                self.assertFalse((home/'state/license/state.json').exists())
+
+                # 2. Online V2 activation unseals and stores V1 serial, enabling 14-day offline grace.
+                calls = []
+                def ok_transport(action, serial_arg, device_arg):
+                    calls.append((action, serial_arg, device_arg))
+                    return {'status': 'active', 'server_time': self.now, 'paid_until': self.now + 86400, 'sealed_serial': sealed}
+                self.assertEqual(mod.evaluate(home, short.lower().replace('-', ' '), force=True, now=self.now, transport=ok_transport),
+                                 (True, 'ACTIVE'))
+                self.assertEqual(calls[0][0], 'activate')
+                self.assertEqual(calls[0][1], short)
+                self.assertEqual((home/'state/license/serial').read_text(), self.serial)
+
+                # 3. Existing valid license must be preserved if a replacement short serial fails.
+                state_path = home/'state/license/state.json'
+                serial_path = home/'state/license/serial'
+                before = (state_path.read_bytes(), serial_path.read_bytes())
+                other_short = mod.generate_short_serial()
+                # Offline replacement
+                self.assertEqual(mod.evaluate(home, other_short, force=True, now=self.now + 10, transport=self.offline),
+                                 (False, 'SERVER_UNAVAILABLE'))
+                self.assertEqual((state_path.read_bytes(), serial_path.read_bytes()), before)
+                # Server rejection (device_limit, revoked)
+                for denied_status in ('device_limit', 'revoked', 'invalid_serial'):
+                    denied_tx = lambda *_, s=denied_status: {'status': s, 'server_time': self.now + 10}
+                    self.assertEqual(mod.evaluate(home, other_short, force=True, now=self.now + 10, transport=denied_tx),
+                                     (False, denied_status.upper()))
+                    self.assertEqual((state_path.read_bytes(), serial_path.read_bytes()), before)
+                # Server clock skew
+                skew_tx = lambda *_: {'status': 'active', 'server_time': self.now + 1000, 'sealed_serial': sealed}
+                self.assertEqual(mod.evaluate(home, other_short, force=True, now=self.now + 10, transport=skew_tx),
+                                 (False, 'CLOCK_ERROR'))
+                self.assertEqual((state_path.read_bytes(), serial_path.read_bytes()), before)
+                # Missing or tampered sealed_serial
+                missing_tx = lambda *_: {'status': 'active', 'server_time': self.now + 10}
+                self.assertEqual(mod.evaluate(home, other_short, force=True, now=self.now + 10, transport=missing_tx),
+                                 (False, 'INVALID_SERIAL'))
+                self.assertEqual((state_path.read_bytes(), serial_path.read_bytes()), before)
+                tampered_tx = lambda *_: {'status': 'active', 'server_time': self.now + 10, 'sealed_serial': sealed}
+                self.assertEqual(mod.evaluate(home, other_short, force=True, now=self.now + 10, transport=tampered_tx),
+                                 (False, 'INVALID_SERIAL'))
+                self.assertEqual((state_path.read_bytes(), serial_path.read_bytes()), before)
+                # Original license is still active offline and works for the full 14-day grace window!
+                self.assertEqual(mod.evaluate(home, now=self.now + 20, transport=self.offline), (True, 'ACTIVE'))
+                self.assertEqual(mod.evaluate(home, now=self.now + mod.GRACE - 1, transport=self.offline), (True, 'ACTIVE'))
+                self.assertEqual(mod.evaluate(home, now=self.now + mod.GRACE, transport=self.offline), (False, 'GRACE_EXPIRED'))
+
+    def test_main_prints_short_serial_offline_guidance(self):
+        short = lic.generate_short_serial()
+        for rel in ('template/lib/license.py', 'course/lib/license.py'):
+            with self.subTest(script=rel):
+                home = Path(self.tmp.name) / ('cli-' + rel.split('/')[0])
+                code = (
+                    "import importlib.util, sys; "
+                    f"spec=importlib.util.spec_from_file_location('m',{str(ROOT/rel)!r}); "
+                    "m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m); "
+                    "m.API_URL='https://127.0.0.1:1'; "
+                    f"sys.argv=['license.py','--home',{str(home)!r},'activate',{short!r}]; "
+                    "sys.exit(m.main())"
+                )
+                proc = subprocess.run(['python3', '-c', code], capture_output=True, text=True, timeout=15)
+                self.assertEqual(proc.returncode, 1)
+                self.assertIn('라이선스 확인 필요: SERVER_UNAVAILABLE — 짧은 시리얼은 최초 1회 온라인 확인이 필요합니다. 인터넷 연결 후 ilson license activate를 다시 실행해 주세요.',
+                              proc.stdout)
+
 if __name__=='__main__': unittest.main()

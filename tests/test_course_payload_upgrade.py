@@ -93,5 +93,27 @@ class CourseUpgradeTests(unittest.TestCase):
             with self.assertRaises(ValueError): payload.rollback(root,backup)
             self.assertEqual(before,{p.name:p.read_bytes() for p in root.iterdir() if p.is_file()})
 
+    def test_origin_main_installation_upgrades_and_rolls_back_cleanly(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve()/'lib';root.mkdir()
+            current=sources()
+            for name,text in current.items():
+                dest=target_path(root,name);dest.parent.mkdir(parents=True,exist_ok=True)
+                if name=='license.py':
+                    dest.write_bytes(subprocess.check_output(['git','show','origin/main:course/lib/license.py'],cwd=ROOT))
+                elif name=='install_payload.py':
+                    dest.write_bytes(subprocess.check_output(['git','show','origin/main:course/install_payload.py'],cwd=ROOT))
+                else:
+                    dest.write_text(text,encoding='utf-8')
+            old_lic=(root/'license.py').read_bytes()
+            old_payload=(root/'install_payload.py').read_bytes()
+            backup=payload.install(root,current)
+            self.assertIsNotNone(backup)
+            self.assertEqual((root/'license.py').read_text(encoding='utf-8'),current['license.py'])
+            self.assertEqual((root/'install_payload.py').read_text(encoding='utf-8'),current['install_payload.py'])
+            payload.rollback(root,backup)
+            self.assertEqual((root/'license.py').read_bytes(),old_lic)
+            self.assertEqual((root/'install_payload.py').read_bytes(),old_payload)
+
 
 if __name__=='__main__':unittest.main()

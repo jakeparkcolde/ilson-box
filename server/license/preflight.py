@@ -11,7 +11,7 @@ text=(root/'template/lib/license.py').read_text()
 errors=[]
 if 'PUBLIC_KEYS = {}' in text: errors.append('Box 공개키가 아직 지정되지 않았습니다.')
 if not args.server and "API_URL = ''" in text: errors.append('Box의 실제 Vercel HTTPS 주소가 아직 지정되지 않았습니다.')
-for path in ('server/license/migrations/001_license.sql','server/license/api/v1/[action].js','server/license/issuer.py'):
+for path in ('server/license/migrations/001_license.sql','server/license/migrations/003_short_serial.sql','server/license/api/v1/[action].js','server/license/issuer.py'):
     if not (root/path).is_file(): errors.append('필수 파일 누락: '+path)
 for error in errors: print('미준비:',error)
 if errors:

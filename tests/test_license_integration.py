@@ -65,6 +65,88 @@ class Integration(unittest.TestCase):
         self.license.PUBLIC_KEYS[1]=self.license.public_key(bytes.fromhex(key.read_text().strip()))
         self.assertEqual(self.license.parse_serial(serial)['plan'],1)
         self.assertNotEqual(call('init-key').returncode,0)
+        # V2 short serial issue (--short) creates 0600 <output>.short without leaking either code to stdout.
+        out_v2=config/'sample-v2.serial'
+        res_v2=call('issue','--key',str(key),'--output',str(out_v2),'--kid','1','--cohort','1',
+                    '--plan','one-time','--issued',now.isoformat(),'--expires','never','--short')
+        self.assertEqual(res_v2.returncode,0,res_v2.stderr)
+        short_file=config/'sample-v2.serial.short'
+        self.assertTrue(short_file.is_file())
+        self.assertEqual(out_v2.stat().st_mode & 0o777,0o600)
+        self.assertEqual(short_file.stat().st_mode & 0o777,0o600)
+        v1_v2=out_v2.read_text().strip(); short_code=short_file.read_text().strip()
+        self.assertTrue(self.license.is_short_serial(short_code))
+        self.assertNotIn(v1_v2,res_v2.stdout); self.assertNotIn(short_code,res_v2.stdout)
+        # Reject --short-output outside ~/.config/ilson-license/ without creating V1 output.
+        outside_v1=config/'sample-v2-bad.serial'; outside_short=self.root/'outside.short'
+        bad_res=call('issue','--key',str(key),'--output',str(outside_v1),'--kid','1','--cohort','1',
+                     '--plan','one-time','--issued',now.isoformat(),'--expires','never','--short','--short-output',str(outside_short))
+        self.assertNotEqual(bad_res.returncode,0)
+        self.assertFalse(outside_v1.exists()); self.assertFalse(outside_short.exists())
+        # Reject case-insensitive collision on macOS APFS without creating V1 output.
+        case_v1=config/'sample-case.serial'; case_short=config/'SAMPLE-CASE.SERIAL'
+        case_res=call('issue','--key',str(key),'--output',str(case_v1),'--kid','1','--cohort','1',
+                      '--plan','one-time','--issued',now.isoformat(),'--expires','never','--short','--short-output',str(case_short))
+        self.assertNotEqual(case_res.returncode,0)
+        self.assertFalse(case_v1.exists())
+        # Rollback newly created V1 file if creating the short file fails midway.
+        import sys
+        rollback_v1=config/'sample-rollback.serial'; rollback_short=config/'sample-rollback.serial.short'
+        rollback_code=(
+            "import importlib.util, os, sys; "
+            f"spec=importlib.util.spec_from_file_location('issuer_mod',{str(issuer)!r}); "
+            "m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m); "
+            "orig_open=os.open; "
+            f"os.open=lambda p,*a,**k: (_ for _ in ()).throw(OSError('disk full')) if str(p)=={str(rollback_short)!r} else orig_open(p,*a,**k); "
+            f"sys.argv=['issuer.py','issue','--key',{str(key)!r},'--output',{str(rollback_v1)!r},'--kid','1','--cohort','1',"
+            f"'--plan','one-time','--issued',{now.isoformat()!r},'--expires','never','--short']; "
+            "sys.exit(m.main())"
+        )
+        rb=subprocess.run([sys.executable,'-c',rollback_code],env=self.env,text=True,capture_output=True)
+        self.assertNotEqual(rb.returncode,0)
+        self.assertFalse(rollback_v1.exists()); self.assertFalse(rollback_short.exists())
+        # Verify register --short-file produces deterministic sealed_serial for idempotent retries with same request_id.
+        self.assertEqual(call('init-admin').returncode,0)
+        import ssl, threading, json
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        cert=self.root/'cert.pem'; cert_key=self.root/'key.pem'
+        subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-keyout',str(cert_key),'-out',str(cert),
+                        '-days','1','-subj','/CN=127.0.0.1','-addext','subjectAltName=IP:127.0.0.1'],
+                       check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        captured=[]; seen={}
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self,*args): pass
+            def do_POST(self):
+                body=json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+                captured.append(body)
+                rid=body['request_id']
+                comparable={k:v for k,v in body.items() if k!='nonce'}
+                if rid in seen and seen[rid]!=comparable:
+                    resp=json.dumps({'nonce':body['nonce'],'status':'conflict'}).encode()
+                    self.send_response(409)
+                else:
+                    seen[rid]=comparable
+                    resp=json.dumps({'nonce':body['nonce'],'status':'ok'}).encode()
+                    self.send_response(200)
+                self.send_header('Content-Length',str(len(resp))); self.end_headers(); self.wfile.write(resp)
+        server=HTTPServer(('127.0.0.1',0),Handler)
+        ctx=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.load_cert_chain(cert,cert_key)
+        server.socket=ctx.wrap_socket(server.socket,server_side=True)
+        thread=threading.Thread(target=server.serve_forever,daemon=True); thread.start()
+        self.addCleanup(lambda: (server.shutdown(),thread.join(),server.server_close()))
+        reg_env={**self.env,'SSL_CERT_FILE':str(cert)}
+        req_id='a'*32
+        for _ in range(2):
+            reg=subprocess.run([sys.executable,str(issuer),'register','--server',f'https://127.0.0.1:{server.server_port}',
+                                '--serial-file',str(out_v2),'--short-file',str(short_file),'--display-name','V2수강생',
+                                '--request-id',req_id],
+                               env=reg_env,text=True,capture_output=True)
+            self.assertEqual(reg.returncode,0,reg.stderr)
+        self.assertEqual(len(captured),2)
+        self.assertEqual(captured[0]['short_code_hash'],self.license.short_code_hash(short_code))
+        self.assertEqual(captured[0]['sealed_serial'],captured[1]['sealed_serial'])
+        unsealed_v1,_=self.license.unseal_serial(short_code,captured[0]['sealed_serial'])
+        self.assertEqual(unsealed_v1,v1_v2)
     def test_active_course_kit_preserves_user_file(self):
         self.activate(); kit=self.box/'강의키트-20261109-v2'; kit.mkdir()
         note=kit/'내 업무 소개.md'; note.write_text('개인 수정')

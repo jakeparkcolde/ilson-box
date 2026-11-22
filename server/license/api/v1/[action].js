@@ -2,6 +2,25 @@
 const crypto = require('node:crypto');
 const DOMAIN = Buffer.from('ILSON-LICENSE-V1\0');
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+const SHORT_RE = /^IL2[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{12}$/;
+
+function cleanShortSerial(value) {
+  if (typeof value !== 'string' || value.length > 512) return null;
+  const clean = value.replace(/[ \t\r\n\f\v-]/g, '').toUpperCase();
+  return SHORT_RE.test(clean) ? clean : null;
+}
+
+function isShortSerial(value) {
+  return cleanShortSerial(value) !== null;
+}
+
+function shortCodeHash(value) {
+  const clean = cleanShortSerial(value);
+  if (!clean) throw new Error('INVALID_SERIAL');
+  const body = clean.slice(3);
+  const canonical = `IL2-${body.slice(0, 4)}-${body.slice(4, 8)}-${body.slice(8, 12)}`;
+  return crypto.createHash('sha256').update(Buffer.concat([Buffer.from('ilson-short-v2\0'), Buffer.from(canonical, 'ascii')])).digest('hex');
+}
 
 function serialData(value) {
   if (typeof value !== 'string' || value.length > 512) throw new Error('INVALID_SERIAL');
@@ -83,18 +102,43 @@ async function handler(req,res) {
   }
   if (!admin && !['activate','check','deactivate'].includes(action)) return send(400,'invalid_serial');
   if (admin && !eqSecret(req.headers['x-ilson-admin'],process.env.ILSON_ADMIN_SECRET)) return res.status(403).json({error:'UNAUTHORIZED'});
-  let parsed;
-  try { parsed = serialData(body.serial); } catch { return send(400,'invalid_serial'); }
-  if ((action === 'renew-payment' || (action === 'register' && parsed.plan === 2)) &&
-      (!Number.isSafeInteger(body.paid_until) || body.paid_until <= 0 || body.paid_until >= 0xffffffff)) {
-    return send(400,'invalid_serial');
+  const shortActivate = action === 'activate' && isShortSerial(body.serial);
+  let input;
+  if (shortActivate) {
+    const device = body.device_id;
+    if (!/^[a-f0-9]{64}$/.test(device || '')) return send(400,'invalid_serial');
+    let shortHash;
+    try { shortHash = shortCodeHash(body.serial); } catch { return send(400,'invalid_serial'); }
+    input = {
+      action: 'activate',
+      short_code_hash: shortHash,
+      device_hash: hash('ilson-device-v1\0'+device),
+      ip_hash: hash('ilson-ip-v1\0'+ip)
+    };
+  } else {
+    let parsed;
+    try { parsed = serialData(body.serial); } catch { return send(400,'invalid_serial'); }
+    if ((action === 'renew-payment' || (action === 'register' && parsed.plan === 2)) &&
+        (!Number.isSafeInteger(body.paid_until) || body.paid_until <= 0 || body.paid_until >= 0xffffffff)) {
+      return send(400,'invalid_serial');
+    }
+    const hasShort = body.short_code_hash !== undefined && body.short_code_hash !== null;
+    const hasSealed = body.sealed_serial !== undefined && body.sealed_serial !== null;
+    if (action === 'register') {
+      if (hasShort !== hasSealed) return send(400,'invalid_serial');
+      if (hasShort && (typeof body.short_code_hash !== 'string' || !/^[a-f0-9]{64}$/.test(body.short_code_hash) ||
+          typeof body.sealed_serial !== 'string' || !/^[A-Za-z0-9_-]{188}$/.test(body.sealed_serial))) {
+        return send(400,'invalid_serial');
+      }
+    }
+    const device=body.device_id;
+    if (!admin && !/^[a-f0-9]{64}$/.test(device || '')) return send(400,'invalid_serial');
+    input={action,license:parsed,device_hash:device ? hash('ilson-device-v1\0'+device) : null,
+      ip_hash:hash('ilson-ip-v1\0'+ip), display_name:admin ? body.display_name : null,
+      paid_until:admin ? body.paid_until : null, request_id:admin ? body.request_id : null,
+      target_device:admin ? body.target_device : null,
+      ...(action === 'register' && hasShort ? {short_code_hash: body.short_code_hash, sealed_serial: body.sealed_serial} : {})};
   }
-  const device=body.device_id;
-  if (!admin && !/^[a-f0-9]{64}$/.test(device || '')) return send(400,'invalid_serial');
-  const input={action,license:parsed,device_hash:device ? hash('ilson-device-v1\0'+device) : null,
-    ip_hash:hash('ilson-ip-v1\0'+ip), display_name:admin ? body.display_name : null,
-    paid_until:admin ? body.paid_until : null, request_id:admin ? body.request_id : null,
-    target_device:admin ? body.target_device : null};
   try {
     const endpoint = new URL('/rest/v1/rpc/ilson_license_request', process.env.SUPABASE_URL);
     if (endpoint.protocol !== 'https:' || !process.env.SUPABASE_SECRET_KEY) throw new Error('configuration');
@@ -103,10 +147,13 @@ async function handler(req,res) {
     const result=await response.json();
     if (!result || typeof result.status !== 'string') throw new Error('database');
     const code={active:200,ok:200,revoked:403,expired:403,payment_due:403,device_limit:409,device_not_registered:409,invalid_serial:400,rate_limited:429,conflict:409}[result.status] || 503;
-    return send(code,result.status,{expires_at:result.expires_at ?? null,paid_until:result.paid_until ?? null,next_check_seconds:86400,...(admin && result.devices ? {devices:result.devices}: {})});
+    return send(code,result.status,{expires_at:result.expires_at ?? null,paid_until:result.paid_until ?? null,next_check_seconds:86400,
+      ...(shortActivate && result.status === 'active' && typeof result.sealed_serial === 'string' ? {sealed_serial: result.sealed_serial} : {}),
+      ...(admin && result.devices ? {devices:result.devices}: {})});
   } catch {
     return send(503,'unavailable');
   }
 }
 module.exports=handler;
 module.exports.serialData=serialData;
+module.exports.shortCodeHash=shortCodeHash;

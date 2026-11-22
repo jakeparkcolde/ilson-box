@@ -2,6 +2,7 @@
 """Studio-only issuer. Never uploads the Ed25519 signing seed."""
 import argparse
 import datetime as dt
+import hashlib
 import importlib.util
 import json
 import os
@@ -89,9 +90,33 @@ def issue(args):
         raise ValueError('serial file must be in ~/.config/ilson-license/')
     if target.exists() or target.is_symlink():
         raise ValueError('output already exists')
+    short_target=None
+    if args.short or args.short_output:
+        short_target=Path(args.short_output).expanduser() if args.short_output else Path(str(target)+'.short')
+        if short_target.parent.resolve() != CONFIG.resolve():
+            raise ValueError('short serial file must be in ~/.config/ilson-license/')
+        if short_target.name.casefold() == target.name.casefold() or short_target.exists() or short_target.is_symlink():
+            raise ValueError('short output already exists')
     fd=os.open(str(target),os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600)
     with os.fdopen(fd,'w') as f:
         f.write(serial+'\n')
+        f.flush()
+        os.fsync(f.fileno())
+    if short_target is not None:
+        short_created=False
+        try:
+            short_code=license.generate_short_serial()
+            sfd=os.open(str(short_target),os.O_WRONLY|os.O_CREAT|os.O_EXCL|getattr(os,'O_NOFOLLOW',0),0o600)
+            short_created=True
+            with os.fdopen(sfd,'w') as f:
+                f.write(short_code+'\n')
+                f.flush()
+                os.fsync(f.fileno())
+        except Exception:
+            if short_created:
+                short_target.unlink(missing_ok=True)
+            target.unlink(missing_ok=True)
+            raise
     print('시리얼 파일을 준비했습니다. 안전한 전달 전 경로와 권한을 확인하세요.')
 
 
@@ -105,6 +130,12 @@ def operate(args):
     if args.display_name: body['display_name']=args.display_name
     if args.paid_until: body['paid_until']=timestamp(args.paid_until)
     if args.target_device: body['target_device']=args.target_device
+    if args.action=='register' and getattr(args,'short_file',None):
+        short_code=license.safe_read(Path(args.short_file).expanduser()).strip()
+        canonical=license.normalize_short_serial(short_code)
+        salt=hashlib.sha256(b'ilson-short-salt-v2\0'+canonical.encode('ascii')+b'\0'+license.serial_raw_bytes(serial)).digest()[:16]
+        body['short_code_hash']=license.short_code_hash(canonical)
+        body['sealed_serial']=license.seal_serial(canonical,serial,salt=salt)
     req=urllib.request.Request(args.server.rstrip('/')+'/api/v1/'+args.action,json.dumps(body).encode(),{'Content-Type':'application/json','X-Ilson-Admin':secret},method='POST')
     with urllib.request.build_opener(license.NoRedirect).open(req,timeout=10) as response:
         result=json.loads(response.read(8193))
@@ -126,10 +157,12 @@ def main():
     issue_parser.add_argument('--kid',type=int,required=True); issue_parser.add_argument('--cohort',type=int,required=True)
     issue_parser.add_argument('--plan',choices=('one-time','monthly'),required=True)
     issue_parser.add_argument('--issued',required=True); issue_parser.add_argument('--expires',required=True)
+    issue_parser.add_argument('--short',action='store_true'); issue_parser.add_argument('--short-output')
     for action in ('register','revoke','renew-payment','release-device','devices'):
         q=sub.add_parser(action)
         q.add_argument('--server',required=True); q.add_argument('--serial-file',required=True)
         q.add_argument('--request-id'); q.add_argument('--display-name'); q.add_argument('--paid-until'); q.add_argument('--target-device')
+        if action=='register': q.add_argument('--short-file')
     args=p.parse_args()
     try:
         require_studio()
