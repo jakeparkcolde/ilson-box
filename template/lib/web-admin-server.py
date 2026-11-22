@@ -845,6 +845,77 @@ class Box:
                 return False
             return True
 
+    def peers_info(self):
+        try:
+            text, _ = self.files.text("state/web-admin/peers.json", 16384)
+            data = json.loads(text)
+        except (FileNotFoundError, Unreadable, ValueError, OSError):
+            return None
+        if not isinstance(data, dict):
+            return None
+
+        def clean_text(value, limit):
+            if not isinstance(value, str):
+                return ""
+            value = re.sub(r"[\x00-\x1f\x7f]+", " ", value).strip()
+            return self.redact(value)[:limit]
+
+        def valid_peer_url(raw):
+            if not isinstance(raw, str) or len(raw) > 256 or any(ord(c) < 33 or ord(c) == 127 for c in raw):
+                return None
+            try:
+                parsed = urlsplit(raw)
+            except ValueError:
+                return None
+            if parsed.username or parsed.password or parsed.query or parsed.fragment:
+                return None
+            host = (parsed.hostname or "").lower()
+            if not host:
+                return None
+            if parsed.scheme == "https":
+                pass
+            elif parsed.scheme == "http" and host in ("127.0.0.1", "localhost"):
+                pass
+            else:
+                return None
+            try:
+                port = parsed.port
+            except ValueError:
+                return None
+            if port is not None and not (1 <= port <= 65535):
+                return None
+            origin = f"{parsed.scheme}://{host}" + (f":{port}" if port else "")
+            return origin
+
+        peers = []
+        raw_peers = data.get("peers")
+        if isinstance(raw_peers, list):
+            seen = set()
+            for item in raw_peers[:8]:
+                if not isinstance(item, dict):
+                    continue
+                pid = clean_text(item.get("id"), 32)
+                name = clean_text(item.get("name"), 40)
+                sub = clean_text(item.get("subtitle"), 60)
+                url = valid_peer_url(item.get("url"))
+                if not name or not url or url in seen:
+                    continue
+                seen.add(url)
+                peers.append({"id": pid or f"peer-{len(peers)+1}", "name": name, "subtitle": sub, "url": url, "current": bool(item.get("current"))})
+        if not peers:
+            return None
+        cur = data.get("current") if isinstance(data.get("current"), dict) else None
+        current = None
+        if cur:
+            cname = clean_text(cur.get("name"), 40)
+            if cname:
+                current = {"id": clean_text(cur.get("id"), 32), "name": cname, "subtitle": clean_text(cur.get("subtitle"), 60)}
+        if current is None:
+            matched = next((p for p in peers if p.get("current")), None)
+            if matched:
+                current = {"id": matched["id"], "name": matched["name"], "subtitle": matched["subtitle"]}
+        return {"current": current, "peers": peers}
+
     def logout(self, session):
         if isinstance(session, str):
             with self.session_lock:
@@ -1107,7 +1178,13 @@ class Handler(BaseHTTPRequestHandler):
                 row['review_blocked'] = row['context_error'] or any(self.server.box.redact(value) != value for value in visible)
             return self.reply(200, {"requests": rows, "drafts": self.server.box.pending_drafts() if self.server.box.profile == "course" else []})
         if path == "/api/session":
-            return self.reply(200, {"authenticated": True, "features": self.server.box.features, "profile": self.server.box.profile})
+            peers = self.server.box.peers_info()
+            payload = {"authenticated": True, "features": self.server.box.features, "profile": self.server.box.profile}
+            if peers:
+                payload["peers"] = peers
+            return self.reply(200, payload)
+        if path == "/api/peers":
+            return self.reply(200, self.server.box.peers_info() or {"current": None, "peers": []})
         if path.startswith("/api/workspace/"):
             return self.workspace_request("GET", path)
         if path == "/api/usage-history/summary":
@@ -1401,7 +1478,11 @@ class Handler(BaseHTTPRequestHandler):
                 raise AdminError("연결 요청 형식을 확인해주세요.")
             session = self.server.box.login(data["token"])
             self.server.box.last_activity = time.monotonic()
-            return self.reply(200, {"ok": True, "features": self.server.box.features, "profile": self.server.box.profile}, cookie=self.cookie(session, SESSION_SECONDS))
+            peers = self.server.box.peers_info()
+            payload = {"ok": True, "features": self.server.box.features, "profile": self.server.box.profile}
+            if peers:
+                payload["peers"] = peers
+            return self.reply(200, payload, cookie=self.cookie(session, SESSION_SECONDS))
         if path == "/api/logout":
             self.require_session()
             if self.body():

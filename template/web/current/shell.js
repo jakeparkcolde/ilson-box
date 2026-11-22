@@ -20,6 +20,25 @@ const A={
 const railTabMap={home:'home',jobs:'jobs',reports:'jobs',sns:'sns','sns-accounts':'sns',replies:'sns',dashboard:'dashboard','usage-history':'dashboard',vault:'vault','received-files':'vault',research:'vault',knowledge:'vault',packs:'vault',opensource:'vault',staff:'staff',org:'staff',skills:'staff',settings:'settings',learn:'learn'};
 const FOLDERS={work:true,company:false,platform:false};
 const META={pending:null,jobs:null,reports:null,registered:null,attention:null};
+const PEERS={current:null,list:[],open:false};
+function peerUrl(base){
+  const clean=String(base||'').replace(/\/+$/,'');
+  return S.tab==='usage-history'?clean+'/usage-history':clean+'/current/index.html?tab='+encodeURIComponent(S.tab||'home');
+}
+function togglePeerMenu(event){
+  event?.stopPropagation?.();
+  if(!PEERS.list.length){A.go('home');return;}
+  PEERS.open=!PEERS.open;
+  renderNav();
+}
+function switchPeer(index){
+  const target=PEERS.list[index];
+  PEERS.open=false;
+  if(!target)return;
+  if(target.current){renderNav();A.go('home');return;}
+  if(window.IlsonPeople&&!IlsonPeople.canLeave())return;
+  location.assign(peerUrl(target.url));
+}
 function updateRailClock(){
   const nowEl=document.getElementById('railNow'),timeEl=document.getElementById('railNowTime');
   if(!nowEl||!timeEl)return;
@@ -116,7 +135,11 @@ function renderNav(){
     const open=!!FOLDERS[f.key];
     return `<div class="nav-folder${open?' is-open':''}" data-folder="${f.key}"><button class="folder-head" type="button" aria-expanded="${open}" onclick="toggleFolder('${f.key}')"><svg class="folder-chev" viewBox="0 0 10 10" width="9" height="9" aria-hidden="true"><path d="${open?'M2 3.5l3 3 3-3':'M3.5 2l3 3-3 3'}" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg><i data-lucide="folder"></i><span class="folder-label">${f.label}</span><span class="folder-count">${f.items.length}</span></button><div class="folder-children"${open?'':' hidden'}>${f.items.map(n=>`<div class="nav-row is-child${S.tab===n.id?' is-on':''}"><button class="nav-item${S.tab===n.id?' on':''}"${S.tab===n.id?' aria-current="page"':''} onclick="A.go('${n.id}')"><span class="nav-label">${n.label}</span></button></div>`).join('')}</div></div>`;
   }).join('')}</div>`;
-  document.getElementById('sidebar').innerHTML=`<button class="side-ws" type="button" onclick="A.go('home')" aria-label="일손 Box 운영 워크스페이스"><span class="side-ws-mark" aria-hidden="true">일</span><span class="side-ws-text"><strong class="side-ws-name">일손 Box</strong><small class="side-ws-sub">운영 워크스페이스</small></span><svg class="side-ws-chev" viewBox="0 0 12 16" width="12" height="16" aria-hidden="true"><path d="M2 6l4-4 4 4M2 10l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button><label class="side-search"><svg class="side-search-ic" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M10.5 10.5L14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><input id="sideSearch" type="search" placeholder="검색" aria-label="메뉴 검색" value="${esc(prevSearch)}"><kbd>⌘K</kbd></label><div class="side-scroll">${wsHtml}${liveHtml}${folderHtml}</div><div class="side-user"><span class="side-avatar" aria-hidden="true">일손<i class="side-avatar-dot"></i></span><span class="side-user-meta"><strong class="side-user-name">이 미니의 일손</strong><small class="side-user-role">로컬 연결됨</small></span><span class="side-user-actions"><button id="themeToggle" type="button" title="테마 전환" aria-label="테마 전환">◐</button><button id="logout" type="button" title="접속 종료" aria-label="접속 종료"><i data-lucide="log-out"></i></button></span></div>`;
+  const wsName=PEERS.current?.name||'일손 Box';
+  const wsSub=PEERS.current?.subtitle||'운영 워크스페이스';
+  const hasPeers=PEERS.list.length>0;
+  const peerMenuHtml=hasPeers&&PEERS.open?`<div class="side-ws-menu" id="peerMenu" role="menu" aria-label="기기 전환"><div class="side-ws-menu-hd">연결된 기기</div>${PEERS.list.map((p,i)=>`<button class="side-ws-opt${p.current?' is-on':''}" type="button" role="menuitem" onclick="switchPeer(${i})"><span class="side-ws-opt-dot" aria-hidden="true"></span><span class="side-ws-opt-txt"><strong>${esc(p.name)}</strong>${p.subtitle?`<small>${esc(p.subtitle)}</small>`:''}</span>${p.current?'<span class="side-ws-opt-tag">현재</span>':''}</button>`).join('')}</div>`:'';
+  document.getElementById('sidebar').innerHTML=`<div class="side-ws-wrap"><button class="side-ws${PEERS.open?' is-open':''}" type="button" onclick="${hasPeers?'togglePeerMenu(event)':'A.go(\'home\')'}" aria-label="${esc(wsName)} ${esc(wsSub)}"${hasPeers?` aria-haspopup="menu" aria-expanded="${PEERS.open}"`:''}><span class="side-ws-mark" aria-hidden="true">일</span><span class="side-ws-text"><strong class="side-ws-name">${esc(wsName)}</strong><small class="side-ws-sub">${esc(wsSub)}</small></span><svg class="side-ws-chev" viewBox="0 0 12 16" width="12" height="16" aria-hidden="true"><path d="M2 6l4-4 4 4M2 10l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>${peerMenuHtml}</div><label class="side-search"><svg class="side-search-ic" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M10.5 10.5L14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><input id="sideSearch" type="search" placeholder="검색" aria-label="메뉴 검색" value="${esc(prevSearch)}"><kbd>⌘K</kbd></label><div class="side-scroll">${wsHtml}${liveHtml}${folderHtml}</div><div class="side-user"><span class="side-avatar" aria-hidden="true">일손<i class="side-avatar-dot"></i></span><span class="side-user-meta"><strong class="side-user-name">${esc(PEERS.current?.name||'이 미니의 일손')}</strong><small class="side-user-role">로컬 연결됨</small></span><span class="side-user-actions"><button id="themeToggle" type="button" title="테마 전환" aria-label="테마 전환">◐</button><button id="logout" type="button" title="접속 종료" aria-label="접속 종료"><i data-lucide="log-out"></i></button></span></div>`;
   const searchEl=document.getElementById('sideSearch');
   if(searchEl){
     searchEl.oninput=()=>filterNav(searchEl.value);
@@ -188,6 +211,7 @@ document.getElementById('mNavBackdrop').onclick=()=>document.body.classList.remo
 const collapseBtn=document.getElementById('railCollapseBtn');
 if(collapseBtn)collapseBtn.onclick=()=>{const collapsed=document.body.classList.toggle('folio-side-collapsed');collapseBtn.setAttribute('aria-pressed',String(collapsed));};
 window.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&PEERS.open){PEERS.open=false;renderNav();return;}
   if((event.metaKey||event.ctrlKey)&&String(event.key||'').toLowerCase()==='k'){
     const searchEl=document.getElementById('sideSearch');
     if(!searchEl)return;
@@ -219,10 +243,13 @@ window.addEventListener('message',event=>{
 });
 window.addEventListener('storage',event=>{if(event.key==='ilson-theme')document.body.dataset.theme=event.newValue||'dark';});
 if(typeof setInterval==='function')setInterval(updateRailClock,60000);
+window.addEventListener('click',event=>{if(PEERS.open&&!event.target?.closest?.('.side-ws-wrap')){PEERS.open=false;renderNav();}});
 (async()=>{try{
   const params=new URLSearchParams((location.hash||'').slice(1)),token=params.get('token');
-  if(token){history.replaceState(null,'',location.pathname+location.search);await api('/api/session',{token});}
-  else await api('/api/session');
+  let session=null;
+  if(token){history.replaceState(null,'',location.pathname+location.search);session=await api('/api/session',{token});}
+  else session=await api('/api/session');
+  if(session?.peers?.peers?.length){PEERS.current=session.peers.current||null;PEERS.list=session.peers.peers;}
   if(!initialTab){try{const overview=await api('/api/overview');S.tab=overview.box?.setup_state==='ready'?'sns':'home';}catch{S.tab='home';}}
   render();if(S.tab==='vault')await loadVault();
 }catch(error){document.getElementById('main').textContent=error.message;}})();

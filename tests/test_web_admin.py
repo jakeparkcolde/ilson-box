@@ -579,6 +579,37 @@ class HTTP시험(BoxFixture):
         self.assertEqual(self.request("POST", "/api/session", raw=b'x' * (admin.BODY_LIMIT + 1), headers={"Content-Type": "application/json"})[0], 413)
         self.assertEqual(self.request("POST", "/api/session", raw=b'{}', headers={"Content-Type": "text/plain"})[0], 415)
 
+    def test_피어목록은_유효주소만_허용하고_세션과_API로_반환한다(self):
+        self.assertEqual(self.request("GET", "/api/peers")[0], 401)
+        cookie, _ = self.login()
+        status, _, body = self.request("GET", "/api/session", headers={"Cookie": cookie})
+        self.assertEqual(status, 200)
+        self.assertNotIn("peers", body)
+        status, _, empty_peers = self.request("GET", "/api/peers", headers={"Cookie": cookie})
+        self.assertEqual(status, 200)
+        self.assertEqual(empty_peers, {"current": None, "peers": []})
+
+        self.write("state/web-admin/peers.json", json.dumps({
+            "current": {"id": "studio", "name": "맥 스튜디오", "subtitle": "주력 머신"},
+            "peers": [
+                {"id": "studio", "name": "맥 스튜디오", "subtitle": "주력 머신", "url": "https://studio.example.ts.net:8627/", "current": True},
+                {"id": "mini", "name": "맥 미니", "subtitle": "상시 운영", "url": "https://mini.example.ts.net:8627"},
+                {"id": "local", "name": "로컬", "url": "http://127.0.0.1:18794"},
+                {"id": "bad1", "name": "XSS", "url": "javascript:alert(1)"},
+                {"id": "bad2", "name": "외부HTTP", "url": "http://evil.example.com:8627"},
+                {"id": "bad3", "name": "인증정보", "url": "https://user:pass@mini.example.ts.net:8627"},
+                {"id": "bad4", "name": "쿼리", "url": "https://mini.example.ts.net:8627/?token=abc"},
+            ]
+        }))
+        status, _, session = self.request("GET", "/api/session", headers={"Cookie": cookie})
+        self.assertEqual(status, 200)
+        self.assertEqual(session["peers"]["current"]["name"], "맥 스튜디오")
+        urls = [p["url"] for p in session["peers"]["peers"]]
+        self.assertEqual(urls, ["https://studio.example.ts.net:8627", "https://mini.example.ts.net:8627", "http://127.0.0.1:18794"])
+        status, _, api_peers = self.request("GET", "/api/peers", headers={"Cookie": cookie})
+        self.assertEqual(status, 200)
+        self.assertEqual(api_peers, session["peers"])
+
 
 if __name__ == "__main__":
     unittest.main()

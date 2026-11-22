@@ -72,6 +72,15 @@ KNOWN_HELPER_SHA256.setdefault('install_payload.py', set()).add('ecbb6520eac95e7
 # Exact origin/main (bbd7c40) bytes before V2 short serial support.
 KNOWN_HELPER_SHA256.setdefault('license.py', set()).add('4fce712766ab7627a6965e2045f5a747dfe15e15695b81ee474c5679f0fe7fae')
 KNOWN_HELPER_SHA256.setdefault('install_payload.py', set()).add('eff01b3378c887890a9b2709193d3fc973023d06f2054dea2f057b6bf4dfd53b')
+# Exact origin/main (d8c9c7c) bytes before peer switcher support.
+for _name, _h in (
+    ('web-admin-server.py', 'ee3dc33c46a8ba530aaed128ca186648c52a2a895a313e9a05749c9964d8dbda'),
+    ('web/current/shell.css', 'c09a66d587dd7527678b9ff9212af10f95a90bee22d52ca6f5c2eeed6a89f75f'),
+    ('web/current/base.css', '8bf7713ace7314719a3ef9a54b6fa1db7343b6b24063c1f4664838955eb21dca'),
+    ('install_payload.py', 'b8156310eddff24df137ef22edef36f2c0e19143d1fe44cf8b3b8d90af9740eb'),
+    ('license.py', 'be7ee35bc83bcd40786be9f9760e67c0579805737f4321c4289943c40b5ee7f7'),
+):
+    KNOWN_HELPER_SHA256.setdefault(_name, set()).add(_h)
 
 ADMIN_FILES = {'web-admin-server.py', 'web-admin.py', 'runtime_gate.py', 'ilson_platform.py', 'replies_draft.py', 'access_policy.py', 'course_admin.py', 'approval_actions.py', 'approval_store.py', 'approval_dispatch.py'}
 WEB_FILES = {'web/course.js', 'web/usage-history.css', 'web/current/base.css', 'web/current/shell.css', 'web/usage-history.js', 'web/course.html', 'web/course.css'}
