@@ -252,7 +252,7 @@ LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
 ILSON_CALLER_PATH=$PATH
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-PROBE_TCC=0; PROBE_SEARCH=0; SANDBOX=0; CODE=""; PAIRING_FILE=""
+PROBE_TCC=0; PROBE_SEARCH=0; SANDBOX=0; CODE=""; PAIRING_FILE=""; CLOUD=0
 STAGE_ONLY=0; CONFIGURE_MACHINE=0
 REMOTE_STATE=unknown
 PASS=0; WARN=0; FAIL=0
@@ -1127,7 +1127,8 @@ usage() {
   people add | list | get                    직원 등록·목록·ID 확인 (people add --help)
   open                                        이 맥의 웹 관리자 열기
   admin start | status | stop                 웹 관리자 시작·상태·중지 (예약 업무와 별개)
-  pair --code <코드> [--pairing-file <json>]     페어링 파일 (다시) 쓰기
+  pair --code <코드> [--pairing-file <json>] [--cloud]  페어링 파일 쓰기 또는 클라우드 연결
+  cloud pair|sync|status|submit-draft          클라우드 러너(ilson.work) 연결·동기화·초안 등록
   telegram connect                            안내에 따라 텔레그램 알림 연결·변경
   telegram status [--verify]                   저장 상태 확인 (verify: Telegram에 연결 점검)
   telegram approval-connect|approval-start|approval-stop|approval-status|approval-disconnect  휴대폰 승인 연결·수신 관리 (맥 Box)
@@ -1188,7 +1189,7 @@ fi
 # Setup and safe diagnostic/stop commands remain usable without a license.
 case "$cmd:${1:-}" in
     setup:*|init:*|doctor:*|help:*|--help:*|-h:*|:*) ;;
-    open:*|admin:start|admin:stop|admin:status|admin:|pause:*|telegram:status|telegram:approval-status|telegram:approval-stop|telegram:approval-disconnect) ;;
+    open:*|admin:start|admin:stop|admin:status|admin:|pause:*|telegram:status|telegram:approval-status|telegram:approval-stop|telegram:approval-disconnect|cloud:status) ;;
     update:--rollback|usage:|usage:stop) ;;
     *:--help|*:-h) ;;
     *) python3 "$TEMPLATE/lib/license.py" --home "$ILSON_HOME" check || exit 1 ;;
@@ -1273,6 +1274,12 @@ if [ "$cmd" = research ]; then
     if [ -x "$ILSON_HOME/.runtime/venv/bin/python" ]; then export PATH="$ILSON_HOME/.runtime/venv/bin:$PATH"; fi
     exec sh "$ILSON_HOME/packs/research/$pack_version/start.sh" "$@"
 fi
+if [ "$cmd" = cloud ]; then
+    cloud_lib="$ILSON_HOME/lib/cloud_bridge.py"
+    [ -f "$cloud_lib" ] || cloud_lib="$TEMPLATE/lib/cloud_bridge.py"
+    [ -f "$cloud_lib" ] || die "클라우드 브리지가 없습니다. ilson update 후 다시 시도하세요."
+    exec python3 "$cloud_lib" --home "$ILSON_HOME" "$@"
+fi
 while [ $# -gt 0 ]; do
     case "$1" in
         --probe-tcc) PROBE_TCC=1 ;;
@@ -1282,6 +1289,7 @@ while [ $# -gt 0 ]; do
         --configure-machine) CONFIGURE_MACHINE=1 ;;
         --code) CODE="${2:-}"; shift ;;
         --pairing-file) PAIRING_FILE="${2:-}"; shift ;;
+        --cloud) CLOUD=1 ;;
         *) echo "모르는 옵션: $1" >&2; usage; exit 2 ;;
     esac; shift
 done
@@ -1290,7 +1298,17 @@ case "$cmd" in
     setup|init) setup ;;
     start) start_jobs ;;
     chat) chat_box ;;
-    pair)   [ -n "$CODE" ] || die "ilson pair --code XXXX"; pair_write && echo "pairing.json 갱신"; ;;
+    pair)
+        [ -n "$CODE" ] || die "ilson pair --code XXXX"
+        if [ "$CLOUD" = "1" ]; then
+            cloud_lib="$ILSON_HOME/lib/cloud_bridge.py"
+            [ -f "$cloud_lib" ] || cloud_lib="$TEMPLATE/lib/cloud_bridge.py"
+            [ -f "$cloud_lib" ] || die "클라우드 브리지가 없습니다. ilson update 후 다시 시도하세요."
+            exec python3 "$cloud_lib" --home "$ILSON_HOME" pair --code "$CODE"
+        else
+            pair_write && echo "pairing.json 갱신"
+        fi
+        ;;
     update) [ -x "$ILSON_HOME/lib/update.sh" ] || die "박스가 없어요 ($ILSON_HOME)"; env ILSON_HOME="$ILSON_HOME" bash "$ILSON_HOME/lib/update.sh" ;;
     *) usage; exit 2 ;;
 esac
