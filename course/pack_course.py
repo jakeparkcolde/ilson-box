@@ -19,7 +19,12 @@ def build_files():
     files['course_update.py'] = (root / 'course/lib/course_update.py').read_text(encoding='utf-8')
     files['install_payload.py'] = (root / 'course/install_payload.py').read_text(encoding='utf-8')
     files['skill_share.py'] = (root / 'course/lib/skill_share.py').read_text(encoding='utf-8')
-    for name in ('web-admin-server.py', 'web-admin.py', 'course_admin.py', 'ilson_platform.py', 'access_policy.py', 'approval_store.py', 'approval_dispatch.py', 'approval_actions.py', 'runtime_gate.py', 'replies_draft.py'):
+    for name in (
+        'web-admin-server.py', 'web-admin.py', 'course_admin.py', 'ilson_platform.py',
+        'access_policy.py', 'approval_store.py', 'approval_dispatch.py', 'approval_actions.py',
+        'runtime_gate.py', 'replies_draft.py', 'cloud_bridge.py',
+        'social/__init__.py', 'social/http.py', 'social/meta_publish.py',
+    ):
         files[name] = (root / 'template/lib' / name).read_text(encoding='utf-8')
     for name in ('web/course.html', 'web/course.js', 'web/course.css', 'web/current/base.css', 'web/current/shell.css', 'web/usage-history.js', 'web/usage-history.css'):
         files[name] = (root / 'template' / name).read_text(encoding='utf-8')

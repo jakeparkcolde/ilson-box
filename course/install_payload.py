@@ -155,8 +155,15 @@ for _name, _hashes in {
 # Exact origin/main (9d00eab) bytes before Full Install Tracking support.
 KNOWN_HELPER_SHA256.setdefault('license.py', set()).add('be7ee35bc83bcd40786be9f9760e67c0579805737f4321c4289943c40b5ee7f7')
 KNOWN_HELPER_SHA256.setdefault('install_payload.py', set()).add('3d8ed33cb15ec99bf4d21eb63675b2eb2c62bb2367f0a99f968600da0793a868')
+# Exact origin/main (42bbfef) bytes before Course Cloud Bridge & ilson.work open support.
+KNOWN_HELPER_SHA256.setdefault('ilson.py', set()).add('9d2f9d66b46949c3b9a228011861958093fd008cd4176ffe2f6b3d4b00b6a237')
+KNOWN_HELPER_SHA256.setdefault('install_payload.py', set()).add('7dcaa6541ceb14c1c53cf2d25e631d8b40f25b59b75fef5d0e79761d9a2094e0')
+KNOWN_HELPER_SHA256.setdefault('license.py', set()).add('a718331496e5bda799d1e737a3335d1d0b83aaaf836dd8984ea2b20a51f71a6f')
+KNOWN_HELPER_SHA256.setdefault('cloud_bridge.py', set())
+for _social in ('social/__init__.py', 'social/http.py', 'social/meta_publish.py'):
+    KNOWN_HELPER_SHA256.setdefault(_social, set())
 
-ADMIN_FILES = {'web-admin-server.py', 'web-admin.py', 'runtime_gate.py', 'ilson_platform.py', 'replies_draft.py', 'access_policy.py', 'course_admin.py', 'approval_actions.py', 'approval_store.py', 'approval_dispatch.py'}
+ADMIN_FILES = {'web-admin-server.py', 'web-admin.py', 'runtime_gate.py', 'ilson_platform.py', 'replies_draft.py', 'access_policy.py', 'course_admin.py', 'approval_actions.py', 'approval_store.py', 'approval_dispatch.py', 'cloud_bridge.py', 'social/__init__.py', 'social/http.py', 'social/meta_publish.py'}
 WEB_FILES = {'web/course.js', 'web/usage-history.css', 'web/current/base.css', 'web/current/shell.css', 'web/usage-history.js', 'web/course.html', 'web/course.css'}
 ALLOWED_FILES = set(KNOWN_HELPER_SHA256) | ADMIN_FILES | WEB_FILES | {'course_update.py'}
 

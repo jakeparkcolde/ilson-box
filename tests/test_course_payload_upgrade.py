@@ -39,9 +39,9 @@ class CourseUpgradeTests(unittest.TestCase):
             with self.subTest(changed=changed),tempfile.TemporaryDirectory() as temp:
                 root=Path(temp).resolve()/'lib';root.mkdir()
                 edited=target_path(root,changed);edited.parent.mkdir(parents=True,exist_ok=True);edited.write_text('# student edit')
-                before={p.name:p.read_bytes() for p in root.iterdir()}
+                before={str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()}
                 with self.assertRaises(ValueError): payload.install(root,sources())
-                self.assertEqual(before,{p.name:p.read_bytes() for p in root.iterdir()})
+                self.assertEqual(before,{str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()})
 
     def test_write_failure_recovers_previously_replaced_dependencies(self):
         with tempfile.TemporaryDirectory() as temp:
