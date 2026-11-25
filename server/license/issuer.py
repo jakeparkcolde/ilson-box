@@ -147,6 +147,138 @@ def operate(args):
             print('기기 해시:',dev['device_hash'],'해제:',bool(dev['released_at']))
 
 
+def _fmt_ts(ts):
+    if not ts:
+        return '-'
+    kst = dt.timezone(dt.timedelta(hours=9))
+    return dt.datetime.fromtimestamp(int(ts), kst).strftime('%Y-%m-%d %H:%M')
+
+
+def _admin_secret():
+    env_secret = os.environ.get('ILSON_LICENSE_ADMIN_SECRET', '').strip()
+    if env_secret:
+        return env_secret
+    return license.safe_read(CONFIG / 'admin-secret').strip()
+
+
+def format_overview(data):
+    lines = []
+    s = data.get('summary') or {}
+    lines.append('=== 일손 설치·활성화 현황 ===')
+    lines.append(
+        f"전체 라이선스: {s.get('total_licenses', 0)}명 "
+        f"(활성 {s.get('active_licenses', 0)} / 미활성 {s.get('inactive_licenses', 0)} / 폐기 {s.get('revoked_licenses', 0)}) | "
+        f"활성 기기: {s.get('total_active_devices', 0)}대"
+    )
+    lines.append(
+        f"최근 7일 설치 실행: {s.get('recent_runs_7d', 0)}건 "
+        f"(성공 {s.get('ok_runs_7d', 0)} / 실패 {s.get('failed_runs_7d', 0)})"
+    )
+
+    cohorts = data.get('cohorts') or []
+    lines.append('')
+    lines.append('[기수별 요약]')
+    if not cohorts:
+        lines.append('  (데이터 없음)')
+    else:
+        lines.append('  기수 | 발급 | 활성화 | 미활성 | 활성 기기')
+        lines.append('  -----+------+--------+--------+----------')
+        for c in cohorts:
+            lines.append(
+                f"  {str(c.get('cohort', '-')):>3}기 | {c.get('total', 0):>4} | "
+                f"{c.get('activated', 0):>6} | {c.get('inactive', 0):>6} | {c.get('active_devices', 0):>9}"
+            )
+
+    licenses_list = data.get('licenses') or []
+    lines.append('')
+    lines.append(f'[수강생별 상태 ({len(licenses_list)}명)]')
+    if not licenses_list:
+        lines.append('  (등록된 라이선스 없음)')
+    else:
+        lines.append('  기수 | 이름 | 시리얼 | 상태 | OS/아키텍처 | 활성기기 | 최초 활성화(KST) | 최근 접속(KST)')
+        lines.append('  -----+------+--------+------+-------------+----------+------------------+----------------')
+        for lic in licenses_list:
+            serial_kind = 'V2' if lic.get('has_short_serial') else 'V1'
+            if lic.get('status') == 'revoked':
+                st_label = '폐기'
+            elif (lic.get('active_devices') or 0) > 0:
+                st_label = '활성'
+            else:
+                st_label = '미활성'
+            devs = lic.get('devices') or []
+            active_devs = [d for d in devs if d.get('released_at') is None]
+            primary = active_devs[0] if active_devs else (devs[0] if devs else None)
+            if primary and (primary.get('os') or primary.get('arch')):
+                os_arch = f"{primary.get('os') or '?'}/{primary.get('arch') or '?'}"
+            else:
+                os_arch = '-'
+            dev_cnt = f"{lic.get('active_devices', 0)}/{lic.get('device_limit', 2)}"
+            lines.append(
+                f"  {lic.get('cohort', '-')}기 | {lic.get('display_name', '-')} | {serial_kind} | "
+                f"{st_label} | {os_arch} | {dev_cnt} | "
+                f"{_fmt_ts(lic.get('first_activated_at'))} | {_fmt_ts(lic.get('last_seen_at'))}"
+            )
+
+    runs = data.get('install_runs') or []
+    lines.append('')
+    lines.append(f'[최근 설치 실행 로그 ({len(runs)}건, 미활성화 포함)]')
+    if not runs:
+        lines.append('  (설치 실행 기록 없음)')
+    else:
+        for r in runs:
+            res_label = '성공' if r.get('result') == 'ok' else f"실패(rc={r.get('exit_code')})"
+            owner = f"{r['display_name']}({r['cohort']}기)" if r.get('display_name') else '(미활성화)'
+            helper = r.get('helper_status') or '-'
+            steps = r.get('failed_steps') or []
+            fail_txt = ', '.join(
+                f"{fs.get('step_id')}:{fs.get('reason_code')}" + (f"({fs['http_code']})" if fs.get('http_code') else '')
+                for fs in steps
+            )
+            tail = f" | 실패: {fail_txt}" if fail_txt else ''
+            lines.append(
+                f"  {_fmt_ts(r.get('created_at'))} | {res_label} | {r.get('edition', '-')} | "
+                f"{r.get('os', '?')} {r.get('os_version', '?')}/{r.get('arch', '?')} | "
+                f"helper={helper} | {owner}{tail}"
+            )
+
+    failures = data.get('failure_breakdown') or []
+    lines.append('')
+    lines.append('[실패 단계 TOP (최근 30일)]')
+    if not failures:
+        lines.append('  (실패 기록 없음)')
+    else:
+        for f in failures:
+            lines.append(f"  - {f.get('step_id')} / {f.get('reason_code')}: {f.get('count', 0)}건")
+
+    return '\n'.join(lines)
+
+
+def overview(args):
+    endpoint = urllib.parse.urlparse(args.server)
+    if endpoint.scheme != 'https' or not endpoint.netloc or endpoint.query or endpoint.fragment:
+        raise ValueError('HTTPS server URL required')
+    secret = _admin_secret()
+    body = {'nonce': secrets.token_hex(16)}
+    if args.cohort is not None:
+        if not 1 <= args.cohort <= 65535:
+            raise ValueError('cohort out of range')
+        body['cohort'] = args.cohort
+    req = urllib.request.Request(
+        args.server.rstrip('/') + '/api/v1/admin-overview',
+        json.dumps(body).encode(),
+        {'Content-Type': 'application/json', 'X-Ilson-Admin': secret},
+        method='POST',
+    )
+    with urllib.request.build_opener(license.NoRedirect).open(req, timeout=15) as response:
+        result = json.loads(response.read(2 * 1024 * 1024))
+    if result.get('nonce') != body['nonce'] or result.get('status') != 'ok':
+        raise ValueError('overview request not confirmed')
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        print(format_overview(result))
+
+
 def main():
     p=argparse.ArgumentParser(description='Studio 전용 일손 라이선스 발급/관리')
     sub=p.add_subparsers(dest='action',required=True)
@@ -163,11 +295,16 @@ def main():
         q.add_argument('--server',required=True); q.add_argument('--serial-file',required=True)
         q.add_argument('--request-id'); q.add_argument('--display-name'); q.add_argument('--paid-until'); q.add_argument('--target-device')
         if action=='register': q.add_argument('--short-file')
+    ov=sub.add_parser('overview')
+    ov.add_argument('--server',required=True)
+    ov.add_argument('--cohort',type=int)
+    ov.add_argument('--json',action='store_true')
     args=p.parse_args()
     try:
         require_studio()
         if args.action in ('init-key','init-admin'): initialize(args)
         elif args.action=='issue': issue(args)
+        elif args.action=='overview': overview(args)
         else: operate(args)
     except (OSError,ValueError,TypeError,subprocess.SubprocessError,urllib.error.URLError):
         print('발급/관리 요청 실패: 설정과 서버 상태를 확인하세요.',file=sys.stderr)

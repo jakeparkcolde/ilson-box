@@ -152,6 +152,10 @@ for _name, _hashes in {
 }.items():
     KNOWN_HELPER_SHA256.setdefault(_name, set()).update(_hashes)
 
+# Exact origin/main (9d00eab) bytes before Full Install Tracking support.
+KNOWN_HELPER_SHA256.setdefault('license.py', set()).add('be7ee35bc83bcd40786be9f9760e67c0579805737f4321c4289943c40b5ee7f7')
+KNOWN_HELPER_SHA256.setdefault('install_payload.py', set()).add('3d8ed33cb15ec99bf4d21eb63675b2eb2c62bb2367f0a99f968600da0793a868')
+
 ADMIN_FILES = {'web-admin-server.py', 'web-admin.py', 'runtime_gate.py', 'ilson_platform.py', 'replies_draft.py', 'access_policy.py', 'course_admin.py', 'approval_actions.py', 'approval_store.py', 'approval_dispatch.py'}
 WEB_FILES = {'web/course.js', 'web/usage-history.css', 'web/current/base.css', 'web/current/shell.css', 'web/usage-history.js', 'web/course.html', 'web/course.css'}
 ALLOWED_FILES = set(KNOWN_HELPER_SHA256) | ADMIN_FILES | WEB_FILES | {'course_update.py'}
