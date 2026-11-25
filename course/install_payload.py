@@ -81,6 +81,76 @@ for _name, _h in (
     ('license.py', 'be7ee35bc83bcd40786be9f9760e67c0579805737f4321c4289943c40b5ee7f7'),
 ):
     KNOWN_HELPER_SHA256.setdefault(_name, set()).add(_h)
+# All historical shipped installer payload/bootstrap bytes (including d78cd11) so any
+# previous official course installation upgrades automatically without HELPER_MODIFIED.
+for _name, _hashes in {
+    'course_admin.py': {
+        '3d32ca8f0db4ac184f4456ed11090bf0a99ab24ba34a1af0310af4115109c600',
+        '45a673defef80fe4363e71337267bfe0eabade2ef735f8dd7d40d1efcb852e00',
+        'b46c6430f9e494cf0d1b9230ba6d799f8412d267c543ea2f13a18f8bed92fcc0',
+    },
+    'course_update.py': {
+        '53a68fdbfcc0926f19feddaf9724d89de3b97760149124959f67d20490aff862',
+    },
+    'ilson.py': {
+        '4617b85cd4e0ee0348732d7c24672f7c05026222e691599e4327e91004586d5a',
+        '5f7ea11afe8f9ada1808ce39e7aa3ac51dc902bcc8378e1ce35cc75c7e4087bc',
+        '9d2f9d66b46949c3b9a228011861958093fd008cd4176ffe2f6b3d4b00b6a237',
+    },
+    'ilson_platform.py': {
+        '804b8af7fd370d4763ed8045ee9e2b446e49755a3dc23b28e4b11527e03e49b6',
+        '8fd883c4df503e710e8d9877026fbe5b11813a8a15ff8831fe415526497706c7',
+    },
+    'install_diagnostics.py': {
+        '1031e0229313ad66a7a6e08e0927fa3cd0879ab7ce750d15515281c2f64eb2a2',
+        '3c0d93eb8832fd197f1e7049610cf330582ceab958f5511d5ddca2233b46dc14',
+        '91be3415d47322743f531646300221f25d630badbec376a8242e5734b93df2fe',
+        '97d859e832901300ae435081f9c243584be4258a3cd0c319c8829b84c317c545',
+        'ba9e15e8e1df12c07512e51cf8b80cce7593df43c97c20316b9e76c5dc3ac5c0',
+        'bae7d7d4cb6cc75eb8de804989a2f7553bfdae8834ef3f5033653a1ab7f98b76',
+        'bf7cc2c70b42e3186c410bc8495b77f49c0a881c4569e20ecba2a70bf70a7a4c',
+        'e31f8377833d7c2f7cb7c56ec6ac37a06a27e90238b244a78c8a49853fa57974',
+    },
+    'install_payload.py': {
+        '0e93c48a7c666c61bb9db0b546b3021bee089e4124a11377f6c601a88dc9e49a',
+        '1645ef8579bd0bafbb03bb7de03e91c876e971d836445e6a7af612da769ed677',
+        '22ad058a566c56f8edc8558753d64e77966e2d30174157cc929e3bba0455a9dc',
+        '24f76d2b5682845e7491378e950f043a83a3ac6e894219c58b881e136b476fc5',
+        '425d2e4c75082cb64f4526565f190cf1253ced49037636d35c50e6b333529315',
+        '4bcad192c46a5c33e6c818a856300c0ba3cfc8db619016c88bfe4a9d7d2b0384',
+        '4ecc5a48eaeb709606dadfbcb5999e72c2a4459b381b8a9bf22e9e77138c890d',
+        '56f3223721dc735bb717845bae671d186eff840374a9eaef36616fc3341072a2',
+        '5d862694b7778ee1ed3444491fe04a5dacd456adfd016d1c3b54f142bafe40a7',
+        '7fbb75f6b99aa3f0469897fd4f97cd29cbe04a03533aa63ed20bbc14a17d02f6',
+        '82cadd1c84604e52b362e5aac48bbbdc734de3c35d782b127a4b69e45203fec6',
+        '83446da44b6661b8b659b6629064f63f5758ae0d38c81e1474fbf606d1f4f066',
+        '8bfe9823d386c055eed52d798563f1e63fabf0df0d45798b980ea5c7b168d1ac',
+        'ca1f9650252e01a9da884cbf8406a7928f165b2f0414ca513aa7759b70588e90',
+        'd0f0d0f9425c5dd6c987343ab6a1157ce15bbf6cc4843f11160fbdff07dee191',
+        'f2ae01d39b1c3fad40fc2506cb7b5ad080688967eec1e0fcb46ee4fbb7be3fa3',
+    },
+    'license.py': {
+        '1b67385d7271657629725ee4646d9c7257e5894ebad9c3b5eba0354c195e94b5',
+        '8ef253fa7eed1ff40c756f439c56b62a3628e4e977b777db95a251a0fe147706',
+        'dd1a26eec3f51353dc840f5d62ccb1dc34abf06a3d7b85dad311a2b06d0e19a9',
+        'fcbdc20fc77b3ff43936867949a9411fc45b47747853633d22284cdd205e413a',
+    },
+    'usage_sync.py': {
+        '921e548f6869048c2bbc371dfa420c2c829706bf441e435832179ce58beb515b',
+    },
+    'usage_timeline.py': {
+        'ba1f2f4c317b2779866cf55d4dcaa05c455b60b2dcfd2e8a831f260ce0a1d860',
+    },
+    'web-admin-server.py': {
+        '1c1d3396edce5c7d3e1ac80abac70ef8e351afb6ad1d16a04b0fc7340b23ede4',
+        '6d01a90c927767a6bf9721d0fea674c0a3ed5f80dd064ef6524300179a00cb32',
+        'e6211b236390e3db2edc21604fc36251368267f88a887cd3423453d45a0eaa33',
+    },
+    'web/current/shell.css': {
+        'beb92e833c78865e659808ea646ff3ffc14df9b401a395b80bde281c57ce6b3a',
+    },
+}.items():
+    KNOWN_HELPER_SHA256.setdefault(_name, set()).update(_hashes)
 
 ADMIN_FILES = {'web-admin-server.py', 'web-admin.py', 'runtime_gate.py', 'ilson_platform.py', 'replies_draft.py', 'access_policy.py', 'course_admin.py', 'approval_actions.py', 'approval_store.py', 'approval_dispatch.py'}
 WEB_FILES = {'web/course.js', 'web/usage-history.css', 'web/current/base.css', 'web/current/shell.css', 'web/usage-history.js', 'web/course.html', 'web/course.css'}
@@ -216,6 +286,22 @@ def target(root, name):
     return root.parent / name if name in WEB_FILES else root / name
 
 
+def _is_known_existing(name, old):
+    known = KNOWN_HELPER_SHA256.get(name, set())
+    if digest(old) in known:
+        return True
+    if b'\r\n' in old and digest(old.replace(b'\r\n', b'\n')) in known:
+        return True
+    # Allow seamless upgrade of any early pre-V2 official license.py (which still gets backed up).
+    if (name == 'license.py' and len(old) <= 65536
+            and b'"""Ilson serial verification and offline lease state, stdlib only.' in old
+            and b"PUBLIC_KEYS = {1: bytes.fromhex('6455f743370eba4adf230aeb65b23fc2cd4e0ff7df35108e48e2c63bf0f35feb')}" in old
+            and b"DOMAIN = b'ILSON-LICENSE-V1\\0'" in old
+            and b'is_short_serial' not in old):
+        return True
+    return False
+
+
 def install(root, files, verify=None):
     safe(root)
     if root.exists() and not root.is_dir(): raise ValueError('helper directory is not a normal directory')
@@ -229,7 +315,7 @@ def install(root, files, verify=None):
         if path.exists() and not path.is_file(): raise Refusal('HELPER_MODIFIED', 'existing helper differs; ask the instructor')
         old = path.read_bytes() if path.exists() else None
         if old == data: continue
-        if old is not None and digest(old) not in KNOWN_HELPER_SHA256.get(name, set()):
+        if old is not None and not _is_known_existing(name, old):
             raise Refusal('HELPER_MODIFIED', 'existing helper differs; ask the instructor: ' + name)
         changes.append((name, path, old, data))
     with update_lock(root):
@@ -245,7 +331,9 @@ def install(root, files, verify=None):
 def _apply(root, changes, verify):
     if not changes:
         if verify: verify()
+        print('HELPER_STATUS=UP_TO_DATE')
         return None
+    upgrading = any(old is not None for _, _, old, _ in changes)
     base = root / '.install-backups'; safe(base); base.mkdir(mode=0o700, exist_ok=True)
     seq = next_backup_seq(base)
     backup = Path(tempfile.mkdtemp(prefix='upgrade-', dir=base))
@@ -282,6 +370,7 @@ def _apply(root, changes, verify):
         raise
     manifest['status'] = 'applied'
     atomic_write(backup / 'manifest.json', json.dumps(manifest, sort_keys=True).encode())
+    print('HELPER_STATUS=' + ('UPDATED' if upgrading else 'INSTALLED'))
     print('HELPER_UPGRADE_BACKUP=' + backup.name)
     return backup
 

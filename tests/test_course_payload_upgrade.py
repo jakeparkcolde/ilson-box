@@ -115,5 +115,49 @@ class CourseUpgradeTests(unittest.TestCase):
             self.assertEqual((root/'license.py').read_bytes(),old_lic)
             self.assertEqual((root/'install_payload.py').read_bytes(),old_payload)
 
+    def test_status_markers_crlf_and_legacy_pre_v2_license_auto_upgrade(self):
+        import io
+        from contextlib import redirect_stdout
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve() / 'lib'
+            root.mkdir()
+            current = sources()
+            # 1. Fresh install -> HELPER_STATUS=INSTALLED
+            out = io.StringIO()
+            with redirect_stdout(out):
+                backup = payload.install(root, current)
+            self.assertIsNotNone(backup)
+            self.assertIn('HELPER_STATUS=INSTALLED', out.getvalue())
+
+            # 2. Re-run on latest -> HELPER_STATUS=UP_TO_DATE, no extra backup
+            out = io.StringIO()
+            with redirect_stdout(out):
+                again = payload.install(root, current)
+            self.assertIsNone(again)
+            self.assertIn('HELPER_STATUS=UP_TO_DATE', out.getvalue())
+
+            # 3. CRLF-normalized official license.py upgrades cleanly -> HELPER_STATUS=UPDATED
+            old_lic = subprocess.check_output(['git', 'show', '49f683a:course/lib/license.py'], cwd=ROOT)
+            (root / 'license.py').write_bytes(old_lic.replace(b'\n', b'\r\n'))
+            out = io.StringIO()
+            with redirect_stdout(out):
+                upgraded = payload.install(root, current)
+            self.assertIsNotNone(upgraded)
+            self.assertIn('HELPER_STATUS=UPDATED', out.getvalue())
+            self.assertEqual((root / 'license.py').read_text(encoding='utf-8'), current['license.py'])
+
+            # 4. Early pre-V2 official license.py variant (without is_short_serial) upgrades + rolls back cleanly
+            pre_v2 = old_lic.replace(b'# Public verification key only;', b'# Legacy pre-V2 verification key;')
+            self.assertNotIn(b'is_short_serial', pre_v2)
+            (root / 'license.py').write_bytes(pre_v2)
+            out = io.StringIO()
+            with redirect_stdout(out):
+                upgraded2 = payload.install(root, current)
+            self.assertIsNotNone(upgraded2)
+            self.assertIn('HELPER_STATUS=UPDATED', out.getvalue())
+            self.assertEqual((root / 'license.py').read_text(encoding='utf-8'), current['license.py'])
+            payload.rollback(root, upgraded2)
+            self.assertEqual((root / 'license.py').read_bytes(), pre_v2)
+
 
 if __name__=='__main__':unittest.main()
