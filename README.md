@@ -28,23 +28,27 @@ ILSON_SRC="$PWD" sh install.sh
 
 자동 처리: Homebrew(없으면 관리자 입력 필요), git·jq·gh·coreutils·Python·Node.js, Claude Code·Codex CLI, Herdr Desktop·hc, Aside 브라우저·CLI, Obsidian·Tailscale, Tavily CLI(없으면 uv로 격리 설치), `~/ilson` 볼트와 일손 검색 스킬·업무 스크립트, 예약 업무 plist와 강의 키트 생성. 기존 설치 도구는 재사용합니다. 기존 Orca는 그대로 사용하며 자동 설치 대상이 아닙니다.
 
-사람이 할 일: 구독 계정 로그인, Tailscale 연결, 회사 인터뷰, 필요한 macOS 권한 클릭. Herdr와 Aside를 열어 필요한 계정에 직접 로그인하고 연결합니다. 설치코드 없이 로컬 구성이 가능하며 서버 페어링은 아직 구현되지 않았습니다.
+필수 2단계 (설치 직후 바로 시작):
+1. Claude 로그인 + 회사 소개: `claude` 로그인 → `cd ~/ilson && claude /onboard` (폴더 신뢰 확인 포함)
+2. 예약 업무 시작: `ilson start` (일상 결재·보고서·위키는 `https://ilson.work`, 로컬 설정·진단은 `ilson open`)
 
-기본 설치 중 텔레그램 알림 연결도 안내합니다. BotFather가 발급한 토큰을 숨김 입력창에 붙여넣고, 열리는 텔레그램에서 **시작**을 누르면 받을 개인 대화를 자동으로 찾습니다. 나중에 연결할 수도 있고, 재설치 때는 기존 연결을 보존합니다.
+언제든 `ilson guide`(또는 `ilson quickstart`)를 실행하면 현재 준비 상태와 다음에 실행할 명령 1줄을 바로 확인할 수 있습니다(라이선스 없이 읽기 전용 동작).
+
+선택 확장 (나중에 필요할 때 — 지금 안 해도 사용 가능): 텔레그램 알림(`ilson telegram connect`), Codex 자동 폴백(`codex` 로그인), 상시 전원(`ilson setup --configure-machine`), 원격 접속(Tailscale), 노트 열람(Obsidian `~/ilson/vault`), Herdr·Aside 로그인, 웹 검색 점검(`ilson doctor --probe-search`). 설치코드 없이 로컬 구성이 가능하며 서버 페어링은 아직 구현되지 않았습니다.
 
 ```sh
 # 새 터미널을 열고 실행. PATH가 아직 반영되지 않았다면 ~/.ilson-cli/ilson 사용
+ilson guide                       # 현재 준비 상태 체크리스트 + 다음 실행 명령 1줄
+cd ~/ilson && claude /onboard     # 1단계: 로그인·폴더 신뢰·회사 인터뷰
+ilson start                       # 2단계: 준비 확인 후 예약 업무 가동
+ilson open                        # 로컬 웹 관리자 열기 (일상 결재·보고서·위키는 https://ilson.work)
+ilson doctor                      # 읽기 전용 전체 점검
 ilson setup                       # 중단된 설치를 다시 실행
-ilson setup --configure-machine   # 잠자기 방지·정전 후 재시작 (관리자 비밀번호)
-cd ~/ilson
-claude /onboard                   # 로그인·폴더 신뢰·회사 인터뷰
-ilson start                      # 준비 확인 후 예약 업무 가동
-ilson doctor                     # 읽기 전용 점검
-ilson open                       # 내 일손 웹 관리자 열기
-ilson admin status               # 웹 관리자 실행 상태 확인
-ilson chat                       # 이후 설치·설정·업무 요청을 하는 관리 대화
-ilson telegram connect           # 텔레그램 알림 연결·변경을 다시 시작
-ilson telegram status --verify   # 봇과 받을 대화 확인 (메시지 발송 없음)
+ilson setup --configure-machine   # (선택) 잠자기 방지·정전 후 재시작 (관리자 비밀번호)
+ilson chat                        # (선택) 설치·설정·업무 요청 관리 대화
+ilson telegram connect            # (선택) 텔레그램 알림 연결·변경
+ilson telegram status --verify    # (선택) 봇과 받을 대화 확인 (메시지 발송 없음)
+ilson admin status                # 웹 관리자 실행 상태 확인
 ```
 
 Codex는 `codex`를 실행해 별도로 ChatGPT 계정에 로그인합니다. 현재 Box의 정기 업무 실행기는 Claude입니다. 설치기는 API 키나 유료 API 호출을 설정하지 않습니다.

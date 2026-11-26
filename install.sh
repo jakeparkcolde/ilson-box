@@ -19,7 +19,9 @@
 #   otherwise       public GitHub source archive (ILSON_SOURCE_REF, default main)
 #
 # Update feed (optional): --feed <url> or ILSON_UPDATE_FEED, saved to $BOX_HOME/.updates/feed for
-# `ilson update`. --feed replaces a saved address. Otherwise the address stamped into the CLI being
+# `ilson update`. When unset, `ilson update` defaults to the canonical GitHub Releases feed
+# (https://github.com/jakeparkcolde/ilson-box/releases/latest/download/latest-v2.json).
+# --feed replaces a saved address. Otherwise the address stamped into the CLI being
 # replaced (release builds stamp it) wins over a saved one, as in update.py. ILSON_UPDATE_FEED only fills
 # a missing, empty or invalid saved address.
 #
@@ -609,6 +611,6 @@ else
     say "일부 설치가 끝나지 않았습니다. 위 안내를 확인한 뒤 ilson setup 을 다시 실행하세요."
 fi
 print_path_manual
-printf '  다음 할 일: ilson license activate · 계정 로그인 및 필요한 권한 확인\n'
+printf '  다음 할 일: ilson guide 로 필수 2단계(Claude 로그인·회사 소개 → ilson start) 확인 · 필요 시 ilson license activate\n'
 awk -F '\t' '$1 == "다음할일" {print "    · " $2}' "$ILSON_INSTALL_SUMMARY"
 exit "$SETUP_RC"

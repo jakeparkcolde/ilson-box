@@ -223,10 +223,17 @@ case "$expected" in *[!a-f0-9]*|'') exit 2 ;; esac
 # Source must be an immutable revision of this repo; never execute arbitrary remote URLs.
 printf '%s\n' "$url" | LC_ALL=C grep -Eq '^https://raw\.githubusercontent\.com/jakeparkcolde/ilson-box/[a-f0-9]{40}/(install\.sh|course/install-intel-mac\.sh|tools/doctor\.sh)$' || exit 2
 file=$(mktemp "${TMPDIR:-/tmp}/ilson-bootstrap.XXXXXXXX") || exit 3
-if diag_download "$url" "$file" download.installer; then :; else exit 1; fi
+if diag_download "$url" "$file" download.installer; then :; else
+    printf 'BOOTSTRAP_FAILED: 설치 파일 내려받기 실패 — 네트워크·프록시·TLS 연결을 확인한 뒤 다시 실행하세요 (진단: tools/doctor.sh --share).\n' >&2
+    exit 1
+fi
 diag_step_start bootstrap.start
 actual=$(shasum -a 256 "$file" | awk '{print $1}')
-[ "$actual" = "$expected" ] || { diag_step_end bootstrap.start failed HASH_MISMATCH true 1; exit 1; }
+[ "$actual" = "$expected" ] || {
+    diag_step_end bootstrap.start failed HASH_MISMATCH true 1
+    printf 'BOOTSTRAP_FAILED: HASH_MISMATCH — 설치 파일 해시가 일치하지 않아 실행을 중단했습니다. 최신 고정 설치 명령으로 다시 시도하세요.\n' >&2
+    exit 1
+}
 diag_step_end bootstrap.start ok OK true 0
 if [ "$target" = doctor ]; then
     # The completed bootstrap run is readable by the offline doctor.

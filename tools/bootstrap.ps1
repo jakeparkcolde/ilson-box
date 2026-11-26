@@ -223,7 +223,11 @@ try {
     Stop-IlsonStep 'bootstrap.start'
     if ($Doctor) { Complete-IlsonDiagnostics 0 | Write-Output; & $file -Share }
     else { & $file; if ($global:IlsonInstallExitCode) {$code=[int]$global:IlsonInstallExitCode} }
-} catch { Write-Output 'BOOTSTRAP_FAILED: fixed source/download/hash/local execution failed.'; $code=1 }
+} catch {
+    Write-Output 'BOOTSTRAP_FAILED: fixed source/download/hash/local execution failed.'
+    Write-Output 'Recovery: check internet/TLS 1.2 or re-run the latest pinned command, then run offline doctor (tools/doctor.ps1 -Share) if it persists.'
+    $code=1
+}
 Complete-IlsonDiagnostics $code | Write-Output
 $env:ILSON_DIAG_RUN_ID=$previousDiagRun
 if ($file -and (Test-Path -LiteralPath $file -PathType Leaf)) {Test-IlsonDiagPath $file; [IO.File]::Delete($file)}

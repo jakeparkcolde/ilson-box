@@ -284,6 +284,12 @@ function Invoke-IlsonDoctor {
         $summary+='; required_reasons='+($reasons -join ',')
         $summary+='; workspace_app=Herdr; workspace_app_state='+$herdr[0]+'; workspace_app_version='+$herdr[1]
         Write-Output $summary
+        if (@($reasons | Where-Object {$_ -in @('DNS_FAILED','HTTP_FAILED','TIMEOUT','TLS_FAILED','DOWNLOAD_FAILED')}).Count) {
+            Write-Output 'Hint: Network/TLS download failed. Check internet, proxy/VPN, and Windows TLS 1.2 updates, then re-run the installer.'
+        }
+        if (@($reasons | Where-Object {$_ -in @('PYTHON_TOO_OLD','RUNTIME_MISSING')}).Count) {
+            Write-Output 'Hint: Python 3.10+ is required. Install official Python from https://www.python.org/downloads/windows/ and re-run the installer.'
+        }
         if ($Share) {
             $dest=Join-Path $root 'share'; New-IlsonDiagDirectory $dest
             $reference='IL-' + [guid]::NewGuid().ToString('N').Substring(0,12).ToUpperInvariant()

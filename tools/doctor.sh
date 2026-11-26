@@ -283,4 +283,5 @@ ILSON_DIAG_RUN_ID=$run; DIAG_EDITION=intel-course
 case "$summary" in *edition=full-mac*) DIAG_EDITION=full-mac ;; esac
 diag_next
 case "$summary" in *python=PYTHON_TOO_OLD*) printf 'Python 3.10 이상을 공식 macOS 설치기로 직접 설치한 뒤 검수된 Intel 강의판 설치 명령을 다시 실행하세요: https://www.python.org/downloads/macos/\n' ;; esac
+case "$summary" in *reason=DNS_FAILED*|*reason=HTTP_FAILED*|*reason=TIMEOUT*|*reason=TLS_FAILED*|*reason=DOWNLOAD_FAILED*) printf '복구 안내: 네트워크·프록시·TLS 연결을 확인한 뒤 설치 명령을 다시 실행하세요.\n' ;; esac
 case "$summary" in *exit_code=3*) exit 3 ;; *exit_code=1*) exit 1 ;; *exit_code=4*) exit 4 ;; *) exit 0 ;; esac

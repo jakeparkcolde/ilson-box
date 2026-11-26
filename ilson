@@ -3,7 +3,8 @@
 #
 # Commands:
 #   setup [--configure-machine] [--sandbox]   provision tools and stage the box
-#   start                                    activate after login and onboarding
+#   guide | quickstart                        live read-only onboarding checklist + next command
+#   start                                     activate after login and onboarding
 #   pause <job> | resume <job>               stop / re-register one scheduled job
 #   open                                     open this box's local web manager
 #   admin start | status | stop               manage only the web manager service
@@ -246,6 +247,7 @@ done
 SELF_DIR="$(cd "$(dirname "$SELF")" && pwd)"
 TEMPLATE="$SELF_DIR/template"
 ILSON_HOME="${ILSON_HOME:-$HOME/ilson}"
+CANONICAL_FEED='https://github.com/jakeparkcolde/ilson-box/releases/latest/download/latest-v2.json'
 TS_BIN="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
 [ -x "$TS_BIN" ] || TS_BIN="$HOME/Applications/Tailscale.app/Contents/MacOS/Tailscale"
 LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
@@ -285,9 +287,11 @@ setup_web_admin() {
 }
 
 telegram_configured() {
-    jq -e '(.telegram_bot_token | type == "string" and length > 0) and
+    local state_dir="$ILSON_HOME/state" p="$ILSON_HOME/state/pairing.json"
+    [ -d "$state_dir" ] && [ ! -L "$state_dir" ] && [ -f "$p" ] && [ ! -L "$p" ] && [ -r "$p" ] || return 1
+    has jq && jq -e 'type == "object" and (.telegram_bot_token | type == "string" and length > 0) and
         (.telegram_chat_id | (type == "number") or (type == "string" and length > 0))' \
-        "$ILSON_HOME/state/pairing.json" >/dev/null 2>&1
+        "$p" >/dev/null 2>&1
 }
 
 telegram_box() {
@@ -322,6 +326,74 @@ claude_logged_in() {
     has claude && has jq || return 1
     status=$(bounded "${ILSON_CHECK_TIMEOUT:-10}" claude auth status 2>/dev/null) || return 1
     printf '%s' "$status" | jq -e '.loggedIn == true' >/dev/null 2>&1
+}
+
+codex_logged_in() {
+    has codex || return 1
+    bounded "${ILSON_CHECK_TIMEOUT:-5}" codex login status >/dev/null 2>&1 && return 0
+    [ -s "$HOME/.codex/auth.json" ]
+}
+
+box_trusted() {
+    has jq && jq -e --arg p "$ILSON_HOME" '.projects[$p].hasTrustDialogAccepted == true' "$HOME/.claude.json" >/dev/null 2>&1
+}
+
+company_context_path() {
+    if [ -e "$ILSON_HOME/state/company.json" ] || [ -L "$ILSON_HOME/state/company.json" ]; then
+        [ -f "$TEMPLATE/lib/access_policy.py" ] && has python3 || return 1
+        local v
+        v=$(python3 "$TEMPLATE/lib/access_policy.py" --home "$ILSON_HOME" vault 2>/dev/null) || return 1
+        [ -n "$v" ] || return 1
+        printf '%s' "$v/company/CONTEXT.md"
+        return 0
+    fi
+    printf '%s' "$ILSON_HOME/vault/CONTEXT.md"
+}
+
+company_onboarded() {
+    local context company
+    context=$(company_context_path) || return 1
+    [ -f "$context" ] || return 1
+    company=$(sed -n 's/^- 회사명: *//p' "$context" | head -1)
+    case "$company" in ''|'('* ) return 1 ;; *) return 0 ;; esac
+}
+
+nonempty_json_object() {
+    local f="$1"
+    [ -f "$f" ] && [ ! -L "$f" ] && [ -r "$f" ] || return 1
+    if has jq; then
+        jq -e 'type == "object" and length > 0' "$f" >/dev/null 2>&1
+    elif has python3; then
+        python3 -c 'import json, sys; d = json.load(open(sys.argv[1], encoding="utf-8")); sys.exit(0 if isinstance(d, dict) and len(d) > 0 else 1)' "$f" >/dev/null 2>&1
+    else
+        return 1
+    fi
+}
+
+cloud_paired() {
+    local state_dir="$ILSON_HOME/state" p="$ILSON_HOME/state/pairing.json"
+    [ -d "$state_dir" ] && [ ! -L "$state_dir" ] || return 1
+    if nonempty_json_object "$state_dir/cloud-runner.json"; then
+        return 0
+    fi
+    if nonempty_json_object "$state_dir/cloud-pairing.json"; then
+        return 0
+    fi
+    [ -f "$p" ] && [ ! -L "$p" ] && [ -r "$p" ] || return 1
+    if has jq; then
+        jq -e \
+            'type == "object" and ((del(.telegram_bot_token, .telegram_chat_id, .telegram_bot_id, .telegram_bot_username, .telegram_verified_at) | length) > 0)' \
+            "$p" >/dev/null 2>&1
+    elif has python3; then
+        python3 -c '
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+tg = {"telegram_bot_token", "telegram_chat_id", "telegram_bot_id", "telegram_bot_username", "telegram_verified_at"}
+sys.exit(0 if isinstance(d, dict) and any(k not in tg for k in d) else 1)
+' "$p" >/dev/null 2>&1
+    else
+        return 1
+    fi
 }
 
 # ============================================================================
@@ -404,14 +476,57 @@ valid_feed() {
 }
 
 saved_feed_invalid() {
-    local feed="$ILSON_HOME/.updates/feed" saved
+    local feed="$ILSON_HOME/.updates/feed" saved size clean_size
     [ -f "$feed" ] || return 1
-    [ "$(( $(wc -c < "$feed") ))" -le 4096 ] || return 0
+    [ -r "$feed" ] || return 0
+    size="$(wc -c < "$feed" 2>/dev/null | tr -d '[:space:]')" || return 0
+    [ -n "$size" ] && [ "$size" -le 4096 ] || return 0
     # A NUL is invalid to update.py, and the shell would silently drop it.
-    [ "$(LC_ALL=C tr -d '\000' < "$feed" | wc -c)" -eq "$(wc -c < "$feed")" ] || return 0
+    clean_size="$(LC_ALL=C tr -d '\000' < "$feed" 2>/dev/null | wc -c | tr -d '[:space:]')" || return 0
+    [ "$clean_size" = "$size" ] || return 0
     saved="$(LC_ALL=C sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d' "$feed" 2>/dev/null)" || return 0
     [ -z "$saved" ] && return 1
     ! valid_feed "$saved"
+}
+
+is_deprecated_feed_url() {
+    local url rest host path
+    case "$1" in *$'\n'*|*$'\r'*) return 1 ;; esac
+    url="$(printf '%s' "$1" | LC_ALL=C tr 'A-Z' 'a-z')"
+    case "$url" in
+        http://*)  rest="${url#http://}" ;;
+        https://*) rest="${url#https://}" ;;
+        *) return 1 ;;
+    esac
+    case "$rest" in
+        */*) host="${rest%%/*}"; path="/${rest#*/}" ;;
+        *) return 1 ;;
+    esac
+    case "$host" in
+        ilson.work|www.ilson.work|ilson.work:443|www.ilson.work:443|ilson.work:80|www.ilson.work:80) ;;
+        *) return 1 ;;
+    esac
+    case "$path" in
+        /downloads/box|/downloads/box/*|/downloads/box\?*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+saved_feed_deprecated() {
+    local feed="$ILSON_HOME/.updates/feed" saved size clean_size
+    [ -f "$feed" ] && [ ! -L "$feed" ] && [ -r "$feed" ] || return 1
+    size="$(wc -c < "$feed" 2>/dev/null | tr -d '[:space:]')" || return 1
+    [ -n "$size" ] && [ "$size" -le 4096 ] || return 1
+    clean_size="$(LC_ALL=C tr -d '\000' < "$feed" 2>/dev/null | wc -c | tr -d '[:space:]')" || return 1
+    [ "$clean_size" = "$size" ] || return 1
+    saved="$(LC_ALL=C sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d' "$feed" 2>/dev/null)" || return 1
+    [ -n "$saved" ] && valid_feed "$saved" && is_deprecated_feed_url "$saved"
+}
+
+stamped_feed_deprecated() {
+    local stamped
+    stamped="$(sed -n "s/^FEED='\([^']*\)'[[:space:]]*\$/\1/p" "$SELF_DIR/tools/update.py" 2>/dev/null | head -n 1)"
+    [ -n "$stamped" ] && valid_feed "$stamped" && is_deprecated_feed_url "$stamped"
 }
 
 check_update_feed() {
@@ -420,12 +535,26 @@ check_update_feed() {
         warn "업데이트 폴더가 링크임 — 고칠 때까지 업데이트가 멈춥니다" "$store 를 실제 폴더로 되돌린 뒤 ilson update 를 실행하세요"
     elif [ -L "$feed" ] || { [ -e "$feed" ] && [ ! -f "$feed" ]; }; then
         warn "업데이트 주소 파일을 쓸 수 없음 — 고칠 때까지 업데이트가 멈춥니다" "$feed 를 지운 뒤 ilson update 를 실행하세요"
-    elif [ -n "${ILSON_UPDATE_FEED:-}" ] || grep -q "^FEED='https://" "$SELF_DIR/tools/update.py" 2>/dev/null; then
-        ok "업데이트 주소" "설정됨"
+    elif [ -n "${ILSON_UPDATE_FEED:-}" ]; then
+        if is_deprecated_feed_url "$ILSON_UPDATE_FEED"; then
+            warn "구버전 업데이트 주소 사용 중 (ILSON_UPDATE_FEED)" "전환 명령: unset ILSON_UPDATE_FEED && ilson update --feed $CANONICAL_FEED"
+        elif ! valid_feed "$ILSON_UPDATE_FEED"; then
+            warn "업데이트 주소(ILSON_UPDATE_FEED)가 올바르지 않음" "unset ILSON_UPDATE_FEED 후 ilson update 를 실행하세요"
+        else
+            ok "업데이트 주소" "설정됨"
+        fi
+    elif grep -q "^FEED='https://" "$SELF_DIR/tools/update.py" 2>/dev/null; then
+        if stamped_feed_deprecated; then
+            warn "구버전 업데이트 주소 사용 중" "전환 명령: ilson update --feed $CANONICAL_FEED"
+        else
+            ok "업데이트 주소" "설정됨"
+        fi
     elif saved_feed_invalid; then
         warn "업데이트 주소 파일을 쓸 수 없음 — 고칠 때까지 업데이트가 멈춥니다" "$feed 를 지운 뒤 ilson update 를 실행하세요"
+    elif saved_feed_deprecated; then
+        warn "구버전 업데이트 주소 사용 중" "전환 명령: ilson update --feed $CANONICAL_FEED"
     elif grep -q "^DEFAULT_FEED='https://" "$SELF_DIR/tools/update.py" 2>/dev/null ||
-        { [ -f "$feed" ] && [ -n "$(tr -d '[:space:]' < "$feed" 2>/dev/null)" ]; }; then
+        { [ -f "$feed" ] && [ -r "$feed" ] && [ -n "$(tr -d '[:space:]' < "$feed" 2>/dev/null)" ]; }; then
         ok "업데이트 주소" "설정됨"
     else
         warn "업데이트 주소 없음 — 자동 업데이트를 건너뜁니다. 설치를 도와준 담당자에게 받은 주소로 ilson update --feed <주소> 를 한 번 실행하세요"
@@ -1059,18 +1188,18 @@ setup_body() {
     setup_telegram
     diag_step_end setup.telegram ok OK false 0
     diag_skip setup.auth-pending AUTH_PENDING false
-    printf '\n사람이 마칠 단계:\n'
-    printf '  • 설정 안내·업무 상태·보고서는 ilson open 으로 웹 관리자에서 확인\n'
-    claude_logged_in || printf '  • claude 실행 → 본인 구독 계정으로 로그인\n'
-    printf '  • codex 실행 → 본인 ChatGPT 계정으로 로그인 (Box 정기 업무는 Claude 사용)\n'
-    printf '  • cd "%s" 후 claude /onboard → 폴더 신뢰 확인과 회사 인터뷰\n' "$ILSON_HOME"
-    printf '  • Obsidian 에서 "%s/vault" 폴더 열기\n' "$ILSON_HOME"
-    printf '  • 상시 전원 설정: ilson setup --configure-machine (관리자 비밀번호 필요)\n'
-    printf '  • 회사 정보 준비 후 ilson start 로 예약 업무 시작\n'
-    printf '  • 이후 설치·설정·업무 요청은 ilson chat (관리용 자동 심사 모드)\n'
-    printf '  • 텔레그램 알림 연결·변경: ilson telegram connect\n'
-    printf '  • Herdr와 Aside를 열어 필요한 계정에 직접 로그인하고 macOS 권한을 설정\n'
-    printf '  • 웹 검색: ilson doctor --probe-search (공개 검색 1회). 예약 검색은 이 기기에서 tvly login 후 점검 권장\n'
+    printf '\n필수 2단계 (지금 바로 시작):\n'
+    if claude_logged_in; then
+        printf '  1. 회사 소개: cd "%s" && claude /onboard (폴더 신뢰 확인 포함)\n' "$ILSON_HOME"
+    else
+        printf '  1. Claude 로그인 + 회사 소개: claude 실행해 로그인 → cd "%s" && claude /onboard\n' "$ILSON_HOME"
+    fi
+    printf '  2. 예약 업무 시작: ilson start (일상 결재·보고서·위키는 https://ilson.work · 로컬 설정·진단은 ilson open)\n'
+    printf '  → 현재 준비 상태와 다음 명령은 언제든 ilson guide (또는 ilson quickstart) 로 확인하세요.\n'
+    printf '\n선택 확장 (나중에 필요할 때 — 지금 안 해도 사용 가능):\n'
+    printf '  • 텔레그램 알림: ilson telegram connect · Codex 자동 폴백: codex 로그인\n'
+    printf '  • 상시 전원: ilson setup --configure-machine · 원격 접속: Tailscale · Obsidian 볼트: "%s/vault"\n' "$ILSON_HOME"
+    printf '  • Herdr/Aside 로그인 · 웹 검색 점검: ilson doctor --probe-search · 관리 대화: ilson chat\n'
     check_remote
     if [ "$REMOTE_STATE" != connected ]; then
         printf '\n기본 설치는 완료됐습니다. 원격 연결은 위 안내에 따라 확인한 뒤 ilson doctor 로 다시 점검하세요.\n'
@@ -1106,9 +1235,159 @@ start_jobs() {
     telegram_configured || warn "텔레그램 미연결" "보고서는 볼트에 저장됩니다. ilson telegram connect 로 알림 연결"
 }
 
+guide_company_staff() {
+    local doctor_out="$1"
+    printf '일손 직원 워크스페이스 안내 (ilson guide) — %s\n\n' "$ILSON_HOME"
+    printf '%s\n\n' "$doctor_out"
+    printf '[직원 사용 안내]\n'
+    printf '  • 일상 결재·보고서·위키 확인: https://ilson.work\n'
+    printf '  • 이 맥에서는 본인 Claude로 배정된 회사/개인 파일만 사용합니다.\n'
+    printf '  • 예약 업무·웹 관리자·권한 변경은 회사 대표(관리자) 계정에서만 관리합니다.\n'
+    printf '  • 접근 오류나 권한 문의는 회사 대표(관리자)에게 확인하세요.\n'
+}
+
+guide() {
+    if [ -e "$ILSON_HOME/state/company.json" ] || [ -L "$ILSON_HOME/state/company.json" ]; then
+        local company_doctor
+        if ! has python3 || [ ! -f "$TEMPLATE/lib/access_policy.py" ]; then
+            printf '회사 접근 정책을 확인할 수 없습니다.\n' >&2
+            return 1
+        fi
+        company_doctor=$(python3 "$TEMPLATE/lib/access_policy.py" --home "$ILSON_HOME" doctor) || return 1
+        case "$company_doctor" in
+            '회사 모드: 직원'*)
+                guide_company_staff "$company_doctor"
+                return 0
+                ;;
+            '회사 모드: 대표'*)
+                python3 "$TEMPLATE/lib/access_policy.py" --home "$ILSON_HOME" guard >/dev/null || return 1
+                ;;
+            *)
+                printf '회사 접근 정책 상태를 확인할 수 없습니다.\n' >&2
+                return 1
+                ;;
+        esac
+    fi
+
+    local box_ready=0 claude_ok=0 trust_ok=0 context_ok=0 jobs_ok=0 feed_state=ok feed_fix_cmd="" next_cmd=""
+    [ -f "$ILSON_HOME/CLAUDE.md" ] && box_ready=1
+    claude_logged_in && claude_ok=1
+    box_trusted && trust_ok=1
+    company_onboarded && context_ok=1
+    if [ -f "$ILSON_HOME/state/setup-complete" ] && [ ! -f "$ILSON_HOME/state/setup-pending" ] && ! is_sandbox_box; then
+        jobs_ok=1
+    fi
+    if [ -L "$ILSON_HOME/.updates" ] || [ -L "$ILSON_HOME/.updates/feed" ] || { [ -e "$ILSON_HOME/.updates/feed" ] && [ ! -f "$ILSON_HOME/.updates/feed" ]; }; then
+        feed_state=broken
+    elif [ -n "${ILSON_UPDATE_FEED:-}" ]; then
+        if is_deprecated_feed_url "$ILSON_UPDATE_FEED"; then
+            feed_state=legacy_env
+            feed_fix_cmd="unset ILSON_UPDATE_FEED && ilson update --feed $CANONICAL_FEED"
+        elif ! valid_feed "$ILSON_UPDATE_FEED"; then
+            feed_state=broken
+        fi
+    elif grep -q "^FEED='https://" "$SELF_DIR/tools/update.py" 2>/dev/null; then
+        if stamped_feed_deprecated; then
+            feed_state=legacy
+            feed_fix_cmd="ilson update --feed $CANONICAL_FEED"
+        fi
+    elif saved_feed_invalid; then
+        feed_state=broken
+    elif saved_feed_deprecated; then
+        feed_state=legacy
+        feed_fix_cmd="ilson update --feed $CANONICAL_FEED"
+    fi
+
+    printf '일손 빠른 시작 체크리스트 (ilson guide) — %s\n' "$ILSON_HOME"
+
+    printf '\n[필수 2단계]\n'
+    printf '  1단계 · Claude 로그인 & 회사 소개\n'
+    if [ "$claude_ok" = 1 ]; then
+        printf '    ✅ Claude 로그인 완료\n'
+    elif has claude; then
+        printf '    ⏳ Claude 로그인 필요 — claude 실행 후 브라우저 로그인\n'
+    else
+        printf '    ⏳ Claude Code 미설치 — ilson setup 실행 필요\n'
+    fi
+    if [ "$trust_ok" = 1 ]; then
+        printf '    ✅ 박스 폴더 신뢰 완료\n'
+    else
+        printf '    ⏳ 박스 폴더 신뢰 필요 — 박스 폴더에서 claude 실행 시 신뢰 수락\n'
+    fi
+    if [ "$context_ok" = 1 ]; then
+        printf '    ✅ 회사 정보(CONTEXT.md) 준비 완료\n'
+    else
+        printf '    ⏳ 회사 정보(CONTEXT.md) 미입력 — cd "%s" && claude /onboard\n' "$ILSON_HOME"
+    fi
+
+    printf '  2단계 · 예약 업무 가동\n'
+    if [ "$jobs_ok" = 1 ]; then
+        printf '    ✅ 예약 업무 가동 중 (state/setup-complete)\n'
+    elif is_sandbox_box; then
+        printf '    ⏳ 샌드박스 상태 — 실제 가동은 ilson setup 후 ilson start\n'
+    elif [ -f "$ILSON_HOME/state/setup-pending" ]; then
+        printf '    ⏳ 예약 업무 대기 중 (state/setup-pending) — 1단계 완료 후 ilson start\n'
+    elif [ "$box_ready" = 0 ]; then
+        printf '    ⏳ 박스 기본 구성 없음 — 먼저 ilson setup 실행\n'
+    else
+        printf '    ⏳ 예약 업무 미가동 — 1단계 완료 후 ilson start\n'
+    fi
+
+    printf '\n[선택 항목 — 지금 안 해도 사용 가능]\n'
+    if codex_logged_in; then
+        printf '  ✅ Codex 자동 폴백 (선택): 준비됨\n'
+    elif has codex; then
+        printf '  ⚪ Codex 자동 폴백 (선택): 설치됨 · 미로그인 (필요 시 codex 로그인)\n'
+    else
+        printf '  ⚪ Codex 자동 폴백 (선택): 미설치 (필요 시 ilson setup)\n'
+    fi
+    if telegram_configured; then
+        printf '  ✅ 텔레그램 알림 (선택): 연결됨 (점검: ilson telegram status --verify)\n'
+    else
+        printf '  ⚪ 텔레그램 알림 (선택): 미연결 (필요 시 ilson telegram connect)\n'
+    fi
+    if cloud_paired; then
+        printf '  ✅ 클라우드 ilson.work 연결 (선택): 연결됨 (일상 결재·보고서·위키: https://ilson.work)\n'
+    else
+        printf '  ⚪ 클라우드 ilson.work 연결 (선택): 미연결 (필요 시 ilson cloud pair · https://ilson.work)\n'
+    fi
+    if [ "$feed_state" = legacy_env ]; then
+        printf '  ⚠️  업데이트 주소 (선택·전환 권장): 구버전 업데이트 주소 사용 중 (ILSON_UPDATE_FEED)\n'
+        printf '      전환 명령: %s\n' "$feed_fix_cmd"
+    elif [ "$feed_state" = legacy ]; then
+        printf '  ⚠️  업데이트 주소 (선택·전환 권장): 구버전 업데이트 주소 사용 중\n'
+        printf '      전환 명령: %s\n' "$feed_fix_cmd"
+    elif [ "$feed_state" = broken ]; then
+        printf '  ⚠️  업데이트 주소 (선택): 주소 파일 확인 필요 — ilson doctor 로 점검하세요\n'
+    else
+        printf '  ✅ 업데이트 주소 (선택): GitHub Releases 기본 배포 사용 가능\n'
+    fi
+
+    if [ "$box_ready" = 0 ] || is_sandbox_box; then
+        next_cmd="ilson setup"
+    elif [ "$claude_ok" = 0 ]; then
+        next_cmd="claude"
+    elif [ "$trust_ok" = 0 ] || [ "$context_ok" = 0 ]; then
+        next_cmd="cd \"$ILSON_HOME\" && claude /onboard"
+    elif [ "$jobs_ok" = 0 ]; then
+        next_cmd="ilson start"
+    elif [ "$feed_state" = legacy_env ] || [ "$feed_state" = legacy ]; then
+        next_cmd="$feed_fix_cmd"
+    else
+        next_cmd="ilson open"
+    fi
+
+    printf '\n다음 실행할 명령:\n  %s\n' "$next_cmd"
+    if [ "$next_cmd" = "ilson open" ]; then
+        printf '(필수 2단계 완료! 일상 결재·보고서·위키는 https://ilson.work · 로컬 설정·진단은 ilson open)\n'
+    fi
+    return 0
+}
+
 usage() {
     cat <<'EOF'
 사용법: ilson <명령> [옵션]
+  guide | quickstart                            현재 준비 상태 체크리스트와 다음 실행 명령 1줄 안내
   doctor [--probe-tcc] [--probe-search]         박스 점검 (probe-search 는 공개 검색 1회)
   setup [--configure-machine] [--sandbox]      도구·볼트·예약 파일 구성 (로그인은 직접)
   init                                        setup 과 같은 명령 (코드 없이 로컬 사용 가능)
@@ -1150,12 +1429,12 @@ if [ "$cmd" = company ]; then
     exec python3 "$TEMPLATE/lib/company.py" --home "$ILSON_HOME" "$@"
 fi
 case "$cmd" in
-    doctor|curator|diary|help|--help|-h|'') ;;
+    doctor|guide|quickstart|curator|diary|help|--help|-h|'') ;;
     *) if [ -e "$ILSON_HOME/state/company.json" ] || [ -L "$ILSON_HOME/state/company.json" ]; then
            python3 "$TEMPLATE/lib/access_policy.py" --home "$ILSON_HOME" guard || exit 1
        fi ;;
 esac
-if [ "$cmd" = doctor ] && [ -e "$ILSON_HOME/state/company.json" ]; then
+if [ "$cmd" = doctor ] && { [ -e "$ILSON_HOME/state/company.json" ] || [ -L "$ILSON_HOME/state/company.json" ]; }; then
     python3 "$TEMPLATE/lib/access_policy.py" --home "$ILSON_HOME" doctor || exit 1
     case " $* " in *' --install '*|*' --share '*) ;; *) exit 0 ;; esac
 fi
@@ -1188,7 +1467,7 @@ if [ "$cmd" = curator ] || [ "$cmd" = diary ]; then
 fi
 # Setup and safe diagnostic/stop commands remain usable without a license.
 case "$cmd:${1:-}" in
-    setup:*|init:*|doctor:*|help:*|--help:*|-h:*|:*) ;;
+    setup:*|init:*|doctor:*|guide:*|quickstart:*|help:*|--help:*|-h:*|:*) ;;
     open:*|admin:start|admin:stop|admin:status|admin:|pause:*|telegram:status|telegram:approval-status|telegram:approval-stop|telegram:approval-disconnect|cloud:status) ;;
     update:--rollback|usage:|usage:stop) ;;
     *:--help|*:-h) ;;
@@ -1295,6 +1574,7 @@ while [ $# -gt 0 ]; do
 done
 case "$cmd" in
     doctor) doctor ;;
+    guide|quickstart) guide ;;
     setup|init) setup ;;
     start) start_jobs ;;
     chat) chat_box ;;
