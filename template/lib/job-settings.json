@@ -11,6 +11,11 @@
     ],
     "deny": [
       "Read(**/pairing.json)", "Read(**/.env*)",
+      "Read(./state/**)",
+      "Read(**/.ssh/**)", "Read(**/.aws/**)", "Read(**/.gnupg/**)",
+      "Read(**/.claude.json)", "Read(**/.claude/**)", "Read(**/.codex/**)",
+      "Read(**/id_rsa*)", "Read(**/id_ed25519*)",
+      "Read(**/*.pem)", "Read(**/*.key)", "Read(**/*credentials*)",
       "Read(./vault/.ilson-learning/**)",
       "Edit(./vault/.ilson-learning/**)", "Write(./vault/.ilson-learning/**)",
       "Edit(./vault/lessons/approved-learning.md)", "Write(./vault/lessons/approved-learning.md)",

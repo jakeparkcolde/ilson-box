@@ -200,17 +200,31 @@ print(h.hexdigest())
 PY
 }
 
-_codex_out_leaks_token() {
+_output_leaks_secret() {
     local out_file="$1" token=""
     token=$(pairing_get telegram_bot_token)
-    [ -n "$token" ] || return 1
     printf '%s' "$token" | python3 -c '
-import sys
+import re, sys
 tok = sys.stdin.read()
-if not tok:
-    sys.exit(1)
 with open(sys.argv[1], "r", encoding="utf-8", errors="ignore") as f:
-    sys.exit(0 if tok in f.read() else 1)
+    text = f.read()
+if tok and tok in text:
+    sys.exit(0)
+patterns = (
+    r"sk-ant-[A-Za-z0-9_-]{8,}",
+    r"AKIA[0-9A-Z]{16}",
+    r"ghp_[A-Za-z0-9]{20,}",
+    r"github_pat_[A-Za-z0-9_]{10,}",
+    r"AIza[A-Za-z0-9_-]{20,}",
+    r"xox[baprs]-[A-Za-z0-9-]{10,}",
+    r"BEGIN [A-Z ]*PRIVATE KEY",
+    r"eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}",
+    r"(?:^|[^A-Za-z0-9])(?:bot)?[0-9]{7,12}:[A-Za-z0-9_-]{25,}",
+)
+for pat in patterns:
+    if re.search(pat, text):
+        sys.exit(0)
+sys.exit(1)
 ' "$out_file"
 }
 
@@ -247,13 +261,16 @@ _finish_job_success() {
 raw=$(mktemp) || exit 1
 raw_err=$(mktemp) || { rm -f "$raw"; exit 1; }
 effective_policy=$(mktemp) || { rm -f "$raw" "$raw_err"; printf '예약 권한 설정을 준비하지 못했습니다.\n' >&2; exit 1; }
+search_cnt=$(mktemp) || { rm -f "$raw" "$raw_err" "$effective_policy"; exit 1; }
+printf '0\n' > "$search_cnt" || { rm -f "$raw" "$raw_err" "$effective_policy" "$search_cnt"; exit 1; }
+claude_out=""
 codex_in=""
 codex_out=""
 codex_err=""
 child=""
 _cleanup_temps() {
     local f
-    for f in "$raw" "$raw_err" "$effective_policy" "$codex_in" "$codex_out" "$codex_err"; do
+    for f in "$raw" "$raw_err" "$effective_policy" "$search_cnt" "$claude_out" "$codex_in" "$codex_out" "$codex_err"; do
         [ -n "$f" ] && rm -f "$f"
     done
 }
@@ -267,9 +284,14 @@ _on_signal() {
     exit 143
 }
 trap '_cleanup_temps' EXIT
-# Existing installs keep their job-settings.json. Add the learning protections
-# to the per-run profile without overwriting the user's saved settings.
+# Existing installs keep their job-settings.json. Add the learning and sensitive-path
+# protections to the per-run profile without overwriting the user's saved settings.
 if ! jq '.permissions.deny = ((.permissions.deny // []) + [
+  "Read(./state/**)",
+  "Read(**/.ssh/**)", "Read(**/.aws/**)", "Read(**/.gnupg/**)",
+  "Read(**/.claude.json)", "Read(**/.claude/**)", "Read(**/.codex/**)",
+  "Read(**/id_rsa*)", "Read(**/id_ed25519*)",
+  "Read(**/*.pem)", "Read(**/*.key)", "Read(**/*credentials*)",
   "Read(./vault/.ilson-learning/**)",
   "Edit(./vault/.ilson-learning/**)", "Write(./vault/.ilson-learning/**)",
   "Edit(./vault/lessons/approved-learning.md)", "Write(./vault/lessons/approved-learning.md)"
@@ -290,7 +312,7 @@ trap '_on_signal' TERM INT HUP
 # CLI stderr can contain credentials and private upstream responses. Keep only
 # an exit-code and safe-category summary in the usual .err file, never the raw diagnostic stream.
 : > "$LOGS/$name.$today.err"
-"${T[@]}" claude --safe-mode -p --max-turns "$MAX_TURNS" --output-format json \
+ILSON_SEARCH_COUNTER_FILE="$search_cnt" "${T[@]}" claude --safe-mode -p --max-turns "$MAX_TURNS" --output-format json \
     --permission-mode dontAsk --setting-sources '' --settings "$policy" \
     --disable-slash-commands --strict-mcp-config --mcp-config '{"mcpServers":{}}' \
     --disallowedTools 'mcp__*' \
@@ -306,7 +328,19 @@ if [ "$rc" -eq 0 ] &&
     rm -f "$raw_err"
     raw_err=""
     printf 'CLI rc=%s reason=ok (stderr suppressed)\n' "$rc" > "$LOGS/$name.$today.err"
-    jq -r '.result' "$raw" > "$out" || exit 1
+    claude_out=$(mktemp) || exit 1
+    jq -r '.result' "$raw" > "$claude_out" || exit 1
+    if _output_leaks_secret "$claude_out"; then
+        rm -f "$claude_out"
+        claude_out=""
+        log "$name" 'FAILED: claude output rejected (secret detected)'
+        printf '원인: 민감 정보 노출 감지로 보고 전송을 차단했습니다.\n복구: 터미널에서 ilson doctor 로 설정과 업무 지침을 점검하세요.\n' > "$out"
+        "$LIB_DIR/notify.sh" "$name" --fail < "$out"
+        exit 1
+    fi
+    cat "$claude_out" > "$out" || exit 1
+    rm -f "$claude_out"
+    claude_out=""
     _finish_job_success ""
     exit 0
 fi
@@ -335,7 +369,7 @@ if { [ "$reason" = rate_limit ] || [ "$reason" = auth_expired ]; } &&
             printf '%s\n' "$task"
         } > "$codex_in"
         child=""
-        "${T[@]}" codex exec --ignore-user-config --ignore-rules --ephemeral \
+        ILSON_SEARCH_COUNTER_FILE="$search_cnt" "${T[@]}" codex exec --ignore-user-config --ignore-rules --ephemeral \
             --sandbox workspace-write --skip-git-repo-check --color never \
             -C "$VAULT" -o "$codex_out" - < "$codex_in" >/dev/null 2> "$codex_err" &
         child=$!
@@ -351,11 +385,11 @@ if { [ "$reason" = rate_limit ] || [ "$reason" = auth_expired ]; } &&
             exit 1
         fi
         if [ "$codex_rc" -eq 0 ] && [ -s "$codex_out" ] && grep -q '[^[:space:]]' "$codex_out"; then
-            if _codex_out_leaks_token "$codex_out"; then
+            if _output_leaks_secret "$codex_out"; then
                 rm -f "$codex_in" "$codex_out" "$codex_err"
                 codex_in=""; codex_out=""; codex_err=""
                 log "$name" 'FAILED: codex fallback output rejected (paired secret detected)'
-                printf '원인: 보조 CLI(Codex) 출력에서 민감 토큰이 감지되어 전달을 차단했습니다.\n복구: 터미널에서 ilson doctor 로 설정을 점검하세요.\n' > "$out"
+                printf '원인: 보조 CLI(Codex) 출력에서 민감 정보 노출 감지로 보고 전송을 차단했습니다.\n복구: 터미널에서 ilson doctor 로 설정을 점검하세요.\n' > "$out"
                 "$LIB_DIR/notify.sh" "$name" --fail < "$out"
                 exit 1
             fi
