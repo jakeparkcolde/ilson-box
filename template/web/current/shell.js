@@ -1,5 +1,6 @@
 /* 운영 화면 렌더러의 호스트. 데모 회사/가상 계정/발행 기록은 넣지 않는다. */
-const initialTab=location.pathname==='/usage-history'?'usage-history':new URLSearchParams(location.search).get('tab');
+const normalizeTab=tab=>tab==='staff'||tab==='org'?'studios':tab;
+const initialTab=location.pathname==='/usage-history'?'usage-history':normalizeTab(new URLSearchParams(location.search).get('tab'));
 const S={tab:initialTab||'sns',vaultSel:'',vaultGroup:'',vaultDoc:null};
 const deviceTabs={home:'overview',jobs:'jobs',reports:'reports',settings:'settings'};
 const LIVE={on:true,d:{vault:[],vault_ok:true}};
@@ -8,7 +9,7 @@ const typing=()=>{const n=document.activeElement;return ['TEXTAREA','SELECT'].in
 const renderIdle=()=>{if(!typing())render();};
 async function api(path,body){const response=await fetch(path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await response.json();if(!response.ok){if(response.status===401)location.assign('/');throw Error(data.error||'요청을 완료하지 못했습니다.');}return data;}
 const A={
-  go(tab){if(tab==='inbox'){SNS_OPS.view='pending';tab='sns';}if(!['home','jobs','reports','settings','sns','sns-accounts','research','knowledge','vault','received-files','packs','opensource','learn','dashboard','usage-history','staff','org','skills','replies'].includes(tab))return;const learn=window.IlsonLearn;if(tab==='learn'&&S.tab==='learn'&&learn){document.body.classList.remove('m-nav-open');learn.menu();return;}if(S.tab==='learn'&&tab!=='learn')learn?.leave();const changed=S.tab!==tab;if(changed&&window.IlsonPeople&&!IlsonPeople.canLeave())return;S.tab=tab;document.body.classList.remove('m-nav-open');render();if(changed){document.getElementById('main').scrollTop=0;window.scrollTo(0,0);if(tab==='learn')learn?.restore();}if(tab==='vault')loadVault();},
+  go(tab){tab=normalizeTab(tab);if(tab==='inbox'){SNS_OPS.view='pending';tab='sns';}if(!Object.hasOwn(railTabMap,tab))return;const learn=window.IlsonLearn;if(tab==='learn'&&S.tab==='learn'&&learn){document.body.classList.remove('m-nav-open');learn.menu();return;}if(S.tab==='learn'&&tab!=='learn')learn?.leave();const changed=S.tab!==tab;if(changed&&window.IlsonPeople&&!IlsonPeople.canLeave())return;S.tab=tab;document.body.classList.remove('m-nav-open');render();if(changed){document.getElementById('main').scrollTop=0;window.scrollTo(0,0);if(tab==='learn')learn?.restore();}if(tab==='vault')loadVault();},
   pickVaultGroup(group){group=decodeURIComponent(group);S.vaultGroup=group;render();},
   pickVault(rel){rel=decodeURIComponent(rel);S.vaultSel=rel;S.vaultDoc=null;render();},
   async vaultOpenDoc(rel,name,base,id){rel=decodeURIComponent(rel);name=decodeURIComponent(name);base=decodeURIComponent(base);const folder=LIVE.d.vault.find(r=>r.rel===rel),file=folder?.files.find(f=>id?f.id===decodeURIComponent(id):f.name===name);if(!file)return;S.vaultDoc={id:file.id,rel,name,base,content:null};render();try{const data=await api('/api/current/document',{id:file.id});if(S.vaultDoc?.id===file.id){S.vaultDoc.content=data.content;S.vaultDoc.category=data.path.split("/").at(-2);render();}}catch(error){if(S.vaultDoc?.id===file.id){S.vaultDoc.content=error.message;render();}}},
@@ -17,8 +18,8 @@ const A={
   async vaultSave(){const doc=S.vaultDoc;if(!doc)return;doc.draft=document.getElementById('vaultEditor').value;try{const result=await api('/api/workspace/documents',{title:doc.name,content:doc.draft.startsWith('# '+doc.name+'\n')?doc.draft.slice(doc.name.length+3).trimStart():doc.draft,category:['company','research','knowledge','sns'].includes(doc.category)?doc.category:'company',previous_id:doc.id});await loadVault();const folder=LIVE.d.vault.find(f=>f.files.some(d=>d.id===result.id));S.vaultSel=folder.rel;S.vaultGroup=folder.group;await A.vaultOpenDoc(vaultArg(folder.rel),vaultArg(result.title),'box',vaultArg(result.id));S.vaultDoc.msg='원본과 연결된 새 기록으로 저장했습니다.';render();}catch(error){doc.msg=error.message;render();}},
   noop(event){event?.preventDefault();}
 };
-const railTabMap={home:'home',jobs:'jobs',reports:'jobs',sns:'sns','sns-accounts':'sns',replies:'sns',dashboard:'dashboard','usage-history':'dashboard',vault:'vault','received-files':'vault',research:'vault',knowledge:'vault',packs:'vault',opensource:'vault',staff:'staff',org:'staff',skills:'staff',settings:'settings',learn:'learn'};
-const FOLDERS={work:true,company:false,platform:false};
+const railTabMap={home:'home',jobs:'jobs',reports:'jobs',sns:'sns','sns-accounts':'sns',replies:'sns',dashboard:'dashboard','usage-history':'dashboard',studios:'studios',wiki:'wiki',vault:'vault','received-files':'vault',skills:'vault',research:'vault',knowledge:'vault',packs:'vault',opensource:'vault',settings:'settings',learn:'learn'};
+const FOLDERS={work:true,knowledge:false,platform:false};
 const META={pending:null,jobs:null,reports:null,registered:null,attention:null};
 const PEERS={current:null,list:[],open:false};
 function peerUrl(base){
@@ -118,13 +119,14 @@ function renderNav(){
   const liveItems=[
     {id:'sns',dot:'lime',label:'SNS 운영',badgeId:'navBadgePending'},
     {id:'dashboard',dot:'muted',label:'자동화·컴퓨터 현황',countId:'navCountRegistered'},
+    {id:'studios',dot:'muted',label:'스튜디오 · 총괄'},
+    {id:'wiki',dot:'muted',label:'LLM 위키'},
     {id:'usage-history',dot:'alert',label:'내 AI 사용 기록',countId:'navCountAttention'}
   ];
-  const learnEntry=[{group:'배우기'},{id:'learn',icon:'graduation-cap',label:'Claude 배우기'}];
   const folders=[
     {key:'work',label:'업무 · 파일',items:[{id:'vault',label:'서류함'},{id:'received-files',label:'받은 파일'},{id:'sns-accounts',label:'SNS 계정 관리'},{id:'replies',label:'답글 초안'}]},
-    {key:'company',label:'우리 회사',items:[{id:'staff',label:'직원'},{id:'org',label:'조직도'},{id:'skills',label:'업무 스킬'}]},
-    {key:'platform',label:'플랫폼',items:[{id:'research',label:'리서치'},{id:'knowledge',label:'지식 훔치기'},{id:'packs',label:'팩 보관함'},{id:'opensource',label:'오픈소스'},learnEntry[1]]}
+    {key:'knowledge',label:'스킬 · 지식',items:[{id:'skills',label:'업무 스킬'},{id:'research',label:'리서치'},{id:'knowledge',label:'지식 훔치기'},{id:'packs',label:'팩 보관함'}]},
+    {key:'platform',label:'플랫폼',items:[{id:'opensource',label:'오픈소스'},{id:'learn',label:'Claude 배우기'}]}
   ];
   for(const f of folders){if(f.items.some(i=>i.id===S.tab))FOLDERS[f.key]=true;}
   const prevSearch=document.getElementById('sideSearch')?.value||'';
@@ -139,7 +141,8 @@ function renderNav(){
   const wsSub=PEERS.current?.subtitle||'운영 워크스페이스';
   const hasPeers=PEERS.list.length>0;
   const peerMenuHtml=hasPeers&&PEERS.open?`<div class="side-ws-menu" id="peerMenu" role="menu" aria-label="기기 전환"><div class="side-ws-menu-hd">연결된 기기</div>${PEERS.list.map((p,i)=>`<button class="side-ws-opt${p.current?' is-on':''}" type="button" role="menuitem" onclick="switchPeer(${i})"><span class="side-ws-opt-dot" aria-hidden="true"></span><span class="side-ws-opt-txt"><strong>${esc(p.name)}</strong>${p.subtitle?`<small>${esc(p.subtitle)}</small>`:''}</span>${p.current?'<span class="side-ws-opt-tag">현재</span>':''}</button>`).join('')}</div>`:'';
-  document.getElementById('sidebar').innerHTML=`<div class="side-ws-wrap"><button class="side-ws${PEERS.open?' is-open':''}" type="button" onclick="${hasPeers?'togglePeerMenu(event)':'A.go(\'home\')'}" aria-label="${esc(wsName)} ${esc(wsSub)}"${hasPeers?` aria-haspopup="menu" aria-expanded="${PEERS.open}"`:''}><span class="side-ws-mark" aria-hidden="true">일</span><span class="side-ws-text"><strong class="side-ws-name">${esc(wsName)}</strong><small class="side-ws-sub">${esc(wsSub)}</small></span><svg class="side-ws-chev" viewBox="0 0 12 16" width="12" height="16" aria-hidden="true"><path d="M2 6l4-4 4 4M2 10l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>${peerMenuHtml}</div><label class="side-search"><svg class="side-search-ic" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M10.5 10.5L14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><input id="sideSearch" type="search" placeholder="검색" aria-label="메뉴 검색" value="${esc(prevSearch)}"><kbd>⌘K</kbd></label><div class="side-scroll">${wsHtml}${liveHtml}${folderHtml}</div><div class="side-user"><span class="side-avatar" aria-hidden="true">일손<i class="side-avatar-dot"></i></span><span class="side-user-meta"><strong class="side-user-name">${esc(PEERS.current?.name||'이 미니의 일손')}</strong><small class="side-user-role">로컬 연결됨</small></span><span class="side-user-actions"><button id="themeToggle" type="button" title="테마 전환" aria-label="테마 전환">◐</button><button id="logout" type="button" title="접속 종료" aria-label="접속 종료"><i data-lucide="log-out"></i></button></span></div>`;
+  const cloudRoleHtml=`<div class="side-cloud-card" aria-label="클라우드 워크스페이스 안내"><p class="side-cloud-note">${esc('일상 결재·보고서·협업은 ilson.work · 이 화면은 로컬 설정·진단 콘솔')}</p><a class="side-cloud-link" href="${esc('https://ilson.work/')}" target="_blank" rel="noopener noreferrer"><span>${esc('ilson.work 열기 ↗')}</span></a></div>`;
+  document.getElementById('sidebar').innerHTML=`<div class="side-ws-wrap"><button class="side-ws${PEERS.open?' is-open':''}" type="button" onclick="${hasPeers?'togglePeerMenu(event)':'A.go(\'home\')'}" aria-label="${esc(wsName)} ${esc(wsSub)}"${hasPeers?` aria-haspopup="menu" aria-expanded="${PEERS.open}"`:''}><span class="side-ws-mark" aria-hidden="true">일</span><span class="side-ws-text"><strong class="side-ws-name">${esc(wsName)}</strong><small class="side-ws-sub">${esc(wsSub)}</small></span><svg class="side-ws-chev" viewBox="0 0 12 16" width="12" height="16" aria-hidden="true"><path d="M2 6l4-4 4 4M2 10l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>${peerMenuHtml}</div><label class="side-search"><svg class="side-search-ic" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M10.5 10.5L14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><input id="sideSearch" type="search" placeholder="검색" aria-label="메뉴 검색" value="${esc(prevSearch)}"><kbd>⌘K</kbd></label><div class="side-scroll">${wsHtml}${liveHtml}${folderHtml}</div>${cloudRoleHtml}<div class="side-user"><span class="side-avatar" aria-hidden="true">일손<i class="side-avatar-dot"></i></span><span class="side-user-meta"><strong class="side-user-name">${esc(PEERS.current?.name||'이 미니의 일손')}</strong><small class="side-user-role">로컬 연결됨</small></span><span class="side-user-actions"><button id="themeToggle" type="button" title="테마 전환" aria-label="테마 전환">◐</button><button id="logout" type="button" title="접속 종료" aria-label="접속 종료"><i data-lucide="log-out"></i></button></span></div>`;
   const searchEl=document.getElementById('sideSearch');
   if(searchEl){
     searchEl.oninput=()=>filterNav(searchEl.value);
@@ -161,6 +164,8 @@ function renderNav(){
 function render(){
   const main=document.getElementById('main');
   if(S.tab!=='opensource')window.IlsonOpensource?.leave();
+  const wikiStudios=S.tab==='studios'||S.tab==='wiki';
+  if(!wikiStudios)window.IlsonWikiStudios?.leave();
   const inputState=[...main.querySelectorAll('input[id],textarea[id]')].filter(n=>n.type!=='password').map(n=>({id:n.id,value:n.value,focus:n===document.activeElement,start:n.selectionStart,end:n.selectionEnd}));
   const keep=snsCaptureView();
   history.replaceState(null,'',S.tab==='usage-history'?'/usage-history':(location.pathname==='/usage-history'?'/current/':'')+'?tab='+encodeURIComponent(S.tab)+(S.tab==='learn'&&window.IlsonLearn?IlsonLearn.query():''));
@@ -176,9 +181,13 @@ function render(){
     }else if(existing.dataset.view!==view){
       existing.dataset.view=view;existing.src='/#device&embedded&view='+encodeURIComponent(view);
     }
-  }else if(['staff','org','skills'].includes(S.tab)){
+  }else if(S.tab==='skills'){
     window.IlsonDashboard?.leave();
     IlsonPeople.mount(main,S.tab);
+  }else if(wikiStudios){
+    window.IlsonPeople?.leave();
+    window.IlsonDashboard?.leave();
+    IlsonWikiStudios.mount(main,S.tab);
   }else if(S.tab==='opensource'){
     window.IlsonPeople?.leave();
     window.IlsonDashboard?.leave();
