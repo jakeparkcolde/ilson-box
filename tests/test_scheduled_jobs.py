@@ -559,6 +559,337 @@ class RunJobNotifyTests(unittest.TestCase):
             if job.poll() is None:
                 job.kill()
 
+    def test_한도도달시_codex로_자동전환하고_비밀stderr는_차단한다(self):
+        secret = "SYNTHETIC_CLAUDE_STDERR_SECRET_429"
+        codex_secret = "SYNTHETIC_CODEX_STDERR_SECRET_999"
+        (self.bin / "claude").write_text(
+            "#!" + sys.executable + "\nimport sys\nsys.stdin.read()\n"
+            f"print('429 Too Many Requests: hit your usage limit {secret}', file=sys.stderr)\n"
+            "sys.exit(1)\n"
+        )
+        (self.bin / "claude").chmod(0o700)
+        (self.bin / "codex").write_text(
+            "#!" + sys.executable + "\nimport sys\nfrom pathlib import Path\n"
+            "prompt = sys.stdin.read()\n"
+            f"print('debug {codex_secret}', file=sys.stderr)\n"
+            "out_path = sys.argv[sys.argv.index('-o') + 1]\n"
+            "Path(out_path).write_text('Codex 자동 전환 브리핑 완료\\n', encoding='utf-8')\n"
+            "sys.exit(0)\n"
+        )
+        (self.bin / "codex").chmod(0o700)
+
+        r = self.run_job("briefing")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue((self.box / "state/last-run.briefing").exists())
+        sent = self.sent()
+        self.assertIn("ARGS:briefing\nCodex 자동 전환 브리핑 완료", sent)
+        self.assertNotIn("--fail", sent)
+
+        log_text = (self.box / "logs/briefing.log").read_text(encoding="utf-8")
+        self.assertIn("fallback: claude (rate_limit) -> codex", log_text)
+        self.assertIn("ok (codex fallback", log_text)
+
+        date = today()
+        err_text = (self.box / f"logs/briefing.{date}.err").read_text(encoding="utf-8")
+        self.assertEqual(err_text.strip(), "CLI rc=1 reason=rate_limit (stderr suppressed)")
+        out_text = (self.box / f"logs/briefing.{date}.out").read_text(encoding="utf-8")
+        self.assertIn("Codex 자동 전환 브리핑 완료", out_text)
+
+        for blob in (r.stdout, r.stderr, sent, log_text, err_text, out_text):
+            self.assertNotIn(secret, blob)
+            self.assertNotIn(codex_secret, blob)
+
+    def test_인증만료시_보조CLI가_없으면_원인과_claude_login_복구안내를_보내고_비밀을_누출하지않는다(self):
+        secret = "SYNTHETIC_OAUTH_TOKEN_SECRET_401"
+        (self.bin / "claude").write_text(
+            "#!" + sys.executable + "\nimport sys\nsys.stdin.read()\n"
+            f"print('401 Unauthorized: not logged in {secret}', file=sys.stderr)\n"
+            "sys.exit(1)\n"
+        )
+        (self.bin / "claude").chmod(0o700)
+
+        r = self.run_job("briefing", ILSON_CODEX_FALLBACK="0")
+        self.assertEqual(r.returncode, 1)
+        self.assertFalse((self.box / "state/last-run.briefing").exists())
+
+        sent = self.sent()
+        self.assertIn("ARGS:briefing --fail", sent)
+        self.assertIn("원인: Claude 구독 로그인 세션 만료", sent)
+        self.assertIn("복구: 터미널에서 claude login 을 실행한 뒤 다시 확인하세요.", sent)
+
+        date = today()
+        err_text = (self.box / f"logs/briefing.{date}.err").read_text(encoding="utf-8")
+        self.assertEqual(err_text.strip(), "CLI rc=1 reason=auth_expired (stderr suppressed)")
+        out_text = (self.box / f"logs/briefing.{date}.out").read_text(encoding="utf-8")
+        self.assertIn("원인: Claude 구독 로그인 세션 만료", out_text)
+        self.assertIn("claude login", out_text)
+
+        log_text = (self.box / "logs/briefing.log").read_text(encoding="utf-8")
+        self.assertIn("FAILED rc=1 (auth_expired; stderr suppressed)", log_text)
+        for blob in (r.stdout, r.stderr, sent, log_text, err_text, out_text):
+            self.assertNotIn(secret, blob)
+
+    def test_한도도달후_codex_전환도_실패하면_실패알림에_안내를_포함하고_비밀을_차단한다(self):
+        secret1 = "SYNTHETIC_SECRET_CLAUDE_RL"
+        secret2 = "SYNTHETIC_SECRET_CODEX_FAIL"
+        (self.bin / "claude").write_text(
+            "#!" + sys.executable + "\nimport sys\nsys.stdin.read()\n"
+            f"print('usage limit reached {secret1}', file=sys.stderr)\n"
+            "sys.exit(1)\n"
+        )
+        (self.bin / "claude").chmod(0o700)
+        (self.bin / "codex").write_text(
+            "#!" + sys.executable + "\nimport sys\nsys.stdin.read()\n"
+            f"print('codex error {secret2}', file=sys.stderr)\n"
+            "sys.exit(2)\n"
+        )
+        (self.bin / "codex").chmod(0o700)
+
+        r = self.run_job("briefing")
+        self.assertEqual(r.returncode, 1)
+        self.assertFalse((self.box / "state/last-run.briefing").exists())
+        sent = self.sent()
+        self.assertIn("ARGS:briefing --fail", sent)
+        self.assertIn("원인: Claude 구독 사용량 한도 도달", sent)
+        self.assertIn("보조 CLI(Codex) 자동 전환도 실패했습니다.", sent)
+        log_text = (self.box / "logs/briefing.log").read_text(encoding="utf-8")
+        self.assertIn("fallback codex failed (rc=2 reason=cli_error; stderr suppressed)", log_text)
+        for blob in (r.stdout, r.stderr, sent, log_text):
+            self.assertNotIn(secret1, blob)
+            self.assertNotIn(secret2, blob)
+
+    def test_codex_전환은_격리플래그와_vault_경로를_전달하고_학습경계위반과_토큰유출을_차단한다(self):
+        import json
+        (self.bin / "claude").write_text(
+            "#!" + sys.executable + "\nimport sys\nsys.stdin.read()\n"
+            "print('429 Too Many Requests: usage limit reached', file=sys.stderr)\n"
+            "sys.exit(1)\n"
+        )
+        (self.bin / "claude").chmod(0o700)
+
+        args_file = Path(self.temp.name) / "codex.args.json"
+        stdin_file = Path(self.temp.name) / "codex.stdin.txt"
+        (self.bin / "codex").write_text(
+            "#!" + sys.executable + "\nimport json, os, sys\nfrom pathlib import Path\n"
+            "Path(os.environ['CODEX_ARGS_FILE']).write_text(json.dumps(sys.argv[1:]), encoding='utf-8')\n"
+            "Path(os.environ['CODEX_STDIN_FILE']).write_text(sys.stdin.read(), encoding='utf-8')\n"
+            "if os.environ.get('CODEX_VIOLATE_LEARNING'):\n"
+            "    p = Path(os.environ['ILSON_HOME']) / 'vault/.ilson-learning/tamper.md'\n"
+            "    p.parent.mkdir(parents=True, exist_ok=True)\n"
+            "    p.write_text('tampered', encoding='utf-8')\n"
+            "out_path = sys.argv[sys.argv.index('-o') + 1]\n"
+            "Path(out_path).write_text(os.environ.get('CODEX_OUT_BODY', '안전 브리핑 완료\\n'), encoding='utf-8')\n"
+            "sys.exit(0)\n"
+        )
+        (self.bin / "codex").chmod(0o700)
+
+        # 1) 격리 플래그 및 -C $VAULT 확인
+        r = self.run_job("briefing", CODEX_ARGS_FILE=str(args_file), CODEX_STDIN_FILE=str(stdin_file))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        argv = json.loads(args_file.read_text(encoding="utf-8"))
+        for flag in ("exec", "--ignore-user-config", "--ignore-rules", "--ephemeral",
+                     "--sandbox", "workspace-write", "--skip-git-repo-check", "--color", "never", "-C"):
+            self.assertIn(flag, argv)
+        self.assertEqual(argv[argv.index("-C") + 1], str(self.box / "vault"))
+        self.assertEqual(argv[-1], "-")
+        stdin_text = stdin_file.read_text(encoding="utf-8")
+        self.assertIn(".ilson-learning/", stdin_text)
+        self.assertIn("lessons/approved-learning.md", stdin_text)
+
+        # 2) 학습 경계 위반 시 결과 차단 + mark_run 금지
+        (self.box / "state/last-run.briefing").unlink(missing_ok=True)
+        self.capture.unlink(missing_ok=True)
+        r_viol = self.run_job("briefing", CODEX_ARGS_FILE=str(args_file), CODEX_STDIN_FILE=str(stdin_file),
+                              CODEX_VIOLATE_LEARNING="1", CODEX_OUT_BODY="위반된 출력 본문\n")
+        self.assertNotEqual(r_viol.returncode, 0)
+        self.assertFalse((self.box / "state/last-run.briefing").exists())
+        log_text = (self.box / "logs/briefing.log").read_text(encoding="utf-8")
+        self.assertIn("FAILED: codex fallback violated learning boundary", log_text)
+        self.assertIn("ARGS:briefing --fail", self.sent())
+        self.assertNotIn("위반된 출력 본문", self.sent())
+
+        # 3) 페어링된 텔레그램 봇 토큰이 codex 출력에 포함되면 차단 + 토큰 미노출
+        secret_tok = "123456789:FAKE_PAIRING_BOT_TOKEN_XYZ123456"
+        (self.box / "state/pairing.json").write_text(
+            json.dumps({"telegram_bot_token": secret_tok, "telegram_chat_id": "12345"}),
+            encoding="utf-8",
+        )
+        (self.box / "state/last-run.briefing").unlink(missing_ok=True)
+        self.capture.unlink(missing_ok=True)
+        r_tok = self.run_job("briefing", CODEX_ARGS_FILE=str(args_file), CODEX_STDIN_FILE=str(stdin_file),
+                             CODEX_OUT_BODY=f"누출 테스트 {secret_tok}\n")
+        self.assertNotEqual(r_tok.returncode, 0)
+        self.assertFalse((self.box / "state/last-run.briefing").exists())
+        date = today()
+        out_text = (self.box / f"logs/briefing.{date}.out").read_text(encoding="utf-8")
+        log_text = (self.box / "logs/briefing.log").read_text(encoding="utf-8")
+        self.assertIn("paired secret detected", log_text)
+        for blob in (r_tok.stdout, r_tok.stderr, self.sent(), out_text, log_text):
+            self.assertNotIn(secret_tok, blob)
+
+    def test_권한거절_JSON과_stderr는_우선분류되어_codex로_전환하지않는다(self):
+        codex_called = Path(self.temp.name) / "codex.called"
+        (self.bin / "codex").write_text(
+            "#!" + sys.executable + "\nimport os, sys\nfrom pathlib import Path\n"
+            f"Path({str(codex_called)!r}).write_text('called')\n"
+            "sys.exit(0)\n"
+        )
+        (self.bin / "codex").chmod(0o700)
+
+        # Case 1: JSON permission_denials + stderr에 rate_limit 문구가 섞여도 permission_denied 우선
+        (self.bin / "claude").write_text(
+            "#!" + sys.executable + "\nimport json, sys\nsys.stdin.read()\n"
+            "print('429 rate limit exceeded', file=sys.stderr)\n"
+            "print(json.dumps({'is_error': False, 'permission_denials': [{'tool_name': 'Bash'}], 'result': '429 rate limit'}))\n"
+            "sys.exit(0)\n"
+        )
+        (self.bin / "claude").chmod(0o700)
+        r1 = self.run_job("briefing")
+        self.assertNotEqual(r1.returncode, 0)
+        self.assertFalse(codex_called.exists())
+        date = today()
+        self.assertEqual(
+            (self.box / f"logs/briefing.{date}.err").read_text(encoding="utf-8").strip(),
+            "CLI rc=0 reason=permission_denied (stderr suppressed)",
+        )
+
+        # Case 2: stderr에 permission_denied + login 문구가 섞여도 permission_denied 우선 (auth_expired 오분류 금지)
+        (self.bin / "claude").write_text(
+            "#!" + sys.executable + "\nimport sys\nsys.stdin.read()\n"
+            "print('permission_denied: cannot access login token', file=sys.stderr)\n"
+            "sys.exit(1)\n"
+        )
+        (self.bin / "claude").chmod(0o700)
+        r2 = self.run_job("briefing")
+        self.assertEqual(r2.returncode, 1)
+        self.assertFalse(codex_called.exists())
+        self.assertEqual(
+            (self.box / f"logs/briefing.{date}.err").read_text(encoding="utf-8").strip(),
+            "CLI rc=1 reason=permission_denied (stderr suppressed)",
+        )
+
+    def test_error_max_turns와_일반본문_한도로그인은_codex로_전환하지않는다(self):
+        codex_called = Path(self.temp.name) / "codex.called"
+        (self.bin / "codex").write_text(
+            "#!" + sys.executable + "\nimport sys\nfrom pathlib import Path\n"
+            f"Path({str(codex_called)!r}).write_text('called')\n"
+            "sys.exit(0)\n"
+        )
+        (self.bin / "codex").chmod(0o700)
+        date = today()
+
+        cases = [
+            ("max_turns_korean", 0, {"is_error": True, "subtype": "error_max_turns",
+                                     "result": "사용량 한도와 로그인 만료 안내 문구 작성 중 최대 턴 도달"}),
+            ("bare_korean_words", 1, {"is_error": True, "result": "거래처 결제 한도 및 홈페이지 로그인 개선 보고"}),
+            ("non_error_result_ignored", 1, {"is_error": False, "result": "429 usage limit not logged in"}),
+        ]
+        for label, rc, payload in cases:
+            with self.subTest(case=label):
+                codex_called.unlink(missing_ok=True)
+                (self.bin / "claude").write_text(
+                    "#!" + sys.executable + "\nimport json, sys\nsys.stdin.read()\n"
+                    f"print(json.dumps({payload!r}, ensure_ascii=False))\n"
+                    f"sys.exit({rc})\n"
+                )
+                (self.bin / "claude").chmod(0o700)
+                r = self.run_job("briefing")
+                self.assertNotEqual(r.returncode, 0)
+                self.assertFalse(codex_called.exists(), f"codex should not run for {label}")
+                err_txt = (self.box / f"logs/briefing.{date}.err").read_text(encoding="utf-8").strip()
+                self.assertEqual(err_txt, f"CLI rc={rc} reason=cli_error (stderr suppressed)")
+
+    def test_codex_전환중_SIGTERM은_자식을_정리하고_임시파일누수와_실패알림을_남기지않는다(self):
+        import signal
+        (self.bin / "gtimeout").write_text(
+            "#!" + sys.executable + "\nimport os,signal,subprocess,sys\nos.setpgid(0,0)\n"
+            "child=subprocess.Popen(sys.argv[4:])\n"
+            "signal.signal(signal.SIGTERM,lambda s,f:child.send_signal(s))\n"
+            "sys.exit(child.wait())\n"
+        )
+        (self.bin / "gtimeout").chmod(0o700)
+        (self.bin / "claude").write_text(
+            "#!" + sys.executable + "\nimport sys\nsys.stdin.read()\n"
+            "print('429 Too Many Requests: usage limit reached', file=sys.stderr)\n"
+            "sys.exit(1)\n"
+        )
+        (self.bin / "claude").chmod(0o700)
+        codex_pid_file = Path(self.temp.name) / "codex.pid"
+        (self.bin / "codex").write_text(
+            "#!" + sys.executable + "\nimport os, sys, time\nfrom pathlib import Path\n"
+            "sys.stdin.read()\n"
+            "Path(os.environ['FAKE_CODEX_PID_FILE']).write_text(str(os.getpid()))\n"
+            "time.sleep(30)\n"
+        )
+        (self.bin / "codex").chmod(0o700)
+
+        job_tmp = Path(self.temp.name) / "job_tmpdir"
+        job_tmp.mkdir()
+        job = subprocess.Popen(
+            ["bash", str(self.box / "lib/run-job.sh"), "briefing"],
+            env=dict(self.env, TMPDIR=str(job_tmp), FAKE_CODEX_PID_FILE=str(codex_pid_file)),
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
+        )
+        codex_pid = None
+        try:
+            for _ in range(100):
+                if codex_pid_file.exists() and codex_pid_file.read_text():
+                    codex_pid = int(codex_pid_file.read_text())
+                    break
+                time.sleep(0.05)
+            self.assertIsNotNone(codex_pid, "가짜 codex가 시작하지 않았습니다")
+            job.send_signal(signal.SIGTERM)
+            job.wait(timeout=10)
+            time.sleep(0.3)
+            alive = True
+            try:
+                os.kill(codex_pid, 0)
+            except ProcessLookupError:
+                alive = False
+            self.assertFalse(alive, "SIGTERM 후에도 codex 자식이 살아 있습니다")
+            self.assertEqual(list(job_tmp.iterdir()), [], "임시 파일이 정리되지 않았습니다")
+            self.assertEqual(self.sent(), "")
+            self.assertFalse((self.box / "state/last-run.briefing").exists())
+        finally:
+            if codex_pid:
+                try:
+                    os.kill(codex_pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            if job.poll() is None:
+                job.kill()
+
+    def test_하이픈으로_시작하는_업무프롬프트도_codex_stdin으로_안전하게_전달된다(self):
+        import json
+        (self.box / ".claude/commands/dashjob.md").write_text(
+            "--not-a-flag -C /tmp\n실제 하이픈 시작 업무 $ARGUMENTS\n",
+            encoding="utf-8",
+        )
+        (self.bin / "claude").write_text(
+            "#!" + sys.executable + "\nimport sys\nsys.stdin.read()\n"
+            "print('429 usage limit', file=sys.stderr)\n"
+            "sys.exit(1)\n"
+        )
+        (self.bin / "claude").chmod(0o700)
+        args_file = Path(self.temp.name) / "dash.args.json"
+        stdin_file = Path(self.temp.name) / "dash.stdin.txt"
+        (self.bin / "codex").write_text(
+            "#!" + sys.executable + "\nimport json, os, sys\nfrom pathlib import Path\n"
+            "Path(os.environ['CODEX_ARGS_FILE']).write_text(json.dumps(sys.argv[1:]), encoding='utf-8')\n"
+            "Path(os.environ['CODEX_STDIN_FILE']).write_text(sys.stdin.read(), encoding='utf-8')\n"
+            "out_path = sys.argv[sys.argv.index('-o') + 1]\n"
+            "Path(out_path).write_text('하이픈 업무 완료\\n', encoding='utf-8')\n"
+            "sys.exit(0)\n"
+        )
+        (self.bin / "codex").chmod(0o700)
+
+        r = self.run_job("dashjob", CODEX_ARGS_FILE=str(args_file), CODEX_STDIN_FILE=str(stdin_file))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        argv = json.loads(args_file.read_text(encoding="utf-8"))
+        self.assertNotIn("--not-a-flag", argv)
+        self.assertIn("--not-a-flag -C /tmp", stdin_file.read_text(encoding="utf-8"))
+        self.assertIn("ARGS:dashjob\n하이픈 업무 완료", self.sent())
+
 
 class ChatGuidanceTests(unittest.TestCase):
     def test_관리대화는_예약업무_시험을_대화안에서_직접돌리지않는다(self):
