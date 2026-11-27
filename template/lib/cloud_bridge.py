@@ -21,7 +21,14 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import errno
-import fcntl
+try:
+    import fcntl  # type: ignore[import-not-found]
+except ImportError:  # Windows
+    fcntl = None  # type: ignore[assignment]
+try:
+    import msvcrt  # type: ignore[import-not-found]
+except ImportError:  # POSIX
+    msvcrt = None  # type: ignore[assignment]
 import hashlib
 import ipaddress
 import json
@@ -255,13 +262,14 @@ def _ensure_company_owner(home: Path | str) -> None:
         raise CloudBridgeError(
             "회사 모드에서는 대표(owner) 계정에서만 클라우드 워커·동기화를 실행할 수 있습니다."
         )
-    try:
-        if home_path.stat().st_uid != os.geteuid():
-            raise CloudBridgeError(
-                "회사 런타임 소유자 UID가 현재 실행 계정과 일치하지 않아 실행을 차단합니다."
-            )
-    except OSError as exc:
-        raise CloudBridgeError(f"회사 런타임 소유자 확인에 실패했습니다: {exc}") from exc
+    if hasattr(os, "geteuid"):
+        try:
+            if home_path.stat().st_uid != os.geteuid():
+                raise CloudBridgeError(
+                    "회사 런타임 소유자 UID가 현재 실행 계정과 일치하지 않아 실행을 차단합니다."
+                )
+        except OSError as exc:
+            raise CloudBridgeError(f"회사 런타임 소유자 확인에 실패했습니다: {exc}") from exc
 
 
 def _assert_not_symlink(path: Path) -> None:
@@ -1012,9 +1020,12 @@ def dispatch_approved_publishes(
     try:
         if lock_fd is not None:
             try:
-                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                if fcntl is not None:
+                    fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                elif msvcrt is not None:
+                    msvcrt.locking(lock_fd, msvcrt.LK_NBLCK, 1)
             except OSError as exc:
-                if exc.errno in (errno.EACCES, errno.EAGAIN):
+                if exc.errno in (errno.EACCES, errno.EAGAIN, getattr(errno, "EDEADLK", -1)):
                     return {
                         "locked": True,
                         "dry_run": dry_run,
@@ -1232,7 +1243,11 @@ def dispatch_approved_publishes(
     finally:
         if lock_fd is not None:
             try:
-                fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                if fcntl is not None:
+                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                elif msvcrt is not None:
+                    os.lseek(lock_fd, 0, os.SEEK_SET)
+                    msvcrt.locking(lock_fd, msvcrt.LK_UNLCK, 1)
             except OSError:
                 pass
             os.close(lock_fd)
@@ -1303,14 +1318,27 @@ def _standard_cli_search_paths(extra_paths: list[str] | None = None) -> list[str
     if env_path:
         candidates.extend(p for p in env_path.split(os.pathsep) if p)
     home_dir = str(Path.home())
-    candidates.extend(
-        [
-            "/opt/homebrew/bin",
-            "/usr/local/bin",
-            os.path.join(home_dir, ".local", "bin"),
-            os.path.join(home_dir, ".npm-global", "bin"),
-        ]
-    )
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA") or ""
+        localappdata = os.environ.get("LOCALAPPDATA") or ""
+        candidates.extend(
+            p
+            for p in (
+                os.path.join(home_dir, ".local", "bin"),
+                os.path.join(appdata, "npm") if appdata else "",
+                os.path.join(localappdata, "Microsoft", "WinGet", "Links") if localappdata else "",
+            )
+            if p
+        )
+    else:
+        candidates.extend(
+            [
+                "/opt/homebrew/bin",
+                "/usr/local/bin",
+                os.path.join(home_dir, ".local", "bin"),
+                os.path.join(home_dir, ".npm-global", "bin"),
+            ]
+        )
     if extra_paths:
         candidates.extend(p for p in extra_paths if p)
     seen: set[str] = set()
@@ -1323,9 +1351,15 @@ def _standard_cli_search_paths(extra_paths: list[str] | None = None) -> list[str
 
 
 def _find_cli_binary(name: str, *, extra_paths: list[str] | None = None) -> str | None:
-    """Locate a local CLI binary on PATH plus standard macOS install directories."""
+    """Locate a local CLI binary on PATH plus standard OS install directories."""
     search_path = os.pathsep.join(_standard_cli_search_paths(extra_paths))
     found = shutil.which(name, path=search_path)
+    if sys.platform == "win32" and found and found.lower().endswith(".ps1"):
+        for ext in (".cmd", ".exe", ".bat"):
+            alt = str(Path(found).with_suffix(ext))
+            if os.path.isfile(alt):
+                found = alt
+                break
     if found and os.path.isfile(found) and os.access(found, os.X_OK):
         return found
     return None
@@ -1539,7 +1573,7 @@ def _build_sanitized_cli_env() -> dict[str, str]:
     env = {
         k: v
         for k, v in os.environ.items()
-        if k not in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY")
+        if k.upper() not in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY")
     }
     env["PATH"] = os.pathsep.join(_standard_cli_search_paths())
     return env
@@ -1557,7 +1591,39 @@ def _close_proc_streams(proc: Any) -> None:
 
 def _terminate_process_group(proc: Any) -> None:
     pid = getattr(proc, "pid", None)
-    if isinstance(pid, int) and pid > 0:
+    if sys.platform == "win32":
+        try:
+            proc.terminate()
+        except OSError:
+            pass
+        try:
+            proc.wait(timeout=2.0)
+        except subprocess.TimeoutExpired:
+            pass
+        if proc.poll() is None and isinstance(pid, int) and pid > 0:
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(pid)],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=5.0,
+                )
+            except (OSError, subprocess.SubprocessError):
+                pass
+        if proc.poll() is None:
+            try:
+                proc.kill()
+            except OSError:
+                pass
+        if proc.poll() is None:
+            try:
+                proc.wait(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                pass
+        return
+
+    if isinstance(pid, int) and pid > 0 and hasattr(os, "killpg"):
         try:
             os.killpg(pid, signal.SIGTERM)
         except (ProcessLookupError, PermissionError, OSError):
@@ -1575,7 +1641,7 @@ def _terminate_process_group(proc: Any) -> None:
     except subprocess.TimeoutExpired:
         pass
     # Always send SIGKILL to the process group after wait so stubborn grandchildren cannot survive
-    if isinstance(pid, int) and pid > 0:
+    if isinstance(pid, int) and pid > 0 and hasattr(os, "killpg"):
         try:
             os.killpg(pid, signal.SIGKILL)
         except (ProcessLookupError, PermissionError, OSError):
@@ -1604,18 +1670,21 @@ def _exec_isolated_subprocess(
     env: dict[str, str],
     timeout_sec: float,
 ) -> tuple[int, str, str]:
-    proc = subprocess.Popen(
-        argv,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        cwd=cwd,
-        env=env,
-        start_new_session=True,
-    )
+    popen_kwargs: dict[str, Any] = {
+        "stdin": subprocess.PIPE,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "text": True,
+        "encoding": "utf-8",
+        "errors": "replace",
+        "cwd": cwd,
+        "env": env,
+    }
+    if sys.platform == "win32":
+        popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    else:
+        popen_kwargs["start_new_session"] = True
+    proc = subprocess.Popen(argv, **popen_kwargs)
     try:
         stdout, stderr = proc.communicate(input=stdin_text, timeout=timeout_sec)
         return int(proc.returncode or 0), stdout or "", stderr or ""
