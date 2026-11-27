@@ -15,6 +15,7 @@ import hashlib
 import hmac
 import json
 from pathlib import Path
+import platform
 import re
 import secrets
 import stat
@@ -1111,12 +1112,73 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+def _client_meta():
+    if os.name == 'nt' or sys.platform.startswith('win'):
+        os_name = 'Windows'
+    elif sys.platform == 'darwin':
+        os_name = 'macOS'
+    elif sys.platform.startswith('linux'):
+        os_name = 'Linux'
+    else:
+        os_name = 'unknown'
+    raw_arch = platform.machine().lower()
+    if raw_arch in ('arm64', 'aarch64'):
+        arch = 'arm64'
+    elif raw_arch == 'amd64':
+        arch = 'AMD64'
+    elif raw_arch == 'x86_64':
+        arch = 'x86_64'
+    else:
+        arch = 'unknown'
+    edition = 'windows-course' if os.name == 'nt' else 'intel-course'
+    meta = {
+        'os': os_name,
+        'arch': arch,
+        'edition': edition,
+        'client_version': 'ILSON-DIAG-1',
+    }
+    try:
+        diag_env = os.environ.get('ILSON_DIAGNOSTICS_DIR')
+        if diag_env:
+            runs_dir = Path(diag_env) / 'runs'
+        elif os.name == 'nt':
+            runs_dir = Path(os.environ.get('LOCALAPPDATA') or str(Path.home())) / 'ilson-diagnostics' / 'runs'
+        else:
+            runs_dir = Path.home() / '.ilson-diagnostics' / 'runs'
+        if runs_dir.is_dir() and not runs_dir.is_symlink():
+            newest = None
+            for entry in runs_dir.iterdir():
+                if not re.fullmatch(r'[a-f0-9]{32}', entry.name):
+                    continue
+                try:
+                    if entry.is_symlink() or not entry.is_dir():
+                        continue
+                    mtime = entry.lstat().st_mtime
+                except OSError:
+                    continue
+                if newest is None or (mtime, entry.name) > newest:
+                    newest = (mtime, entry.name)
+            if newest is not None:
+                meta['run_id'] = newest[1]
+    except (OSError, RuntimeError):
+        pass
+    return meta
+
+
 def request(action, serial, device, url=None):
     url = API_URL if url is None else url
     if not url or urllib.parse.urlparse(url).scheme != 'https':
         raise OSError('server unavailable')
     nonce = secrets.token_hex(16)
-    body = json.dumps({'serial':serial,'device_id':device,'nonce':nonce}).encode()
+    payload = {'serial':serial,'device_id':device,'nonce':nonce}
+    if action in ('activate', 'check'):
+        try:
+            meta = _client_meta()
+        except Exception:
+            meta = None
+        if meta:
+            payload['client_meta'] = meta
+    body = json.dumps(payload).encode()
     req = urllib.request.Request(url.rstrip('/')+'/api/v1/'+action,body,{'Content-Type':'application/json','Cache-Control':'no-store'},method='POST')
     try:
         with urllib.request.build_opener(NoRedirect).open(req,timeout=5) as response:

@@ -178,3 +178,128 @@ test('V2 short serial: register, activate, device limit, revoke, V1/skill-share 
  assert.equal(shortThrottled,true,'unknown short code probes must be rate limited');
  await db.close();
 });
+
+test('Full Install Tracking: telemetry, client_meta linking, admin-overview, RLS and rate limit', async()=>{
+ const db=new PGlite();
+ await db.exec('create role anon; create role authenticated; create role service_role;');
+ for (const name of ['001_license.sql','002_skill_share.sql','003_short_serial.sql','004_install_tracking.sql','004_install_tracking.sql']) {
+  await db.exec(fs.readFileSync(require('node:path').join(__dirname,'../migrations',name),'utf8'));
+ }
+ global.fetch=async (url,opts)=>{
+  const body=JSON.parse(opts.body);
+  const fn=url.pathname.split('/').pop();
+  const arg=fn==='ilson_rate_limit'?body.p_bucket:JSON.stringify(body.p);
+  const type=fn==='ilson_rate_limit'?'text':'jsonb';
+  const result=await db.query(`select public.${fn}($1::${type}) as result`,[arg]);
+  return {ok:true,json:async()=>result.rows[0].result};
+ };
+
+ // RLS checks for new table and RPCs
+ for (const role of ['anon','authenticated']) {
+  await assert.rejects(()=>db.exec(`begin; set local role ${role}; select * from license_private.install_runs; commit;`));
+  await db.exec('rollback;');
+  await assert.rejects(()=>db.exec(`begin; set local role ${role}; select public.ilson_install_telemetry('{}'::jsonb); commit;`));
+  await db.exec('rollback;');
+  await assert.rejects(()=>db.exec(`begin; set local role ${role}; select public.ilson_admin_overview('{}'::jsonb); commit;`));
+  await db.exec('rollback;');
+ }
+
+ // Register licenses in cohort 1 (V2 + V1) and cohort 2 (V1 inactive)
+ const v2Serial=token(1,61,1), v1Serial=token(1,62,1), c2Serial=token(1,63,2);
+ const shortCode='IL2-WXYZ-2345-6789';
+ const sch=handler.shortCodeHash(shortCode);
+ const sealed='S'.repeat(188);
+ assert.equal((await run('register',{serial:v2Serial,display_name:'홍길동',request_id:'1'.repeat(32),short_code_hash:sch,sealed_serial:sealed},true)).value.status,'ok');
+ assert.equal((await run('register',{serial:v1Serial,display_name:'김철수',request_id:'2'.repeat(32)},true)).value.status,'ok');
+ assert.equal((await run('register',{serial:c2Serial,display_name:'이영희',request_id:'3'.repeat(32)},true)).value.status,'ok');
+
+ // Telemetry validation: reject invalid enums, PII, unknown keys, bad failed_steps
+ const winRun='a'.repeat(32), macRun='b'.repeat(32), failedRun='c'.repeat(32);
+ const baseTel={run_id:winRun,edition:'windows-course',os:'Windows',arch:'AMD64',os_version:'10.0.26100',shell:'powershell',shell_version:'5.1.26100.1',installer_version:'ILSON-DIAG-1',result:'ok',exit_code:0,failed_steps:[],helper_status:'INSTALLED'};
+ assert.equal((await run('install-telemetry',{...baseTel,email:'user@example.com'})).code,400);
+ assert.equal((await run('install-telemetry',{...baseTel,os:'FreeBSD'})).code,400);
+ assert.equal((await run('install-telemetry',{...baseTel,os_version:'Windows 11 /Users/secret'})).code,400);
+ assert.equal((await run('install-telemetry',{...baseTel,failed_steps:[{step_id:'evil.step',reason_code:'TIMEOUT'}]})).code,400);
+ assert.equal((await run('install-telemetry',{...baseTel,failed_steps:[{step_id:'apps.herdr',reason_code:'DOWNLOAD_FAILED',note:'secret'}]})).code,400);
+ assert.equal((await run('install-telemetry',{...baseTel,failed_steps:Array.from({length:21},()=>({step_id:'apps.herdr',reason_code:'TIMEOUT'}))})).code,400);
+
+ // Valid telemetry submissions
+ assert.equal((await run('install-telemetry',baseTel)).code,200);
+ assert.equal((await run('install-telemetry',{run_id:macRun,edition:'intel-course',os:'macOS',arch:'x86_64',os_version:'13.6',shell:'bash',shell_version:'3.2.57',installer_version:'ILSON-DIAG-1',result:'ok',exit_code:0,failed_steps:[],helper_status:'UPDATED'})).code,200);
+ assert.equal((await run('install-telemetry',{run_id:failedRun,edition:'windows-course',os:'Windows',arch:'AMD64',os_version:'10.0.22631',shell:'powershell',shell_version:'5.1.22621',installer_version:'ILSON-DIAG-1',result:'failed',exit_code:1,failed_steps:[{step_id:'apps.herdr',reason_code:'HTTP_FAILED',http_code:503},{step_id:'runtime.python',reason_code:'RUNTIME_MISSING'}]})).code,200);
+
+ // V2 activate with valid client_meta links winRun
+ const dev1='1'.repeat(64), dev2='2'.repeat(64);
+ const actV2=await run('activate',{serial:shortCode,device_id:dev1,client_meta:{os:'Windows',arch:'AMD64',edition:'windows-course',client_version:'ILSON-DIAG-1',run_id:winRun}});
+ assert.equal(actV2.code,200); assert.equal(actV2.value.status,'active'); assert.equal(actV2.value.sealed_serial,sealed);
+
+ // Upsert same winRun must preserve license_id
+ assert.equal((await run('install-telemetry',{...baseTel,helper_status:'UP_TO_DATE'})).code,200);
+
+ // V1 activate with malformed client_meta still succeeds; valid fields kept, invalid ignored
+ const actV1=await run('activate',{serial:v1Serial,device_id:dev2,client_meta:{os:'INVALID_OS',arch:'x86_64',edition:'evil',client_version:'bad version with spaces',run_id:'not-hex'}});
+ assert.equal(actV1.code,200); assert.equal(actV1.value.status,'active');
+ // V1 check updates missing os/edition and links macRun while keeping existing arch
+ const chkV1=await run('check',{serial:v1Serial,device_id:dev2,client_meta:{os:'macOS',edition:'intel-course',client_version:'ILSON-DIAG-1',run_id:macRun}});
+ assert.equal(chkV1.code,200); assert.equal(chkV1.value.status,'active');
+
+ // admin-overview auth & validation
+ assert.equal((await run('admin-overview',{},false)).code,403);
+ assert.equal((await run('admin-overview',{cohort:0},true)).code,400);
+ assert.equal((await run('admin-overview',{cohort:'1'},true)).code,400);
+
+ // admin-overview full report
+ const ov=await run('admin-overview',{},true);
+ assert.equal(ov.code,200); assert.equal(ov.value.status,'ok');
+ assert.equal(ov.value.summary.total_licenses,3);
+ assert.equal(ov.value.summary.active_licenses,2);
+ assert.equal(ov.value.summary.inactive_licenses,1);
+ assert.equal(ov.value.summary.revoked_licenses,0);
+ assert.equal(ov.value.summary.total_active_devices,2);
+ assert.equal(ov.value.summary.recent_runs_7d,3);
+ assert.equal(ov.value.summary.ok_runs_7d,2);
+ assert.equal(ov.value.summary.failed_runs_7d,1);
+ assert.equal(ov.value.cohorts.length,2);
+ assert.deepEqual(ov.value.cohorts.map(c=>c.cohort),[1,2]);
+ // Secret/hash leak check
+ const rawOv=JSON.stringify(ov.value);
+ assert(!rawOv.includes(sealed),'must never expose sealed_serial');
+ assert(!rawOv.includes(sch),'must never expose short_code_hash');
+ const dev1Hash=crypto.createHash('sha256').update('ilson-device-v1\0'+dev1).digest('hex');
+ assert(!rawOv.includes(dev1Hash),'must never expose full device_hash');
+ assert(rawOv.includes(dev1Hash.slice(0,12)),'should expose 12-char device_hash_prefix');
+ // Check linked license_id & devices metadata
+ const v2Lic=ov.value.licenses.find(l=>l.display_name==='홍길동');
+ assert.equal(v2Lic.has_short_serial,true);
+ assert.equal(v2Lic.devices[0].os,'Windows');
+ assert.equal(v2Lic.devices[0].arch,'AMD64');
+ const v1Lic=ov.value.licenses.find(l=>l.display_name==='김철수');
+ assert.equal(v1Lic.has_short_serial,false);
+ assert.equal(v1Lic.devices[0].os,'macOS');
+ assert.equal(v1Lic.devices[0].arch,'x86_64');
+ assert.equal(v1Lic.devices[0].edition,'intel-course');
+ const linkedWin=ov.value.install_runs.find(r=>r.run_id===winRun);
+ assert.equal(linkedWin.display_name,'홍길동');
+ const unlinkedFail=ov.value.install_runs.find(r=>r.run_id===failedRun);
+ assert.equal(unlinkedFail.display_name,null);
+ assert.equal(ov.value.failure_breakdown.length,2);
+
+ // Cohort filter
+ const ovC2=await run('admin-overview',{cohort:2},true);
+ assert.equal(ovC2.code,200);
+ assert.equal(ovC2.value.licenses.length,1);
+ assert.equal(ovC2.value.licenses[0].display_name,'이영희');
+
+ // Telemetry rate limiting (>60/min from same IP -> 429)
+ let telLimited=false;
+ for (let i=0;i<65;i++) {
+  const r=await new Promise((resolve,reject)=>{
+   const res={setHeader(){},status(code){this.code=code;return this},json(value){resolve({code:this.code,value});return this}};
+   handler({method:'POST',query:{action:'install-telemetry'},body:{...baseTel,run_id:String(i).padStart(32,'0'),nonce:'d'.repeat(32)},headers:{'x-forwarded-for':'203.0.113.77'}},res).catch(reject);
+  });
+  if (r.code===429 && r.value.status==='rate_limited') { telLimited=true; break; }
+  assert.equal(r.code,200);
+ }
+ assert.equal(telLimited,true,'telemetry endpoint must enforce 60/min rate limit');
+ await db.close();
+});

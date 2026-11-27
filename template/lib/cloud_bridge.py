@@ -39,6 +39,7 @@ import secrets
 import shutil
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -47,6 +48,9 @@ from typing import Any, Callable, Optional
 import urllib.error
 import urllib.parse
 import urllib.request
+
+_O_BINARY = getattr(os, "O_BINARY", 0)
+_FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
 
 DEFAULT_SUPABASE_URL = "https://vouivhdenbqpcwdptpnj.supabase.co"
 DEFAULT_SUPABASE_ANON_KEY = (
@@ -272,28 +276,178 @@ def _ensure_company_owner(home: Path | str) -> None:
             raise CloudBridgeError(f"회사 런타임 소유자 확인에 실패했습니다: {exc}") from exc
 
 
-def _assert_not_symlink(path: Path) -> None:
-    """Reject symlinks on target and parent directory to prevent symlink attacks."""
-    parent = path.parent
-    if parent.is_symlink():
-        raise CloudBridgeError(f"보안 오류: 상태 디렉터리가 심볼릭 링크입니다 ({parent})")
+def _is_link_or_reparse(path: Path) -> bool:
+    """Return True if path is a symlink or (on Windows) a reparse point."""
     if path.is_symlink():
-        raise CloudBridgeError(f"보안 오류: 민감 파일이 심볼릭 링크입니다 ({path})")
+        return True
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return False
+    if stat.S_ISLNK(info.st_mode):
+        return True
+    if os.name == "nt" and (getattr(info, "st_file_attributes", 0) & _FILE_ATTRIBUTE_REPARSE_POINT):
+        return True
+    return False
+
+
+def _assert_not_symlink(path: Path) -> None:
+    """Reject symlinks and Windows reparse points on target and parent directories."""
+    parent = path.parent
+    if os.name == "nt":
+        home_parent = parent.parent
+        if home_parent != parent and str(home_parent) not in ("/var", "/tmp", "/etc"):
+            if _is_link_or_reparse(home_parent):
+                raise CloudBridgeError(
+                    f"보안 오류: 홈 디렉터리가 심볼릭 링크 또는 리파스 포인트입니다 ({home_parent})"
+                )
+    if _is_link_or_reparse(parent):
+        raise CloudBridgeError(f"보안 오류: 상태 디렉터리가 심볼릭 링크 또는 리파스 포인트입니다 ({parent})")
+    if _is_link_or_reparse(path):
+        raise CloudBridgeError(f"보안 오류: 민감 파일이 심볼릭 링크 또는 리파스 포인트입니다 ({path})")
+
+
+def _load_windows_acl() -> Callable[..., Any] | None:
+    """Import sibling license.windows_acl when available."""
+    lib_dir = str(Path(__file__).resolve().parent)
+    if lib_dir not in sys.path:
+        sys.path.insert(0, lib_dir)
+    try:
+        import license as _license_mod  # type: ignore[import-not-found]
+    except ImportError:
+        return None
+    return getattr(_license_mod, "windows_acl", None)
+
+
+def _windows_acl_claim_or_verify(path: Path, *, create: bool = False) -> None:
+    """On Windows, claim or verify user-only owner/DACL via license.windows_acl (fail closed)."""
+    if os.name != "nt":
+        return
+    acl_fn = _load_windows_acl()
+    if acl_fn is None:
+        raise CloudBridgeError(
+            f"보안 오류: Windows 권한 검증 모듈(license.windows_acl)을 불러올 수 없습니다 ({path.name})"
+        )
+    try:
+        acl_fn(path, create=create)
+    except Exception as exc:
+        raise CloudBridgeError(
+            f"보안 오류: 개인 파일 권한 확인에 실패했습니다 ({path.name}): {exc}"
+        ) from exc
+
+
+def _ensure_private_state_dir(state_dir: Path) -> None:
+    """Create shared state dir safely, rejecting links/reparse points."""
+    if os.name == "nt":
+        home_parent = state_dir.parent
+        if home_parent != state_dir and str(home_parent) not in ("/var", "/tmp", "/etc"):
+            if _is_link_or_reparse(home_parent):
+                raise CloudBridgeError(
+                    f"보안 오류: 홈 디렉터리가 심볼릭 링크 또는 리파스 포인트입니다 ({home_parent})"
+                )
+    if _is_link_or_reparse(state_dir):
+        raise CloudBridgeError(f"보안 오류: 상태 디렉터리가 심볼릭 링크 또는 리파스 포인트입니다 ({state_dir})")
+    state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if _is_link_or_reparse(state_dir) or not state_dir.is_dir():
+        raise CloudBridgeError(f"보안 오류: 상태 디렉터리가 올바르지 않습니다 ({state_dir})")
+
+
+def _lock_held(exc: OSError) -> bool:
+    """Return True if exc indicates another process holds the non-blocking file lock."""
+    if os.name == "nt":
+        held = {errno.EACCES, errno.EDEADLK, getattr(errno, "EDEADLOCK", errno.EDEADLK)}
+    else:
+        held = {errno.EWOULDBLOCK, errno.EAGAIN, errno.EACCES}
+    return isinstance(exc, BlockingIOError) or getattr(exc, "errno", None) in held
+
+
+def _open_lock_file(lock_path: Path) -> int:
+    """Open or create the publish lock file safely across POSIX and Windows."""
+    _ensure_private_state_dir(lock_path.parent)
+    _assert_not_symlink(lock_path)
+    if os.name == "nt":
+        created = False
+        try:
+            fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT | os.O_EXCL | _O_BINARY, 0o600)
+            created = True
+        except FileExistsError:
+            _assert_not_symlink(lock_path)
+            _windows_acl_claim_or_verify(lock_path, create=False)
+            fd = os.open(str(lock_path), os.O_RDWR | _O_BINARY)
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                raise CloudBridgeError(f"보안 오류: 잠금 파일 형식이 올바르지 않습니다 ({lock_path})")
+            if created:
+                _windows_acl_claim_or_verify(lock_path, create=True)
+        except Exception:
+            os.close(fd)
+            raise
+        return fd
+
+    try:
+        fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT | _O_NOFOLLOW, 0o600)
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            raise CloudBridgeError(f"보안 오류: 잠금 파일이 심볼릭 링크입니다 ({lock_path})") from exc
+        raise
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise CloudBridgeError(f"보안 오류: 잠금 파일 형식이 올바르지 않습니다 ({lock_path})")
+    except Exception:
+        os.close(fd)
+        raise
+    return fd
+
+
+def _acquire_nonblocking_lock(fd: int) -> None:
+    """Acquire an exclusive non-blocking OS lock on fd."""
+    if os.name == "nt":
+        import msvcrt as _msvcrt
+        if os.fstat(fd).st_size < 1:
+            os.write(fd, b"0")
+        os.lseek(fd, 0, os.SEEK_SET)
+        _msvcrt.locking(fd, _msvcrt.LK_NBLCK, 1)
+    else:
+        import fcntl as _fcntl
+        _fcntl.flock(fd, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+
+
+def _release_lock(fd: int) -> None:
+    """Release an OS lock acquired by _acquire_nonblocking_lock."""
+    if os.name == "nt":
+        import msvcrt as _msvcrt
+        try:
+            os.lseek(fd, 0, os.SEEK_SET)
+            _msvcrt.locking(fd, _msvcrt.LK_UNLCK, 1)
+        except OSError:
+            pass
+    else:
+        import fcntl as _fcntl
+        try:
+            _fcntl.flock(fd, _fcntl.LOCK_UN)
+        except OSError:
+            pass
 
 
 def _write_private_json(path: Path, data: Any) -> None:
-    """Atomically write JSON with 0o600 permissions, rejecting symlinks."""
+    """Atomically write JSON with 0o600 / Windows ACL permissions, rejecting links."""
     path = Path(path)
     _assert_not_symlink(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    _ensure_private_state_dir(path.parent)
     _assert_not_symlink(path)
 
     payload = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     tmp_name = f".{path.name}.{os.getpid()}.{secrets.token_hex(6)}.tmp"
     tmp_path = path.parent / tmp_name
 
-    fd = os.open(str(tmp_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL | _O_NOFOLLOW, 0o600)
+    fd = os.open(str(tmp_path), os.O_WRONLY | os.O_CREAT | os.O_EXCL | _O_NOFOLLOW | _O_BINARY, 0o600)
     try:
+        if os.name == "nt":
+            _windows_acl_claim_or_verify(tmp_path, create=True)
+        elif hasattr(os, "fchmod"):
+            os.fchmod(fd, 0o600)
         view = memoryview(payload)
         written = 0
         while written < len(payload):
@@ -325,11 +479,18 @@ def _write_private_json(path: Path, data: Any) -> None:
 
 
 def _read_private_json(path: Path, default: Any = None) -> Any:
-    """Read JSON from a private state file with O_NOFOLLOW, rejecting symlinks."""
+    """Read JSON from a private state file with O_NOFOLLOW / Windows ACL checks."""
     path = Path(path)
     _assert_not_symlink(path)
+    if os.name == "nt":
+        try:
+            path.lstat()
+        except FileNotFoundError:
+            return default
+        _assert_not_symlink(path)
+        _windows_acl_claim_or_verify(path, create=False)
     try:
-        fd = os.open(str(path), os.O_RDONLY | _O_NOFOLLOW)
+        fd = os.open(str(path), os.O_RDONLY | _O_NOFOLLOW | _O_BINARY)
     except FileNotFoundError:
         return default
     except OSError as exc:
@@ -365,6 +526,17 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
         return None
 
 
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _is_allowed_http_url(parsed: urllib.parse.SplitResult) -> bool:
+    if not parsed.netloc or not parsed.hostname or parsed.username or parsed.password:
+        return False
+    if parsed.scheme == "https":
+        return True
+    return parsed.scheme == "http" and parsed.hostname.lower() in _LOOPBACK_HOSTS
+
+
 def _resolve_endpoints(
     supabase_url: str | None = None,
     anon_key: str | None = None,
@@ -382,10 +554,10 @@ def _resolve_endpoints(
     if not url or not key:
         raise CloudBridgeError("클라우드 주소 또는 anon 키가 비어 있습니다.")
     parsed = urllib.parse.urlsplit(url)
-    if parsed.scheme not in ("https", "http") or not parsed.netloc:
-        raise CloudBridgeError(f"허용되지 않는 클라우드 주소입니다: {url}")
     if parsed.username or parsed.password:
         raise CloudBridgeError("클라우드 주소에 인증 정보를 포함할 수 없습니다.")
+    if not _is_allowed_http_url(parsed):
+        raise CloudBridgeError(f"허용되지 않는 클라우드 주소입니다: {url}")
     return url, key
 
 
@@ -1005,27 +1177,16 @@ def dispatch_approved_publishes(
 
     current = _coerce_utc(now)
     lock_fd: int | None = None
+    lock_acquired = False
     if not dry_run:
-        lock_path = _publish_lock_path(home_path)
-        _assert_not_symlink(lock_path)
-        lock_path.parent.mkdir(parents=True, exist_ok=True)
-        _assert_not_symlink(lock_path)
-
-        try:
-            lock_fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT | _O_NOFOLLOW, 0o600)
-        except OSError as exc:
-            if exc.errno == errno.ELOOP:
-                raise CloudBridgeError(f"보안 오류: 잠금 파일이 심볼릭 링크입니다 ({lock_path})") from exc
-            raise
+        lock_fd = _open_lock_file(_publish_lock_path(home_path))
     try:
         if lock_fd is not None:
             try:
-                if fcntl is not None:
-                    fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                elif msvcrt is not None:
-                    msvcrt.locking(lock_fd, msvcrt.LK_NBLCK, 1)
+                _acquire_nonblocking_lock(lock_fd)
+                lock_acquired = True
             except OSError as exc:
-                if exc.errno in (errno.EACCES, errno.EAGAIN, getattr(errno, "EDEADLK", -1)):
+                if _lock_held(exc):
                     return {
                         "locked": True,
                         "dry_run": dry_run,
@@ -1242,14 +1403,8 @@ def dispatch_approved_publishes(
         }
     finally:
         if lock_fd is not None:
-            try:
-                if fcntl is not None:
-                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
-                elif msvcrt is not None:
-                    os.lseek(lock_fd, 0, os.SEEK_SET)
-                    msvcrt.locking(lock_fd, msvcrt.LK_UNLCK, 1)
-            except OSError:
-                pass
+            if lock_acquired:
+                _release_lock(lock_fd)
             os.close(lock_fd)
 
 
@@ -3142,7 +3297,6 @@ def _build_parser() -> argparse.ArgumentParser:
         description="ilson-box 학생용 클라우드 러너 브리지",
         parents=[common],
     )
-    parser.set_defaults(home=_default_home(), json=False)
 
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -3179,6 +3333,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p_draft.add_argument("--kind", default="sns_post", help="결재 종류 (기본: sns_post)")
 
     sub.add_parser("status", parents=[common], help="로컬 클라우드 연결 상태 확인")
+
+    sub.add_parser("heartbeat", parents=[common], help="클라우드 러너 하트비트 1회 전송")
+
+    p_publish = sub.add_parser("publish", parents=[common], help="승인된 SNS 게시물 발행 1회 실행")
+    p_publish.add_argument("--dry-run", action="store_true", help="실제 발행 없이 예정 목록만 확인")
 
     return parser
 
@@ -3220,6 +3379,24 @@ def _print_human(command: str, result: dict[str, Any]) -> None:
         )
     elif command == "submit-draft":
         print(f"결재 초안 등록 완료: source_key={result['source_key']} status={result['status']}")
+    elif command == "heartbeat":
+        print(
+            f"하트비트 전송 완료: last_beat_at={result['last_beat_at']} "
+            f"(연결 계정 {len(result.get('linked_accounts') or [])}개)"
+        )
+    elif command == "publish":
+        if result.get("locked"):
+            print("다른 발행 작업이 실행 중입니다 (잠금 활성).")
+        elif result.get("dry_run"):
+            print(
+                f"발행(dry-run) 확인 완료: 발행 예정 {len(result.get('would_publish', []))}건, "
+                f"건너뜀 {len(result.get('skipped', []))}건, 오류 {len(result.get('errors', []))}건"
+            )
+        else:
+            print(
+                f"발행 완료: 발행 {len(result.get('published', []))}건, "
+                f"건너뜀 {len(result.get('skipped', []))}건, 오류 {len(result.get('errors', []))}건"
+            )
 
 
 def main(
@@ -3232,7 +3409,7 @@ def main(
     parser = _build_parser()
     args = parser.parse_args(argv)
     as_json = bool(getattr(args, "json", False))
-    home = Path(args.home)
+    home = Path(getattr(args, "home", None) or _default_home())
 
     try:
         if args.command == "pair":
@@ -3276,6 +3453,25 @@ def main(
             )
         elif args.command == "status":
             result = get_status(home)
+        elif args.command == "heartbeat":
+            if _is_sandbox(home):
+                raise CloudBridgeError("샌드박스 환경에서는 클라우드 하트비트를 전송할 수 없습니다.")
+            cfg = _load_runner_config(home)
+            jwt = authenticate(cfg, http_send=http_send)
+            result = send_heartbeat(home, cfg, jwt, http_send=http_send)
+        elif args.command == "publish":
+            if _is_sandbox(home) and not args.dry_run:
+                raise CloudBridgeError("샌드박스 환경에서는 실제 SNS 발행을 실행할 수 없습니다.")
+            cfg = _load_runner_config(home)
+            jwt = authenticate(cfg, http_send=http_send)
+            result = dispatch_approved_publishes(
+                home,
+                cfg,
+                jwt,
+                http_send=http_send,
+                publisher=publisher,
+                dry_run=bool(args.dry_run),
+            )
         else:
             raise CloudBridgeError(f"알 수 없는 명령입니다: {args.command}")
     except CloudBridgeError as exc:

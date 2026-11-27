@@ -169,6 +169,7 @@ function Invoke-IlsonStep([string]$Step, [scriptblock]$Action, [bool]$Required=$
         throw 'EXECUTE_FAILED'
     }
 }
+function New-IlsonWebClient { New-Object Net.WebClient }
 function Get-IlsonDownload([string]$Url, [string]$Step, [string]$OutFile='') {
     $script:DiagLastDownloadFailed=$false
     $hostCode='custom_host'; $uri=[uri]$Url
@@ -176,7 +177,7 @@ function Get-IlsonDownload([string]$Url, [string]$Step, [string]$OutFile='') {
     Start-IlsonStep $Step
     try {
         # Do not disable certificate validation or change TLS settings. TLS errors advise OS updates.
-        $client=New-Object Net.WebClient
+        $client=New-IlsonWebClient
         try { $bytes=$client.DownloadData($Url) } finally { $client.Dispose() }
         if ($OutFile) { [IO.File]::WriteAllBytes($OutFile,$bytes) }
         Stop-IlsonStep $Step 'ok' 'OK' $true 0 'native' $hostCode 200
@@ -189,6 +190,49 @@ function Get-IlsonDownload([string]$Url, [string]$Step, [string]$OutFile='') {
         throw $failure.Reason
     }
 }
+function Send-IlsonInstallTelemetry([string]$Result, [int]$Code, $Events) {
+    if ($script:DiagDry -or $script:DiagChild -or $env:ILSON_NO_TELEMETRY -eq '1') { return }
+    if ($script:DiagEdition -notin @('windows-course','intel-course','mac-box')) { return }
+    if ($script:DiagRun -notmatch '^[a-f0-9]{32}$') { return }
+    try {
+        $osCode=if ($env:OS -eq 'Windows_NT') {'Windows'} else {'unknown'}
+        $archCode=switch ($env:PROCESSOR_ARCHITECTURE) { 'AMD64' {'AMD64'} 'ARM64' {'arm64'} default {'unknown'} }
+        $osVer=Get-IlsonDiagVersion ([Environment]::OSVersion.Version.ToString())
+        if ($osVer -eq 'missing') { $osVer='unknown' }
+        $shVer=Get-IlsonDiagVersion $PSVersionTable.PSVersion.ToString()
+        if ($shVer -eq 'missing') { $shVer='unknown' }
+        $failed=New-Object Collections.ArrayList
+        foreach ($ev in @($Events | Where-Object { $_.event -eq 'step-end' -and $_.required -and $_.result -ne 'ok' -and $_.reason_code -notin @('DRY_RUN','NOT_APPLICABLE','NOT_SELECTED') } | Select-Object -First 20)) {
+            $item=[ordered]@{step_id=[string]$ev.step_id;reason_code=[string]$ev.reason_code}
+            if ($null -ne $ev.http_code -and [int]$ev.http_code -ge 100 -and [int]$ev.http_code -le 599) { $item['http_code']=[int]$ev.http_code }
+            $null=$failed.Add($item)
+        }
+        $payload=[ordered]@{
+            nonce=[guid]::NewGuid().ToString('N')
+            run_id=$script:DiagRun
+            edition=$script:DiagEdition
+            os=$osCode
+            arch=$archCode
+            os_version=$osVer
+            shell='powershell'
+            shell_version=$shVer
+            installer_version=$script:DiagVersion
+            result=$(if ($Result -eq 'ok') {'ok'} else {'failed'})
+            exit_code=[int]$Code
+            failed_steps=@($failed)
+        }
+        if ($script:IlsonHelperStatus -in @('INSTALLED','UPDATED','UP_TO_DATE')) { $payload['helper_status']=$script:IlsonHelperStatus }
+        $bytes=$script:DiagUtf8.GetBytes(($payload | ConvertTo-Json -Compress -Depth 4))
+        $url=if ($env:ILSON_TELEMETRY_URL -and $env:ILSON_TELEMETRY_URL -match '^https://') {$env:ILSON_TELEMETRY_URL} else {'https://ilson-license.vercel.app/api/v1/install-telemetry'}
+        $client=New-IlsonWebClient
+        try {
+            $client.Headers.Add('Content-Type','application/json')
+            $task=$client.UploadDataTaskAsync([uri]$url,'POST',$bytes)
+            if (-not $task.Wait(3000)) { try { $client.CancelAsync() } catch { } }
+            elseif ($task.IsFaulted) { $null=$task.Exception }
+        } finally { if ($client) { try { $client.Dispose() } catch { } } }
+    } catch { }
+}
 function Complete-IlsonDiagnostics([int]$Code=0) {
     if ($script:DiagDry) { $global:IlsonInstallExitCode=0; return 0 }
     if (-not $script:DiagAvailable) { $global:IlsonInstallExitCode=3; return 3 }
@@ -198,6 +242,7 @@ function Complete-IlsonDiagnostics([int]$Code=0) {
     $result=if ($Code -eq 0) {'ok'} else {'failed'}
     $reason=if ($Code -eq 0) {'OK'} else {'EXECUTE_FAILED'}
     if (-not $script:DiagChild) {Write-IlsonDiagEvent 'run-end' 'finish' $result $reason $true $Code 'installer'}
+    if (-not $script:DiagDry -and $env:ILSON_NO_TELEMETRY -ne '1') { Send-IlsonInstallTelemetry $result $Code $events }
     $script:IlsonInstallExitCode=$Code
     $global:IlsonInstallExitCode=$Code
     Write-Output ('INSTALL_RESULT=' + $Code)
