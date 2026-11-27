@@ -52,13 +52,9 @@ import urllib.request
 _O_BINARY = getattr(os, "O_BINARY", 0)
 _FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
 
-DEFAULT_SUPABASE_URL = "https://vouivhdenbqpcwdptpnj.supabase.co"
-DEFAULT_SUPABASE_ANON_KEY = (
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvdWl2aGRlbmJxcGN3ZHB0cG5qIiwicm9sZSI6ImFub24iLC"
-    "JpYXQiOjE3ODYyOTE4MzksImV4cCI6MjEwMTg2NzgzOX0."
-    "tO0X6r0Qxdi1MsRlKr1pljwtT-PtsJxkLMjRyEp6Q7U"
-)
+DEFAULT_CONFIG_URL = "https://ilson.work/config.js"
+DEFAULT_SUPABASE_URL = ""
+DEFAULT_SUPABASE_ANON_KEY = ""
 AGENT_VERSION = "ilson-box-cloud-bridge/1.0"
 
 # Exact protocol match with agents/_shared/tools/office_code.py
@@ -537,9 +533,38 @@ def _is_allowed_http_url(parsed: urllib.parse.SplitResult) -> bool:
     return parsed.scheme == "http" and parsed.hostname.lower() in _LOOPBACK_HOSTS
 
 
+_CONFIG_JS_URL_RE = re.compile(r'ILSON_SUPABASE_URL\s*=\s*"([^"]+)"')
+_CONFIG_JS_KEY_RE = re.compile(r'ILSON_ANON_KEY\s*=\s*"([^"]+)"')
+
+
+def _fetch_public_cloud_config(config_url: str = DEFAULT_CONFIG_URL) -> tuple[str, str]:
+    """Fetch public Supabase URL and anon key from https://ilson.work/config.js."""
+    parsed = urllib.parse.urlsplit(config_url)
+    if not _is_allowed_http_url(parsed):
+        raise CloudBridgeError(f"허용되지 않는 설정 주소입니다: {config_url}")
+    req = urllib.request.Request(
+        config_url,
+        headers={"User-Agent": AGENT_VERSION, "Accept": "application/javascript, text/plain"},
+        method="GET",
+    )
+    opener = urllib.request.build_opener(_NoRedirectHandler())
+    try:
+        with opener.open(req, timeout=15) as resp:
+            text = resp.read(65536).decode("utf-8", errors="replace")
+    except (urllib.error.URLError, OSError) as exc:
+        raise CloudBridgeError(f"ilson.work 클라우드 설정을 불러오지 못했습니다: {exc}") from exc
+    m_url = _CONFIG_JS_URL_RE.search(text)
+    m_key = _CONFIG_JS_KEY_RE.search(text)
+    if not (m_url and m_key):
+        raise CloudBridgeError("ilson.work 설정 파일에서 클라우드 접속 정보를 찾지 못했습니다.")
+    return m_url.group(1).strip().rstrip("/"), m_key.group(1).strip()
+
+
 def _resolve_endpoints(
     supabase_url: str | None = None,
     anon_key: str | None = None,
+    *,
+    http_send: HttpSend | None = None,
 ) -> tuple[str, str]:
     url = (
         supabase_url
@@ -551,6 +576,16 @@ def _resolve_endpoints(
         or os.environ.get("ILSON_CLOUD_ANON_KEY")
         or DEFAULT_SUPABASE_ANON_KEY
     ).strip()
+    if not url or not key:
+        if http_send is not None:
+            url = url or "https://cloud.ilson.work"
+            key = key or "injected-transport-anon-key"
+        else:
+            fetched_url, fetched_key = _fetch_public_cloud_config(
+                os.environ.get("ILSON_CLOUD_CONFIG_URL") or DEFAULT_CONFIG_URL
+            )
+            url = url or fetched_url
+            key = key or fetched_key
     if not url or not key:
         raise CloudBridgeError("클라우드 주소 또는 anon 키가 비어 있습니다.")
     parsed = urllib.parse.urlsplit(url)
@@ -753,7 +788,9 @@ def pair_with_cloud(
     _ensure_company_owner(home_path)
 
     normalized = normalize_office_code(code)
-    base_url, resolved_anon_key = _resolve_endpoints(supabase_url, anon_key)
+    base_url, resolved_anon_key = _resolve_endpoints(
+        supabase_url, anon_key, http_send=http_send
+    )
     current = _coerce_utc(now)
 
     rpc_url = f"{base_url}/rest/v1/rpc/claim_office"
