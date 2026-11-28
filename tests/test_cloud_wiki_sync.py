@@ -154,6 +154,150 @@ class CloudWikiSyncTests(unittest.TestCase):
         self.assertEqual(res["synced"], 0)
         self.assertEqual(len(self.cloud.wiki_docs), 0)
 
+    def test_schedule_wiki_darwin_on_status_off(self):
+        import plistlib
+
+        agents_dir = Path(self._tmp.name) / "LaunchAgents"
+        ran = []
+
+        def fake_runner(cmd):
+            ran.append(cmd)
+            return 0, "", ""
+
+        res_on = cb.schedule_wiki_sync(
+            self.home,
+            action="on",
+            time_str="22:00",
+            vault=self.vault,
+            platform_name="darwin",
+            launch_agents_dir=agents_dir,
+            command_runner=fake_runner,
+            now=NOW,
+        )
+        self.assertTrue(res_on["ok"])
+        self.assertTrue(res_on["enabled"])
+        self.assertEqual(res_on["time"], "22:00")
+
+        plist_path = agents_dir / f"{cb.WIKI_SCHEDULE_LABEL}.plist"
+        self.assertTrue(plist_path.is_file())
+        data = plistlib.loads(plist_path.read_bytes())
+        self.assertEqual(data["Label"], cb.WIKI_SCHEDULE_LABEL)
+        self.assertEqual(data["StartCalendarInterval"], {"Hour": 22, "Minute": 0})
+        self.assertFalse(data["RunAtLoad"])
+        self.assertIn("sync-wiki", data["ProgramArguments"])
+        self.assertIn(str(self.vault), data["ProgramArguments"])
+        self.assertTrue(any(c[:2] == ["launchctl", "bootstrap"] for c in ran))
+
+        # Reflected in status & get_status
+        st = cb.schedule_wiki_sync(
+            self.home,
+            action="status",
+            platform_name="darwin",
+            launch_agents_dir=agents_dir,
+            command_runner=fake_runner,
+        )
+        self.assertTrue(st["enabled"])
+        self.assertEqual(st["time"], "22:00")
+        gs = cb.get_status(self.home, now=NOW)
+        self.assertEqual(gs["wiki_schedule"]["time"], "22:00")
+
+        # Off removes plist and state
+        res_off = cb.schedule_wiki_sync(
+            self.home,
+            action="off",
+            platform_name="darwin",
+            launch_agents_dir=agents_dir,
+            command_runner=fake_runner,
+        )
+        self.assertFalse(res_off["enabled"])
+        self.assertFalse(plist_path.exists())
+        self.assertIsNone(cb.get_status(self.home, now=NOW)["wiki_schedule"])
+
+    def test_schedule_wiki_windows_powershell_and_fallback(self):
+        import base64
+
+        win_vault = Path(self._tmp.name) / "일손강의-1기"
+        win_vault.mkdir()
+        calls = []
+
+        def ok_ps(cmd):
+            calls.append(cmd)
+            return 0, "", ""
+
+        res = cb.schedule_wiki_sync(
+            self.home,
+            action="on",
+            time_str="22:00",
+            vault=win_vault,
+            platform_name="windows",
+            python_exe=r"C:\Python\pythonw.exe",
+            command_runner=ok_ps,
+            now=NOW,
+        )
+        self.assertTrue(res["enabled"])
+        self.assertEqual(res["target"], cb.WIKI_SCHEDULE_WIN_TASK)
+        self.assertEqual(calls[0][0], "powershell.exe")
+        ps_text = base64.b64decode(calls[0][-1]).decode("utf-16-le")
+        self.assertIn("-StartWhenAvailable", ps_text)
+        self.assertIn("-Daily -At '22:00'", ps_text)
+        self.assertIn("일손강의-1기", ps_text)
+        self.assertIn(cb.WIKI_SCHEDULE_WIN_TASK, ps_text)
+
+        # Fallback to schtasks if PowerShell fails
+        fb_calls = []
+
+        def ps_fail_then_schtasks(cmd):
+            fb_calls.append(cmd)
+            if cmd[0] == "powershell.exe":
+                return 1, "", "denied"
+            return 0, "", ""
+
+        res_fb = cb.schedule_wiki_sync(
+            self.home,
+            action="on",
+            time_str="09:30",
+            vault=win_vault,
+            platform_name="windows",
+            python_exe=r"C:\Python\pythonw.exe",
+            command_runner=ps_fail_then_schtasks,
+            now=NOW,
+        )
+        self.assertTrue(res_fb["enabled"])
+        self.assertEqual(fb_calls[1][0], "schtasks")
+        self.assertIn("09:30", fb_calls[1])
+
+        # Off deletes task
+        off_calls = []
+        cb.schedule_wiki_sync(
+            self.home,
+            action="off",
+            platform_name="windows",
+            command_runner=lambda c: (off_calls.append(c) or (0, "", "")),
+        )
+        self.assertEqual(off_calls[0][:3], ["schtasks", "/Delete", "/TN"])
+
+    def test_schedule_wiki_invalid_time_and_sandbox_rejected(self):
+        with self.assertRaises(cb.CloudBridgeError):
+            cb.schedule_wiki_sync(
+                self.home,
+                action="on",
+                time_str="25:99",
+                platform_name="darwin",
+                launch_agents_dir=Path(self._tmp.name) / "la",
+                command_runner=lambda c: (0, "", ""),
+            )
+        (self.home / "state").mkdir(exist_ok=True)
+        (self.home / "state" / "sandbox").write_text("1", encoding="utf-8")
+        with self.assertRaises(cb.CloudBridgeError):
+            cb.schedule_wiki_sync(
+                self.home,
+                action="on",
+                time_str="22:00",
+                platform_name="darwin",
+                launch_agents_dir=Path(self._tmp.name) / "la",
+                command_runner=lambda c: (0, "", ""),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

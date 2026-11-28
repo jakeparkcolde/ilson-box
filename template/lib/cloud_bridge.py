@@ -34,6 +34,7 @@ import ipaddress
 import json
 import os
 from pathlib import Path
+import plistlib
 import re
 import secrets
 import shutil
@@ -3719,15 +3720,308 @@ def sync_once(
     return result
 
 
+WIKI_SCHEDULE_LABEL = "com.ilson.cloud-wiki-sync"
+WIKI_SCHEDULE_WIN_TASK = "IlsonCloudWikiSync"
+DEFAULT_WIKI_SCHEDULE_TIME = "22:00"
+
+
+def _wiki_schedule_state_path(home: Path) -> Path:
+    return home / "state" / "wiki-schedule.json"
+
+
+def _parse_hhmm(raw: str) -> tuple[int, int]:
+    text = str(raw or "").strip()
+    m = re.fullmatch(r"([01]?\d|2[0-3]):([0-5]\d)", text)
+    if not m:
+        raise CloudBridgeError(
+            f"실행 시각 형식이 올바르지 않습니다: '{raw}' (예: 22:00, 09:00)"
+        )
+    return int(m.group(1)), int(m.group(2))
+
+
+def _default_wiki_vault_target(home: Path, explicit_vault: Path | str | None = None) -> Path:
+    resolved = _resolve_vault_dir(home, explicit_vault)
+    if resolved is not None:
+        return resolved
+    if explicit_vault:
+        return Path(explicit_vault).expanduser()
+    if os.environ.get("ILSON_PROFILE") == "course":
+        return Path(os.environ.get("ILSON_COURSE_VAULT") or (Path.home() / "Documents" / "일손강의-1기")).expanduser()
+    return home / "vault"
+
+
+def _default_schedule_command_runner(cmd: list[str]) -> tuple[int, str, str]:
+    proc = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    return proc.returncode, proc.stdout or "", proc.stderr or ""
+
+
+def _build_windows_task_ps(
+    *,
+    task_name: str,
+    exe: str,
+    arguments: str,
+    hhmm: str,
+) -> str:
+    def _ps_quote(s: str) -> str:
+        return "'" + s.replace("'", "''") + "'"
+
+    return (
+        "$ErrorActionPreference = 'Stop'; "
+        f"$a = New-ScheduledTaskAction -Execute {_ps_quote(exe)} -Argument {_ps_quote(arguments)}; "
+        f"$t = New-ScheduledTaskTrigger -Daily -At {_ps_quote(hhmm)}; "
+        "$s = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries; "
+        f"Register-ScheduledTask -TaskName {_ps_quote(task_name)} -Action $a -Trigger $t -Settings $s -Force | Out-Null"
+    )
+
+
+def schedule_wiki_sync(
+    home: Path | str,
+    *,
+    action: str = "status",
+    time_str: str = DEFAULT_WIKI_SCHEDULE_TIME,
+    vault: Path | str | None = None,
+    platform_name: str | None = None,
+    launch_agents_dir: Path | str | None = None,
+    python_exe: str | None = None,
+    script_path: Path | str | None = None,
+    command_runner: Callable[[list[str]], tuple[int, str, str]] | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Install, remove, or inspect daily OS-scheduled local wiki sync (macOS launchd / Windows Task Scheduler)."""
+    import base64
+
+    home_path = Path(home).expanduser()
+    act = str(action or "status").strip().lower()
+    if act not in ("on", "off", "status"):
+        raise CloudBridgeError(f"지원하지 않는 schedule-wiki 동작입니다: {action} (on|off|status)")
+
+    plat = (
+        str(platform_name).strip().lower()
+        if platform_name
+        else ("windows" if os.name == "nt" else ("darwin" if sys.platform == "darwin" else sys.platform))
+    )
+    runner = command_runner or _default_schedule_command_runner
+    state_path = _wiki_schedule_state_path(home_path)
+    saved = _read_private_json(state_path, default={})
+    if not isinstance(saved, dict):
+        saved = {}
+
+    if plat == "darwin":
+        agents_dir = (
+            Path(launch_agents_dir).expanduser()
+            if launch_agents_dir is not None
+            else Path(os.environ.get("ILSON_LAUNCH_AGENTS_DIR") or (Path.home() / "Library" / "LaunchAgents"))
+        )
+        plist_path = agents_dir / f"{WIKI_SCHEDULE_LABEL}.plist"
+        uid = str(os.getuid()) if hasattr(os, "getuid") else "501"
+        domain = f"gui/{uid}"
+
+        if act == "status":
+            enabled = plist_path.is_file()
+            return {
+                "ok": True,
+                "action": "status",
+                "enabled": enabled,
+                "platform": "darwin",
+                "time": str(saved.get("time") or DEFAULT_WIKI_SCHEDULE_TIME) if enabled else None,
+                "vault": str(saved.get("vault") or "") if enabled else None,
+                "target": str(plist_path),
+            }
+
+        if act == "off":
+            runner(["launchctl", "bootout", f"{domain}/{WIKI_SCHEDULE_LABEL}"])
+            try:
+                if plist_path.exists():
+                    plist_path.unlink()
+            except OSError as exc:
+                raise CloudBridgeError(f"예약 파일 삭제 실패: {exc}") from exc
+            try:
+                if state_path.exists():
+                    state_path.unlink()
+            except OSError:
+                pass
+            return {
+                "ok": True,
+                "action": "off",
+                "enabled": False,
+                "platform": "darwin",
+                "target": str(plist_path),
+            }
+
+        if _is_sandbox(home_path):
+            raise CloudBridgeError("샌드박스 환경에서는 정기 위키 동기화를 등록할 수 없습니다.")
+        hour, minute = _parse_hhmm(time_str)
+        hhmm = f"{hour:02d}:{minute:02d}"
+        vault_target = _default_wiki_vault_target(home_path, explicit_vault=vault)
+        exe = str(python_exe or sys.executable)
+        script = str(Path(script_path).resolve() if script_path else Path(__file__).resolve())
+        log_dir = home_path / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        agents_dir.mkdir(parents=True, exist_ok=True)
+        log_file = str(log_dir / "cloud-wiki-sync.log")
+
+        plist_obj = {
+            "Label": WIKI_SCHEDULE_LABEL,
+            "ProgramArguments": [
+                exe,
+                "-X",
+                "utf8",
+                script,
+                "--home",
+                str(home_path),
+                "sync-wiki",
+                "--vault",
+                str(vault_target),
+            ],
+            "StartCalendarInterval": {"Hour": hour, "Minute": minute},
+            "RunAtLoad": False,
+            "LowPriorityIO": True,
+            "Nice": 15,
+            "StandardOutPath": log_file,
+            "StandardErrorPath": log_file,
+        }
+        plist_bytes = plistlib.dumps(plist_obj, fmt=plistlib.FMT_XML, sort_keys=True)
+        plist_path.write_bytes(plist_bytes)
+
+        runner(["launchctl", "bootout", f"{domain}/{WIKI_SCHEDULE_LABEL}"])
+        rc, _out, err = runner(["launchctl", "bootstrap", domain, str(plist_path)])
+        if rc != 0:
+            rc2, _out2, err2 = runner(["launchctl", "load", "-w", str(plist_path)])
+            if rc2 != 0:
+                raise CloudBridgeError(
+                    f"macOS launchd 예약 등록에 실패했습니다: {(err or err2).strip()[:160]}"
+                )
+
+        meta = {
+            "enabled": True,
+            "platform": "darwin",
+            "time": hhmm,
+            "vault": str(vault_target),
+            "target": str(plist_path),
+            "updated_at": _iso_utc(_coerce_utc(now)),
+        }
+        _write_private_json(state_path, meta)
+        return {"ok": True, "action": "on", **meta}
+
+    if plat == "windows":
+        if act == "status":
+            rc, _out, _err = runner(["schtasks", "/Query", "/TN", WIKI_SCHEDULE_WIN_TASK])
+            enabled = (rc == 0) or bool(saved.get("enabled") and rc == 0)
+            return {
+                "ok": True,
+                "action": "status",
+                "enabled": enabled,
+                "platform": "windows",
+                "time": str(saved.get("time") or DEFAULT_WIKI_SCHEDULE_TIME) if enabled else None,
+                "vault": str(saved.get("vault") or "") if enabled else None,
+                "target": WIKI_SCHEDULE_WIN_TASK,
+            }
+
+        if act == "off":
+            runner(["schtasks", "/Delete", "/TN", WIKI_SCHEDULE_WIN_TASK, "/F"])
+            try:
+                if state_path.exists():
+                    state_path.unlink()
+            except OSError:
+                pass
+            return {
+                "ok": True,
+                "action": "off",
+                "enabled": False,
+                "platform": "windows",
+                "target": WIKI_SCHEDULE_WIN_TASK,
+            }
+
+        if _is_sandbox(home_path):
+            raise CloudBridgeError("샌드박스 환경에서는 정기 위키 동기화를 등록할 수 없습니다.")
+        hour, minute = _parse_hhmm(time_str)
+        hhmm = f"{hour:02d}:{minute:02d}"
+        vault_target = _default_wiki_vault_target(home_path, explicit_vault=vault)
+        exe = str(python_exe or sys.executable)
+        if not python_exe:
+            pyw = Path(exe).with_name("pythonw.exe")
+            if pyw.is_file():
+                exe = str(pyw)
+        script = str(Path(script_path).resolve() if script_path else Path(__file__).resolve())
+        arg_str = f'-X utf8 "{script}" --home "{home_path}" sync-wiki --vault "{vault_target}"'
+        ps_code = _build_windows_task_ps(
+            task_name=WIKI_SCHEDULE_WIN_TASK,
+            exe=exe,
+            arguments=arg_str,
+            hhmm=hhmm,
+        )
+        encoded = base64.b64encode(ps_code.encode("utf-16-le")).decode("ascii")
+        rc, _out, err = runner(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-EncodedCommand",
+                encoded,
+            ]
+        )
+        if rc != 0:
+            tr_cmd = f'"{exe}" {arg_str}'
+            rc2, _out2, err2 = runner(
+                [
+                    "schtasks",
+                    "/Create",
+                    "/F",
+                    "/SC",
+                    "DAILY",
+                    "/ST",
+                    hhmm,
+                    "/TN",
+                    WIKI_SCHEDULE_WIN_TASK,
+                    "/TR",
+                    tr_cmd,
+                ]
+            )
+            if rc2 != 0:
+                raise CloudBridgeError(
+                    f"Windows 작업 스케줄러 등록에 실패했습니다: {(err or err2).strip()[:160]}"
+                )
+
+        meta = {
+            "enabled": True,
+            "platform": "windows",
+            "time": hhmm,
+            "vault": str(vault_target),
+            "target": WIKI_SCHEDULE_WIN_TASK,
+            "updated_at": _iso_utc(_coerce_utc(now)),
+        }
+        _write_private_json(state_path, meta)
+        return {"ok": True, "action": "on", **meta}
+
+    raise CloudBridgeError(f"정기 위키 동기화는 macOS와 Windows만 지원합니다 (현재: {plat}).")
+
+
 def get_status(home: Path | str, *, now: datetime | None = None) -> dict[str, Any]:
     """Read-only local status of cloud pairing, linked accounts, and publish count."""
     home_path = Path(home)
     cfg = _read_private_json(_runner_config_path(home_path), default=None)
     vault = _read_private_json(_token_vault_path(home_path), default={"accounts": {}})
     pub_log = _read_private_json(_published_log_path(home_path), default={"published": {}})
+    sched_meta = _read_private_json(_wiki_schedule_state_path(home_path), default=None)
 
     paired = isinstance(cfg, dict) and bool(cfg.get("company_id")) and bool(cfg.get("runner_id"))
     published_map = pub_log.get("published") if isinstance(pub_log, dict) else {}
+    wiki_schedule = None
+    if isinstance(sched_meta, dict) and sched_meta.get("enabled"):
+        wiki_schedule = {
+            "enabled": True,
+            "time": sched_meta.get("time") or DEFAULT_WIKI_SCHEDULE_TIME,
+            "vault": sched_meta.get("vault") or "",
+        }
     return {
         "paired": paired,
         "sandbox": _is_sandbox(home_path),
@@ -3737,6 +4031,7 @@ def get_status(home: Path | str, *, now: datetime | None = None) -> dict[str, An
         "supabase_url": cfg.get("supabase_url") if paired else None,
         "linked_accounts": build_safe_linked_accounts(vault, now=now),
         "published_count": len(published_map) if isinstance(published_map, dict) else 0,
+        "wiki_schedule": wiki_schedule,
     }
 
 
@@ -3764,6 +4059,17 @@ def _build_parser() -> argparse.ArgumentParser:
     p_pair.add_argument("--code", required=True, help="사무소 코드 (ILSON-XXXX-XXXX-XXXX-XXXX)")
     p_pair.add_argument("--url", default=None, help="Supabase URL 재정의")
     p_pair.add_argument("--anon-key", default=None, help="Supabase anon 키 재정의")
+    p_pair.add_argument("--vault", default=None, help="로컬 볼트 경로 지정")
+    p_pair.add_argument(
+        "--schedule-time",
+        default=DEFAULT_WIKI_SCHEDULE_TIME,
+        help="매일 자동 위키 동기화 시각 (HH:MM, 기본 22:00)",
+    )
+    p_pair.add_argument(
+        "--no-schedule",
+        action="store_true",
+        help="페어링 시 매일 자동 위키 동기화 예약 등록 건너뛰기",
+    )
 
     p_sync = sub.add_parser("sync", parents=[common], help="인계 수신 + 하트비트 + 승인 발행 + 로컬 위키 동기화 1회 실행")
     p_sync.add_argument("--dry-run", action="store_true", help="실제 발행·업로드 없이 예정 목록만 확인")
@@ -3778,6 +4084,25 @@ def _build_parser() -> argparse.ArgumentParser:
     p_wiki = sub.add_parser("sync-wiki", parents=[common], help="로컬 볼트(온보딩·회사·위키·보고서) 문서를 ilson.work LLM 위키로 동기화")
     p_wiki.add_argument("--vault", default=None, help="로컬 볼트 경로 지정")
     p_wiki.add_argument("--dry-run", action="store_true", help="실제 업로드 없이 동기화 대상 문서만 확인")
+
+    p_sched = sub.add_parser(
+        "schedule-wiki",
+        parents=[common],
+        help="하루 1회 자동 위키 동기화 예약 켜기/끄기/상태 확인 (기본 매일 22:00)",
+    )
+    p_sched.add_argument(
+        "action",
+        nargs="?",
+        choices=("on", "off", "status"),
+        default="status",
+        help="예약 동작 (on|off|status, 기본: status)",
+    )
+    p_sched.add_argument(
+        "--time",
+        default=DEFAULT_WIKI_SCHEDULE_TIME,
+        help="매일 실행 시각 (HH:MM, 기본: 22:00)",
+    )
+    p_sched.add_argument("--vault", default=None, help="로컬 볼트 경로 지정")
 
     p_worker = sub.add_parser(
         "worker",
@@ -3813,6 +4138,15 @@ def _build_parser() -> argparse.ArgumentParser:
 def _print_human(command: str, result: dict[str, Any]) -> None:
     if command == "pair":
         print(f"클라우드 페어링 완료: company={result['company_id']} runner={result['runner_id']}")
+        ws = result.get("wiki_sync")
+        if isinstance(ws, dict) and ws.get("ok") and ws.get("synced"):
+            print(f"초기 위키 동기화 완료: {ws.get('synced', 0)}건 업로드")
+        sched = result.get("wiki_schedule")
+        if isinstance(sched, dict) and sched.get("enabled"):
+            print(
+                f"매일 {sched.get('time', DEFAULT_WIKI_SCHEDULE_TIME)} 자동 위키 동기화 예약 완료 "
+                f"(끄기: ilson cloud schedule-wiki off)"
+            )
     elif command == "status":
         if not result["paired"]:
             print("클라우드 연결: 미연결 (ilson cloud pair --code <코드>로 연결하세요)")
@@ -3823,6 +4157,28 @@ def _print_human(command: str, result: dict[str, Any]) -> None:
         for acc in accounts:
             print(f"  - {acc['platform']}: @{acc['username']} ({acc['state']})")
         print(f"로컬 발행 이력: {result.get('published_count', 0)}건")
+        ws = result.get("wiki_schedule")
+        if isinstance(ws, dict) and ws.get("enabled"):
+            print(f"정기 위키 동기화: 켜짐 (매일 {ws.get('time', DEFAULT_WIKI_SCHEDULE_TIME)})")
+        else:
+            print("정기 위키 동기화: 꺼짐 (켜기: ilson cloud schedule-wiki on)")
+    elif command == "schedule-wiki":
+        act = result.get("action")
+        if act == "on":
+            print(
+                f"정기 위키 동기화 예약 완료: 매일 {result.get('time')} "
+                f"(볼트 {result.get('vault')}, 대상 {result.get('target')})"
+            )
+        elif act == "off":
+            print(f"정기 위키 동기화 예약 해제 완료 ({result.get('target')})")
+        else:
+            if result.get("enabled"):
+                print(
+                    f"정기 위키 동기화: 켜짐 (매일 {result.get('time')}, "
+                    f"볼트 {result.get('vault') or '기본'}, 대상 {result.get('target')})"
+                )
+            else:
+                print("정기 위키 동기화: 꺼짐 (켜기: ilson cloud schedule-wiki on --time 22:00)")
     elif command == "sync":
         h = result.get("handoffs", {})
         p = result.get("publishes", {})
@@ -3904,6 +4260,26 @@ def main(
                 anon_key=args.anon_key,
                 http_send=http_send,
             )
+            if (
+                http_send is None
+                and not bool(getattr(args, "no_schedule", False))
+                and not _is_sandbox(home)
+            ):
+                vault_arg = getattr(args, "vault", None)
+                if vault_arg is not None or _resolve_vault_dir(home) is not None:
+                    try:
+                        result["wiki_sync"] = sync_wiki_to_cloud(home, vault=vault_arg)
+                    except CloudBridgeError:
+                        pass
+                try:
+                    result["wiki_schedule"] = schedule_wiki_sync(
+                        home,
+                        action="on",
+                        time_str=str(getattr(args, "schedule_time", DEFAULT_WIKI_SCHEDULE_TIME)),
+                        vault=vault_arg,
+                    )
+                except CloudBridgeError as sched_err:
+                    result["wiki_schedule"] = {"ok": False, "enabled": False, "error": str(sched_err)}
         elif args.command == "sync":
             want_wiki = not bool(getattr(args, "no_wiki", False)) and (
                 getattr(args, "vault", None) is not None
@@ -3925,6 +4301,13 @@ def main(
                 vault=getattr(args, "vault", None),
                 dry_run=bool(args.dry_run),
                 http_send=http_send,
+            )
+        elif args.command == "schedule-wiki":
+            result = schedule_wiki_sync(
+                home,
+                action=str(getattr(args, "action", "status")),
+                time_str=str(getattr(args, "time", DEFAULT_WIKI_SCHEDULE_TIME)),
+                vault=getattr(args, "vault", None),
             )
         elif args.command == "worker":
             want_wiki = not bool(getattr(args, "no_wiki", False)) and (

@@ -1407,7 +1407,7 @@ usage() {
   open                                        이 맥의 웹 관리자 열기
   admin start | status | stop                 웹 관리자 시작·상태·중지 (예약 업무와 별개)
   pair --code <코드> [--pairing-file <json>] [--cloud]  페어링 파일 쓰기 또는 클라우드 연결
-  cloud pair|sync|worker|status|submit-draft|sync-wiki  클라우드 러너(ilson.work) 연결·동기화·워커·위키 연동
+  cloud pair|sync|worker|status|submit-draft|sync-wiki|schedule-wiki  클라우드 러너(ilson.work) 연결·동기화·워커·위키 정기 연동
   telegram connect                            안내에 따라 텔레그램 알림 연결·변경
   telegram status [--verify]                   저장 상태 확인 (verify: Telegram에 연결 점검)
   telegram approval-connect|approval-start|approval-stop|approval-status|approval-disconnect  휴대폰 승인 연결·수신 관리 (맥 Box)
