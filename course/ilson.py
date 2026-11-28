@@ -7,7 +7,7 @@ import urllib.parse
 import webbrowser
 
 DEFAULT_WORKSPACE_URL = 'https://ilson.work/'
-CLOUD_ACTIONS = ('pair', 'sync', 'status', 'submit-draft', 'heartbeat', 'publish')
+CLOUD_ACTIONS = ('pair', 'sync', 'sync-wiki', 'worker', 'status', 'submit-draft', 'heartbeat', 'publish')
 _UNSAFE_URL_CHARS = set('"\'`\\<>|{}^')
 
 
@@ -106,11 +106,11 @@ def _main(argv):
         sub = argv[1] if len(argv) > 1 else ''
         cloud_script = _resolve_helper('cloud_bridge.py')
         if not sub:
-            print('사용법: ilson cloud pair|sync|status|submit-draft|heartbeat|publish')
+            print('사용법: ilson cloud pair|sync|sync-wiki|worker|status|submit-draft|heartbeat|publish')
             return 2
         is_help = sub in ('--help', '-h') or (sub in CLOUD_ACTIONS and any(arg in ('--help', '-h') for arg in argv[2:]))
         if not is_help and sub not in CLOUD_ACTIONS:
-            print('사용법: ilson cloud pair|sync|status|submit-draft|heartbeat|publish')
+            print('사용법: ilson cloud pair|sync|sync-wiki|worker|status|submit-draft|heartbeat|publish')
             return 2
         if not is_help and sub != 'status':
             license_cmd = [sys.executable, '-X', 'utf8', str(_resolve_helper('license.py')), '--home', str(home)]

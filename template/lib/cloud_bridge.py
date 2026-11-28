@@ -3100,6 +3100,8 @@ def run_headless_worker_loop(
     now: datetime | None = None,
     agent_version: str = AGENT_VERSION,
     sleep_fn: Callable[[float], None] | None = None,
+    sync_wiki: bool = False,
+    vault: Path | str | None = None,
 ) -> dict[str, Any]:
     """Continuously poll wiki_qa_job & research_job (or run once with once=True)."""
     home_path = Path(home)
@@ -3117,6 +3119,13 @@ def run_headless_worker_loop(
             agent_version=agent_version,
             publish_caps=True,
         )
+        if sync_wiki:
+            try:
+                single["wiki"] = sync_wiki_to_cloud(
+                    home_path, vault=vault, dry_run=False, http_send=http_send
+                )
+            except CloudBridgeError:
+                pass
         return {
             **single,
             "iterations": 1,
@@ -3127,6 +3136,7 @@ def run_headless_worker_loop(
     jwt: str | None = None
     last_auth_mono = 0.0
     last_caps_mono = 0.0
+    last_wiki_sig = ""
     iterations = 0
     total_processed = 0
     errors_count = 0
@@ -3169,6 +3179,22 @@ def run_headless_worker_loop(
                     except CloudBridgeError as hb_exc:
                         if "HTTP 401" in str(hb_exc):
                             jwt = None
+                    if sync_wiki and jwt is not None:
+                        try:
+                            vdir = _resolve_vault_dir(home_path, vault=vault)
+                            sig = _vault_signature(vdir)
+                            if sig and sig != last_wiki_sig:
+                                sync_wiki_to_cloud(
+                                    home_path,
+                                    vault=vdir,
+                                    dry_run=False,
+                                    http_send=http_send,
+                                    cfg=cfg,
+                                    jwt=jwt,
+                                )
+                                last_wiki_sig = sig
+                        except CloudBridgeError:
+                            pass
                     last_caps_mono = now_mono
 
                 if jwt is None:
@@ -3233,6 +3259,392 @@ def run_headless_worker_loop(
     }
 
 
+WIKI_SYNC_MAX_DOCS = 60
+WIKI_SYNC_MAX_DOC_CHARS = 32768
+WIKI_SYNC_MAX_EXCERPT_CHARS = 240
+WIKI_SYNC_SPACES: dict[str, dict[str, Any]] = {
+    "company": {
+        "slug": "company",
+        "name": "회사 · 온보딩",
+        "description": "온보딩과 로컬 볼트의 회사 소개·고객·거래처·규칙 문서",
+        "icon": "🏢",
+        "default_staff_access": "read",
+        "sort_order": 10,
+    },
+    "wiki": {
+        "slug": "wiki",
+        "name": "지식 위키",
+        "description": "업무 중 축적된 프로젝트·결정·학습 위키 문서",
+        "icon": "📚",
+        "default_staff_access": "read",
+        "sort_order": 20,
+    },
+    "reports": {
+        "slug": "reports",
+        "name": "브리핑 · 보고서",
+        "description": "아침 브리핑·주간 리포트·큐레이터 정리 문서",
+        "icon": "📊",
+        "default_staff_access": "none",
+        "sort_order": 30,
+    },
+}
+
+
+def _resolve_vault_dir(home: Path, vault: Path | str | None = None) -> Path | None:
+    """Resolve local Obsidian/Ilson vault directory across Mac Box and Windows/Intel course."""
+    candidates: list[Path] = []
+    if vault is not None and str(vault).strip():
+        candidates.append(Path(vault).expanduser())
+    for env_key in ("ILSON_VAULT", "ILSON_COURSE_VAULT"):
+        val = (os.environ.get(env_key) or "").strip()
+        if val:
+            candidates.append(Path(val).expanduser())
+    candidates.append(Path(home) / "vault")
+    candidates.append(Path.home() / "Documents" / "일손강의-1기")
+    candidates.append(Path.home() / "ilson" / "vault")
+
+    seen: set[str] = set()
+    for cand in candidates:
+        key = str(cand)
+        if key in seen:
+            continue
+        seen.add(key)
+        if _is_link_or_reparse(cand):
+            continue
+        if cand.is_dir():
+            return cand
+    return None
+
+
+def _extract_md_title_and_excerpt(rel_posix: str, raw_text: str) -> tuple[str, str]:
+    """Extract clean scrubbed title and short excerpt from a Markdown document."""
+    cleaned = scrub_secrets(raw_text)
+    title = ""
+    body_lines: list[str] = []
+    in_frontmatter = False
+    lines = cleaned.splitlines()
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if idx == 0 and stripped == "---":
+            in_frontmatter = True
+            continue
+        if in_frontmatter:
+            if stripped == "---":
+                in_frontmatter = False
+            elif stripped.lower().startswith("title:") and not title:
+                cand_title = stripped.split(":", 1)[1].strip().strip('"').strip("'")
+                if cand_title:
+                    title = cand_title
+            continue
+        if not stripped:
+            continue
+        if stripped.startswith("#") and not title:
+            heading = stripped.lstrip("#").strip()
+            if heading:
+                title = heading
+                continue
+        if not stripped.startswith("```"):
+            plain = re.sub(r"[#*_`>\[\]]+", " ", stripped)
+            plain = re.sub(r"\s+", " ", plain).strip()
+            if plain:
+                body_lines.append(plain)
+        if len(" ".join(body_lines)) >= WIKI_SYNC_MAX_EXCERPT_CHARS:
+            break
+
+    if not title:
+        stem = Path(rel_posix).stem
+        title = "우리 회사 컨텍스트 (CONTEXT)" if stem.upper() == "CONTEXT" else stem
+    title = re.sub(r"\s+", " ", scrub_secrets(title)).strip()[:140] or "제목 없음"
+    excerpt = " ".join(body_lines)[:WIKI_SYNC_MAX_EXCERPT_CHARS].strip()
+    return title, excerpt
+
+
+def _classify_vault_relpath(rel_posix: str) -> tuple[str, str, str] | None:
+    """Return (space_slug, section, doc_group) for allowlisted vault Markdown files, else None."""
+    if not rel_posix or ".." in rel_posix or rel_posix.startswith("/"):
+        return None
+    parts = rel_posix.split("/")
+    if any(p.startswith(".") or not p for p in parts):
+        return None
+    if not rel_posix.lower().endswith(".md"):
+        return None
+    if rel_posix == "CONTEXT.md":
+        return ("company", "general", "onboarding")
+    if parts[0] == "company":
+        return ("company", "general", "company")
+    if parts[0] == "wiki":
+        if rel_posix == "wiki/hot.md":
+            return ("wiki", "hot", "hot")
+        sub = parts[1].lower() if len(parts) > 2 else ""
+        if sub in ("projects", "decisions", "learning"):
+            return ("wiki", sub, sub)
+        if sub in ("archive", "_archive"):
+            return ("wiki", "archive", "archive")
+        return ("wiki", "general", sub[:48] if sub else "wiki")
+    if len(parts) >= 2 and parts[0] == "reports" and parts[1] in ("briefing", "weekly"):
+        return ("reports", "general", parts[1])
+    if len(parts) >= 2 and parts[0] == "journal" and parts[1] == "curator":
+        return ("reports", "general", "curator")
+    return None
+
+
+def _collect_vault_wiki_docs(vault_dir: Path) -> list[dict[str, Any]]:
+    """Safely collect allowlisted Markdown documents from local vault with secret scrubbing."""
+    if _is_link_or_reparse(vault_dir) or not vault_dir.is_dir():
+        return []
+    resolved_root = vault_dir.resolve()
+
+    scan_targets: list[Path] = [
+        vault_dir / "CONTEXT.md",
+        vault_dir / "company",
+        vault_dir / "wiki",
+        vault_dir / "reports" / "briefing",
+        vault_dir / "reports" / "weekly",
+        vault_dir / "journal" / "curator",
+    ]
+    candidates: list[tuple[int, float, str, Path, tuple[str, str, str]]] = []
+
+    def _visit_file(file_path: Path) -> None:
+        if _is_link_or_reparse(file_path) or not file_path.is_file():
+            return
+        try:
+            real = file_path.resolve()
+            rel = real.relative_to(resolved_root)
+        except (OSError, ValueError):
+            return
+        rel_posix = rel.as_posix()
+        if len(rel_posix) > 200:
+            return
+        classified = _classify_vault_relpath(rel_posix)
+        if classified is None:
+            return
+        try:
+            st = file_path.stat()
+        except OSError:
+            return
+        if st.st_size <= 0:
+            return
+        prio = 0 if classified[0] == "company" else (1 if classified[0] == "wiki" else 2)
+        candidates.append((prio, -st.st_mtime, rel_posix, file_path, classified))
+
+    for target in scan_targets:
+        if _is_link_or_reparse(target) or not target.exists():
+            continue
+        if target.is_file():
+            _visit_file(target)
+        elif target.is_dir():
+            for dirpath, dirnames, filenames in os.walk(str(target), followlinks=False):
+                dp = Path(dirpath)
+                if _is_link_or_reparse(dp):
+                    dirnames[:] = []
+                    continue
+                dirnames[:] = [
+                    d for d in sorted(dirnames)
+                    if not d.startswith(".") and not _is_link_or_reparse(dp / d)
+                ]
+                for fname in sorted(filenames):
+                    if fname.startswith(".") or not fname.lower().endswith(".md"):
+                        continue
+                    _visit_file(dp / fname)
+
+    candidates.sort(key=lambda item: (item[0], item[1], item[2]))
+    docs: list[dict[str, Any]] = []
+    for _prio, _neg_mtime, rel_posix, file_path, (space_slug, section, doc_group) in candidates:
+        if len(docs) >= WIKI_SYNC_MAX_DOCS:
+            break
+        try:
+            raw_text = file_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        cleaned_md = scrub_secrets(raw_text).strip()
+        if not cleaned_md:
+            continue
+        if len(cleaned_md) > WIKI_SYNC_MAX_DOC_CHARS:
+            cleaned_md = cleaned_md[:WIKI_SYNC_MAX_DOC_CHARS] + "\n\n…(용량 제한으로 일부 생략됨)"
+        title, excerpt = _extract_md_title_and_excerpt(rel_posix, cleaned_md)
+        docs.append(
+            {
+                "doc_key": rel_posix,
+                "space_slug": space_slug,
+                "section": section,
+                "doc_group": doc_group,
+                "title": title,
+                "excerpt": excerpt,
+                "content_md": cleaned_md,
+            }
+        )
+    return docs
+
+
+def _vault_signature(vault_dir: Path | None) -> str:
+    """Compute a fast lightweight signature of vault mtimes for worker auto-sync."""
+    if vault_dir is None or _is_link_or_reparse(vault_dir) or not vault_dir.is_dir():
+        return ""
+    parts: list[str] = []
+    for doc in _collect_vault_wiki_docs(vault_dir):
+        p = vault_dir / doc["doc_key"]
+        try:
+            st = p.stat()
+            parts.append(f"{doc['doc_key']}:{st.st_mtime_ns}:{st.st_size}")
+        except OSError:
+            continue
+    return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest() if parts else ""
+
+
+def sync_wiki_to_cloud(
+    home: Path | str,
+    *,
+    vault: Path | str | None = None,
+    dry_run: bool = False,
+    http_send: HttpSend | None = None,
+    cfg: dict[str, Any] | None = None,
+    jwt: str | None = None,
+) -> dict[str, Any]:
+    """Sync allowlisted local vault Markdown docs to ilson.work enterprise wiki_space/wiki_document."""
+    home_path = Path(home)
+    if _is_sandbox(home_path) and not dry_run:
+        raise CloudBridgeError("샌드박스 환경에서는 클라우드 위키 동기화를 실행할 수 없습니다.")
+    _ensure_company_owner(home_path)
+
+    vault_dir = _resolve_vault_dir(home_path, vault=vault)
+    if vault_dir is None:
+        return {
+            "ok": True,
+            "dry_run": dry_run,
+            "vault": None,
+            "synced": 0,
+            "skipped": 0,
+            "spaces": [],
+            "docs": [],
+            "message": "로컬 볼트 폴더를 찾지 못했습니다.",
+        }
+
+    docs = _collect_vault_wiki_docs(vault_dir)
+    needed_slugs = sorted({d["space_slug"] for d in docs})
+    if dry_run or not docs:
+        return {
+            "ok": True,
+            "dry_run": dry_run,
+            "vault": str(vault_dir),
+            "synced": 0 if not docs else len(docs),
+            "skipped": 0,
+            "spaces": needed_slugs,
+            "docs": [{"doc_key": d["doc_key"], "space": d["space_slug"], "title": d["title"]} for d in docs],
+        }
+
+    loaded_cfg = cfg if cfg is not None else _load_runner_config(home_path)
+    token = jwt if jwt is not None else authenticate(loaded_cfg, http_send=http_send)
+    base_url = str(loaded_cfg["supabase_url"]).rstrip("/")
+    anon_key = str(loaded_cfg["anon_key"])
+    company_id = str(loaded_cfg["company_id"])
+
+    # 1. Ensure spaces exist via upsert (company_id, slug)
+    space_payload = [
+        {
+            "company_id": company_id,
+            "slug": WIKI_SYNC_SPACES[slug]["slug"],
+            "name": WIKI_SYNC_SPACES[slug]["name"],
+            "description": WIKI_SYNC_SPACES[slug]["description"],
+            "icon": WIKI_SYNC_SPACES[slug]["icon"],
+            "default_staff_access": WIKI_SYNC_SPACES[slug]["default_staff_access"],
+            "is_system": False,
+            "sort_order": WIKI_SYNC_SPACES[slug]["sort_order"],
+        }
+        for slug in needed_slugs
+    ]
+    st_sp, sp_rows = _http_json(
+        http_send,
+        "POST",
+        f"{base_url}/rest/v1/wiki_space?on_conflict=company_id,slug",
+        headers=_auth_headers(
+            anon_key,
+            token,
+            {"Prefer": "resolution=merge-duplicates,return=representation"},
+        ),
+        payload=space_payload,
+    )
+    if st_sp >= 400 or not isinstance(sp_rows, list):
+        raise CloudBridgeError(f"위키 공간 동기화 실패 (HTTP {st_sp}).")
+    space_id_by_slug = {
+        str(row.get("slug")): str(row.get("id"))
+        for row in sp_rows
+        if isinstance(row, dict) and row.get("slug") and row.get("id")
+    }
+
+    # 2. Fetch existing docs so we never clobber source='web' or space_locked rows
+    cid_q = urllib.parse.quote(company_id, safe="")
+    st_ex, ex_rows = _http_json(
+        http_send,
+        "GET",
+        f"{base_url}/rest/v1/wiki_document?company_id=eq.{cid_q}&select=doc_key,space_id,visibility,space_locked,source&limit=500",
+        headers=_auth_headers(anon_key, token),
+    )
+    existing_by_key: dict[str, dict[str, Any]] = {}
+    if st_ex < 400 and isinstance(ex_rows, list):
+        for row in ex_rows:
+            if isinstance(row, dict) and row.get("doc_key"):
+                existing_by_key[str(row["doc_key"])] = row
+
+    upsert_rows: list[dict[str, Any]] = []
+    skipped = 0
+    for d in docs:
+        doc_key = d["doc_key"]
+        existing = existing_by_key.get(doc_key)
+        if existing and str(existing.get("source") or "") == "web":
+            skipped += 1
+            continue
+        target_space_id = space_id_by_slug.get(d["space_slug"])
+        if not target_space_id:
+            skipped += 1
+            continue
+        visibility = "space"
+        space_locked = False
+        if existing and bool(existing.get("space_locked")):
+            target_space_id = str(existing.get("space_id") or target_space_id)
+            visibility = str(existing.get("visibility") or "space")
+            space_locked = True
+        upsert_rows.append(
+            {
+                "company_id": company_id,
+                "space_id": target_space_id,
+                "doc_key": doc_key,
+                "section": d["section"],
+                "doc_group": d["doc_group"],
+                "title": d["title"],
+                "excerpt": d["excerpt"],
+                "content_md": d["content_md"],
+                "visibility": visibility,
+                "source": "vault_sync",
+                "space_locked": space_locked,
+            }
+        )
+
+    if upsert_rows:
+        st_up, _up_rows = _http_json(
+            http_send,
+            "POST",
+            f"{base_url}/rest/v1/wiki_document?on_conflict=company_id,doc_key",
+            headers=_auth_headers(
+                anon_key,
+                token,
+                {"Prefer": "resolution=merge-duplicates,return=representation"},
+            ),
+            payload=upsert_rows,
+        )
+        if st_up >= 400:
+            raise CloudBridgeError(f"위키 문서 동기화 실패 (HTTP {st_up}).")
+
+    return {
+        "ok": True,
+        "dry_run": False,
+        "vault": str(vault_dir),
+        "synced": len(upsert_rows),
+        "skipped": skipped,
+        "spaces": needed_slugs,
+        "docs": [{"doc_key": r["doc_key"], "title": r["title"]} for r in upsert_rows],
+    }
+
+
 def sync_once(
     home: Path | str,
     *,
@@ -3244,8 +3656,10 @@ def sync_once(
     process_headless: bool = False,
     cli_runner: CliRunnerFn | None = None,
     host_label: str | None = None,
+    sync_wiki: bool = False,
+    vault: Path | str | None = None,
 ) -> dict[str, Any]:
-    """Run one full sync cycle: authenticate -> claim handoffs -> heartbeat -> publish."""
+    """Run one full sync cycle: authenticate -> claim handoffs -> heartbeat -> publish (+ optional wiki sync)."""
     home_path = Path(home)
     if _is_sandbox(home_path) and not dry_run:
         raise CloudBridgeError("샌드박스 환경에서는 클라우드 동기화를 실행할 수 없습니다.")
@@ -3281,6 +3695,15 @@ def sync_once(
         "heartbeat": heartbeat,
         "publishes": publishes,
     }
+    if sync_wiki:
+        result["wiki"] = sync_wiki_to_cloud(
+            home_path,
+            vault=vault,
+            dry_run=dry_run,
+            http_send=http_send,
+            cfg=cfg,
+            jwt=jwt,
+        )
     if process_headless and not dry_run:
         result["headless"] = run_headless_worker_once(
             home_path,
@@ -3342,22 +3765,30 @@ def _build_parser() -> argparse.ArgumentParser:
     p_pair.add_argument("--url", default=None, help="Supabase URL 재정의")
     p_pair.add_argument("--anon-key", default=None, help="Supabase anon 키 재정의")
 
-    p_sync = sub.add_parser("sync", parents=[common], help="인계 수신 + 하트비트 + 승인 발행 1회 실행")
-    p_sync.add_argument("--dry-run", action="store_true", help="실제 발행 없이 예정 목록만 확인")
+    p_sync = sub.add_parser("sync", parents=[common], help="인계 수신 + 하트비트 + 승인 발행 + 로컬 위키 동기화 1회 실행")
+    p_sync.add_argument("--dry-run", action="store_true", help="실제 발행·업로드 없이 예정 목록만 확인")
+    p_sync.add_argument("--vault", default=None, help="로컬 볼트 경로 지정")
+    p_sync.add_argument("--no-wiki", action="store_true", help="로컬 위키 동기화 건너뛰기")
     p_sync.add_argument(
         "--with-headless",
         action="store_true",
         help="위키 Q&A 및 리서치 헤드리스 작업 1회 처리 포함",
     )
 
+    p_wiki = sub.add_parser("sync-wiki", parents=[common], help="로컬 볼트(온보딩·회사·위키·보고서) 문서를 ilson.work LLM 위키로 동기화")
+    p_wiki.add_argument("--vault", default=None, help="로컬 볼트 경로 지정")
+    p_wiki.add_argument("--dry-run", action="store_true", help="실제 업로드 없이 동기화 대상 문서만 확인")
+
     p_worker = sub.add_parser(
         "worker",
         parents=[common],
-        help="구독 CLI 헤드리스 워커 실행 (LLM 위키 Q&A · 리서치)",
+        help="구독 CLI 헤드리스 워커 실행 (LLM 위키 Q&A · 리서치 · 위키 자동 동기화)",
     )
     p_worker.add_argument("--once", action="store_true", help="1회 폴링 후 종료")
     p_worker.add_argument("--poll-interval", type=float, default=3.0, help="폴링 간격(초, 기본 3)")
     p_worker.add_argument("--max-jobs", type=int, default=0, help="최대 처리 작업 수 (0=무제한)")
+    p_worker.add_argument("--vault", default=None, help="로컬 볼트 경로 지정")
+    p_worker.add_argument("--no-wiki", action="store_true", help="로컬 위키 자동 동기화 비활성화")
 
     p_draft = sub.add_parser("submit-draft", parents=[common], help="결재함 초안(pending) 등록")
     p_draft.add_argument("--source-key", required=True, help="중복 방지용 고유 키")
@@ -3402,12 +3833,28 @@ def _print_human(command: str, result: dict[str, Any]) -> None:
             )
         else:
             headless = result.get("headless")
+            wiki = result.get("wiki")
             extra = ""
+            if isinstance(wiki, dict) and wiki.get("vault"):
+                extra += f", 위키 {wiki.get('synced', 0)}건"
             if isinstance(headless, dict):
-                extra = f", 헤드리스 {headless.get('processed', 0)}건"
+                extra += f", 헤드리스 {headless.get('processed', 0)}건"
             print(
                 f"동기화 완료: 인계 {h.get('claimed', 0)}건, "
                 f"발행 {len(p.get('published', []))}건, 오류 {len(p.get('errors', []))}건{extra}"
+            )
+    elif command == "sync-wiki":
+        if not result.get("vault"):
+            print("위키 동기화: 로컬 볼트 폴더를 찾지 못했습니다 (--vault로 경로 지정 가능).")
+        elif result.get("dry_run"):
+            print(
+                f"위키 동기화(dry-run): 대상 {result.get('synced', 0)}건 "
+                f"(공간 {', '.join(result.get('spaces') or []) or '없음'}, 볼트 {result.get('vault')})"
+            )
+        else:
+            print(
+                f"위키 동기화 완료: {result.get('synced', 0)}건 업로드, "
+                f"건너뜀 {result.get('skipped', 0)}건 (공간 {', '.join(result.get('spaces') or []) or '없음'})"
             )
     elif command == "worker":
         print(
@@ -3458,6 +3905,10 @@ def main(
                 http_send=http_send,
             )
         elif args.command == "sync":
+            want_wiki = not bool(getattr(args, "no_wiki", False)) and (
+                getattr(args, "vault", None) is not None
+                or _resolve_vault_dir(home) is not None
+            )
             result = sync_once(
                 home,
                 dry_run=bool(args.dry_run),
@@ -3465,8 +3916,21 @@ def main(
                 publisher=publisher,
                 process_headless=bool(getattr(args, "with_headless", False)),
                 cli_runner=cli_runner,
+                sync_wiki=want_wiki,
+                vault=getattr(args, "vault", None),
+            )
+        elif args.command == "sync-wiki":
+            result = sync_wiki_to_cloud(
+                home,
+                vault=getattr(args, "vault", None),
+                dry_run=bool(args.dry_run),
+                http_send=http_send,
             )
         elif args.command == "worker":
+            want_wiki = not bool(getattr(args, "no_wiki", False)) and (
+                getattr(args, "vault", None) is not None
+                or _resolve_vault_dir(home) is not None
+            )
             result = run_headless_worker_loop(
                 home,
                 once=bool(args.once),
@@ -3474,6 +3938,8 @@ def main(
                 max_jobs=int(args.max_jobs),
                 http_send=http_send,
                 cli_runner=cli_runner,
+                sync_wiki=want_wiki,
+                vault=getattr(args, "vault", None),
             )
         elif args.command == "submit-draft":
             result = submit_draft(
